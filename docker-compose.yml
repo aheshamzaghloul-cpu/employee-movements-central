@@ -1,0 +1,50 @@
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-movements}
+      POSTGRES_USER: ${POSTGRES_USER:-movements_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?ضع كلمة مرور PostgreSQL في ملف .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  web:
+    build: .
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-movements_app}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-movements}
+      SECRET_KEY: ${SECRET_KEY:?ضع SECRET_KEY عشوائيًا طويلًا في ملف .env}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ضع كلمة مرور المسؤول الأولية في ملف .env}
+      COOKIE_SECURE: ${COOKIE_SECURE:-1}
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "8000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?ضع اسم النطاق في ملف .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+
+volumes:
+  pgdata: {}
+  caddy_data: {}
+  caddy_config: {}

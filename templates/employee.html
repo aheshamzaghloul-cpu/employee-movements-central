@@ -1,1 +1,67 @@
-{% extends 'base.html' %}{% block content %}<h1>بطاقة الموظف</h1><div class="box"><h2>{{e.full_name}}</h2><p><b>الكود:</b> {{e.employee_code}} | <b>الفرع:</b> {{e.branch.name}}</p><p><b>الوظيفة:</b> {{e.job_title or 'لا توجد بيانات'}} | <b>الكود الوظيفي:</b> {{e.job_code or 'لا توجد بيانات'}} | <b>تاريخ التعيين:</b> {{e.hire_date or 'لا توجد بيانات'}}</p><p><b>هاتف الشركة:</b> {{e.company_phone or 'لا توجد بيانات'}} | <b>الهاتف الشخصي:</b> {{e.personal_phone or 'لا توجد بيانات'}}</p></div><section class="cards">{% for k,t in [('إجازة','آخر إجازة'),('انتداب','آخر انتداب'),('إذن','آخر إذن')] %}<div class="box"><h3>{{t}}</h3>{% if last[k] %}<p>{{last[k].from_date or last[k].permission_date or '-'}}{% if last[k].to_date %} إلى {{last[k].to_date}}{% endif %}</p><b>{{last[k].status}}</b>{% else %}<p>لا توجد بيانات</p>{% endif %}</div>{% endfor %}</section><div class="box tablewrap"><h3>سجل الحركات — الأحدث أولًا</h3><table><tr><th>الحركة</th><th>النوع</th><th>من</th><th>إلى</th><th>الحالة</th></tr>{% for m in ms %}<tr><td>{{m.movement_type}}</td><td>{{m.leave_type or '-'}}</td><td>{{m.from_date or m.permission_date or '-'}}</td><td>{{m.to_date or '-'}}</td><td>{{m.status}}</td></tr>{% else %}<tr><td colspan="5">لا توجد بيانات.</td></tr>{% endfor %}</table></div>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}بطاقة الموظف — {{e.full_name}}{% endblock %}
+{% block content %}
+<div class="toolbar">
+  <div class="employee-head">
+    <div><h1>{{e.full_name}}</h1><p class="subtitle">كود شئون العاملين: <b>{{e.employee_code}}</b> — {{e.branch.governorate.name}} — {{e.branch.name}}</p></div>
+  </div>
+  <div class="actions"><a class="btn teal" href="/movements?employee_id={{e.id}}">+ تسجيل حركة للموظف</a><a class="btn secondary" href="/employees/{{e.id}}/edit">تعديل البيانات</a><a class="btn secondary" href="/employees">عودة للموظفين</a></div>
+</div>
+
+<div class="box employee-profile">
+  <div class="grid wide">
+    <div><b>الوظيفة</b><div class="hint">{{e.job_title or 'لا توجد بيانات'}}</div></div>
+    <div><b>الكود الوظيفي</b><div class="hint">{{e.job_code or 'لا توجد بيانات'}}</div></div>
+    <div><b>تاريخ التعيين</b><div class="hint">{{e.hire_date or 'لا توجد بيانات'}}</div></div>
+    <div><b>هاتف الشركة</b><div class="hint">{{e.company_phone or 'لا توجد بيانات'}}</div></div>
+    <div><b>الهاتف الشخصي</b><div class="hint">{{e.personal_phone or 'لا توجد بيانات'}}</div></div>
+  </div>
+</div>
+
+<section class="cards employee-last-cards">
+{% for k,t in [('إجازة','آخر إجازة'),('انتداب','آخر انتداب'),('إذن','آخر إذن')] %}
+  <div class="box last-card last-{{loop.index}}">
+    <div class="last-card-head"><h3>{{t}}</h3><span class="last-badge">{{k}}</span></div>
+    {% if last[k] %}
+      {% set m=last[k] %}
+      <div class="last-main">{% if k=='إذن' %}{{m.permission_date}}{% else %}{{m.from_date}} <span>→</span> {{m.to_date}}{% endif %}</div>
+      {% if m.leave_type %}<div class="hint">نوع الإجازة: <b>{{m.leave_type}}</b></div>{% endif %}
+      {% if m.destination %}<div class="hint">الفرع المنتدب إليه: <b>{{m.destination.name}}</b></div>{% endif %}
+      <div class="last-footer"><span class="tag">{{m.status}}</span><a href="/movements/{{m.id}}/edit">التفاصيل / التعديل</a></div>
+    {% else %}<p class="hint">لا توجد بيانات</p>{% endif %}
+  </div>
+{% endfor %}
+</section>
+
+<div class="box tablewrap employee-history">
+  <div class="section-title">
+    <div><h3>سجل حركات الموظف</h3><div class="hint">الأحدث أولًا — اختر نوع الحركة لتصفية السجل.</div></div>
+    <a class="btn teal mini" href="/movements?employee_id={{e.id}}">+ حركة جديدة</a>
+  </div>
+  <div class="history-tools">
+    <div class="history-filters" role="group" aria-label="تصفية الحركات">
+      <button type="button" class="filter-btn active" data-history-filter="all">الكل <span>{{ms|length}}</span></button>
+      <button type="button" class="filter-btn" data-history-filter="إجازة">إجازات</button>
+      <button type="button" class="filter-btn" data-history-filter="انتداب">انتدابات</button>
+      <button type="button" class="filter-btn" data-history-filter="إذن">أذون</button>
+    </div>
+    <input id="employee_history_search" class="history-search" type="search" placeholder="بحث داخل سجل الحركات...">
+  </div>
+  <table id="employee_history_table">
+    <thead><tr><th>التاريخ</th><th>نوع الحركة</th><th>التفصيل</th><th>من</th><th>إلى</th><th>الحالة</th><th></th></tr></thead>
+    <tbody>
+    {% for m in ms %}
+      <tr data-movement-type="{{m.movement_type}}">
+        <td>{{m.permission_date or m.from_date or '-'}}</td>
+        <td><span class="movement-chip {{ 'leave' if m.movement_type=='إجازة' else 'assign' if m.movement_type=='انتداب' else 'permit' }}">{{m.movement_type}}</span></td>
+        <td>{% if m.leave_type %}{{m.leave_type}}{% elif m.destination %}إلى {{m.destination.name}}{% else %}إذن{% endif %}</td>
+        <td>{{m.from_date or '-'}}</td><td>{{m.to_date or '-'}}</td>
+        <td><span class="tag">{{m.status}}</span></td>
+        <td><a class="table-link" href="/movements/{{m.id}}/edit">عرض التفاصيل</a></td>
+      </tr>
+    {% else %}<tr><td colspan="7" class="empty">لا توجد حركات مسجلة لهذا الموظف.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  <div id="history_no_match" class="empty" hidden>لا توجد حركات مطابقة للبحث أو التصفية.</div>
+</div>
+{% endblock %}

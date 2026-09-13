@@ -1,1 +1,34 @@
-{% extends 'base.html' %}{% block content %}<h1>الموظفون</h1><div class="box"><form method="post" class="grid"><input type="hidden" name="_csrf" value="{{csrf}}"><input name="employee_code" placeholder="كود الموظف" required><input name="full_name" placeholder="اسم الموظف" required><select name="branch_id" required><option value="">الفرع</option>{% for b in bs %}<option value="{{b.id}}">{{b.governorate.name}} — {{b.name}}</option>{% endfor %}</select><input name="job_title" placeholder="الوظيفة"><input name="job_code" placeholder="الكود الوظيفي"><input type="date" name="hire_date"><input name="company_phone" placeholder="هاتف الشركة"><input name="personal_phone" placeholder="الهاتف الشخصي"><button>إضافة موظف</button></form></div><div class="box tablewrap"><table><tr><th>الكود</th><th>الاسم</th><th>الفرع</th><th>إجراءات</th></tr>{% for e in rows %}<tr><td>{{e.employee_code}}</td><td><a href="/employee/{{e.id}}">{{e.full_name}}</a></td><td>{{e.branch.name}}</td><td><a class="btn secondary" href="/employees/{{e.id}}/edit">تعديل</a><form class="inline" method="post" action="/employees/{{e.id}}/toggle"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="gray mini">تعطيل/تفعيل</button></form><form class="inline" method="post" action="/employees/{{e.id}}/delete"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="red mini">حذف</button></form></td></tr>{% else %}<tr><td colspan="4">لا توجد بيانات.</td></tr>{% endfor %}</table></div>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}الموظفون{% endblock %}
+{% block content %}
+<div class="toolbar"><div><h1>الموظفون</h1><p class="subtitle">إضافة الموظف وإدارته والانتقال إلى بطاقته وتسجيل حركته بسهولة.</p></div></div>
+<div class="box">
+  <div class="section-title"><h3>إضافة موظف جديد</h3><span class="hint">بعد الحفظ تنتقل مباشرة إلى بطاقة الموظف</span></div>
+  <form method="post" class="grid wide">
+    <input type="hidden" name="_csrf" value="{{csrf}}">
+    <label>كود الموظف<input name="employee_code" required autocomplete="off"></label>
+    <label>اسم الموظف<input name="full_name" required autocomplete="off"></label>
+    <label>الفرع<select name="branch_id" required><option value="">اختر الفرع</option>{% for b in bs %}<option value="{{b.id}}">{{b.governorate.name}} — {{b.name}}</option>{% endfor %}</select></label>
+    <label>الوظيفة<input name="job_title"></label>
+    <label>الكود الوظيفي<input name="job_code"></label>
+    <label>تاريخ التعيين<input type="date" name="hire_date"></label>
+    <label>هاتف الشركة<input name="company_phone"></label>
+    <label>الهاتف الشخصي<input name="personal_phone"></label>
+    <button>+ إضافة الموظف</button>
+  </form>
+</div>
+<div class="box tablewrap">
+  <div class="section-title"><div><h3>قائمة الموظفين</h3><span class="hint">{{ rows|length }} موظف ظاهر في النطاق الحالي</span></div></div>
+  <form method="get" class="grid" style="align-items:end;margin-bottom:14px">
+    <label>بحث سريع<input name="q" value="{{q or ''}}" placeholder="الاسم أو الكود أو الوظيفة..." autocomplete="off"></label>
+    <label>الفرع<select name="branch_id"><option value="">كل الفروع</option>{% for b in bs %}<option value="{{b.id}}" {% if branch_filter|string==b.id|string %}selected{% endif %}>{{b.governorate.name}} — {{b.name}}</option>{% endfor %}</select></label>
+    <button class="secondary">بحث</button>
+    <a class="btn gray" href="/employees">مسح البحث</a>
+  </form>
+  <table id="employees-table"><thead><tr><th>الكود</th><th>الموظف</th><th>الفرع</th><th>الوظيفة</th><th>إجراءات</th></tr></thead>
+  <tbody>{% for e in rows %}<tr>
+    <td>{{e.employee_code}}</td><td><a href="/employee/{{e.id}}"><b>{{e.full_name}}</b></a></td><td>{{e.branch.name}}</td><td>{{e.job_title or '—'}}</td>
+    <td><a class="btn secondary mini" href="/employee/{{e.id}}">بطاقة الموظف</a> <a class="btn mini" href="/employees/{{e.id}}/edit">تعديل</a> <form class="inline" method="post" action="/employees/{{e.id}}/toggle"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="gray mini">تعطيل</button></form> <form class="inline" method="post" action="/employees/{{e.id}}/delete"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="red mini" data-confirm="هل تريد حذف الموظف؟">حذف</button></form></td>
+  </tr>{% else %}<tr><td colspan="5" class="empty">لا توجد نتائج مطابقة. جرّب تغيير البحث أو الفرع.</td></tr>{% endfor %}</tbody></table>
+</div>
+{% endblock %}

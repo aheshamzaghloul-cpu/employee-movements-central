@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% block title %}الهيكل الإداري{% endblock %}
+{% block content %}
+<div class="toolbar">
+  <div><h1>الهيكل الإداري</h1><p class="subtitle">إدارة متسلسلة من شاشة واحدة: المحافظة ← المشرف ← المدخل الأول ← الفروع ← الموظفون.</p></div>
+  <div class="actions">
+    {% if is_admin %}<a class="btn" href="#add-governorate">+ محافظة</a><a class="btn secondary" href="#add-supervisor">+ مشرف محافظة</a>{% endif %}
+    {% if can('manage_users') %}<a class="btn secondary" href="/users">الحسابات والصلاحيات</a>{% endif %}
+  </div>
+</div>
+<div class="box notice"><b>واجهة تشغيل مبسطة:</b> لا تحتاج إلى التنقل بين قوائم متعددة. أضف العنصر من مكانه داخل الهيكل، ثم عدّل نطاقه أو حسابه من نفس الشاشة.</div>
+
+{% if is_admin %}
+<div class="quick-panels" id="add-governorate">
+  <details class="box quick-panel" open>
+    <summary><b>+ إضافة محافظة</b><span>إنشاء المحافظة مباشرة</span></summary>
+    <form method="post" action="/governorates" class="quick-form"><input type="hidden" name="_csrf" value="{{csrf}}"><label>اسم المحافظة<input name="name" placeholder="مثال: سوهاج" required></label><button>حفظ المحافظة</button></form>
+  </details>
+  <details class="box quick-panel" id="add-supervisor">
+    <summary><b>+ إضافة مشرف محافظة</b><span>الحساب + المحافظات + الصلاحيات</span></summary>
+    <form method="post" action="/users" class="quick-form wide-form">
+      <input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="role" value="مشرف محافظة">
+      <label>اسم المشرف<input name="full_name" required></label><label>اسم المستخدم<input name="username" required></label><label>كلمة المرور الأولية<input name="password" type="password" minlength="8" required></label>
+      <label>المحافظات المسندة<select name="governorate_id" multiple size="4" required>{% for g in govs_all %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
+      <div class="permission-pills">{% for key,label in PERMISSIONS.items() %}<label class="check"><input type="checkbox" name="permissions" value="{{key}}">{{label}}</label>{% endfor %}</div>
+      <button>إنشاء المشرف</button>
+    </form>
+  </details>
+</div>
+{% endif %}
+
+<div class="structure-grid">
+{% for g,bs,sups,entries,counts in tree %}
+<section class="structure-card">
+  <div class="structure-head"><div><span class="eyebrow">المحافظة</span><h2>{{g.name}}</h2></div><span class="tag">{{bs|length}} فرع</span></div>
+
+  <div class="node">
+    <div class="node-title">👤 المشرفون <span class="node-count">{{sups|length}}</span></div>
+    {% for u in sups %}
+      <div class="person block">
+        <div><b>{{u.full_name}}</b><small>{{u.username}}</small></div>
+        <div class="tags">{% for gg in govs_all if is_admin and gg.id in user_gov_ids(u) %}<span class="tag">{{gg.name}}</span>{% endfor %}</div>
+        <a class="btn secondary mini" href="/users/{{u.id}}/edit">تعديل</a>
+      </div>
+    {% else %}<div class="empty-small">لا يوجد مشرف مسند لهذه المحافظة.</div>{% endfor %}
+  </div>
+
+  <div class="node">
+    <div class="node-title">🧑‍💼 المدخلون الأوائل <span class="node-count">{{entries|length}}</span></div>
+    {% for u,scoped in entries %}
+      <div class="person block">
+        <div><b>{{u.full_name}}</b><small>{{u.username}}</small></div>
+        <div class="tags">{% for b in scoped %}<span class="tag">{{b.name}}</span>{% endfor %}</div>
+        {% if can('manage_users') %}<a class="btn secondary mini" href="/users/{{u.id}}/edit">تعديل النطاق</a>{% endif %}
+      </div>
+    {% else %}<div class="empty-small">لا يوجد مدخل أول مرتبط بهذه المحافظة.</div>{% endfor %}
+    {% if can('manage_users') and (is_admin or has_role('مشرف محافظة')) %}
+    <details class="inline-add"><summary>+ إضافة مدخل أول لهذه المحافظة</summary>
+      <form method="post" action="/users" class="quick-form">
+        <input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="role" value="المدخل الأول">
+        <label>الاسم الكامل<input name="full_name" required></label><label>اسم المستخدم<input name="username" required></label><label>كلمة المرور الأولية<input name="password" type="password" minlength="8" required></label>
+        <label class="full">الفروع المسموح بها<select name="branch_id" multiple size="5" required>{% for b in bs %}<option value="{{b.id}}">{{b.name}}</option>{% endfor %}</select></label>
+        <div class="permission-pills">{% for key,label in PERMISSIONS.items() if key in ['manage_employees','manage_movements','view_reports'] %}<label class="check"><input type="checkbox" name="permissions" value="{{key}}">{{label}}</label>{% endfor %}</div>
+        <button>إنشاء المدخل الأول</button>
+      </form>
+    </details>
+    {% endif %}
+  </div>
+
+  <div class="node">
+    <div class="node-title">🏢 الفروع والموظفون <span class="node-count">{{bs|length}}</span></div>
+    {% for b in bs %}
+      <div class="branch-row">
+        <div><b>{{b.name}}</b>{% if b.code %}<small>{{b.code}}</small>{% endif %}</div><span class="tag">{{counts[b.id]}} موظف</span><a href="/employees?branch_id={{b.id}}">الموظفون</a>
+      </div>
+    {% else %}<div class="empty-small">لا توجد فروع نشطة.</div>{% endfor %}
+    {% if can('manage_structure') and (is_admin or has_role('مشرف محافظة')) %}
+    <details class="inline-add"><summary>+ إضافة فرع لهذه المحافظة</summary>
+      <form method="post" action="/branches" class="quick-form"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="governorate_id" value="{{g.id}}"><label>اسم الفرع<input name="name" required></label><label>كود الفرع<input name="code" placeholder="اختياري"></label><button>حفظ الفرع</button></form>
+    </details>
+    {% endif %}
+  </div>
+</section>
+{% else %}<div class="box empty">لا توجد محافظات نشطة. ابدأ بإضافة أول محافظة.</div>{% endfor %}
+</div>
+{% endblock %}

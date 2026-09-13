@@ -1,1 +1,62 @@
-{% extends 'base.html' %}{% block content %}<h1>لوحة التحكم</h1><p>قاعدة البيانات المركزية تبدأ بلا محافظات أو فروع أو موظفين أو حركات مستوردة. يتم إدخال سوهاج يدويًا.</p><section class="cards">{% for n,v in [('المحافظات',g),('الفروع',b),('الموظفون',e),('الحركات',m),('تحت المراجعة',p)] %}<div class="box stat"><strong>{{v}}</strong><div>{{n}}</div></div>{% endfor %}</section>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}الرئيسية — نظام إدارة حركات الموظفين{% endblock %}
+{% block content %}
+<div class="toolbar">
+  <div><h1>مرحبًا، {{me.full_name}}</h1><p class="subtitle">لوحة العمل الرئيسية — ابحث عن الموظف أو ابدأ الحركة مباشرة.</p></div>
+  {% if 'مسؤول التطبيق' in roles %}<span class="pill">مسؤول التطبيق</span>{% elif 'مشرف محافظة' in roles %}<span class="pill">مشرف محافظة</span>{% else %}<span class="pill">المدخل الأول</span>{% endif %}
+</div>
+
+<section class="home-search box">
+  <div class="home-search-head">
+    <div><h2>🔎 البحث السريع عن موظف</h2><p class="hint">اكتب اسم الموظف أو كود شئون العاملين، ثم اختر الموظف لفتح بطاقته. ستظهر هنا أيضًا آخر إجازة وانتداب وإذن لتصل للمعلومة فورًا.</p></div>
+    <a class="btn secondary" href="/employees">بحث متقدم</a>
+  </div>
+  <div class="employee-search-wrap">
+    <input id="home_employee_search" type="search" autocomplete="off" placeholder="مثال: أحمد هشام أو 12345" aria-label="البحث عن موظف بالاسم أو الكود">
+    <div id="home_search_results" class="search-results" hidden></div>
+  </div>
+  <div id="home_search_empty" class="search-empty" hidden>لا توجد نتائج ضمن نطاقك.</div>
+</section>
+
+<section class="cards">
+  <div class="box stat"><span class="icon">🏢</span><strong>{{g}}</strong><div>المحافظات ضمن نطاقك</div></div>
+  <div class="box stat"><span class="icon">🏬</span><strong>{{b}}</strong><div>الفروع</div></div>
+  <div class="box stat"><span class="icon">👥</span><strong>{{e}}</strong><div>الموظفون</div></div>
+  <div class="box stat"><span class="icon">📝</span><strong>{{m}}</strong><div>الحركات</div></div>
+  <div class="box stat"><span class="icon">🔎</span><strong>{{p}}</strong><div>تحت المراجعة</div></div>
+</section>
+
+<div class="section-title"><h2>الوصول الأسرع</h2><span class="hint">ابدأ من هنا في الاستخدام اليومي</span></div>
+<section class="quick quick-main">
+  <a href="/employees"><div class="box quick-primary"><b>👥 الموظفون</b><span>بحث وإضافة وتعديل وفتح بطاقة الموظف.</span></div></a>
+  <a href="/movements"><div class="box quick-primary"><b>＋ تسجيل حركة</b><span>إجازة أو انتداب أو إذن في شاشة ذكية.</span></div></a>
+  <a href="/reports"><div class="box"><b>📊 التقارير</b><span>عرض ومتابعة الحركات والبيانات.</span></div></a>
+</section>
+
+<section class="box recent-home">
+  <div class="section-title"><div><h2>آخر الحركات</h2><p class="hint">آخر العمليات المسجلة ضمن نطاقك.</p></div><a class="btn secondary mini" href="/movements">عرض كل الحركات</a></div>
+  {% if recent %}
+  <div class="tablewrap"><table><thead><tr><th>الموظف</th><th>نوع الحركة</th><th>التاريخ</th><th>الحالة</th><th></th></tr></thead><tbody>
+  {% for mv in recent %}
+  <tr><td><b>{{mv.employee.full_name}}</b><div class="hint">{{mv.employee.employee_code}} — {{mv.employee.branch.name}}</div></td><td><span class="movement-chip {% if mv.movement_type=='إجازة' %}leave{% elif mv.movement_type=='انتداب' %}assign{% else %}permit{% endif %}">{{mv.movement_type}}</span></td><td>{% if mv.permission_date %}{{mv.permission_date}}{% elif mv.from_date %}{{mv.from_date}}{% else %}—{% endif %}</td><td><span class="tag">{{mv.status}}</span></td><td><a class="table-link" href="/employee/{{mv.employee.id}}">بطاقة الموظف</a></td></tr>
+  {% endfor %}
+  </tbody></table></div>
+  {% else %}<div class="empty-state">لا توجد حركات مسجلة حتى الآن.</div>{% endif %}
+</section>
+
+<div class="section-title"><h2>الوصول السريع</h2></div>
+<section class="quick">
+  <a href="/employees"><div class="box"><b>👥 الموظفون</b><span class="hint">بحث، إضافة، تعديل وفتح بطاقة الموظف.</span></div></a>
+  <a href="/movements"><div class="box"><b>📝 تسجيل حركة</b><span class="hint">إجازة أو انتداب أو إذن بخطوات مختصرة.</span></div></a>
+  {% if 'مسؤول التطبيق' in roles %}
+  <a href="/governorates"><div class="box"><b>🏢 إدارة المحافظات</b><span class="hint">إضافة وتعديل وتعطيل المحافظات.</span></div></a>
+  <a href="/branches"><div class="box"><b>🏬 إدارة الفروع</b><span class="hint">إنشاء الفروع وربطها بالمحافظات.</span></div></a>
+  <a href="/users"><div class="box"><b>👤 المستخدمون والصلاحيات</b><span class="hint">إدارة الحسابات والأدوار والنطاق.</span></div></a>
+  {% elif 'مشرف محافظة' in roles %}
+  <a href="/users"><div class="box"><b>👤 المدخلون الأوائل</b><span class="hint">إدارة المستخدمين التابعين لنطاقك.</span></div></a>
+  {% endif %}
+  <a href="/reports"><div class="box"><b>📊 التقارير</b><span class="hint">متابعة الحركات والبيانات.</span></div></a>
+</section>
+
+<div class="box"><div class="section-title"><h3>قاعدة العمل</h3></div><p class="hint">تظهر لكل مستخدم الخيارات التي تناسب دوره ونطاقه فقط. يتم إدخال البيانات الجديدة من داخل التطبيق.</p></div>
+{% endblock %}

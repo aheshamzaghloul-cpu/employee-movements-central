@@ -6,9 +6,10 @@
   <div class="section-title"><h3>إضافة موظف جديد</h3><span class="hint">بعد الحفظ تنتقل مباشرة إلى بطاقة الموظف</span></div>
   <form method="post" class="grid wide">
     <input type="hidden" name="_csrf" value="{{csrf}}">
+    <label>المحافظة<select name="governorate_id" id="new_employee_governorate" required><option value="">اختر المحافظة</option>{% for g in govs %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
     <label>كود الموظف<input name="employee_code" required autocomplete="off"></label>
     <label>اسم الموظف<input name="full_name" required autocomplete="off"></label>
-    <label>الفرع<select name="branch_id" required><option value="">اختر الفرع</option>{% for b in bs %}<option value="{{b.id}}">{{b.governorate.name}} — {{b.name}}</option>{% endfor %}</select></label>
+    <label>الفرع<select name="branch_id" id="new_employee_branch" required><option value="">اختر الفرع</option>{% for b in bs %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}">{{b.governorate.name}} — {{b.name}}</option>{% endfor %}</select></label>
     <label>الوظيفة<input name="job_title"></label>
     <label>الكود الوظيفي<input name="job_code"></label>
     <label>تاريخ التعيين<input type="date" name="hire_date"></label>
@@ -21,7 +22,8 @@
   <div class="section-title"><div><h3>قائمة الموظفين</h3><span class="hint">{{ rows|length }} موظف ظاهر في النطاق الحالي</span></div></div>
   <form method="get" class="grid" style="align-items:end;margin-bottom:14px">
     <label>بحث سريع<input name="q" value="{{q or ''}}" placeholder="الاسم أو الكود أو الوظيفة..." autocomplete="off"></label>
-    <label>الفرع<select name="branch_id"><option value="">كل الفروع</option>{% for b in bs %}<option value="{{b.id}}" {% if branch_filter|string==b.id|string %}selected{% endif %}>{{b.governorate.name}} — {{b.name}}</option>{% endfor %}</select></label>
+    <label>المحافظة<select name="governorate_id" id="employee_governorate"><option value="">كل المحافظات</option>{% for g in govs %}<option value="{{g.id}}" {% if gov_filter|string==g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>
+    <label>الفرع<select name="branch_id" id="employee_branch"><option value="">كل الفروع</option>{% for b in bs %}<option value="{{b.id}}" {% if branch_filter|string==b.id|string %}selected{% endif %}>{{b.governorate.name}} — {{b.name}}</option>{% endfor %}</select></label>
     <button class="secondary">بحث</button>
     <a class="btn gray" href="/employees">مسح البحث</a>
   </form>

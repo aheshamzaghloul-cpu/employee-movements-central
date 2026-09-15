@@ -100,3 +100,16 @@
   function updateMoveHint(){const r=qs('input[name=movement_type]:checked');if(moveHint&&r)moveHint.textContent=hints[r.value]||'';}
   document.addEventListener('change',function(e){if(e.target.matches('input[name=movement_type]'))updateMoveHint()}); updateMoveHint();
 })();
+
+
+// v27 governorate -> branch dependent selectors
+(function(){
+  function bind(gid, bid){
+    const g=document.getElementById(gid), b=document.getElementById(bid); if(!g||!b)return;
+    const opts=[...b.options];
+    function sync(){const v=g.value; let valid=0; opts.forEach(o=>{if(!o.value)return; const ok=!v||o.dataset.governorate===v; o.hidden=!ok; if(ok)valid++;}); if(b.value && b.selectedOptions[0]?.hidden)b.value='';}
+    g.addEventListener('change',sync); sync();
+  }
+  bind('employee_governorate','employee_branch');
+  bind('new_employee_governorate','new_employee_branch');
+})();

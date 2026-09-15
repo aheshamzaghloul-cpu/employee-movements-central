@@ -18,6 +18,8 @@
   <div id="home_search_empty" class="search-empty" hidden>لا توجد نتائج ضمن نطاقك.</div>
 </section>
 
+{% if followups %}<section class="box assignment-alert-box"><div class="section-title"><div><h2>🔔 متابعة المأموريات</h2><p class="hint">المأموريات التي انتهت بالفعل أو ستنتهي خلال يوم واحد فقط — معتمدة أو غير معتمدة.</p></div><span class="pill">{{followups|length}} مأمورية</span></div><div class="tablewrap"><table><thead><tr><th>الموظف</th><th>الفرع</th><th>المنتدب إليه</th><th>ينتهي في</th><th>الحالة</th><th>المشرف</th><th>إجراء</th></tr></thead><tbody>{% for m in followups %}<tr><td><b>{{m.employee.full_name}}</b><div class="hint">{{m.employee.employee_code}}</div></td><td>{{m.employee.branch.name}}</td><td>{{m.destination.name if m.destination else '—'}}</td><td>{{m.to_date}}</td><td><span class="tag assignment-tag {{assignment_state(m)}}">{{assignment_state(m)}}</span><br><span class="tag">{{m.status}}</span></td><td>{{assignment_supervisor(m).full_name if assignment_supervisor(m) else '—'}}</td><td>{% if m.status=='معتمدة' %}<a class="btn secondary mini" href="/movements/{{m.id}}/assignment-form" target="_blank">النموذج</a>{% endif %}<a class="btn mini" href="/movements">المتابعة</a></td></tr>{% endfor %}</tbody></table></div></section>{% endif %}
+
 <section class="cards">
   <div class="box stat"><span class="icon">🏢</span><strong>{{g}}</strong><div>المحافظات ضمن نطاقك</div></div>
   <div class="box stat"><span class="icon">🏬</span><strong>{{b}}</strong><div>الفروع</div></div>

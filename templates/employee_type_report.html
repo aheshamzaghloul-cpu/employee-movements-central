@@ -1,0 +1,17 @@
+{% extends 'base.html' %}{% block title %}{{title}}{% endblock %}{% block content %}
+<div class="page-head no-print"><div><h1>{{title}}</h1><p class="muted">تقرير مجمع لكل موظف داخل نطاق صلاحيتك، مع تفاصيل جميع الحركات المسجلة له.</p></div><div class="actions"><button type="button" class="btn" onclick="window.print()">🖨️ طباعة التقرير</button><a class="btn secondary" href="/reports">العودة للتقارير</a></div></div>
+<div class="print-header"><h1>{{title}}</h1><div>نظام حركات الموظفين المركزي</div><div class="print-meta">تاريخ الطباعة: {{ now().strftime("%Y-%m-%d") if now is defined else "" }}</div></div>
+<div class="box no-print"><form method="get" class="grid">
+<div><label>الموظف</label><select name="employee_id"><option value="">كل الموظفين</option>{% for e in employees %}<option value="{{e.id}}" {% if request.args.get('employee_id') == e.id|string %}selected{% endif %}>{{e.full_name}} — {{e.employee_code}}</option>{% endfor %}</select></div>
+<div><label>الحالة</label><div class="choice-list compact" data-single-choice><label class="choice-item"><input type="checkbox" name="status" value="" {% if not status %}checked{% endif %}>كل الحالات</label>{% for x in statuses %}<label class="choice-item"><input type="checkbox" name="status" value="{{x}}" {% if status==x %}checked{% endif %}>{{x}}</label>{% endfor %}</div></div>
+<div><label>من يوم</label><input type="date" name="date_from" value="{{date_from}}"></div>
+<div><label>إلى يوم</label><input type="date" name="date_to" value="{{date_to}}"></div>
+<div class="actions"><button>تطبيق</button><a class="btn secondary" href="/reports/{{report_type}}">مسح</a><a class="btn" href="/reports/{{report_type}}.csv?status={{status|urlencode}}&employee_id={{request.args.get('employee_id','')|urlencode}}&date_from={{date_from|urlencode}}&date_to={{date_to|urlencode}}">تصدير CSV</a></div>
+</form></div>
+<div class="box tablewrap report-print-area">
+{% if rows %}
+{% for group in rows %}<div class="report-employee"><div class="report-employee-head"><strong>{{group.employee.full_name}}</strong><span>{{group.employee.employee_code}}</span><span>{{group.employee.branch.name}}</span></div>
+<table><tr><th>النوع</th>{% if report_type=='leaves' %}<th>نوع الإجازة</th><th>من</th><th>إلى</th><th>المدة</th>{% elif report_type=='assignments' %}<th>الفرع المنتدب إليه</th><th>من</th><th>إلى</th><th>الحالة</th>{% else %}<th>تاريخ الإذن</th><th>الحالة</th>{% endif %}<th>حالة الحركة</th><th>التفاصيل</th></tr>
+{% for m in group.rows %}<tr><td>{{m.movement_type}}</td>{% if report_type=='leaves' %}<td>{{m.leave_type or '—'}}</td><td>{{m.from_date or '—'}}</td><td>{{m.to_date or '—'}}</td><td>{% if m.from_date and m.to_date %}{{(m.to_date-m.from_date).days+1}} يوم{% else %}—{% endif %}</td>{% elif report_type=='assignments' %}<td>{{m.destination.name if m.destination else '—'}}</td><td>{{m.from_date or '—'}}</td><td>{{m.to_date or '—'}}</td><td>{{m.assignment_state or '—'}}</td>{% else %}<td>{{m.permission_date or '—'}}</td><td>{{m.status}}</td>{% endif %}<td>{{m.status}}</td><td><a class="btn small" href="/movements/{{m.id}}/history">التفاصيل</a></td></tr>{% endfor %}</table></div>{% endfor %}
+{% else %}<div class="empty">لا توجد بيانات ضمن نطاق التقرير المحدد.</div>{% endif %}
+</div>{% endblock %}

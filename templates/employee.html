@@ -5,7 +5,7 @@
   <div class="employee-head">
     <div><h1>{{e.full_name}}</h1><p class="subtitle">كود شئون العاملين: <b>{{e.employee_code}}</b> — {{e.branch.governorate.name}} — {{e.branch.name}}</p></div>
   </div>
-  <div class="actions"><a class="btn teal" href="/movements?employee_id={{e.id}}">+ تسجيل حركة للموظف</a><a class="btn secondary" href="/employees/{{e.id}}/edit">تعديل البيانات</a><a class="btn secondary" href="/employees">عودة للموظفين</a></div>
+  <div class="actions">{% if can_manage_employee(e) and can('manage_movements') %}<a class="btn teal" href="/movements?employee_id={{e.id}}">+ تسجيل حركة للموظف</a>{% endif %}{% if can_manage_employee(e) and can('manage_employees') %}<a class="btn secondary" href="/employees/{{e.id}}/edit">تعديل البيانات</a>{% endif %}<a class="btn secondary" href="/employees">عودة للموظفين</a></div>
 </div>
 
 <div class="box employee-profile">
@@ -27,7 +27,7 @@
       <div class="last-main">{% if k=='إذن' %}{{m.permission_date}}{% else %}{{m.from_date}} <span>→</span> {{m.to_date}}{% endif %}</div>
       {% if m.leave_type %}<div class="hint">نوع الإجازة: <b>{{m.leave_type}}</b></div>{% endif %}
       {% if m.destination %}<div class="hint">الفرع المنتدب إليه: <b>{{m.destination.name}}</b></div>{% endif %}
-      <div class="last-footer"><span class="tag">{{m.status}}</span><a href="/movements/{{m.id}}/edit">التفاصيل / التعديل</a></div>
+      <div class="last-footer"><span class="tag">{{m.status}}</span><a href="/movements/{{m.id}}/history">فتح تفاصيل الحركة</a></div>
     {% else %}<p class="hint">لا توجد بيانات</p>{% endif %}
   </div>
 {% endfor %}
@@ -36,7 +36,7 @@
 <div class="box tablewrap employee-history">
   <div class="section-title">
     <div><h3>سجل حركات الموظف</h3><div class="hint">الأحدث أولًا — اختر نوع الحركة لتصفية السجل.</div></div>
-    <a class="btn teal mini" href="/movements?employee_id={{e.id}}">+ حركة جديدة</a>
+    {% if can_manage_employee(e) and can('manage_movements') %}<a class="btn teal mini" href="/movements?employee_id={{e.id}}">+ حركة جديدة</a>{% endif %}
   </div>
   <div class="history-tools">
     <div class="history-filters" role="group" aria-label="تصفية الحركات">
@@ -57,7 +57,7 @@
         <td>{% if m.leave_type %}{{m.leave_type}}{% elif m.destination %}إلى {{m.destination.name}}{% else %}إذن{% endif %}</td>
         <td>{{m.from_date or '-'}}</td><td>{{m.to_date or '-'}}</td>
         <td><span class="tag">{{m.status}}</span></td>
-        <td><a class="table-link" href="/movements/{{m.id}}/edit">عرض التفاصيل</a></td>
+        <td>{% if m.status=='معتمدة' %}<a class="table-link" href="/movements/{{m.id}}/history">فتح السجل</a>{% else %}<a class="table-link" href="/movements/{{m.id}}/edit">فتح الحركة</a>{% endif %}</td>
       </tr>
     {% else %}<tr><td colspan="7" class="empty">لا توجد حركات مسجلة لهذا الموظف.</td></tr>{% endfor %}
     </tbody>

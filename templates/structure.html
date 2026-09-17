@@ -20,9 +20,9 @@
     <summary><b>+ إضافة مشرف محافظة</b><span>الحساب + المحافظات + الصلاحيات</span></summary>
     <form method="post" action="/users" class="quick-form wide-form">
       <input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="role" value="مشرف محافظة">
-      <label>اسم المشرف<input name="full_name" required></label><label>اسم المستخدم<input name="username" required></label><label>كلمة المرور الأولية<input name="password" type="password" minlength="8" required></label>
-      <label>المحافظات المسندة<select name="governorate_id" multiple size="4" required>{% for g in govs_all %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
-      <div class="permission-pills">{% for key,label in PERMISSIONS.items() %}<label class="check"><input type="checkbox" name="permissions" value="{{key}}">{{label}}</label>{% endfor %}</div>
+      <label>اسم المشرف<input name="full_name" required></label><label>الوظيفة<input name="job_title" placeholder="مثال: مشرف محافظة"></label><label>اسم المستخدم<input name="username" required></label><label>كلمة المرور الأولية<input name="password" type="password" minlength="8" required></label>
+      <div><label>المحافظات المسندة</label><div class="choice-tools"><button type="button" class="gray mini" data-choice-all="governorate_id">تحديد الكل</button><button type="button" class="gray mini" data-choice-none="governorate_id">إلغاء الكل</button></div><div class="choice-list" data-choice-group="governorate_id" data-required="1">{% for g in govs_all %}<label class="choice-item"><input type="checkbox" name="governorate_id" value="{{g.id}}">{{g.name}}</label>{% endfor %}</div></div>
+      <div class="choice-tools"><button type="button" class="gray mini" data-choice-all="permissions">تحديد الكل</button><button type="button" class="gray mini" data-choice-none="permissions">إلغاء الكل</button></div><div class="choice-list">{% for key,label in PERMISSIONS.items() %}<label class="choice-item"><input type="checkbox" name="permissions" value="{{key}}">{{label}}</label>{% endfor %}</div>
       <button>إنشاء المشرف</button>
     </form>
   </details>
@@ -59,8 +59,8 @@
       <form method="post" action="/users" class="quick-form">
         <input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="role" value="المدخل الأول">
         <label>الاسم الكامل<input name="full_name" required></label><label>اسم المستخدم<input name="username" required></label><label>كلمة المرور الأولية<input name="password" type="password" minlength="8" required></label>
-        <label class="full">الفروع المسموح بها<select name="branch_id" multiple size="5" required>{% for b in bs %}<option value="{{b.id}}">{{b.name}}</option>{% endfor %}</select></label>
-        <div class="permission-pills">{% for key,label in PERMISSIONS.items() if key in ['manage_employees','manage_movements','view_reports'] %}<label class="check"><input type="checkbox" name="permissions" value="{{key}}">{{label}}</label>{% endfor %}</div>
+        <div class="full"><label>الفروع المسموح بها</label><div class="choice-tools"><button type="button" class="gray mini" data-choice-all="branch_id">تحديد الكل</button><button type="button" class="gray mini" data-choice-none="branch_id">إلغاء الكل</button></div><div class="choice-list" data-choice-group="branch_id" data-required="1">{% for b in bs %}<label class="choice-item"><input type="checkbox" name="branch_id" value="{{b.id}}">{{b.name}}</label>{% endfor %}</div></div>
+        <div class="choice-tools"><button type="button" class="gray mini" data-choice-all="permissions">تحديد الكل</button><button type="button" class="gray mini" data-choice-none="permissions">إلغاء الكل</button></div><div class="choice-list">{% for key,label in PERMISSIONS.items() if key in ['manage_employees','manage_movements','view_reports'] %}<label class="choice-item"><input type="checkbox" name="permissions" value="{{key}}">{{label}}</label>{% endfor %}</div>
         <button>إنشاء المدخل الأول</button>
       </form>
     </details>

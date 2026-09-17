@@ -1042,7 +1042,7 @@ def ensure_v25_schema():
             db.session.execute(text(f'ALTER TABLE movement ADD COLUMN {name} {typ}'))
     ucols={c['name'] for c in insp.get_columns('user')}
     if 'job_title' not in ucols:
-        db.session.execute(text('ALTER TABLE user ADD COLUMN job_title VARCHAR(200)'))
+        db.session.execute(text('ALTER TABLE "user" ADD COLUMN job_title VARCHAR(200)'))
     db.session.commit()
 
 with app.app_context():

@@ -1,12 +1,30 @@
 {% extends 'base.html' %}{% block title %}{{title}}{% endblock %}{% block content %}
 <div class="page-head no-print"><div><h1>{{title}}</h1><p class="muted">تقرير مجمع لكل موظف داخل نطاق صلاحيتك، مع تفاصيل جميع الحركات المسجلة له.</p></div><div class="actions"><button type="button" class="btn" onclick="window.print()">🖨️ طباعة التقرير</button><a class="btn secondary" href="/reports">العودة للتقارير</a></div></div>
 <div class="print-header"><h1>{{title}}</h1><div>نظام حركات الموظفين المركزي</div><div class="print-meta">تاريخ الطباعة: {{ now().strftime("%Y-%m-%d") if now is defined else "" }}</div></div>
-<div class="box no-print"><form method="get" class="grid">
-<div><label>الموظف</label><select name="employee_id"><option value="">كل الموظفين</option>{% for e in employees %}<option value="{{e.id}}" {% if request.args.get('employee_id') == e.id|string %}selected{% endif %}>{{e.full_name}} — {{e.job_code or "—"}}</option>{% endfor %}</select></div>
+<div class="box no-print"><form method="get" class="grid report-filters" id="reportFilterForm">
+<div><label>المحافظة</label>
+<select name="governorate_id" id="reportGovernorate" onchange="this.form.branch_id.value=''; this.form.employee_id.value=''; this.form.submit()">
+<option value="">كل المحافظات</option>
+{% for g in report_governorates %}<option value="{{g.id}}" {% if selected_governorate == g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}
+</select></div>
+<div><label>الفرع</label>
+<select name="branch_id" id="reportBranch" onchange="this.form.employee_id.value=''; this.form.submit()" {% if not selected_governorate %}disabled{% endif %}>
+<option value="">كل الفروع</option>
+{% for b in report_branches %}<option value="{{b.id}}" {% if selected_branch == b.id|string %}selected{% endif %}>{{b.name}}</option>{% endfor %}
+</select></div>
+<div><label>اسم الموظف</label>
+<select name="employee_id" id="reportEmployee" {% if not selected_branch %}disabled{% endif %}>
+<option value="">كل الموظفين</option>
+{% for e in employees %}<option value="{{e.id}}" {% if selected_employee == e.id|string %}selected{% endif %}>{{e.full_name}} — {{e.job_code or "—"}}</option>{% endfor %}
+</select></div>
 <div><label>الحالة</label><select name="status"><option value="">كل الحالات</option>{% for x in statuses %}<option value="{{x}}" {% if status==x %}selected{% endif %}>{{x}}</option>{% endfor %}</select></div>
 <div><label>من يوم</label><input type="date" name="date_from" value="{{date_from}}"></div>
 <div><label>إلى يوم</label><input type="date" name="date_to" value="{{date_to}}"></div>
-<div class="actions"><button>تطبيق</button><a class="btn secondary" href="/reports/{{report_type}}">مسح</a><a class="btn" href="/reports/{{report_type}}.csv?status={{status|urlencode}}&employee_id={{request.args.get('employee_id','')|urlencode}}&date_from={{date_from|urlencode}}&date_to={{date_to|urlencode}}">تصدير CSV</a></div>
+<div class="actions">
+<button>تطبيق</button>
+<a class="btn secondary" href="/reports/{{report_type}}">مسح</a>
+<a class="btn" href="/reports/{{report_type}}.csv?status={{status|urlencode}}&employee_id={{selected_employee|urlencode}}&governorate_id={{selected_governorate|urlencode}}&branch_id={{selected_branch|urlencode}}&date_from={{date_from|urlencode}}&date_to={{date_to|urlencode}}">تصدير CSV</a>
+</div>
 </form></div>
 <div class="box tablewrap report-print-area">
 {% if rows %}

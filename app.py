@@ -83,8 +83,25 @@ class Lookup(db.Model):
     id=db.Column(db.Integer,primary_key=True); kind=db.Column(db.String(30),nullable=False); name=db.Column(db.String(120),nullable=False); is_active=db.Column(db.Boolean,default=True,nullable=False); __table_args__=(UniqueConstraint('kind','name',name='uq_lookup_kind_name'),)
 
 def me(): return db.session.get(User,session.get('uid'))
+def actual_roles(u=None):
+    u=u or me()
+    return {x.role for x in UserRole.query.filter_by(user_id=u.id).all()} if u else set()
+
 def roles(u=None):
-    u=u or me(); return {x.role for x in UserRole.query.filter_by(user_id=u.id).all()} if u else set()
+    # For the logged-in user, an optional session role is the active UI role.
+    # For any other user, always return the real stored roles.
+    u = u or me()
+    if not u:
+        return set()
+    real = actual_roles(u)
+    if u.id == session.get('uid'):
+        active = session.get('active_role')
+        if active in real:
+            return {active}
+        if active:
+            session.pop('active_role', None)
+    return real
+
 def has_role(*r): return bool(roles() & set(r))
 def req(f):
     @wraps(f)
@@ -201,9 +218,19 @@ def assignment_followups():
 
 def user_permissions(u):
     explicit={x.permission for x in UserPermission.query.filter_by(user_id=u.id).all()}
+    selected = None
+    if u and u.id == session.get('uid'):
+        selected = session.get('active_role')
+    effective = {selected} if selected else actual_roles(u)
+    if selected:
+        allowed = set(ROLE_DEFAULT_PERMISSIONS.get(selected, set()))
+        # Keep any custom permission that belongs to the selected role's normal scope.
+        if explicit:
+            return explicit & allowed
+        return allowed
     if explicit: return explicit
     out=set()
-    for r in roles(u): out |= ROLE_DEFAULT_PERMISSIONS.get(r,set())
+    for r in effective: out |= ROLE_DEFAULT_PERMISSIONS.get(r,set())
     return out
 def can(permission):
     u=me()
@@ -211,7 +238,13 @@ def can(permission):
 def user_gov_ids(u): return {x.governorate_id for x in UserGovernorate.query.filter_by(user_id=u.id).all()}
 def user_branch_ids(u): return {x.branch_id for x in UserBranch.query.filter_by(user_id=u.id).all()}
 @app.context_processor
-def inject_context(): return {'me':me(),'roles':roles(),'csrf':csrf_token(),'user_roles':user_roles,'user_permissions':user_permissions,'can':can,'PERMISSIONS':PERMISSIONS,'user_gov_ids':user_gov_ids,'user_branch_ids':user_branch_ids,'assignment_state':assignment_state,'assignment_supervisor':assignment_supervisor,'supervisor_for_entry':supervisor_for_entry,'auto_approver_for_employee':auto_approver_for_employee,'ASSIGNMENT_STATES':ASSIGNMENT_STATES,'ASSIGNMENT_ALERT_DAYS':ASSIGNMENT_ALERT_DAYS}
+def inject_context():
+    u=me()
+    real_roles=actual_roles(u)
+    active_role=session.get('active_role') if u else None
+    if active_role not in real_roles:
+        active_role=None
+    return {'me':u,'roles':roles(),'real_roles':real_roles,'active_role':active_role,'csrf':csrf_token(),'user_roles':user_roles,'user_permissions':user_permissions,'can':can,'PERMISSIONS':PERMISSIONS,'user_gov_ids':user_gov_ids,'user_branch_ids':user_branch_ids,'assignment_state':assignment_state,'assignment_supervisor':assignment_supervisor,'supervisor_for_entry':supervisor_for_entry,'auto_approver_for_employee':auto_approver_for_employee,'can_manage_employee':can_manage_employee,'ASSIGNMENT_STATES':ASSIGNMENT_STATES,'ASSIGNMENT_ALERT_DAYS':ASSIGNMENT_ALERT_DAYS}
 
 @app.after_request
 def security_headers(resp):
@@ -323,10 +356,28 @@ def login():
     if request.method=='POST':
         u=User.query.filter_by(username=request.form.get('username','').strip()).first()
         if not u or not u.is_active or not check_password_hash(u.password_hash,request.form.get('password','')): flash('بيانات الدخول غير صحيحة.'); return render_template('login.html')
-        session.clear(); session['uid']=u.id; session['csrf']=secrets.token_urlsafe(24); u.last_login=datetime.utcnow(); log('LOGIN','User',u.id); db.session.commit(); return redirect('/')
+        session.clear(); session['uid']=u.id; session['csrf']=secrets.token_urlsafe(24); session.pop('active_role', None); u.last_login=datetime.utcnow(); log('LOGIN','User',u.id); db.session.commit(); return redirect('/')
     return render_template('login.html')
 @app.get('/logout')
 def logout(): session.clear(); return redirect('/login')
+
+@app.post('/switch-role')
+@req
+def switch_role():
+    u = me()
+    real_roles = actual_roles(u)
+    selected = request.form.get('active_role', '').strip()
+    if len(real_roles) <= 1:
+        session.pop('active_role', None)
+    elif selected in real_roles:
+        old_role = session.get('active_role')
+        session['active_role'] = selected
+        if old_role != selected:
+            log('SWITCH_ROLE', 'User', u.id, f'{old_role or "الدور التلقائي"} -> {selected}')
+            db.session.commit()
+    else:
+        flash('الدور المختار غير متاح لهذا الحساب.')
+    return redirect(request.form.get('next') or url_for('home'))
 @app.route('/change-password',methods=['GET','POST'])
 @req
 def change_password():
@@ -1104,6 +1155,17 @@ def employee_type_report(report_type):
         date_from_obj, date_to_obj = date_to_obj, date_from_obj
     if status in STATUSES: q=q.filter(Movement.status==status)
     if employee_id.isdigit(): q=q.filter(Movement.employee_id==int(employee_id))
+    report_gov=request.args.get('governorate_id','').strip()
+    report_branch=request.args.get('branch_id','').strip()
+    if report_gov.isdigit():
+        gid=int(report_gov)
+        gov_allowed = {g.id for g in Governorate.query.filter(Governorate.is_active==True).all() if g.id in set(gids())} if gids() else set()
+        if gid in gov_allowed:
+            q=q.filter(Employee.branch.has(Branch.governorate_id==gid))
+    if report_branch.isdigit():
+        bid=int(report_branch)
+        if bid in set(bs):
+            q=q.filter(Employee.branch_id==bid)
     if date_from_obj:
         if mt in ('إجازة','انتداب'):
             q=q.filter(Movement.to_date >= date_from_obj)
@@ -1122,8 +1184,54 @@ def employee_type_report(report_type):
             current={'employee':m.employee,'rows':[]}
             grouped.append(current)
         current['rows'].append(m)
-    employees=Employee.query.filter(Employee.branch_id.in_(bs),Employee.is_active==True).order_by(Employee.full_name.asc()).all() if bs else []
-    return render_template('employee_type_report.html',report_type=report_type,title={'leaves':'تقرير إجازات الموظفين','assignments':'تقرير انتدابات الموظفين','permissions':'تقرير أذونات الموظفين'}[report_type],rows=grouped,employees=employees,status=status,statuses=STATUSES,date_from=date_from,date_to=date_to)
+    # Cascading report filters: governorate -> branch -> employee.
+    selected_gov=request.args.get('governorate_id','').strip()
+    selected_branch=request.args.get('branch_id','').strip()
+
+    allowed_govs=Governorate.query.filter(Governorate.is_active==True).order_by(Governorate.name.asc()).all()
+    allowed_gov_ids={g.id for g in allowed_govs if g.id in set(gids())} if gids() else set()
+    allowed_branches=Branch.query.filter(Branch.is_active==True,Branch.id.in_(bs)).order_by(Branch.name.asc()).all() if bs else []
+    if allowed_gov_ids:
+        allowed_branches=[b for b in allowed_branches if b.governorate_id in allowed_gov_ids]
+    else:
+        allowed_branches=[]
+
+    selected_gov_obj=None
+    if selected_gov.isdigit() and int(selected_gov) in allowed_gov_ids:
+        selected_gov_obj=db.session.get(Governorate,int(selected_gov))
+        allowed_branches=[b for b in allowed_branches if b.governorate_id==selected_gov_obj.id]
+    else:
+        selected_gov=''
+
+    selected_branch_obj=None
+    if selected_branch.isdigit() and any(b.id==int(selected_branch) for b in allowed_branches):
+        selected_branch_obj=db.session.get(Branch,int(selected_branch))
+    else:
+        selected_branch=''
+
+    employees_q=Employee.query.filter(Employee.is_active==True,Employee.branch_id.in_(bs)) if bs else Employee.query.filter(False)
+    if selected_branch_obj:
+        employees_q=employees_q.filter(Employee.branch_id==selected_branch_obj.id)
+    elif selected_gov_obj:
+        employees_q=employees_q.join(Branch).filter(Branch.governorate_id==selected_gov_obj.id)
+    employees=employees_q.order_by(Employee.full_name.asc()).all()
+
+    return render_template(
+        'employee_type_report.html',
+        report_type=report_type,
+        title={'leaves':'تقرير إجازات الموظفين','assignments':'تقرير انتدابات الموظفين','permissions':'تقرير أذونات الموظفين'}[report_type],
+        rows=grouped,
+        employees=employees,
+        status=status,
+        statuses=STATUSES,
+        date_from=date_from,
+        date_to=date_to,
+        report_governorates=allowed_govs,
+        report_branches=allowed_branches,
+        selected_governorate=selected_gov,
+        selected_branch=selected_branch,
+        selected_employee=employee_id if employee_id.isdigit() else ''
+    )
 
 @app.get('/reports/<report_type>.csv')
 @req
@@ -1145,6 +1253,17 @@ def employee_type_report_csv(report_type):
         date_from_obj, date_to_obj = date_to_obj, date_from_obj
     if status in STATUSES: q=q.filter(Movement.status==status)
     if employee_id.isdigit(): q=q.filter(Movement.employee_id==int(employee_id))
+    report_gov=request.args.get('governorate_id','').strip()
+    report_branch=request.args.get('branch_id','').strip()
+    if report_gov.isdigit():
+        gid=int(report_gov)
+        gov_allowed = {g.id for g in Governorate.query.filter(Governorate.is_active==True).all() if g.id in set(gids())} if gids() else set()
+        if gid in gov_allowed:
+            q=q.filter(Employee.branch.has(Branch.governorate_id==gid))
+    if report_branch.isdigit():
+        bid=int(report_branch)
+        if bid in set(bs):
+            q=q.filter(Employee.branch_id==bid)
     if date_from_obj:
         if mt in ('إجازة','انتداب'): q=q.filter(Movement.to_date >= date_from_obj)
         else: q=q.filter(Movement.permission_date >= date_from_obj)

@@ -1,1 +1,23 @@
-{% extends 'base.html' %}{% block title %}التقارير{% endblock %}{% block content %}<h1>التقارير</h1><div class="box"><form method="get" class="grid"><label>الحالة<select name="status"><option value="">كل الحالات</option>{% for x in statuses %}<option value="{{x}}" {% if status==x %}selected{% endif %}>{{x}}</option>{% endfor %}</select></label><label>نوع الحركة<select name="movement_type"><option value="">كل الحركات</option>{% for x in movement_types %}<option value="{{x}}" {% if movement_type==x %}selected{% endif %}>{{x}}</option>{% endfor %}</select></label><button>تطبيق</button><a class="btn secondary" href="/reports">مسح</a><a class="btn" href="/reports.csv?status={{status|urlencode}}&movement_type={{movement_type|urlencode}}">تصدير CSV</a></form></div><div class="cards report-links"><div class="box"><h3>تقرير الإجازات لكل موظف</h3><p class="muted">يعرض جميع إجازات كل موظف بالتفصيل.</p><a class="btn" href="/reports/leaves">فتح التقرير</a></div><div class="box"><h3>تقرير الانتدابات لكل موظف</h3><p class="muted">يعرض جميع انتدابات كل موظف والفترة والفرع المنتدب إليه.</p><a class="btn" href="/reports/assignments">فتح التقرير</a></div><div class="box"><h3>تقرير الأذونات لكل موظف</h3><p class="muted">يعرض جميع أذونات كل موظف وتواريخها وحالتها.</p><a class="btn" href="/reports/permissions">فتح التقرير</a></div></div><section class="cards">{% for k,v in summary.items() %}<div class="box stat"><strong>{{v}}</strong><div>{{k}}</div></div>{% endfor %}</section><div class="box tablewrap"><h3>حسب نوع الحركة</h3><table><tr><th>النوع</th><th>العدد</th></tr>{% for k,v in by_type.items() %}<tr><td>{{k}}</td><td>{{v}}</td></tr>{% endfor %}</table></div>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}التقارير{% endblock %}
+{% block content %}
+<div class="toolbar"><div><h1>التقارير</h1><p class="subtitle">اختر نوع التقرير فقط، ثم حدد المحافظة والفرع والموظف والفترة داخل التقرير.</p></div></div>
+<div class="box report-launch">
+  <div class="section-title"><div><h3>إنشاء تقرير</h3><span class="hint">خطوة واحدة للوصول إلى التقرير المطلوب.</span></div></div>
+  <form method="get" class="report-launch-form" onsubmit="this.action='/reports/'+this.report_type.value; return true;">
+    <label>نوع التقرير
+      <select name="report_type" required>
+        <option value="">اختر نوع التقرير</option>
+        <option value="leaves">تقرير الإجازات</option>
+        <option value="assignments">تقرير الانتدابات</option>
+        <option value="permissions">تقرير الأذونات</option>
+      </select>
+    </label>
+    <button>فتح التقرير</button>
+  </form>
+</div>
+<div class="box report-help">
+  <h3>طريقة الاستخدام</h3>
+  <div class="report-steps"><span>1</span> اختر نوع التقرير <b>←</b><span>2</span> اختر المحافظة <b>←</b><span>3</span> اختر الفرع <b>←</b><span>4</span> اختر الموظف عند الحاجة <b>←</b><span>5</span> حدد من يوم وإلى يوم</div>
+</div>
+{% endblock %}

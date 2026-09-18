@@ -392,16 +392,37 @@ def change_password():
 @app.get('/')
 @req
 def home():
-    bs=bids()
+    bs=set(bids())
     today=date.today()
     tomorrow=today + timedelta(days=1)
     pending=[]
     ending=[]
+
+    # Governorates visible to the current effective role.
+    visible_govs=(Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True)
+                  .order_by(Governorate.name.asc()).all() if gids() else [])
+
+    # First-level users and their assigned branches, grouped for the expandable home tree.
+    entry_rows=[]
+    entry_users=User.query.join(UserRole,UserRole.user_id==User.id).filter(
+        User.is_active==True, UserRole.role=='المدخل الأول'
+    ).order_by(User.full_name.asc()).all()
+    for u in entry_users:
+        scoped=[b for b in Branch.query.join(UserBranch,UserBranch.branch_id==Branch.id).filter(
+            UserBranch.user_id==u.id, Branch.is_active==True
+        ).order_by(Branch.name.asc()).all() if b.id in bs]
+        if not scoped:
+            continue
+        branch_groups=[]
+        for b in scoped:
+            emps=Employee.query.filter(Employee.branch_id==b.id,Employee.is_active==True).order_by(Employee.full_name.asc()).all()
+            branch_groups.append({'branch':b,'employees':emps})
+        gov_ids_for_entry={x['branch'].governorate_id for x in branch_groups}
+        gov_names=[gobj.name for gobj in Governorate.query.filter(Governorate.id.in_(gov_ids_for_entry),Governorate.is_active==True).order_by(Governorate.name.asc()).all()] if gov_ids_for_entry else []
+        entry_rows.append({'user':u,'branches':branch_groups,'governorates':gov_names})
+
     if bs:
-        base=Movement.query.join(Employee).filter(
-            Employee.branch_id.in_(bs),
-            Movement.is_active==True
-        )
+        base=Movement.query.join(Employee).filter(Employee.branch_id.in_(bs),Movement.is_active==True)
         if can('review_movements') and (has_role('مسؤول التطبيق') or has_role('مشرف محافظة')):
             pending=(base.filter(Movement.status=='تحت المراجعة')
                      .filter((Movement.approver_id==me().id) if 'مسؤول التطبيق' not in roles() else True)
@@ -412,11 +433,14 @@ def home():
                     Movement.to_date>=today,
                     Movement.to_date<=tomorrow
                 ).order_by(Movement.to_date.asc(),Movement.id.desc()).limit(30).all())
+
     return render_template(
         'home.html',
-        g=len(gids()),
+        g=len(visible_govs),
         b=len(bs),
         e=(Employee.query.filter(Employee.branch_id.in_(bs),Employee.is_active==True).count() if bs else 0),
+        visible_govs=visible_govs,
+        entry_rows=entry_rows,
         pending=pending,
         ending=ending,
         today=today,

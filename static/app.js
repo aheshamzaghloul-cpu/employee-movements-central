@@ -103,3 +103,17 @@
   // Filter branch dropdown by governorate on employee list.
   const fg=qs('#employee_governorate_filter'), fb=qs('#employee_branch_filter'); if(fg&&fb){const sync=()=>{[...fb.options].forEach(o=>{if(!o.value)return;const ok=!fg.value||o.dataset.governorate===fg.value;o.hidden=!ok;o.disabled=!ok});if(fb.value&&fb.selectedOptions[0]?.disabled)fb.value='';};fg.addEventListener('change',sync);sync();}
 })();
+
+// v34 movement registration: show employee's basic branch and approver name/job.
+document.addEventListener('DOMContentLoaded', function(){
+  const emp=document.getElementById('movement_employee');
+  const branch=document.getElementById('employee_home_branch');
+  const app=document.getElementById('approver_display');
+  if(!emp) return;
+  function sync(){
+    const o=emp.options[emp.selectedIndex];
+    if(branch) branch.value=o ? (o.dataset.branchLabel||'') : '';
+    if(app){ app.innerHTML=''; const opt=document.createElement('option'); opt.textContent=o && o.dataset.approverLabel ? o.dataset.approverLabel : 'يظهر تلقائيًا بعد اختيار الموظف'; app.appendChild(opt); }
+  }
+  emp.addEventListener('change',sync); sync();
+});

@@ -38,14 +38,14 @@
 <td><span class="tag">{{m.status}}</span>{% if m.status=='مرفوضة' and m.rejection_reason %}<br><small>{{m.rejection_reason}}</small>{% endif %}</td>
 <td>{% if m.approver %}{{m.approver.full_name}}{% else %}<span class="hint">—</span>{% endif %}</td><td>{% if m.movement_type=='انتداب' %}<span class="tag assignment-tag {{assignment_state(m)}}">{{assignment_state(m)}}</span>{% else %}—{% endif %}</td>
 <td>
-<a class="btn secondary mini" href="/movements/{{m.id}}/history">السجل</a>
+<a class="btn secondary mini" href="/movements/{{m.id}}/history">السجل</a> {% if m.status=='مرفوضة' %}<a class="btn secondary mini" href="/movements/{{m.id}}/edit">تعديل وإعادة إرسال</a>{% endif %}{% if can('delete_movements') and m.status!='معتمدة' %}<form class="inline" method="post" action="/movements/{{m.id}}/delete"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="red mini" data-confirm="هل تريد حذف هذه الحركة؟">حذف</button></form>{% endif %}
 {% if tab=='pending' and m.status=='تحت المراجعة' %}
 <form class="inline" method="post" action="/movements/{{m.id}}/status"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="status" value="معتمدة"><button class="green mini">اعتماد</button></form>
 <form class="inline" method="post" action="/movements/{{m.id}}/status"><input type="hidden" name="_csrf" value="{{csrf}}"><input name="reason" required minlength="3" placeholder="سبب الرفض"><input type="hidden" name="status" value="مرفوضة"><button class="red mini">رفض</button></form>
 {% elif tab=='approved' and m.status=='معتمدة' and can('cancel_approval') %}
 <form class="inline" method="post" action="/movements/{{m.id}}/cancel-approval"><input type="hidden" name="_csrf" value="{{csrf}}"><input name="reason" required minlength="3" placeholder="سبب إلغاء الاعتماد"><button class="red mini">إلغاء الاعتماد</button></form>
 {% elif tab=='assignments' %}
-{% if m.status=='معتمدة' %}<a class="btn teal mini" href="/movements/{{m.id}}/assignment-form" target="_blank">طباعة المأمورية</a>{% if m.assignment_state!='مغلق' and can('review_movements') %}<details class="inline"><summary class="btn red mini">إغلاق</summary><form method="post" action="/movements/{{m.id}}/close-assignment" class="inline-form"><input type="hidden" name="_csrf" value="{{csrf}}"><div class="hint" style="margin-bottom:6px">المشرف: <b>{{assignment_supervisor(m).full_name if assignment_supervisor(m) else '—'}}</b>{% if assignment_supervisor(m) and assignment_supervisor(m).job_title %} — {{assignment_supervisor(m).job_title}}{% endif %}</div><input name="reason" required minlength="3" placeholder="سبب الإغلاق"><button class="red mini">تأكيد الإغلاق</button></form></details>{% endif %}{% else %}<span class="hint">تحتاج إلى الاعتماد أولًا قبل الطباعة أو الإغلاق.</span>{% endif %}
+{% if m.status=='مرفوضة' %}<a class="btn secondary mini" href="/movements/{{m.id}}/edit">تعديل وإعادة إرسال</a>{% endif %}
 {% endif %}
 </td></tr>
 {% else %}<tr><td colspan="8" class="empty">لا توجد بيانات في هذا القسم.</td></tr>{% endfor %}

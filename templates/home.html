@@ -25,6 +25,7 @@
 </div>
 {% endif %}
 
+{% if not is_admin %}
 <div class="box home-tree">
   <div class="section-title"><div><h3>المدخلون الأوائل</h3><span class="hint">اضغط السهم لعرض الفروع، ثم السهم لعرض موظفي كل فرع.</span></div></div>
   {% for row in entry_rows %}
@@ -45,6 +46,7 @@
     </details>
   {% else %}<div class="empty">لا يوجد مدخلون أولون ضمن نطاقك حاليًا.</div>{% endfor %}
 </div>
+{% endif %}
 
 {% if ending %}
 <div class="box tablewrap">

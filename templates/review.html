@@ -12,12 +12,12 @@
 </div>
 {% if tab=='assignments' %}
 <div class="box assignment-filters">
-  <div class="section-title"><div><h3>بحث وتصفية المأموريات</h3><p class="hint">يمكنك البحث بالاسم أو كود شئون العاملين، وتحديد الحالة والفترة المطلوبة. عند ترك الفترة فارغة تظهر المأموريات المنتهية أو التي تنتهي اليوم/غدًا.</p></div></div>
+  <div class="section-title"><div><h3>بحث وتصفية المأموريات</h3><p class="hint">يمكنك البحث بالاسم أو الكود الوظيفي، وتحديد الحالة والفترة المطلوبة. عند ترك الفترة فارغة تظهر المأموريات المنتهية أو التي تنتهي اليوم/غدًا.</p></div></div>
   <form method="get" action="/review" class="grid wide">
     <input type="hidden" name="tab" value="assignments">
-    <div><label>بحث عن الموظف</label><input name="q" value="{{assignment_search}}" placeholder="اسم الموظف أو كود شئون العاملين"></div>
-    <div><label>حالة الحركة</label><div class="choice-list compact" data-single-choice><label class="choice-item"><input type="checkbox" name="status" value="" {% if not assignment_status %}checked{% endif %}>كل الحالات</label>{% for x in statuses %}<label class="choice-item"><input type="checkbox" name="status" value="{{x}}" {% if assignment_status==x %}checked{% endif %}>{{x}}</label>{% endfor %}</div></div>
-    <div><label>حالة المأمورية</label><div class="choice-list compact" data-single-choice><label class="choice-item"><input type="checkbox" name="state" value="" {% if not assignment_state_filter %}checked{% endif %}>كل الحالات</label>{% for x in assignment_states %}<label class="choice-item"><input type="checkbox" name="state" value="{{x}}" {% if assignment_state_filter==x %}checked{% endif %}>{{x}}</label>{% endfor %}</div></div>
+    <div><label>بحث عن الموظف</label><input name="q" value="{{assignment_search}}" placeholder="اسم الموظف أو الكود الوظيفي"></div>
+    <label>حالة الحركة<select name="status"><option value="">كل الحالات</option>{% for x in statuses %}<option value="{{x}}" {% if assignment_status==x %}selected{% endif %}>{{x}}</option>{% endfor %}</select></label>
+    <label>حالة المأمورية<select name="state"><option value="">كل الحالات</option>{% for x in assignment_states %}<option value="{{x}}" {% if assignment_state_filter==x %}selected{% endif %}>{{x}}</option>{% endfor %}</select></label>
     <div><label>من تاريخ</label><input type="date" name="date_from" value="{{assignment_date_from}}"></div>
     <div><label>إلى تاريخ</label><input type="date" name="date_to" value="{{assignment_date_to}}"></div>
     <div class="form-actions"><button>تطبيق البحث</button><a class="btn secondary" href="/review?tab=assignments">مسح الفلاتر</a></div>
@@ -27,16 +27,16 @@
 <div class="box tablewrap">
 {% if tab=='assignments' %}<div class="hint" style="margin-bottom:12px">تظهر المأموريات غير المغلقة. عند تحديد فترة، تظهر أي مأمورية تتداخل مدتها مع الفترة المحددة.</div>{% endif %}
 <table>
-<thead><tr><th>الموظف</th><th>المحافظة / الفرع</th><th>الانتداب</th><th>الفترة</th><th>الحالة</th><th>حالة المأمورية</th><th>الإجراءات</th></tr></thead>
+<thead><tr><th>الموظف</th><th>المحافظة / الفرع</th><th>الانتداب</th><th>الفترة</th><th>الحالة</th><th>المعتمد</th><th>حالة المأمورية</th><th>الإجراءات</th></tr></thead>
 <tbody>
 {% for m in rows %}
 <tr>
-<td><a href="/employee/{{m.employee.id}}">{{m.employee.full_name}}</a><br><small>{{m.employee.employee_code}}</small></td>
+<td><a href="/employee/{{m.employee.id}}">{{m.employee.full_name}}</a><br><small>الكود الوظيفي: {{m.employee.job_code or "—"}}</small></td>
 <td>{{m.employee.branch.governorate.name}} / {{m.employee.branch.name}}</td>
 <td>{{m.destination.name if m.destination else 'انتداب'}}</td>
 <td>{{m.from_date or '—'}} إلى {{m.to_date or '—'}}</td>
 <td><span class="tag">{{m.status}}</span>{% if m.status=='مرفوضة' and m.rejection_reason %}<br><small>{{m.rejection_reason}}</small>{% endif %}</td>
-<td>{% if m.movement_type=='انتداب' %}<span class="tag assignment-tag {{assignment_state(m)}}">{{assignment_state(m)}}</span>{% else %}—{% endif %}</td>
+<td>{% if m.approver %}{{m.approver.full_name}}{% else %}<span class="hint">—</span>{% endif %}</td><td>{% if m.movement_type=='انتداب' %}<span class="tag assignment-tag {{assignment_state(m)}}">{{assignment_state(m)}}</span>{% else %}—{% endif %}</td>
 <td>
 <a class="btn secondary mini" href="/movements/{{m.id}}/history">السجل</a>
 {% if tab=='pending' and m.status=='تحت المراجعة' %}
@@ -48,6 +48,6 @@
 {% if m.status=='معتمدة' %}<a class="btn teal mini" href="/movements/{{m.id}}/assignment-form" target="_blank">طباعة المأمورية</a>{% if m.assignment_state!='مغلق' and can('review_movements') %}<details class="inline"><summary class="btn red mini">إغلاق</summary><form method="post" action="/movements/{{m.id}}/close-assignment" class="inline-form"><input type="hidden" name="_csrf" value="{{csrf}}"><div class="hint" style="margin-bottom:6px">المشرف: <b>{{assignment_supervisor(m).full_name if assignment_supervisor(m) else '—'}}</b>{% if assignment_supervisor(m) and assignment_supervisor(m).job_title %} — {{assignment_supervisor(m).job_title}}{% endif %}</div><input name="reason" required minlength="3" placeholder="سبب الإغلاق"><button class="red mini">تأكيد الإغلاق</button></form></details>{% endif %}{% else %}<span class="hint">تحتاج إلى الاعتماد أولًا قبل الطباعة أو الإغلاق.</span>{% endif %}
 {% endif %}
 </td></tr>
-{% else %}<tr><td colspan="7" class="empty">لا توجد بيانات في هذا القسم.</td></tr>{% endfor %}
+{% else %}<tr><td colspan="8" class="empty">لا توجد بيانات في هذا القسم.</td></tr>{% endfor %}
 </tbody></table></div>
 {% endblock %}

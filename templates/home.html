@@ -6,9 +6,9 @@
 </div>
 
 <div class="box">
-  <div class="section-title"><div><h3>البحث عن موظف</h3><span class="hint">ابحث بالاسم أو كود شئون العاملين للوصول إلى بطاقة الموظف وحركاته.</span></div></div>
+  <div class="section-title"><div><h3>البحث عن موظف</h3><span class="hint">ابحث بالاسم أو الكود الوظيفي للوصول إلى بطاقة الموظف وحركاته.</span></div></div>
   <form method="get" action="/employees" class="grid" style="align-items:end">
-    <label>اسم الموظف أو الكود<input name="q" type="search" placeholder="اكتب الاسم أو كود شئون العاملين..." autocomplete="off" autofocus></label>
+    <label>اسم الموظف أو الكود<input name="q" type="search" placeholder="اكتب الاسم أو الكود الوظيفي..." autocomplete="off" autofocus></label>
     <button>بحث</button>
   </form>
 </div>
@@ -24,7 +24,7 @@
 <div class="box tablewrap">
   <div class="section-title"><div><h3>المطلوب اعتماده</h3><span class="hint">الحركات الموجودة ضمن نطاقك وتحتاج إلى مراجعة.</span></div><a class="btn secondary" href="/review?tab=pending">عرض الكل</a></div>
   <table><thead><tr><th>الموظف</th><th>الحركة</th><th>الفترة</th><th>الحالة</th></tr></thead><tbody>
-  {% for m in pending %}<tr><td><a href="/employee/{{m.employee.id}}">{{m.employee.full_name}}</a><br><small>{{m.employee.employee_code}}</small></td><td>{{m.movement_type}}{% if m.leave_type %}<br><small>{{m.leave_type}}</small>{% endif %}</td><td>{{m.from_date or m.permission_date or '—'}}{% if m.to_date %} إلى {{m.to_date}}{% endif %}</td><td><span class="tag">{{m.status}}</span></td></tr>{% endfor %}
+  {% for m in pending %}<tr><td><a href="/employee/{{m.employee.id}}">{{m.employee.full_name}}</a><br><small>{{m.employee.job_code or "—"}}</small></td><td>{{m.movement_type}}{% if m.leave_type %}<br><small>{{m.leave_type}}</small>{% endif %}</td><td>{{m.from_date or m.permission_date or '—'}}{% if m.to_date %} إلى {{m.to_date}}{% endif %}</td><td><span class="tag">{{m.status}}</span></td></tr>{% endfor %}
   </tbody></table>
 </div>
 {% endif %}
@@ -33,7 +33,7 @@
 <div class="box tablewrap">
   <div class="section-title"><div><h3>الإجازات والانتدابات التي تنتهي اليوم أو غدًا</h3><span class="hint">المتابعة المطلوبة خلال اليوم والغد.</span></div></div>
   <table><thead><tr><th>الموظف</th><th>الحركة</th><th>تاريخ الانتهاء</th><th>الحالة</th></tr></thead><tbody>
-  {% for m in ending %}<tr><td><a href="/employee/{{m.employee.id}}">{{m.employee.full_name}}</a><br><small>{{m.employee.employee_code}}</small></td><td>{{m.movement_type}}{% if m.leave_type %}<br><small>{{m.leave_type}}</small>{% endif %}</td><td>{{m.to_date}}</td><td><span class="tag">{{m.status}}</span></td></tr>{% endfor %}
+  {% for m in ending %}<tr><td><a href="/employee/{{m.employee.id}}">{{m.employee.full_name}}</a><br><small>{{m.employee.job_code or "—"}}</small></td><td>{{m.movement_type}}{% if m.leave_type %}<br><small>{{m.leave_type}}</small>{% endif %}</td><td>{{m.to_date}}</td><td><span class="tag">{{m.status}}</span></td></tr>{% endfor %}
   </tbody></table>
 </div>
 {% else %}

@@ -48,6 +48,7 @@
   </details>
 </div>
 {% endif %}
+{% endif %}
 
 {% if not is_admin %}
 <div class="box notice supervisor-admin-note"><b>صلاحية المشرف:</b> من هذه الصفحة يمكنك إضافة وإدارة المدخلين الأوائل التابعين لمحافظتك فقط.</div>
@@ -157,6 +158,5 @@
 </section>
 {% endfor %}
 
-{% else %}<div class="box empty">لا توجد محافظات نشطة. ابدأ بإضافة أول محافظة.</div>{% endfor %}
 </div>
 {% endblock %}

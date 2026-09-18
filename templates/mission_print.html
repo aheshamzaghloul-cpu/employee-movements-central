@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>نموذج مأمورية عمل</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+<style>
+@page{size:A4;margin:12mm}
+body{background:#fff!important;color:#111!important;font-family:Cairo,Arial,sans-serif}
+.mission-page{width:100%;max-width:190mm;margin:auto;background:#fff;color:#111}
+.mission-title{text-align:center;font-size:22px;font-weight:800;margin:0 0 12px}
+.mission-status{text-align:center;font-size:14px;font-weight:700;margin-bottom:14px}
+.mission-table{width:100%;border-collapse:collapse;font-size:14px}
+.mission-table th,.mission-table td{border:1px solid #555;padding:8px 10px;vertical-align:middle}
+.mission-table th{width:32%;background:#f0f0f0;color:#111}
+.mission-footer{margin-top:16px;display:flex;justify-content:space-between;gap:20px}
+.mission-sign{width:45%;text-align:center;min-height:55px}
+.no-print{margin:0 0 12px;text-align:center}
+@media print{.no-print{display:none!important}}
+</style>
+</head>
+<body>
+<div class="mission-page">
+  <div class="no-print">
+    <button onclick="window.print()">طباعة / حفظ PDF</button>
+    <a href="javascript:history.back()">↩ رجوع</a>
+  </div>
+  <h1 class="mission-title">نموذج مأمورية عمل</h1>
+  <div class="mission-status">{{mission_state}}</div>
+  <table class="mission-table">
+    <tr><th>القائم بالمأمورية</th><td>{{employee.full_name if employee else ''}}</td></tr>
+    <tr><th>الكود الوظيفي</th><td>{{employee.job_code if employee and employee.job_code else ''}}</td></tr>
+    <tr><th>الفرع الأساسي</th><td>{{branch.name if branch else ''}}</td></tr>
+    <tr><th>المحافظة</th><td>{{governorate.name if governorate else ''}}</td></tr>
+    <tr><th>جهة المأمورية</th><td>{{movement.destination_branch or ''}}</td></tr>
+    <tr><th>سبب المأمورية</th><td>{{movement.reason if movement.reason is defined else ''}}</td></tr>
+    <tr><th>من تاريخ</th><td>{{movement.from_date.strftime('%Y/%m/%d') if movement.from_date else ''}}</td></tr>
+    <tr><th>إلى تاريخ</th><td>{{movement.to_date.strftime('%Y/%m/%d') if movement.to_date else ''}}</td></tr>
+    <tr><th>تدريب</th><td>{{movement.training if movement.training is defined else ''}}</td></tr>
+    <tr><th>الوحدة</th><td>{{branch.name if branch else ''}}</td></tr>
+  </table>
+  <div class="mission-footer">
+    <div class="mission-sign">
+      <b>المعتمد</b><br>
+      {{approver.full_name if approver else ''}}<br>
+      {{approver.job_title if approver and approver.job_title else ''}}
+    </div>
+    <div class="mission-sign">
+      <b>حالة المأمورية</b><br>{{mission_state}}
+    </div>
+  </div>
+</div>
+</body>
+</html>

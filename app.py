@@ -1154,6 +1154,25 @@ def audit():
     ids={x.user_id for x in rows if x.user_id}
     audit_users={u.id:u.full_name for u in User.query.filter(User.id.in_(ids)).all()} if ids else {}
     return render_template('audit.html',rows=rows,audit_users=audit_users)
+
+@app.get('/reports/assignments/print-mission/<int:movement_id>')
+@req
+def mission_print(movement_id):
+    m = db.session.get(Movement, movement_id)
+    if not m: abort(404)
+    if not can_manage_movement(m): abort(403)
+    if m.movement_type != 'انتداب': abort(400)
+    employee = db.session.get(Employee, m.employee_id)
+    branch = db.session.get(Branch, employee.branch_id) if employee else None
+    gov = db.session.get(Governorate, branch.governorate_id) if branch else None
+    approver = db.session.get(User, m.approver_id) if getattr(m, 'approver_id', None) else None
+    return render_template(
+        'mission_print.html',
+        movement=m, employee=employee, branch=branch, governorate=gov,
+        approver=approver,
+        mission_state=('مغلق' if m.status == 'معتمدة' else 'تحت التحرير')
+    )
+
 @app.get('/reports')
 @req
 def reports():

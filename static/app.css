@@ -246,3 +246,7 @@ td{border-color:#c5d4db;color:#29414e}
   border-top:1px solid #c8d9df;
   background:#f4f9fa;
 }
+
+/* v34.2 — dedicated mission PDF report */
+.mission-report-card{background:#edf5f7!important;border-color:#b8d1d8!important}
+.mission-report-card h3{color:#245c6c!important}

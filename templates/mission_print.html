@@ -3,51 +3,74 @@
 <head>
 <meta charset="utf-8">
 <title>نموذج مأمورية عمل</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
 <style>
-@page{size:A4;margin:12mm}
-body{background:#fff!important;color:#111!important;font-family:Cairo,Arial,sans-serif}
-.mission-page{width:100%;max-width:190mm;margin:auto;background:#fff;color:#111}
-.mission-title{text-align:center;font-size:22px;font-weight:800;margin:0 0 12px}
-.mission-status{text-align:center;font-size:14px;font-weight:700;margin-bottom:14px}
-.mission-table{width:100%;border-collapse:collapse;font-size:14px}
-.mission-table th,.mission-table td{border:1px solid #555;padding:8px 10px;vertical-align:middle}
-.mission-table th{width:32%;background:#f0f0f0;color:#111}
-.mission-footer{margin-top:16px;display:flex;justify-content:space-between;gap:20px}
-.mission-sign{width:45%;text-align:center;min-height:55px}
-.no-print{margin:0 0 12px;text-align:center}
-@media print{.no-print{display:none!important}}
+@page{size:A4 portrait;margin:0}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#fff!important;color:#111!important}
+body{font-family:Arial,"Tahoma","DejaVu Sans",sans-serif;font-size:14px}
+.printbar{position:fixed;top:10px;left:0;right:0;display:flex;justify-content:center;gap:8px;z-index:20}
+.printbar button,.printbar a{font-family:inherit;font-size:13px;padding:7px 14px;border:1px solid #777;background:#eee;color:#111;text-decoration:none;border-radius:4px;cursor:pointer}
+.mission-page{width:210mm;min-height:297mm;margin:0 auto;padding:29mm 20mm 18mm 20mm;background:#fff;position:relative}
+.header-left{position:absolute;top:29mm;left:20mm;text-align:left;font-weight:700;line-height:1.35;font-size:13px;direction:ltr}
+.header-right{position:absolute;top:28mm;right:20mm;text-align:right;font-weight:700;line-height:1.35;font-size:13px}
+.header-right .status{font-weight:800;margin-left:18px}
+.title{text-align:center;font-size:23px;font-weight:800;text-decoration:underline;margin:7mm 0 15mm}
+.meta-right{position:absolute;top:36mm;right:20mm;font-size:11px;line-height:1.35;text-align:right}
+.form{width:100%;margin-top:5mm}
+.row{display:grid;direction:rtl;min-height:13mm}
+.row.r1{grid-template-columns:1.45fr 1.35fr .68fr}
+.row.r2{grid-template-columns:1.45fr 1.35fr .68fr}
+.row.r3{grid-template-columns:1.45fr 1.35fr .68fr}
+.row.r4{grid-template-columns:1.45fr 1.35fr .68fr}
+.cell{border:1px solid #444;min-height:13mm;padding:2.5mm 3mm;display:flex;align-items:center;gap:2mm;direction:rtl;background:#fff}
+.cell + .cell{border-right:0}
+.label{font-weight:800;white-space:nowrap}
+.value{flex:1;text-align:right;min-width:0;overflow:hidden}
+.blank{visibility:hidden}
+.training{display:flex;align-items:center;gap:4mm}
+.checkbox{width:5mm;height:5mm;border:1px solid #333;display:inline-block;flex:0 0 auto}
+.reason{min-height:14mm}
+.datecell{min-height:12mm}
+.approval{margin-top:8mm;margin-right:0;width:58mm;text-align:center;font-weight:800;line-height:1.8}
+.approval .line{margin-top:2mm}
+.footer-space{height:25mm}
+@media print{.printbar{display:none!important}.mission-page{min-height:297mm}}
 </style>
 </head>
 <body>
+<div class="printbar no-print"><button onclick="window.print()">🖨️ طباعة / حفظ PDF</button><a href="javascript:history.back()">↩ رجوع</a></div>
 <div class="mission-page">
-  <div class="no-print">
-    <button onclick="window.print()">طباعة / حفظ PDF</button>
-    <a href="javascript:history.back()">↩ رجوع</a>
+  <div class="header-left">{{ printed_at.strftime('%Y/%m/%d %H:%M:%S') if printed_at else '' }}<br><span>1 \ 1</span></div>
+  <div class="header-right"><span class="status">{{ mission_state }}</span><span>{{ movement.id }}</span></div>
+  <div class="meta-right">{% if creator %}{{ creator.full_name }}{% endif %}{% if creator and creator.job_title %} -<br>{{ creator.job_title }}{% endif %}</div>
+  <h1 class="title">نموذج مأمورية عمل</h1>
+
+  <div class="form">
+    <div class="row r1">
+      <div class="cell"><span class="label">القائم بالمأمورية :</span><span class="value">{{ employee.full_name if employee else '' }}</span></div>
+      <div class="cell"><span class="label">الفرع الاساسى :</span><span class="value">{{ branch.name if branch else '' }}{% if governorate %} - {{ governorate.name }}{% endif %}</span></div>
+      <div class="cell"><span class="label">الكود الوظيفى :</span><span class="value">{{ employee.job_code if employee and employee.job_code else '' }}</span></div>
+    </div>
+    <div class="row r2">
+      <div class="cell"><span class="label">جهة المأمورية :</span><span class="value">{{ movement.destination.name if movement.destination else '' }}{% if movement.destination and governorate %} - {{ governorate.name }}{% endif %}</span></div>
+      <div class="cell"><span class="label">الوحدة :</span><span class="value">&nbsp;</span></div>
+      <div class="cell blank">&nbsp;</div>
+    </div>
+    <div class="row r3">
+      <div class="cell reason"><span class="label">سبب المأمورية :</span><span class="value">&nbsp;</span></div>
+      <div class="cell reason"><span class="value">&nbsp;</span></div>
+      <div class="cell training"><span class="label">تدريب :</span><span class="checkbox"></span></div>
+    </div>
+    <div class="row r4">
+      <div class="cell datecell"><span class="label">من تاريخ :</span><span class="value">{{ movement.from_date.strftime('%Y/%m/%d') if movement.from_date else '' }}</span></div>
+      <div class="cell datecell"><span class="label">الى تاريخ :</span><span class="value">{{ movement.to_date.strftime('%Y/%m/%d') if movement.to_date else '' }}</span></div>
+      <div class="cell blank">&nbsp;</div>
+    </div>
   </div>
-  <h1 class="mission-title">نموذج مأمورية عمل</h1>
-  <div class="mission-status">{{mission_state}}</div>
-  <table class="mission-table">
-    <tr><th>القائم بالمأمورية</th><td>{{employee.full_name if employee else ''}}</td></tr>
-    <tr><th>الكود الوظيفي</th><td>{{employee.job_code if employee and employee.job_code else ''}}</td></tr>
-    <tr><th>الفرع الأساسي</th><td>{{branch.name if branch else ''}}</td></tr>
-    <tr><th>المحافظة</th><td>{{governorate.name if governorate else ''}}</td></tr>
-    <tr><th>جهة المأمورية</th><td>{{movement.destination_branch or ''}}</td></tr>
-    <tr><th>سبب المأمورية</th><td>{{movement.reason if movement.reason is defined else ''}}</td></tr>
-    <tr><th>من تاريخ</th><td>{{movement.from_date.strftime('%Y/%m/%d') if movement.from_date else ''}}</td></tr>
-    <tr><th>إلى تاريخ</th><td>{{movement.to_date.strftime('%Y/%m/%d') if movement.to_date else ''}}</td></tr>
-    <tr><th>تدريب</th><td>{{movement.training if movement.training is defined else ''}}</td></tr>
-    <tr><th>الوحدة</th><td>{{branch.name if branch else ''}}</td></tr>
-  </table>
-  <div class="mission-footer">
-    <div class="mission-sign">
-      <b>المعتمد</b><br>
-      {{approver.full_name if approver else ''}}<br>
-      {{approver.job_title if approver and approver.job_title else ''}}
-    </div>
-    <div class="mission-sign">
-      <b>حالة المأمورية</b><br>{{mission_state}}
-    </div>
+
+  <div class="approval">
+    <div>اعتماد مدير فرع</div>
+    <div class="line">{{ branch.name if branch else '' }}{% if governorate %} - {{ governorate.name }}{% endif %}</div>
   </div>
 </div>
 </body>

@@ -1166,10 +1166,11 @@ def mission_print(movement_id):
     branch = db.session.get(Branch, employee.branch_id) if employee else None
     gov = db.session.get(Governorate, branch.governorate_id) if branch else None
     approver = db.session.get(User, m.approver_id) if getattr(m, 'approver_id', None) else None
+    creator = db.session.get(User, m.created_by) if getattr(m, 'created_by', None) else None
     return render_template(
         'mission_print.html',
         movement=m, employee=employee, branch=branch, governorate=gov,
-        approver=approver,
+        approver=approver, creator=creator, printed_at=datetime.now(),
         mission_state=('مغلق' if m.status == 'معتمدة' else 'تحت التحرير')
     )
 

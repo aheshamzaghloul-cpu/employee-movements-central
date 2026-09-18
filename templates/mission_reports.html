@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block title %}طباعة المأموريات PDF{% endblock %}
+{% block content %}
+<div class="page-head no-print">
+  <div><h1>طباعة المأموريات PDF</h1><p class="muted">اختر المحافظة ثم الفرع ثم الموظف، ثم اطبع المأمورية المطلوبة.</p></div>
+  <div class="actions"><a class="btn secondary" href="/reports">↩ العودة للتقارير</a></div>
+</div>
+
+<div class="box no-print mission-report-filters">
+<form method="get" class="grid report-filters" id="missionFilterForm">
+  <div><label>المحافظة</label>
+    <select name="governorate_id" onchange="this.form.branch_id.value='';this.form.employee_id.value='';this.form.submit()">
+      <option value="">كل المحافظات</option>
+      {% for g in report_governorates %}<option value="{{g.id}}" {% if selected_governorate==g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}
+    </select>
+  </div>
+  <div><label>الفرع</label>
+    <select name="branch_id" onchange="this.form.employee_id.value='';this.form.submit()" {% if not selected_governorate %}disabled{% endif %}>
+      <option value="">كل الفروع</option>
+      {% for b in report_branches %}<option value="{{b.id}}" {% if selected_branch==b.id|string %}selected{% endif %}>{{b.name}}</option>{% endfor %}
+    </select>
+  </div>
+  <div><label>اسم الموظف</label>
+    <select name="employee_id" {% if not selected_branch %}disabled{% endif %}>
+      <option value="">كل الموظفين</option>
+      {% for e in employees %}<option value="{{e.id}}" {% if selected_employee==e.id|string %}selected{% endif %}>{{e.full_name}} — {{e.job_code or '—'}}</option>{% endfor %}
+    </select>
+  </div>
+  <div><label>الحالة</label><select name="status"><option value="">كل الحالات</option>{% for x in statuses %}<option value="{{x}}" {% if status==x %}selected{% endif %}>{{x}}</option>{% endfor %}</select></div>
+  <div><label>من يوم</label><input type="date" name="date_from" value="{{date_from}}"></div>
+  <div><label>إلى يوم</label><input type="date" name="date_to" value="{{date_to}}"></div>
+  <div class="actions"><button class="btn teal">بحث</button><a class="btn secondary" href="/reports/assignments/print-missions">مسح</a></div>
+</form>
+</div>
+
+<div class="box tablewrap">
+  {% if rows %}
+  <table class="mission-report-table">
+    <thead><tr><th>المأمورية</th><th>الموظف</th><th>الفرع الأساسي</th><th>جهة المأمورية</th><th>من</th><th>إلى</th><th>الحالة</th><th>الطباعة</th></tr></thead>
+    <tbody>
+    {% for m in rows %}
+      <tr>
+        <td>#{{m.id}}</td>
+        <td><strong>{{m.employee.full_name}}</strong><br><small>{{m.employee.job_code or '—'}}</small></td>
+        <td>{{m.employee.branch.name if m.employee.branch else '—'}}</td>
+        <td>{{m.destination.name if m.destination else '—'}}</td>
+        <td>{{m.from_date or '—'}}</td>
+        <td>{{m.to_date or '—'}}</td>
+        <td><span class="tag">{{'مغلق' if m.status=='معتمدة' else 'تحت التحرير'}}</span></td>
+        <td><a class="btn teal small" href="/reports/assignments/print-mission/{{m.id}}" target="_blank">🖨️ طباعة PDF</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty">لا توجد مأموريات ضمن نطاق البحث المحدد.</div>{% endif %}
+</div>
+{% endblock %}

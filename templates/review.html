@@ -27,7 +27,7 @@
 <div class="box tablewrap">
 {% if tab=='assignments' %}<div class="hint" style="margin-bottom:12px">تظهر المأموريات غير المغلقة. عند تحديد فترة، تظهر أي مأمورية تتداخل مدتها مع الفترة المحددة.</div>{% endif %}
 <table>
-<thead><tr><th>الموظف</th><th>المحافظة / الفرع</th><th>الانتداب</th><th>الفترة</th><th>الحالة</th><th>المعتمد</th><th>حالة المأمورية</th><th>الإجراءات</th></tr></thead>
+<thead><tr><th>الموظف</th><th>المحافظة / الفرع</th><th>الانتداب</th><th>الفترة</th><th>الحالة</th><th>اسم المعتمد ووظيفته</th><th>حالة المأمورية</th><th>الإجراءات</th></tr></thead>
 <tbody>
 {% for m in rows %}
 <tr>
@@ -36,7 +36,7 @@
 <td>{{m.destination.name if m.destination else 'انتداب'}}</td>
 <td>{{m.from_date or '—'}} إلى {{m.to_date or '—'}}</td>
 <td><span class="tag">{{m.status}}</span>{% if m.status=='مرفوضة' and m.rejection_reason %}<br><small>{{m.rejection_reason}}</small>{% endif %}</td>
-<td>{% if m.approver %}{{m.approver.full_name}}{% else %}<span class="hint">—</span>{% endif %}</td><td>{% if m.movement_type=='انتداب' %}<span class="tag assignment-tag {{assignment_state(m)}}">{{assignment_state(m)}}</span>{% else %}—{% endif %}</td>
+<td>{% if m.status=='معتمدة' and approved_people.get(m.approved_by) %}<b>{{approved_people.get(m.approved_by).full_name}}</b>{% if approved_people.get(m.approved_by).job_title %}<br><small>{{approved_people.get(m.approved_by).job_title}}</small>{% endif %}{% elif m.approver %}<b>{{m.approver.full_name}}</b>{% if m.approver.job_title %}<br><small>{{m.approver.job_title}}</small>{% endif %}{% else %}<span class="hint">—</span>{% endif %}</td><td>{% if m.movement_type=='انتداب' %}<span class="tag assignment-tag {{assignment_state(m)}}">{{assignment_state(m)}}</span>{% else %}—{% endif %}</td>
 <td>
 <a class="btn secondary mini" href="/movements/{{m.id}}/history">السجل</a> {% if m.status=='مرفوضة' %}<a class="btn secondary mini" href="/movements/{{m.id}}/edit">تعديل وإعادة إرسال</a>{% endif %}{% if can('delete_movements') and m.status!='معتمدة' %}<form class="inline" method="post" action="/movements/{{m.id}}/delete"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="red mini" data-confirm="هل تريد حذف هذه الحركة؟">حذف</button></form>{% endif %}
 {% if tab=='pending' and m.status=='تحت المراجعة' %}

@@ -250,3 +250,24 @@ td{border-color:#c5d4db;color:#29414e}
 /* v34.2 — dedicated mission PDF report */
 .mission-report-card{background:#edf5f7!important;border-color:#b8d1d8!important}
 .mission-report-card h3{color:#245c6c!important}
+.mission-report-card{display:flex;align-items:center;justify-content:space-between;gap:18px}.mission-report-card-text{min-width:0}.mission-report-card-text h3{margin:0 0 5px}.mission-report-card-text p{margin:0;color:var(--muted)}.mission-report-table td{vertical-align:middle}.mission-report-table small{color:var(--muted)}.mission-report-filters{margin-bottom:14px}
+@media(max-width:700px){.mission-report-card{flex-direction:column;align-items:stretch}.mission-report-card .btn{text-align:center}}
+
+/* v34.8: الرئيسية — المحافظات والبحث في سطر واحد، ثم المدخلون الأوائل ثم الحركات المسندة */
+.home-top-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(250px,360px);gap:10px;align-items:center;margin:2px 0 12px}
+.home-top-row .home-governorates{margin:0;min-height:50px;padding:8px 12px}
+.home-inline-search{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center}
+.home-inline-search input{min-height:42px;padding:8px 11px;font-size:14px;border-radius:10px}
+.home-inline-search button{min-height:42px;padding:7px 14px;font-size:14px}
+.home-tree{margin-bottom:14px}
+.smart-collapse-btn{margin-right:auto!important;padding:4px 9px!important;min-width:34px!important;border:1px solid var(--border)!important;background:var(--surface2)!important;color:var(--text)!important;border-radius:8px!important;font-size:13px!important;line-height:1!important}
+.smart-collapse-btn:hover{background:#2d5260!important}
+.smart-collapsible.smart-is-collapsed{padding-bottom:10px}
+.smart-collapsible.smart-is-collapsed>.smart-body{display:none!important}
+.smart-collapsible.smart-is-collapsed>.section-title{margin-bottom:0}
+.smart-collapsible.smart-is-collapsed>.section-title .hint{display:none}
+.smart-collapsible.smart-is-collapsed .smart-collapse-btn::before{content:'⌄'}
+.smart-collapsible:not(.smart-is-collapsed) .smart-collapse-btn::before{content:'⌃'}
+@media(max-width:800px){.home-top-row{grid-template-columns:1fr}.home-inline-search{max-width:100%}}
+
+/* v34.8: نموذج المأمورية — لا يؤثر على شاشات التطبيق */

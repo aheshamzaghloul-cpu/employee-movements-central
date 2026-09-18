@@ -117,3 +117,44 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   emp.addEventListener('change',sync); sync();
 });
+
+
+// v34.8: صلاحيات الدور الافتراضية تضاف تلقائيًا عند إنشاء الحساب، وتبقى قابلة للتعديل لاحقًا.
+(function(){
+  const qs=(s,r=document)=>r.querySelector(s), qsa=(s,r=document)=>[...r.querySelectorAll(s)];
+  const roleDefaults={};
+  function syncRoleDefaults(form){
+    const roles=qsa('input[name="roles"]:checked',form).map(x=>x.value);
+    qsa('input[name="permissions"]',form).forEach(p=>{
+      const defs=(p.dataset.permissionDefaultRoles||'').split('|').filter(Boolean);
+      const should=roles.some(r=>defs.includes(r));
+      if(should){ p.checked=true; p.dataset.autoDefault='1'; }
+      else if(p.dataset.autoDefault==='1'){ p.checked=false; p.dataset.autoDefault=''; }
+    });
+  }
+  qsa('form').forEach(form=>{
+    if(!qsa('input[name="roles"]',form).length || !qsa('input[name="permissions"]',form).length) return;
+    qsa('input[name="roles"]',form).forEach(x=>x.addEventListener('change',()=>syncRoleDefaults(form)));
+    syncRoleDefaults(form);
+  });
+})();
+
+// v34.8: كل بند رئيسي قابل للعرض الكامل أو الاختصار إلى اسم البند فقط.
+(function(){
+  const qs=(s,r=document)=>r.querySelector(s), qsa=(s,r=document)=>[...r.querySelectorAll(s)];
+  qsa('.box').forEach((box,idx)=>{
+    if(box.classList.contains('no-collapse') || box.closest('.mission-page')) return;
+    const title=qs('.section-title',box);
+    if(!title) return;
+    const heading=qs('h1,h2,h3',title);
+    if(!heading) return;
+    let body=document.createElement('div'); body.className='smart-body';
+    const children=[...box.children].filter(el=>el!==title);
+    if(!children.length) return;
+    children.forEach(el=>body.appendChild(el));
+    box.appendChild(body); box.classList.add('smart-collapsible');
+    const btn=document.createElement('button'); btn.type='button'; btn.className='smart-collapse-btn'; btn.title='عرض/اختصار البند'; btn.setAttribute('aria-label','عرض أو اختصار البند');
+    btn.addEventListener('click',()=>{box.classList.toggle('smart-is-collapsed');});
+    title.appendChild(btn);
+  });
+})();

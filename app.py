@@ -7,7 +7,7 @@ from sqlalchemy import UniqueConstraint
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app=Flask(__name__)
-APP_VERSION='v32.6-FINAL-DELEGATION'
+APP_VERSION='v34.8-UI-PERMISSIONS-MISSION-EXACT'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg://',1)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or 'dev-only-change-me',SQLALCHEMY_DATABASE_URI=DATABASE_URL,SQLALCHEMY_TRACK_MODIFICATIONS=False,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','0')=='1',MAX_CONTENT_LENGTH=2*1024*1024)
@@ -223,11 +223,9 @@ def user_permissions(u):
         selected = session.get('active_role')
     effective = {selected} if selected else actual_roles(u)
     if selected:
-        allowed = set(ROLE_DEFAULT_PERMISSIONS.get(selected, set()))
-        # Keep any custom permission that belongs to the selected role's normal scope.
-        if explicit:
-            return explicit & allowed
-        return allowed
+        # الصلاحيات محفوظة للحساب ويمكن لمسؤول التطبيق زيادتها أو تقليلها؛ اختيار الدور يغيّر واجهة الدور لا يلغي الصلاحيات المخصصة.
+        if explicit: return explicit
+        return set(ROLE_DEFAULT_PERMISSIONS.get(selected, set()))
     if explicit: return explicit
     out=set()
     for r in effective: out |= ROLE_DEFAULT_PERMISSIONS.get(r,set())
@@ -631,10 +629,14 @@ def users():
         else:
             nu=User(username=username,full_name=full,job_title=job_title,job_code=job_code,password_hash=generate_password_hash(password)); db.session.add(nu); db.session.flush()
             for role in selected_roles: db.session.add(UserRole(user_id=nu.id,role=role))
+            # صلاحيات الدور تضاف تلقائيًا عند إنشاء الحساب، ويمكن لمسؤول التطبيق تعديلها لاحقًا بالزيادة أو النقصان.
             selected_perms={x for x in request.form.getlist('permissions') if x in PERMISSIONS}
-            if 'مسؤول التطبيق' not in roles(u): selected_perms &= GRANTABLE_BY_SUPERVISOR
-            if not selected_perms:
-                db.session.rollback(); flash('يجب اختيار صلاحية واحدة على الأقل للحساب.'); return redirect('/users')
+            defaults=set()
+            for r in selected_roles: defaults |= ROLE_DEFAULT_PERMISSIONS.get(r,set())
+            if 'مسؤول التطبيق' not in roles(u):
+                defaults &= GRANTABLE_BY_SUPERVISOR
+                selected_perms &= GRANTABLE_BY_SUPERVISOR
+            selected_perms |= defaults
             for perm in selected_perms: db.session.add(UserPermission(user_id=nu.id,permission=perm))
             if 'مشرف محافظة' in selected_roles:
                 chosen={int(x) for x in request.form.getlist('governorate_id') if x.isdigit()}
@@ -651,7 +653,8 @@ def users():
             log('ADD','User',nu.id,username); db.session.commit(); flash('تم إنشاء الحساب. سيُطلب من المستخدم تغيير كلمة المرور عند أول دخول.')
     gs=Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True).all() if 'مسؤول التطبيق' not in roles(u) else Governorate.query.filter_by(is_active=True).all()
     bs=Branch.query.filter(Branch.id.in_(bids()),Branch.is_active==True).all() if 'مسؤول التطبيق' not in roles(u) else Branch.query.filter_by(is_active=True).all()
-    return render_template('users.html',rows=visible,gs=gs,bs=bs)
+    role_default_permissions={r:sorted(ROLE_DEFAULT_PERMISSIONS.get(r,set())) for r in ROLES}
+    return render_template('users.html',rows=visible,gs=gs,bs=bs,role_default_permissions=role_default_permissions)
 @app.route('/users/<int:i>/edit',methods=['GET','POST'])
 @req
 def user_edit(i):
@@ -670,10 +673,18 @@ def user_edit(i):
             if not selected: flash('يجب اختيار دور واحد على الأقل.'); return redirect(url_for('user_edit',i=i))
             if i==me().id and 'مسؤول التطبيق' not in selected: flash('لا يمكن إزالة دور مسؤول التطبيق من حسابك هنا.'); return redirect(url_for('user_edit',i=i))
             selected_perm_set={x for x in request.form.getlist('permissions') if x in PERMISSIONS}
-            if not selected_perm_set: flash('يجب اختيار صلاحية واحدة على الأقل.'); return redirect(url_for('user_edit',i=i))
+            old_roles=actual_roles(target)
+            # عند إضافة دور جديد تُضاف صلاحياته الافتراضية تلقائيًا، أما الصلاحيات الموجودة فيمكن لمسؤول التطبيق زيادتها أو تقليلها.
+            newly_added=set(selected)-set(old_roles)
+            defaults=set()
+            for r in newly_added: defaults |= ROLE_DEFAULT_PERMISSIONS.get(r,set())
+            if 'مسؤول التطبيق' not in roles():
+                defaults &= GRANTABLE_BY_SUPERVISOR
+                selected_perm_set &= GRANTABLE_BY_SUPERVISOR
+            selected_perm_set |= defaults
             UserRole.query.filter_by(user_id=i).delete(); UserPermission.query.filter_by(user_id=i).delete()
             for r in selected: db.session.add(UserRole(user_id=i,role=r))
-            for perm in (selected_perm_set if 'مسؤول التطبيق' in roles() else (selected_perm_set & GRANTABLE_BY_SUPERVISOR)): db.session.add(UserPermission(user_id=i,permission=perm))
+            for perm in selected_perm_set: db.session.add(UserPermission(user_id=i,permission=perm))
             # Always clear old scope assignments first so removing a role also removes its old scope.
             UserGovernorate.query.filter_by(user_id=i).delete()
             UserBranch.query.filter_by(user_id=i).delete()
@@ -692,9 +703,8 @@ def user_edit(i):
         else:
             # Supervisor may only edit first-level users in his governorate(s).
             selected_perm_set={x for x in request.form.getlist('permissions') if x in GRANTABLE_BY_SUPERVISOR}
-            if not selected_perm_set: flash('يجب اختيار صلاحية واحدة على الأقل.'); return redirect(url_for('user_edit',i=i))
             UserPermission.query.filter_by(user_id=i).delete()
-            for perm in (selected_perm_set if 'مسؤول التطبيق' in roles() else (selected_perm_set & GRANTABLE_BY_SUPERVISOR)): db.session.add(UserPermission(user_id=i,permission=perm))
+            for perm in selected_perm_set: db.session.add(UserPermission(user_id=i,permission=perm))
             chosen={int(x) for x in request.form.getlist('branch_id') if x.isdigit()} & set(bids())
             if not chosen: flash('يجب إسناد فرع واحد على الأقل.'); return redirect(url_for('user_edit',i=i))
             UserBranch.query.filter_by(user_id=i).delete()
@@ -880,13 +890,15 @@ def review():
             Movement.to_date<=tomorrow
         ).count(),
     }
+    approved_ids={m.approved_by for m in rows if m.approved_by}
+    approved_people={u.id:u for u in User.query.filter(User.id.in_(approved_ids)).all()} if approved_ids else {}
     return render_template('review.html',rows=rows,tab=tab,counts=counts,today=today,tomorrow=tomorrow,
                            assignment_search=request.args.get('q','').strip(),
                            assignment_status=request.args.get('status','').strip(),
                            assignment_state_filter=request.args.get('state','').strip(),
                            assignment_date_from=request.args.get('date_from','').strip(),
                            assignment_date_to=request.args.get('date_to','').strip(),
-                           assignment_states=ASSIGNMENT_STATES)
+                           assignment_states=ASSIGNMENT_STATES, approved_people=approved_people)
 
 @app.route('/movements',methods=['GET','POST'])
 @req
@@ -1155,6 +1167,72 @@ def audit():
     audit_users={u.id:u.full_name for u in User.query.filter(User.id.in_(ids)).all()} if ids else {}
     return render_template('audit.html',rows=rows,audit_users=audit_users)
 
+@app.get('/reports/assignments/print-missions')
+@req
+def mission_print_list():
+    if not can('view_reports'): abort(403)
+    bs=bids()
+    q=(Movement.query.join(Employee).filter(
+        Employee.branch_id.in_(bs), Movement.is_active==True, Movement.movement_type=='انتداب'
+    ) if bs else Movement.query.filter(False))
+
+    gov=request.args.get('governorate_id','').strip()
+    branch=request.args.get('branch_id','').strip()
+    employee=request.args.get('employee_id','').strip()
+    status=request.args.get('status','').strip()
+    date_from=request.args.get('date_from','').strip()
+    date_to=request.args.get('date_to','').strip()
+
+    allowed_gov_ids=set(gids()) if gids() else set()
+    govs=Governorate.query.filter(Governorate.is_active==True).order_by(Governorate.name.asc()).all()
+    govs=[g for g in govs if g.id in allowed_gov_ids]
+    branches=Branch.query.filter(Branch.is_active==True, Branch.id.in_(bs)).order_by(Branch.name.asc()).all() if bs else []
+    branches=[b for b in branches if b.governorate_id in allowed_gov_ids]
+
+    selected_gov=None
+    if gov.isdigit() and int(gov) in allowed_gov_ids:
+        selected_gov=db.session.get(Governorate,int(gov))
+        branches=[b for b in branches if b.governorate_id==selected_gov.id]
+    else:
+        gov=''
+
+    selected_branch=None
+    if branch.isdigit() and any(b.id==int(branch) for b in branches):
+        selected_branch=db.session.get(Branch,int(branch))
+        q=q.filter(Employee.branch_id==selected_branch.id)
+    elif selected_gov:
+        q=q.filter(Employee.branch.has(Branch.governorate_id==selected_gov.id))
+    else:
+        branch=''
+
+    employees_q=Employee.query.filter(Employee.is_active==True,Employee.branch_id.in_(bs)) if bs else Employee.query.filter(False)
+    if selected_branch:
+        employees_q=employees_q.filter(Employee.branch_id==selected_branch.id)
+    elif selected_gov:
+        employees_q=employees_q.join(Branch).filter(Branch.governorate_id==selected_gov.id)
+    employees=employees_q.order_by(Employee.full_name.asc()).all()
+
+    if employee.isdigit() and any(e.id==int(employee) for e in employees):
+        q=q.filter(Movement.employee_id==int(employee))
+    else:
+        employee=''
+    if status in STATUSES: q=q.filter(Movement.status==status)
+
+    from datetime import date as _date
+    def _parse_report_date(value):
+        try: return _date.fromisoformat(value) if value else None
+        except ValueError: return None
+    df=_parse_report_date(date_from); dt=_parse_report_date(date_to)
+    if df and dt and df>dt: df,dt=dt,df
+    if df: q=q.filter(Movement.to_date >= df)
+    if dt: q=q.filter(Movement.from_date <= dt)
+
+    rows=q.order_by(Movement.from_date.desc(),Movement.id.desc()).all()
+    return render_template('mission_reports.html', rows=rows, statuses=STATUSES,
+        report_governorates=govs, report_branches=branches, employees=employees,
+        selected_governorate=gov, selected_branch=branch, selected_employee=employee,
+        status=status, date_from=date_from, date_to=date_to)
+
 @app.get('/reports/assignments/print-mission/<int:movement_id>')
 @req
 def mission_print(movement_id):
@@ -1166,11 +1244,12 @@ def mission_print(movement_id):
     branch = db.session.get(Branch, employee.branch_id) if employee else None
     gov = db.session.get(Governorate, branch.governorate_id) if branch else None
     approver = db.session.get(User, m.approver_id) if getattr(m, 'approver_id', None) else None
+    approved_by_person = db.session.get(User, m.approved_by) if getattr(m, 'approved_by', None) else None
     creator = db.session.get(User, m.created_by) if getattr(m, 'created_by', None) else None
     return render_template(
         'mission_print.html',
         movement=m, employee=employee, branch=branch, governorate=gov,
-        approver=approver, creator=creator, printed_at=datetime.now(),
+        approver=approver, approved_by_person=approved_by_person, creator=creator, printed_at=datetime.now(),
         mission_state=('مغلق' if m.status == 'معتمدة' else 'تحت التحرير')
     )
 

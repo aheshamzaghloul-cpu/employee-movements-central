@@ -1,29 +1,18 @@
 {% extends 'base.html' %}
 {% block title %}الرئيسية — نظام إدارة حركات الموظفين{% endblock %}
 {% block content %}
-<div class="home-governorates">
-  <span class="home-label">المحافظة:</span>
-  {% if visible_govs %}
-    {% for gobj in visible_govs %}<span class="home-gov">{{gobj.name}}</span>{% endfor %}
-  {% else %}<span class="home-gov empty-gov">لا توجد محافظة مسندة</span>{% endif %}
-</div>
-
-<div class="box home-search-box">
-  <div class="section-title"><div><h3>البحث عن موظف</h3></div></div>
-  <form method="get" action="/employees" class="home-search-form">
-    <input name="q" type="search" placeholder="اسم الموظف أو الكود الوظيفي..." autocomplete="off" autofocus>
+<div class="home-top-row">
+  <div class="home-governorates">
+    <span class="home-label">المحافظة:</span>
+    {% if visible_govs %}
+      {% for gobj in visible_govs %}<span class="home-gov">{{gobj.name}}</span>{% endfor %}
+    {% else %}<span class="home-gov empty-gov">لا توجد محافظة مسندة</span>{% endif %}
+  </div>
+  <form method="get" action="/employees" class="home-inline-search">
+    <input name="q" type="search" placeholder="بحث عن موظف..." autocomplete="off">
     <button>بحث</button>
   </form>
 </div>
-
-{% if pending is not none and pending %}
-<div class="box tablewrap">
-  <div class="section-title"><div><h3>الحركات التي تحتاج مراجعة</h3><span class="hint">الحركات المسندة إليك للمراجعة والاعتماد.</span></div><a class="btn secondary" href="/review?tab=pending">عرض الكل</a></div>
-  <table><thead><tr><th>الموظف</th><th>الحركة</th><th>الفترة</th><th>الحالة</th></tr></thead><tbody>
-  {% for m in pending %}<tr><td><a href="/employee/{{m.employee.id}}">{{m.employee.full_name}}</a><br><small>{{m.employee.branch.name}}</small></td><td>{{m.movement_type}}{% if m.leave_type %}<br><small>{{m.leave_type}}</small>{% endif %}</td><td>{{m.from_date or m.permission_date or '—'}}{% if m.to_date %} إلى {{m.to_date}}{% endif %}</td><td><span class="tag">{{m.status}}</span></td></tr>{% endfor %}
-  </tbody></table>
-</div>
-{% endif %}
 
 {% if not is_admin %}
 <div class="box home-tree">
@@ -45,6 +34,15 @@
       </div>
     </details>
   {% else %}<div class="empty">لا يوجد مدخلون أولون ضمن نطاقك حاليًا.</div>{% endfor %}
+</div>
+{% endif %}
+
+{% if pending is not none and pending %}
+<div class="box tablewrap">
+  <div class="section-title"><div><h3>الحركات المسندة للاعتماد</h3><span class="hint">الحركات المسندة إليك للمراجعة والاعتماد.</span></div><a class="btn secondary" href="/review?tab=pending">عرض الكل</a></div>
+  <table><thead><tr><th>الموظف</th><th>الحركة</th><th>الفترة</th><th>الحالة</th></tr></thead><tbody>
+  {% for m in pending %}<tr><td><a href="/employee/{{m.employee.id}}">{{m.employee.full_name}}</a><br><small>{{m.employee.branch.name}}</small></td><td>{{m.movement_type}}{% if m.leave_type %}<br><small>{{m.leave_type}}</small>{% endif %}</td><td>{{m.from_date or m.permission_date or '—'}}{% if m.to_date %} إلى {{m.to_date}}{% endif %}</td><td><span class="tag">{{m.status}}</span></td></tr>{% endfor %}
+  </tbody></table>
 </div>
 {% endif %}
 

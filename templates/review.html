@@ -12,7 +12,7 @@
 </div>
 {% if tab=='assignments' %}
 <div class="box assignment-filters">
-  <div class="section-title"><div><h3>بحث وتصفية المأموريات</h3><p class="hint">يمكنك البحث بالاسم أو الكود الوظيفي، وتحديد الحالة والفترة المطلوبة. عند ترك الفترة فارغة تظهر المأموريات المنتهية أو التي تنتهي اليوم/غدًا.</p></div></div>
+  <div class="section-title"><div><h3>بحث وتصفية المأموريات</h3></div></div>
   <form method="get" action="/review" class="grid wide">
     <input type="hidden" name="tab" value="assignments">
     <div><label>بحث عن الموظف</label><input name="q" value="{{assignment_search}}" placeholder="اسم الموظف أو الكود الوظيفي"></div>
@@ -25,7 +25,7 @@
 </div>
 {% endif %}
 <div class="box tablewrap">
-{% if tab=='assignments' %}<div class="hint" style="margin-bottom:12px">تظهر المأموريات غير المغلقة. عند تحديد فترة، تظهر أي مأمورية تتداخل مدتها مع الفترة المحددة.</div>{% endif %}
+{% if tab=='assignments' %}{% endif %}
 <table>
 <thead><tr><th>الموظف</th><th>المحافظة / الفرع</th><th>الانتداب</th><th>الفترة</th><th>الحالة</th><th>اسم المعتمد ووظيفته</th><th>حالة المأمورية</th><th>الإجراءات</th></tr></thead>
 <tbody>

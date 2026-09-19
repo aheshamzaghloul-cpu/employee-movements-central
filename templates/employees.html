@@ -3,7 +3,7 @@
 {% block content %}
 <div class="toolbar"><div><h1>الموظفون</h1><p class="subtitle">إضافة الموظف وإدارته والانتقال إلى بطاقته وتسجيل حركته بسهولة.</p></div></div>
 <div class="box">
-  <div class="section-title"><h3>إضافة موظف جديد</h3><span class="hint">جميع الحقول إجبارية</span></div>
+  <div class="section-title"><h3>إضافة موظف جديد</h3></div>
   <form method="post" class="grid wide">
     <input type="hidden" name="_csrf" value="{{csrf}}">
     <label>المحافظة<select name="governorate_id" id="new_employee_governorate" required><option value="">اختر المحافظة</option>{% for g in govs %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
@@ -18,7 +18,7 @@
   </form>
 </div>
 <div class="box tablewrap">
-  <div class="section-title"><div><h3>قائمة الموظفين</h3><span class="hint">{{ rows|length }} موظف ظاهر في النطاق الحالي</span></div><span class="hint">المسار: المحافظة ← الفرع ← الموظف</span></div>
+  <div class="section-title"><div><h3>قائمة الموظفين</h3></div></div>
   <form method="get" class="grid" style="align-items:end;margin-bottom:14px">
     <label>بحث سريع<input name="q" value="{{q or ''}}" placeholder="الاسم أو الكود الوظيفي أو الوظيفة..." autocomplete="off"></label>
     <label>المحافظة<select name="governorate_id" id="employee_governorate_filter"><option value="">كل المحافظات</option>{% for g in govs %}<option value="{{g.id}}" {% if gov_filter|string==g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>

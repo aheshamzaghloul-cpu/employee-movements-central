@@ -453,7 +453,7 @@ def home():
             branch_groups.append({'branch':b,'employees':emps})
         gov_ids_for_entry={x['branch'].governorate_id for x in branch_groups}
         gov_names=[gobj.name for gobj in Governorate.query.filter(Governorate.id.in_(gov_ids_for_entry),Governorate.is_active==True).order_by(Governorate.name.asc()).all()] if gov_ids_for_entry else []
-        entry_rows.append({'user':u,'branches':branch_groups,'governorates':gov_names})
+        entry_rows.append({'user':u,'branches':branch_groups,'governorates':gov_names,'employee_link':Employee.query.filter_by(user_id=u.id).first()})
 
     if bs:
         base=Movement.query.join(Employee).filter(Employee.branch_id.in_(bs),Movement.is_active==True)
@@ -532,13 +532,12 @@ def structure():
             if 'المدخل الأول' not in actual_roles(u): continue
             ubids={x.branch_id for x in UserBranch.query.filter_by(user_id=u.id).all()}
             scoped=[b for b in bs if b.id in ubids]
-            if not scoped: continue
             for b in scoped:
                 b.employee_items=Employee.query.filter_by(branch_id=b.id,is_active=True).order_by(Employee.full_name).all()
             sup_link=SupervisorEntry.query.filter_by(entry_id=u.id).order_by(SupervisorEntry.id.asc()).first()
             sup=sup_link.supervisor if sup_link else None
             if not sup and len({b.governorate_id for b in scoped})==1: sup=supervisor_for_governorate(g.id)
-            entries.append((u,scoped,sup))
+            entries.append((u,scoped,sup,Employee.query.filter_by(user_id=u.id).first()))
         counts={b.id:Employee.query.filter_by(branch_id=b.id,is_active=True).count() for b in bs}
         for b in bs:
             if not hasattr(b,'employee_items'):
@@ -629,6 +628,8 @@ def gd(i):
 @req
 def branches():
     if not can('manage_structure') or not has_role('مسؤول التطبيق','مشرف محافظة'): abort(403)
+    if request.method=='GET':
+        return redirect('/structure')
     if request.method=='POST':
         gid=request.form.get('governorate_id'); name=request.form.get('name','').strip(); code=request.form.get('code','').strip(); entry_user_id=request.form.get('entry_user_id','').strip()
         g=db.session.get(Governorate,int(gid)) if gid and gid.isdigit() else None
@@ -785,6 +786,13 @@ def user_edit(i):
                     sup=supervisor_for_governorate(next(iter(chosen_gids)))
                 if sup and sup.is_active and 'مشرف محافظة' in actual_roles(sup) and chosen_gids & user_gov_ids(sup):
                     db.session.add(SupervisorEntry(supervisor_id=sup.id,entry_id=i))
+                linked_emp=Employee.query.filter_by(user_id=i).first()
+                if linked_emp:
+                    linked_emp.full_name=u.full_name; linked_emp.job_title=u.job_title; linked_emp.job_code=u.job_code
+                    if linked_emp.branch_id not in chosen:
+                        linked_emp.branch_id=next(iter(chosen))
+                elif chosen:
+                    db.session.add(Employee(user_id=i,employee_code=None,full_name=u.full_name,branch_id=next(iter(chosen)),job_title=u.job_title,job_code=u.job_code,is_active=True))
         else:
             # Supervisor may only edit first-level users in his governorate(s).
             selected_perm_set={x for x in request.form.getlist('permissions') if x in GRANTABLE_BY_SUPERVISOR}
@@ -799,6 +807,12 @@ def user_edit(i):
             sup=me() if 'مشرف محافظة' in actual_roles(me()) else None
             if sup and sup.is_active and chosen_gids & user_gov_ids(sup):
                 db.session.add(SupervisorEntry(supervisor_id=sup.id,entry_id=i))
+            linked_emp=Employee.query.filter_by(user_id=i).first()
+            if linked_emp:
+                linked_emp.full_name=u.full_name; linked_emp.job_title=u.job_title; linked_emp.job_code=u.job_code
+                if linked_emp.branch_id not in chosen: linked_emp.branch_id=next(iter(chosen))
+            else:
+                db.session.add(Employee(user_id=i,employee_code=None,full_name=u.full_name,branch_id=next(iter(chosen)),job_title=u.job_title,job_code=u.job_code,is_active=True))
         log('EDIT','User',i,'تعديل الحساب والنطاق والصلاحيات'); db.session.commit(); flash('تم حفظ التعديلات.'); return redirect('/users')
     gs=Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True).all() if 'مسؤول التطبيق' not in roles() else Governorate.query.filter_by(is_active=True).all()
     bs=Branch.query.filter(Branch.id.in_(bids()),Branch.is_active==True).all() if 'مسؤول التطبيق' not in roles() else Branch.query.filter_by(is_active=True).all()
@@ -861,7 +875,13 @@ def ub(i):
         flash('يجب إسناد فرع واحد على الأقل للمدخل الأول.'); return redirect('/users')
     UserBranch.query.filter_by(user_id=i).delete()
     for bid in chosen: db.session.add(UserBranch(user_id=i,branch_id=bid))
-    log('ASSIGN','User',i,'فروع'); db.session.commit(); return redirect('/users')
+    linked_emp=Employee.query.filter_by(user_id=i).first()
+    if linked_emp:
+        if linked_emp.branch_id not in chosen: linked_emp.branch_id=next(iter(chosen))
+        linked_emp.full_name=u.full_name; linked_emp.job_title=u.job_title; linked_emp.job_code=u.job_code
+    else:
+        db.session.add(Employee(user_id=i,employee_code=None,full_name=u.full_name,branch_id=next(iter(chosen)),job_title=u.job_title,job_code=u.job_code,is_active=True))
+    log('ASSIGN','User',i,'فروع'); db.session.commit(); return redirect('/structure')
 
 
 @app.route('/employees',methods=['GET','POST'])

@@ -7,7 +7,7 @@ from sqlalchemy import UniqueConstraint
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app=Flask(__name__)
-APP_VERSION='v34.9.1-REQUEST-CONTEXT-FIX'
+APP_VERSION='v34.9.6-CLEAN-DATA'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg://',1)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or 'dev-only-change-me',SQLALCHEMY_DATABASE_URI=DATABASE_URL,SQLALCHEMY_TRACK_MODIFICATIONS=False,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','0')=='1',MAX_CONTENT_LENGTH=2*1024*1024)
@@ -80,7 +80,7 @@ class ApprovalDelegation(db.Model):
     delegate=db.relationship('User',foreign_keys=[delegate_id])
     governorate=db.relationship('Governorate')
 class Employee(db.Model):
-    id=db.Column(db.Integer,primary_key=True); employee_code=db.Column(db.String(100),unique=True,nullable=True); full_name=db.Column(db.String(250),nullable=False); branch_id=db.Column(db.Integer,db.ForeignKey('branch.id',ondelete='RESTRICT'),nullable=False); job_title=db.Column(db.String(200)); job_code=db.Column(db.String(100)); hire_date=db.Column(db.Date); company_phone=db.Column(db.String(80)); personal_phone=db.Column(db.String(80)); is_active=db.Column(db.Boolean,default=True,nullable=False); branch=db.relationship('Branch')
+    id=db.Column(db.Integer,primary_key=True); employee_code=db.Column(db.String(100),unique=True,nullable=True); user_id=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL'),unique=True,nullable=True); full_name=db.Column(db.String(250),nullable=False); branch_id=db.Column(db.Integer,db.ForeignKey('branch.id',ondelete='RESTRICT'),nullable=False); job_title=db.Column(db.String(200)); job_code=db.Column(db.String(100)); hire_date=db.Column(db.Date); company_phone=db.Column(db.String(80)); personal_phone=db.Column(db.String(80)); is_active=db.Column(db.Boolean,default=True,nullable=False); branch=db.relationship('Branch')
 class Movement(db.Model):
     id=db.Column(db.Integer,primary_key=True); employee_id=db.Column(db.Integer,db.ForeignKey('employee.id',ondelete='RESTRICT'),nullable=False); movement_type=db.Column(db.String(30),nullable=False); leave_type=db.Column(db.String(100)); destination_branch_id=db.Column(db.Integer,db.ForeignKey('branch.id',ondelete='RESTRICT')); from_date=db.Column(db.Date); to_date=db.Column(db.Date); permission_date=db.Column(db.Date); status=db.Column(db.String(30),default='مسودة',nullable=False); notes=db.Column(db.Text); rejection_reason=db.Column(db.Text); is_active=db.Column(db.Boolean,default=True,nullable=False); deleted_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); deleted_at=db.Column(db.DateTime); created_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='RESTRICT'),nullable=False); created_at=db.Column(db.DateTime,default=datetime.utcnow); modified_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); modified_at=db.Column(db.DateTime); reviewed_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); reviewed_at=db.Column(db.DateTime); approved_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); approved_at=db.Column(db.DateTime); approver_id=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); employee=db.relationship('Employee'); approver=db.relationship('User',foreign_keys=[approver_id]); destination=db.relationship('Branch',foreign_keys=[destination_branch_id]); assignment_state=db.Column(db.String(30),default='ساري',nullable=False); closed_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); closed_at=db.Column(db.DateTime); closure_reason=db.Column(db.Text); last_assignment_notice_at=db.Column(db.DateTime)
 class MovementHistory(db.Model):
@@ -643,8 +643,11 @@ def branches():
             x=Branch(governorate_id=g.id,name=name,code=code); db.session.add(x); db.session.flush();
             if entry_user_id.isdigit():
                 eu=db.session.get(User,int(entry_user_id))
-                if eu and 'المدخل الأول' in actual_roles(eu) and g.id in {b.governorate_id for b in Branch.query.filter(Branch.id.in_(user_branch_ids(eu))).all()}:
+                if eu and 'المدخل الأول' in actual_roles(eu) and g.id == g.id:
                     db.session.add(UserBranch(user_id=eu.id,branch_id=x.id))
+                    employee=Employee.query.filter_by(user_id=eu.id).first()
+                    if not employee:
+                        db.session.add(Employee(user_id=eu.id,employee_code=None,full_name=eu.full_name,branch_id=x.id,job_title=eu.job_title,job_code=eu.job_code,is_active=True))
             db.session.commit(); log('ADD','Branch',x.id,name); db.session.commit(); flash('تمت إضافة الفرع وربطه بالمدخل الأول تلقائيًا.')
     gs=Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True).order_by(Governorate.name).all()
     rows=Branch.query.filter(Branch.governorate_id.in_(gids())).order_by(Branch.name).all() if gids() else []
@@ -726,6 +729,14 @@ def users():
                 if not sup and 'مسؤول التطبيق' not in roles(u): sup=u if 'مشرف محافظة' in actual_roles(u) else None
                 if not sup and len(gid_values)==1: sup=supervisor_for_governorate(next(iter(gid_values)))
                 if sup: db.session.add(SupervisorEntry(supervisor_id=sup.id,entry_id=nu.id))
+                # The first-level user is also an employee. Create/link the employee record automatically.
+                if 'المدخل الأول' in selected_roles and chosen:
+                    employee=Employee.query.filter_by(user_id=nu.id).first()
+                    if not employee:
+                        employee=Employee(user_id=nu.id,employee_code=None,full_name=nu.full_name,branch_id=next(iter(chosen)),job_title=nu.job_title,job_code=nu.job_code,is_active=True)
+                        db.session.add(employee)
+                    else:
+                        employee.full_name=nu.full_name; employee.job_title=nu.job_title; employee.job_code=nu.job_code
             log('ADD','User',nu.id,username); db.session.commit(); flash('تم إنشاء الحساب وربطه تلقائيًا بالهيكل.')
     gs=Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True).all() if 'مسؤول التطبيق' not in roles(u) else Governorate.query.filter_by(is_active=True).all()
     bs=Branch.query.filter(Branch.id.in_(bids()),Branch.is_active==True).all() if 'مسؤول التطبيق' not in roles(u) else Branch.query.filter_by(is_active=True).all()
@@ -1542,6 +1553,49 @@ def report_csv():
     from flask import Response
     return Response('\ufeff'+out.getvalue(),mimetype='text/csv; charset=utf-8',headers={'Content-Disposition':'attachment; filename=movements_report.csv'})
 
+def purge_old_records_once():
+    """One-time cleanup for the new deployment.
+    Keeps the application administrator account only, removes legacy
+    organizational/business records, and never repeats after the marker exists.
+    """
+    marker = Lookup.query.filter_by(kind='system', name='v34.9.6_legacy_purged').first()
+    if marker:
+        return False
+
+    admin_username = os.getenv('ADMIN_USERNAME','admin')
+    admin = User.query.filter_by(username=admin_username).first()
+    if not admin:
+        return False
+
+    # Delete children first to satisfy foreign-key constraints.
+    MovementHistory.query.delete(synchronize_session=False)
+    Audit.query.delete(synchronize_session=False)
+    ApprovalDelegation.query.delete(synchronize_session=False)
+    SupervisorEntry.query.delete(synchronize_session=False)
+    Movement.query.delete(synchronize_session=False)
+    Employee.query.delete(synchronize_session=False)
+    UserBranch.query.delete(synchronize_session=False)
+    UserGovernorate.query.delete(synchronize_session=False)
+    UserPermission.query.filter(UserPermission.user_id != admin.id).delete(synchronize_session=False)
+    UserRole.query.filter(UserRole.user_id != admin.id).delete(synchronize_session=False)
+    Branch.query.delete(synchronize_session=False)
+    Governorate.query.delete(synchronize_session=False)
+    User.query.filter(User.id != admin.id).delete(synchronize_session=False)
+
+    # Reset administrator scope links; the administrator is global by role.
+    UserBranch.query.filter_by(user_id=admin.id).delete(synchronize_session=False)
+    UserGovernorate.query.filter_by(user_id=admin.id).delete(synchronize_session=False)
+
+    if not UserRole.query.filter_by(user_id=admin.id, role='مسؤول التطبيق').first():
+        db.session.add(UserRole(user_id=admin.id, role='مسؤول التطبيق'))
+    for perm in PERMISSIONS:
+        if not UserPermission.query.filter_by(user_id=admin.id, permission=perm).first():
+            db.session.add(UserPermission(user_id=admin.id, permission=perm))
+
+    db.session.add(Lookup(kind='system', name='v34.9.6_legacy_purged', is_active=True))
+    db.session.commit()
+    return True
+
 def ensure_v25_schema():
     db.create_all()
     # القوائم الأساسية الافتراضية: تُضاف مرة واحدة فقط، ولا تُعتبر بيانات موظفين أو محافظات.
@@ -1576,6 +1630,9 @@ def ensure_v25_schema():
         db.session.execute(text('ALTER TABLE "user" ADD COLUMN job_title VARCHAR(200)'))
     if 'job_code' not in ucols:
         db.session.execute(text('ALTER TABLE "user" ADD COLUMN job_code VARCHAR(100)'))
+    ecols_existing={c['name'] for c in insp.get_columns('employee')}
+    if 'user_id' not in ecols_existing:
+        db.session.execute(text('ALTER TABLE employee ADD COLUMN user_id INTEGER'))
     mcols={c['name'] for c in insp.get_columns('movement')}
     if 'approver_id' not in mcols:
         db.session.execute(text('ALTER TABLE movement ADD COLUMN approver_id INTEGER'))
@@ -1589,6 +1646,22 @@ def ensure_v25_schema():
         if len(gids_e)==1:
             sup=supervisor_for_governorate(next(iter(gids_e)))
             if sup: db.session.add(SupervisorEntry(supervisor_id=sup.id,entry_id=eu.id))
+    db.session.commit()
+    # Link existing first-level accounts to their employee record when an unambiguous match exists.
+    for eu in User.query.filter_by(is_active=True).all():
+        if 'المدخل الأول' not in actual_roles(eu):
+            continue
+        if Employee.query.filter_by(user_id=eu.id).first():
+            continue
+        branch_ids=list(user_branch_ids(eu))
+        q=Employee.query.filter(Employee.full_name==eu.full_name)
+        if eu.job_code:
+            q=q.filter(Employee.job_code==eu.job_code)
+        if branch_ids:
+            q=q.filter(Employee.branch_id.in_(branch_ids))
+        matches=q.order_by(Employee.id.asc()).all()
+        if len(matches)==1:
+            matches[0].user_id=eu.id
     db.session.commit()
     ecols={c['name'] for c in insp.get_columns('employee')}
     # Existing employee_code values are retained for legacy history; new registrations no longer populate this field.
@@ -1608,5 +1681,6 @@ with app.app_context():
         db.session.commit()
     if not UserRole.query.filter_by(user_id=u.id,role='مسؤول التطبيق').first():
         db.session.add(UserRole(user_id=u.id,role='مسؤول التطبيق')); db.session.commit()
+    purge_old_records_once()
 
 if __name__=='__main__': app.run(host='0.0.0.0',port=8000)

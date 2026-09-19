@@ -296,3 +296,9 @@ td{border-color:#c5d4db;color:#29414e}
 .admin-shortcuts a:hover{transform:translateY(-1px);border-color:var(--primary2)}
 .admin-shortcuts strong{font-size:14px}.admin-shortcuts small{color:var(--muted);line-height:1.5}
 @media(max-width:700px){.back-btn{right:12px;bottom:12px;padding:9px 13px}.admin-shortcuts{grid-template-columns:1fr 1fr}}
+
+
+/* v34.16 smart home actions */
+.home-quick-actions{border-top:4px solid var(--primary);margin-bottom:18px}.home-action-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:11px}.home-action{display:block;text-decoration:none;color:inherit;background:var(--surface2);border:1px solid var(--border);border-radius:13px;padding:14px 15px;transition:.15s;min-height:76px}.home-action:hover{transform:translateY(-2px);border-color:#9fc2dc;box-shadow:0 8px 20px rgba(20,56,91,.08)}.home-action b{display:block;color:var(--primary);font-size:15px;margin-bottom:5px}.home-action small{display:block;color:var(--muted);line-height:1.5}.home-action.accent{border-color:#8fc9bf;background:#eef9f6}.home-action.accent b{color:#20796e}
+@media(max-width:700px){.home-action-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.home-action-grid{grid-template-columns:1fr}}

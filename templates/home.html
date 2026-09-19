@@ -14,6 +14,34 @@
   </form>
 </div>
 
+<div class="box home-quick-actions">
+  <div class="section-title">
+    <div><h3>إجراءات سريعة</h3><small class="hint">كل زر يظهر فقط إذا كان مسموحًا لك تنفيذ الإجراء.</small></div>
+  </div>
+  <div class="home-action-grid">
+    {% if 'مسؤول التطبيق' in roles %}
+      <a class="home-action" href="/governorates"><b>＋ إضافة محافظة</b><small>إنشاء محافظة جديدة وإدارتها</small></a>
+      <a class="home-action" href="/branches"><b>＋ إضافة فرع</b><small>إضافة فرع وربطه بمحافظة</small></a>
+      <a class="home-action" href="/structure#add-governorate"><b>＋ إدارة الهيكل</b><small>المحافظات والمشرفون والمدخلون والفروع</small></a>
+    {% elif 'مشرف محافظة' in roles %}
+      <a class="home-action" href="/structure#add-entry"><b>＋ إضافة مدخل أول</b><small>إضافة مدخل أول تحت نطاقك</small></a>
+      <a class="home-action" href="/branches"><b>＋ إضافة فرع</b><small>إضافة فرع داخل محافظاتك</small></a>
+    {% endif %}
+    {% if can('manage_employees') %}
+      <a class="home-action" href="/employees"><b>＋ إضافة موظف</b><small>إضافة موظف داخل الفروع المسموح بها</small></a>
+    {% endif %}
+    {% if can('manage_movements') %}
+      <a class="home-action accent" href="/movements"><b>＋ تسجيل حركة</b><small>إجازة أو انتداب أو إذن</small></a>
+    {% endif %}
+    {% if can('review_movements') and ('مسؤول التطبيق' in roles or 'مشرف محافظة' in roles) %}
+      <a class="home-action" href="/review"><b>✓ المراجعة والاعتماد</b><small>الحركات التي تحتاج إجراءً منك</small></a>
+    {% endif %}
+    {% if can('view_reports') %}
+      <a class="home-action" href="/reports"><b>▤ التقارير</b><small>عرض تقارير نطاقك مباشرة</small></a>
+    {% endif %}
+  </div>
+</div>
+
 {% if not is_admin %}
 <div class="box home-tree">
   <div class="section-title"><div><h3>المدخلون الأوائل</h3></div></div>

@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}تعديل الموظف{% endblock %}
 {% block content %}
-<div class="toolbar"><div><h1>تعديل الموظف</h1><p class="subtitle">جميع بيانات الموظف إجبارية.</p></div><a class="btn secondary" href="/employees">رجوع</a></div>
+<div class="toolbar"><div><h1>تعديل الموظف</h1><p class="subtitle">جميع بيانات الموظف إجبارية.</p></div><div><a class="btn secondary" href="/employees">رجوع</a>{% if has_role('مسؤول التطبيق') %} <a class="btn" href="{{url_for('employee_convert_role',i=e.id)}}">تغيير الصفة: موظف / مدخل أول</a>{% endif %}</div></div>
 <div class="box"><form method="post" class="grid wide">
 <input type="hidden" name="_csrf" value="{{csrf}}">
 <label>اسم الموظف<input name="full_name" value="{{e.full_name}}" required></label>

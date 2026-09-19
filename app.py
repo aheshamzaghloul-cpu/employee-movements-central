@@ -7,7 +7,7 @@ from sqlalchemy import UniqueConstraint
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app=Flask(__name__)
-APP_VERSION='v34.9.7-ADMIN-CONTROL-CENTER'
+APP_VERSION='v34.9.9-EMPLOYEE-ENTRY-CONVERSION'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg://',1)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or 'dev-only-change-me',SQLALCHEMY_DATABASE_URI=DATABASE_URL,SQLALCHEMY_TRACK_MODIFICATIONS=False,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','0')=='1',MAX_CONTENT_LENGTH=2*1024*1024)
@@ -729,8 +729,14 @@ def users():
             if 'المدخل الأول' in selected_roles:
                 chosen={int(x) for x in request.form.getlist('branch_id') if x.isdigit()} & set(bids())
                 if not chosen:
-                    db.session.rollback(); flash('يجب إسناد فرع واحد على الأقل للمدخل الأول.'); return redirect('/users')
+                    db.session.rollback(); flash('يجب إسناد فرع واحد على الأقل ضمن فروع مسؤولية المدخل الأول.'); return redirect('/users')
                 for bid in chosen: db.session.add(UserBranch(user_id=nu.id,branch_id=bid))
+                # The employee's appointment branch is separate from the branches managed by the first-level user.
+                appointment_raw=request.form.get('employee_branch_id','').strip()
+                appointment_bid=int(appointment_raw) if appointment_raw.isdigit() else 0
+                appointment_branch=db.session.get(Branch,appointment_bid) if appointment_bid else None
+                if not appointment_branch or not appointment_branch.is_active or ('مسؤول التطبيق' not in roles(u) and appointment_branch.governorate_id not in set(gids())):
+                    db.session.rollback(); flash('يجب اختيار فرع تعيين تابع لمحافظة ضمن نطاقك.'); return redirect('/users')
                 # Link first-level user to the responsible supervisor automatically.
                 gid_values={db.session.get(Branch,bid).governorate_id for bid in chosen if db.session.get(Branch,bid)}
                 requested_sup=request.form.get('supervisor_id','').strip()
@@ -745,7 +751,7 @@ def users():
                 if 'المدخل الأول' in selected_roles and chosen:
                     employee=Employee.query.filter_by(user_id=nu.id).first()
                     if not employee:
-                        employee=Employee(user_id=nu.id,employee_code=None,full_name=nu.full_name,branch_id=next(iter(chosen)),job_title=nu.job_title,job_code=nu.job_code,is_active=True)
+                        employee=Employee(user_id=nu.id,employee_code=None,full_name=nu.full_name,branch_id=appointment_bid,job_title=nu.job_title,job_code=nu.job_code,is_active=True)
                         db.session.add(employee)
                     else:
                         employee.full_name=nu.full_name; employee.job_title=nu.job_title; employee.job_code=nu.job_code
@@ -797,7 +803,12 @@ def user_edit(i):
                 allowed_branches={b.id for b in Branch.query.filter_by(is_active=True).all()} if 'مسؤول التطبيق' in roles() else set(bids())
                 chosen={int(x) for x in request.form.getlist('branch_id') if x.isdigit()} & allowed_branches
                 if not chosen:
-                    db.session.rollback(); flash('يجب إسناد فرع واحد على الأقل للمدخل الأول.'); return redirect(url_for('user_edit',i=i))
+                    db.session.rollback(); flash('يجب إسناد فرع واحد على الأقل ضمن فروع مسؤولية المدخل الأول.'); return redirect(url_for('user_edit',i=i))
+                appointment_raw=request.form.get('employee_branch_id','').strip()
+                appointment_bid=int(appointment_raw) if appointment_raw.isdigit() else 0
+                appointment_branch=db.session.get(Branch,appointment_bid) if appointment_bid else None
+                if not appointment_branch or not appointment_branch.is_active or ('مسؤول التطبيق' not in roles() and appointment_branch.governorate_id not in set(gids())):
+                    db.session.rollback(); flash('يجب اختيار فرع تعيين تابع لمحافظة ضمن نطاقك.'); return redirect(url_for('user_edit',i=i))
                 for bid in chosen: db.session.add(UserBranch(user_id=i,branch_id=bid))
             # Explicitly keep the simple hierarchy link: first-level user -> responsible supervisor.
             SupervisorEntry.query.filter_by(entry_id=i).delete()
@@ -812,17 +823,21 @@ def user_edit(i):
                 linked_emp=Employee.query.filter_by(user_id=i).first()
                 if linked_emp:
                     linked_emp.full_name=u.full_name; linked_emp.job_title=u.job_title; linked_emp.job_code=u.job_code
-                    if linked_emp.branch_id not in chosen:
-                        linked_emp.branch_id=next(iter(chosen))
+                    linked_emp.branch_id=appointment_bid
                 elif chosen:
-                    db.session.add(Employee(user_id=i,employee_code=None,full_name=u.full_name,branch_id=next(iter(chosen)),job_title=u.job_title,job_code=u.job_code,is_active=True))
+                    db.session.add(Employee(user_id=i,employee_code=None,full_name=u.full_name,branch_id=appointment_bid,job_title=u.job_title,job_code=u.job_code,is_active=True))
         else:
             # Supervisor may only edit first-level users in his governorate(s).
             selected_perm_set={x for x in request.form.getlist('permissions') if x in GRANTABLE_BY_SUPERVISOR}
             UserPermission.query.filter_by(user_id=i).delete()
             for perm in selected_perm_set: db.session.add(UserPermission(user_id=i,permission=perm))
             chosen={int(x) for x in request.form.getlist('branch_id') if x.isdigit()} & set(bids())
-            if not chosen: flash('يجب إسناد فرع واحد على الأقل.'); return redirect(url_for('user_edit',i=i))
+            if not chosen: flash('يجب إسناد فرع واحد على الأقل ضمن فروع مسؤولية المدخل الأول.'); return redirect(url_for('user_edit',i=i))
+            appointment_raw=request.form.get('employee_branch_id','').strip()
+            appointment_bid=int(appointment_raw) if appointment_raw.isdigit() else 0
+            appointment_branch=db.session.get(Branch,appointment_bid) if appointment_bid else None
+            if not appointment_branch or not appointment_branch.is_active or appointment_branch.governorate_id not in set(gids()):
+                flash('يجب اختيار فرع تعيين تابع لمحافظة ضمن نطاقك.'); return redirect(url_for('user_edit',i=i))
             UserBranch.query.filter_by(user_id=i).delete()
             for bid in chosen: db.session.add(UserBranch(user_id=i,branch_id=bid))
             SupervisorEntry.query.filter_by(entry_id=i).delete()
@@ -833,9 +848,9 @@ def user_edit(i):
             linked_emp=Employee.query.filter_by(user_id=i).first()
             if linked_emp:
                 linked_emp.full_name=u.full_name; linked_emp.job_title=u.job_title; linked_emp.job_code=u.job_code
-                if linked_emp.branch_id not in chosen: linked_emp.branch_id=next(iter(chosen))
+                linked_emp.branch_id=appointment_bid
             else:
-                db.session.add(Employee(user_id=i,employee_code=None,full_name=u.full_name,branch_id=next(iter(chosen)),job_title=u.job_title,job_code=u.job_code,is_active=True))
+                db.session.add(Employee(user_id=i,employee_code=None,full_name=u.full_name,branch_id=appointment_bid,job_title=u.job_title,job_code=u.job_code,is_active=True))
         log('EDIT','User',i,'تعديل الحساب والنطاق والصلاحيات'); db.session.commit(); flash('تم حفظ التعديلات.'); return redirect('/users')
     gs=Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True).all() if 'مسؤول التطبيق' not in roles() else Governorate.query.filter_by(is_active=True).all()
     bs=Branch.query.filter(Branch.id.in_(bids()),Branch.is_active==True).all() if 'مسؤول التطبيق' not in roles() else Branch.query.filter_by(is_active=True).all()
@@ -847,7 +862,8 @@ def user_edit(i):
         if gids_u:
             suids={x.user_id for x in UserGovernorate.query.filter(UserGovernorate.governorate_id.in_(gids_u)).all()}
             supervisor_choices=[x for x in User.query.filter(User.id.in_(suids),User.is_active==True).order_by(User.full_name).all() if 'مشرف محافظة' in actual_roles(x)] if suids else []
-    return render_template('user_edit.html',u=u,selected_roles=roles(u),selected_permissions=user_permissions(u),gs=gs,bs=bs,entry_supervisor=entry_supervisor,supervisor_choices=supervisor_choices)
+    linked_emp=Employee.query.filter_by(user_id=i).first()
+    return render_template('user_edit.html',u=u,selected_roles=roles(u),selected_permissions=user_permissions(u),gs=gs,bs=bs,entry_supervisor=entry_supervisor,supervisor_choices=supervisor_choices,linked_emp=linked_emp)
 @app.post('/users/<int:i>/delete')
 @req
 @only('مسؤول التطبيق')
@@ -957,6 +973,80 @@ def employee_edit(i):
         if not parse_date(hire_date): flash('تاريخ التعيين مطلوب وبصيغة صحيحة.'); return redirect(url_for('employee_edit',i=i))
         e.full_name=name; e.branch_id=bid; e.job_title=job_title; e.job_code=job_code; e.hire_date=parse_date(hire_date); e.company_phone=company_phone; e.personal_phone=personal_phone; log('EDIT','Employee',i,e.full_name); db.session.commit(); flash('تم تعديل الموظف.'); return redirect(url_for('employees'))
     return render_template('employee_edit.html',e=e,bs=Branch.query.filter(Branch.id.in_(bids()),Branch.is_active==True).all(),govs=Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True).order_by(Governorate.name).all())
+@app.route('/employees/<int:i>/convert-role', methods=['GET','POST'])
+@req
+@only('مسؤول التطبيق')
+def employee_convert_role(i):
+    e=db.session.get(Employee,i)
+    if not e or not e.is_active: abort(404)
+    linked=User.query.get(e.user_id) if e.user_id else None
+    linked_roles=actual_roles(linked) if linked else set()
+    is_entry='المدخل الأول' in linked_roles
+    if request.method=='POST':
+        action=request.form.get('action')
+        if action=='to_entry':
+            username=request.form.get('username','').strip()
+            password=request.form.get('password','')
+            if not username or not valid_password(password):
+                flash('اسم المستخدم وكلمة المرور مطلوبان، وكلمة المرور يجب أن تكون 8 أحرف على الأقل وتحتوي على حروف وأرقام.')
+                return redirect(url_for('employee_convert_role',i=i))
+            existing=User.query.filter_by(username=username).first()
+            if existing and (not linked or existing.id!=linked.id):
+                flash('اسم المستخدم مستخدم بالفعل.')
+                return redirect(url_for('employee_convert_role',i=i))
+            branch_ids={int(x) for x in request.form.getlist('branch_id') if x.isdigit()}
+            branch_ids &= {b.id for b in Branch.query.filter_by(is_active=True).all()}
+            appointment_branch=e.branch
+            if not branch_ids:
+                flash('يجب اختيار فرع واحد على الأقل ضمن فروع مسؤولية المدخل الأول.')
+                return redirect(url_for('employee_convert_role',i=i))
+            sup_id=request.form.get('supervisor_id','').strip()
+            sup=db.session.get(User,int(sup_id)) if sup_id.isdigit() else None
+            gov_ids={db.session.get(Branch,bid).governorate_id for bid in branch_ids if db.session.get(Branch,bid)}
+            if not sup or 'مشرف محافظة' not in actual_roles(sup) or not sup.is_active or not (gov_ids & user_gov_ids(sup)):
+                flash('يجب اختيار مشرف محافظة صحيح لفروع المسؤولية.')
+                return redirect(url_for('employee_convert_role',i=i))
+            if linked:
+                u=linked
+                u.username=username
+                u.password_hash=generate_password_hash(password)
+                u.must_change_password=True
+                u.is_active=True
+            else:
+                u=User(username=username,full_name=e.full_name,job_title=e.job_title,job_code=e.job_code,password_hash=generate_password_hash(password),is_active=True,must_change_password=True)
+                db.session.add(u); db.session.flush()
+                e.user_id=u.id
+            u.full_name=e.full_name; u.job_title=e.job_title; u.job_code=e.job_code
+            if 'المدخل الأول' not in actual_roles(u): db.session.add(UserRole(user_id=u.id,role='المدخل الأول'))
+            for perm in ROLE_DEFAULT_PERMISSIONS['المدخل الأول']:
+                if not UserPermission.query.filter_by(user_id=u.id,permission=perm).first(): db.session.add(UserPermission(user_id=u.id,permission=perm))
+            UserBranch.query.filter_by(user_id=u.id).delete()
+            for bid in branch_ids: db.session.add(UserBranch(user_id=u.id,branch_id=bid))
+            SupervisorEntry.query.filter_by(entry_id=u.id).delete()
+            db.session.add(SupervisorEntry(supervisor_id=sup.id,entry_id=u.id))
+            log('ROLE_CHANGE','Employee',e.id,'تحويل الموظف إلى مدخل أول')
+            db.session.commit(); flash('تم تحويل الموظف إلى مدخل أول مع الاحتفاظ بسجل الموظف وفرع التعيين والحركات السابقة.')
+            return redirect(url_for('employee_edit',i=e.id))
+        if action=='to_employee':
+            if not linked or 'المدخل الأول' not in linked_roles:
+                flash('الموظف ليس مدخلًا أول.')
+                return redirect(url_for('employee_convert_role',i=i))
+            remaining=linked_roles-{'المدخل الأول'}
+            UserRole.query.filter_by(user_id=linked.id,role='المدخل الأول').delete()
+            UserBranch.query.filter_by(user_id=linked.id).delete()
+            SupervisorEntry.query.filter_by(entry_id=linked.id).delete()
+            if not remaining:
+                linked.is_active=False
+            log('ROLE_CHANGE','Employee',e.id,'إرجاع المدخل الأول إلى موظف عادي')
+            db.session.commit(); flash('تم إرجاع المدخل الأول إلى موظف عادي مع الاحتفاظ بكل بياناته وحركاته. لم تُحذف الفروع أو الموظفون التابعون له.')
+            return redirect(url_for('employee_edit',i=e.id))
+    govs=Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all()
+    branches=Branch.query.filter_by(is_active=True).order_by(Branch.name).all()
+    supervisors=[u for u in User.query.filter_by(is_active=True).order_by(User.full_name).all() if 'مشرف محافظة' in actual_roles(u)]
+    current_branch_ids=user_branch_ids(linked) if linked and is_entry else set()
+    current_sup=supervisor_for_entry(linked) if linked and is_entry else None
+    return render_template('employee_role_convert.html',e=e,linked=linked,linked_roles=linked_roles,is_entry=is_entry,govs=govs,branches=branches,supervisors=supervisors,current_branch_ids=current_branch_ids,current_sup=current_sup)
+
 @app.post('/employees/<int:i>/toggle')
 @req
 def et(i):

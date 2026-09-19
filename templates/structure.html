@@ -3,12 +3,10 @@
 {% block content %}
 <div class="toolbar">
   <div><h1>الإدارة</h1>{% if is_supervisor %}<div class="section-caption"><b>إدارة المحافظات المسندة إليك</b><span>تظهر هنا فقط المحافظات والصلاحيات المرتبطة بحسابك.</span></div>{% elif is_entry %}<div class="section-caption"><b>إدارة فروعك</b><span>تظهر هنا فقط الفروع والموظفون الذين تتولى إدارتهم.</span></div>{% endif %}</div>
-  {% if is_admin %}<div class="actions"><a class="btn" href="#add-governorate">+ محافظة</a></div>{% endif %}
 </div>
 
 <div class="admin-shortcuts no-print">
-  <a href="#structure"><strong>🏢 الهيكل الإداري</strong><small>المحافظات والمشرفون والمدخلون والفروع</small></a>
-  {% if is_admin %}<a href="/governorates"><strong>المحافظات</strong><small>إضافة وتعديل المحافظات</small></a><a href="/branches"><strong>الفروع</strong><small>إضافة وتعديل الفروع</small></a><a href="/users"><strong>المستخدمون</strong><small>الأدوار والصلاحيات</small></a>{% elif is_supervisor %}<a href="#my-governorates"><strong>محافظاتي</strong><small>المحافظات المسندة إليك فقط</small></a><a href="#add-entry"><strong>إضافة مدخل أول</strong><small>من بطاقة محافظتك</small></a>{% else %}<a href="#my-governorates"><strong>فروعي</strong><small>الفروع التي تديرها فقط</small></a><a href="/employees"><strong>موظفوك</strong><small>إضافة وتعديل موظفي فروعك</small></a>{% endif %}
+  <a href="#structure"><strong>🏢 الهيكل الإداري</strong><small>المحافظات والمشرفون والمدخلون والفروع حسب صلاحيتك</small></a>
 </div>
 
 {% if is_admin %}
@@ -18,12 +16,12 @@
     <div class="admin-control-badge">صلاحية كاملة</div>
   </div>
   <div class="admin-stat-grid">
-    <a class="admin-stat" href="/governorates"><b>{{admin_stats.governorates}}</b><span>المحافظات</span></a>
-    <a class="admin-stat" href="/branches"><b>{{admin_stats.branches}}</b><span>الفروع</span></a>
-    <a class="admin-stat" href="/users"><b>{{admin_stats.supervisors}}</b><span>المشرفون</span></a>
-    <a class="admin-stat" href="/users"><b>{{admin_stats.entries}}</b><span>المدخلون الأوائل</span></a>
-    <a class="admin-stat" href="/employees"><b>{{admin_stats.employees}}</b><span>الموظفون</span></a>
-    <a class="admin-stat" href="/movements"><b>{{admin_stats.movements}}</b><span>الحركات</span></a>
+    <div class="admin-stat"><b>{{admin_stats.governorates}}</b><span>المحافظات</span></div>
+    <div class="admin-stat"><b>{{admin_stats.branches}}</b><span>الفروع</span></div>
+    <div class="admin-stat"><b>{{admin_stats.supervisors}}</b><span>المشرفون</span></div>
+    <div class="admin-stat"><b>{{admin_stats.entries}}</b><span>المدخلون الأوائل</span></div>
+    <div class="admin-stat"><b>{{admin_stats.employees}}</b><span>الموظفون</span></div>
+    <div class="admin-stat"><b>{{admin_stats.movements}}</b><span>الحركات</span></div>
   </div>
   <div class="admin-tool-groups">
     <div class="admin-tool-group">
@@ -31,40 +29,19 @@
       <div class="admin-tools">
         <a href="/governorates"><strong>المحافظات</strong><small>إضافة وتعديل وحذف المحافظات</small></a>
         <a href="/branches"><strong>الفروع</strong><small>إدارة الفروع وربطها بالمحافظات والمدخلين</small></a>
-        <a href="#add-governorate"><strong>إضافة من هنا</strong><small>ابدأ محافظة جديدة مباشرة</small></a>
+        
       </div>
     </div>
     <div class="admin-tool-group">
       <h3>👥 المستخدمون والصلاحيات</h3>
       <div class="admin-tools">
-        <a href="/users"><strong>إدارة المستخدمين</strong><small>المشرفون والمدخلون وكلمات المرور والأدوار</small></a>
-        <a href="/users"><strong>الصلاحيات</strong><small>إسناد وتعديل صلاحيات كل مستخدم</small></a>
-        <a href="/delegations"><strong>التفويضات</strong><small>إدارة تفويض اعتماد المشرفين</small></a>
-      </div>
-    </div>
-    <div class="admin-tool-group">
-      <h3>👨‍💼 الموظفون والحركات</h3>
-      <div class="admin-tools">
-        <a href="/employees"><strong>الموظفون</strong><small>إضافة وتعديل وربط الموظفين بالفروع</small></a><a href="/employees"><strong>تعديل بيانات موظف</strong><small>بحث سريع ثم تعديل بيانات الموظف</small></a>
-        <a href="/movements"><strong>الحركات</strong><small>إجازة وانتداب وإذن</small></a>
-        <a href="/review"><strong>المراجعة والاعتماد</strong><small>مراجعة واعتماد أو رفض الحركات</small></a>
-      </div>
-    </div>
-    <div class="admin-tool-group">
-      <h3>📊 التقارير والمتابعة</h3>
-      <div class="admin-tools">
-        <a href="/reports"><strong>التقارير</strong><small>ملخص شامل للحركات وحالتها</small></a>
-        <a href="/reports/leaves"><strong>تقرير الإجازات</strong><small>تفاصيل إجازات الموظفين</small></a>
-        <a href="/reports/assignments"><strong>تقرير الانتدابات</strong><small>متابعة الانتدابات والمأموريات</small></a>
-        <a href="/reports/permissions"><strong>تقرير الأذونات</strong><small>تفاصيل أذونات الموظفين</small></a>
-        <a href="/audit"><strong>سجل العمليات</strong><small>متابعة ما تم داخل النظام</small></a>
+        <a href="/users"><strong>إدارة المستخدمين والصلاحيات</strong><small>المشرفون والمدخلون وكلمات المرور والأدوار والصلاحيات</small></a>
       </div>
     </div>
     <div class="admin-tool-group">
       <h3>⚙️ إعدادات النظام</h3>
       <div class="admin-tools">
         <a href="/lookups"><strong>القوائم الأساسية</strong><small>أنواع الحركات والإجازات</small></a>
-        <a href="/change-password"><strong>حساب مسؤول التطبيق</strong><small>تغيير كلمة المرور والبيانات الشخصية</small></a>
       </div>
     </div>
   </div>
@@ -72,9 +49,6 @@
 <div class="admin-divider"></div>
 <div class="section-caption no-print"><b>{% if is_entry %}فروعك وموظفوها{% elif is_supervisor %}الهيكل الإداري لمحافظاتك{% else %}الهيكل الإداري{% endif %}</b><span>{% if is_entry %}عرض الفروع والموظفين المرتبطين بك فقط.{% elif is_supervisor %}عرض وإدارة ما يخص المحافظات المسندة إليك فقط.{% else %}من هنا تبدأ إدارة المحافظات والمشرفين والمدخلين والفروع.{% endif %}</span></div>
 <div id="my-governorates" class="box admin-gov-picker no-print"><form method="get" class="grid admin-gov-form"><label>المحافظة<select name="governorate_id" onchange="this.form.submit()"><option value="">كل المحافظات</option>{% for g in govs_all %}<option value="{{g.id}}" {% if selected_governorate == g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label></form></div>
-<div class="quick-panels" id="add-governorate">
-  <details class="box quick-panel"><summary><b>+ إضافة محافظة</b><span>إنشاء محافظة جديدة</span></summary><form method="post" action="/governorates" class="quick-form"><input type="hidden" name="_csrf" value="{{csrf}}"><label>اسم المحافظة<input name="name" required></label><button>حفظ المحافظة</button></form></details>
-</div>
 {% endif %}
 <div class="structure-grid" id="structure">
 {% for g,bs,sups,entries,counts in tree %}
@@ -87,7 +61,7 @@
     <div class="node-title">👤 المشرفون <span class="node-count">{{sups|length}}</span></div>
     {% for sup in sups %}
       <div class="person block"><div><b>{{sup.full_name}}</b><small>{{sup.job_title or '—'}}{% if sup.job_code %} — {{sup.job_code}}{% endif %}</small></div><a class="btn secondary mini" href="/users/{{sup.id}}/edit">تعديل</a></div>
-      {% if is_admin or (is_supervisor and sup.id == me.id) %}<details class="inline-add" id="add-entry"><summary>＋ إضافة مدخل أول تحت هذا المشرف</summary><form method="post" action="/users" class="quick-form"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="from_structure" value="1"><input type="hidden" name="role" value="المدخل الأول"><input type="hidden" name="supervisor_id" value="{{sup.id}}"><input type="hidden" name="governorate_id" value="{{g.id}}"><label>اسم المدخل الأول<input name="full_name" required></label><label>البريد الإلكتروني<input name="email" type="email" required autocomplete="email"></label><label>الوظيفة<input name="job_title" required></label><label>الكود الوظيفي<input name="job_code" required></label><label>اسم المستخدم<input name="username" required></label><label>كلمة المرور الأولية<input name="password" type="password" minlength="8" required></label><label>فرع التعيين كموظف<select name="employee_branch_id" required><option value="">اختر فرع التعيين</option>{% for b in bs %}<option value="{{b.id}}">{{b.name}}{% if b.code %} — {{b.code}}{% endif %}</option>{% endfor %}</select></label><div class="full"><div class="multi-dropdown" data-multi-dropdown><details><summary><span>فروع مسؤوليته كمدخل أول</span><b data-multi-summary="branch_id">لم يتم الاختيار</b></summary><div class="multi-dropdown-menu"><div class="choice-tools"><button type="button" class="gray mini" data-choice-all="branch_id">تحديد الكل</button><button type="button" class="gray mini" data-choice-none="branch_id">إلغاء الكل</button></div><div class="choice-list" data-choice-group="branch_id">{% for b in bs %}<label class="choice-item"><input type="checkbox" name="branch_id" value="{{b.id}}">{{b.name}}</label>{% endfor %}</div></div></details></div></div><button>إنشاء المدخل</button></form></details>{% endif %}
+      {% if is_admin or (is_supervisor and sup.id == me.id) %}<details class="inline-add" id="add-entry"><summary>＋ إضافة مدخل أول تحت هذا المشرف</summary><form method="post" action="/users" class="quick-form"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="from_structure" value="1"><input type="hidden" name="role" value="المدخل الأول"><input type="hidden" name="supervisor_id" value="{{sup.id}}"><input type="hidden" name="governorate_id" value="{{g.id}}"><label>اسم المدخل الأول<input name="full_name" required></label><label>البريد الإلكتروني<input name="email" type="email" required autocomplete="email"></label><label>الوظيفة<input name="job_title" required></label><label>الكود الوظيفي<input name="job_code" required></label><label>اسم المستخدم<input name="username" required></label><label>كلمة المرور الأولية<input name="password" type="password" minlength="8" required></label><label>فرع التعيين كموظف<select name="employee_branch_id" required><option value="">اختر فرع التعيين</option>{% for b in bs %}<option value="{{b.id}}">{{b.name}}{% if b.code %} — {{b.code}}{% endif %}</option>{% endfor %}</select></label><label>تاريخ التعيين كموظف<input type="date" name="employee_hire_date" required></label><label>هاتف الشركة<input name="employee_company_phone" required></label><label>الهاتف الشخصي<input name="employee_personal_phone" required></label><div class="full"><div class="multi-dropdown" data-multi-dropdown><details><summary><span>فروع مسؤوليته كمدخل أول</span><b data-multi-summary="branch_id">لم يتم الاختيار</b></summary><div class="multi-dropdown-menu"><div class="choice-tools"><button type="button" class="gray mini" data-choice-all="branch_id">تحديد الكل</button><button type="button" class="gray mini" data-choice-none="branch_id">إلغاء الكل</button></div><div class="choice-list" data-choice-group="branch_id">{% for b in bs %}<label class="choice-item"><input type="checkbox" name="branch_id" value="{{b.id}}">{{b.name}}</label>{% endfor %}</div></div></details></div></div><button>إنشاء المدخل</button></form></details>{% endif %}
     {% else %}<div class="empty-small">لا يوجد مشرف مسند لهذه المحافظة.</div>{% endfor %}
   </div>
 

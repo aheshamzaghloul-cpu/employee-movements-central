@@ -3,6 +3,7 @@
 {% block content %}
 <div class="toolbar">
   <div><h1>المراجعة والاعتماد</h1><p class="subtitle">تظهر هنا فقط الحركات الواقعة ضمن نطاق المحافظات والصلاحيات الممنوحة لك.</p></div>
+  {% if 'مسؤول التطبيق' in roles or 'مشرف محافظة' in roles %}<a class="btn secondary" href="/delegations">تفويضات الاعتماد</a>{% endif %}
 </div>
 <div class="review-tabs">
   <a class="review-tab {% if tab=='pending' %}active{% endif %}" href="/review?tab=pending">المطلوب اعتماده <b>{{counts.pending}}</b></a>

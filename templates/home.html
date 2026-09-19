@@ -16,7 +16,7 @@
 
 <div class="box home-quick-actions">
   <div class="section-title">
-    <div><h3>إجراءات سريعة</h3><small class="hint">كل زر يظهر فقط إذا كان مسموحًا لك تنفيذ الإجراء.</small></div>
+    <div><h3>إجراءات سريعة</h3></div>
   </div>
   <div class="home-action-grid">
     {% if 'مسؤول التطبيق' in roles %}
@@ -37,7 +37,10 @@
       <a class="home-action" href="/review"><b>✓ المراجعة والاعتماد</b><small>الحركات التي تحتاج إجراءً منك</small></a>
     {% endif %}
     {% if can('view_reports') %}
-      <a class="home-action" href="/reports"><b>▤ التقارير</b><small>عرض تقارير نطاقك مباشرة</small></a>
+      <a class="home-action" href="/reports"><b>▤ التقارير</b><small>مركز التقارير داخل التطبيق</small></a>
+      <a class="home-action report-action" href="/reports/leaves"><b>📄 تقرير الإجازات</b><small>النتيجة مباشرة داخل التطبيق — التحميل اختياري</small></a>
+      <a class="home-action report-action" href="/reports/assignments"><b>📄 تقرير الانتدابات</b><small>النتيجة مباشرة داخل التطبيق — التحميل اختياري</small></a>
+      <a class="home-action report-action" href="/reports/permissions"><b>📄 تقرير الأذونات</b><small>النتيجة مباشرة داخل التطبيق — التحميل اختياري</small></a>
     {% endif %}
   </div>
 </div>

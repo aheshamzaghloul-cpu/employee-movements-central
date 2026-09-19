@@ -1,5 +1,5 @@
 {% extends 'base.html' %}{% block title %}{{title}}{% endblock %}{% block content %}
-<div class="page-head no-print"><div><h1>{{title}}</h1><p class="muted">تقرير مجمع لكل موظف داخل نطاق صلاحيتك، مع تفاصيل جميع الحركات المسجلة له.</p></div><div class="actions"><button type="button" class="btn" onclick="window.print()">🖨️ طباعة التقرير</button><a class="btn secondary" href="/reports">العودة للتقارير</a></div></div>
+<div class="page-head no-print"><div><h1>{{title}}</h1><p class="muted">النتيجة تظهر مباشرة داخل التطبيق. يمكنك الطباعة أو التحميل اختياريًا.</p></div><div class="actions"><button type="button" class="btn" onclick="window.print()">🖨️ طباعة التقرير</button><a class="btn secondary" href="/reports">العودة للتقارير</a></div></div>
 <div class="print-header"><h1>{{title}}</h1><div>نظام حركات الموظفين المركزي</div><div class="print-meta">تاريخ الطباعة: {{ now().strftime("%Y-%m-%d") if now is defined else "" }}</div></div>
 <div class="box no-print"><form method="get" class="grid report-filters" id="reportFilterForm">
 <div><label>المحافظة</label>
@@ -23,7 +23,7 @@
 <div class="actions">
 <button>تطبيق</button>
 <a class="btn secondary" href="/reports/{{report_type}}">مسح</a>
-<a class="btn" href="/reports/{{report_type}}.csv?status={{status|urlencode}}&employee_id={{selected_employee|urlencode}}&governorate_id={{selected_governorate|urlencode}}&branch_id={{selected_branch|urlencode}}&date_from={{date_from|urlencode}}&date_to={{date_to|urlencode}}">تصدير CSV</a>
+<a class="btn" href="/reports/{{report_type}}.csv?status={{status|urlencode}}&employee_id={{selected_employee|urlencode}}&governorate_id={{selected_governorate|urlencode}}&branch_id={{selected_branch|urlencode}}&date_from={{date_from|urlencode}}&date_to={{date_to|urlencode}}">تحميل اختياري CSV</a>
 </div>
 </form></div>
 <div class="box tablewrap report-print-area">

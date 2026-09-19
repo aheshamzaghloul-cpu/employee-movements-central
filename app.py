@@ -54,6 +54,14 @@ class UserGovernorate(db.Model):
 class UserBranch(db.Model):
     __table_args__=(UniqueConstraint('user_id','branch_id',name='uq_user_branch'),)
     id=db.Column(db.Integer,primary_key=True); user_id=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='CASCADE'),nullable=False); branch_id=db.Column(db.Integer,db.ForeignKey('branch.id',ondelete='CASCADE'),nullable=False)
+class SupervisorEntry(db.Model):
+    __table_args__=(UniqueConstraint('entry_id','supervisor_id',name='uq_supervisor_entry'),)
+    id=db.Column(db.Integer,primary_key=True)
+    supervisor_id=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='CASCADE'),nullable=False)
+    entry_id=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='CASCADE'),nullable=False)
+    created_at=db.Column(db.DateTime,default=datetime.utcnow)
+    supervisor=db.relationship('User',foreign_keys=[supervisor_id])
+    entry=db.relationship('User',foreign_keys=[entry_id])
 class ApprovalDelegation(db.Model):
     __table_args__=(UniqueConstraint('supervisor_id','governorate_id','starts_at','ends_at',name='uq_approval_delegation_window'),)
     id=db.Column(db.Integer,primary_key=True)
@@ -136,14 +144,33 @@ def assignment_state(m):
 
 def supervisor_for_entry(u=None):
     u=u or me()
-    if not u or 'المدخل الأول' not in roles(u): return None
+    if not u or 'المدخل الأول' not in actual_roles(u): return None
+    # Explicit hierarchy link is preferred.
+    link=SupervisorEntry.query.filter_by(entry_id=u.id).order_by(SupervisorEntry.id.asc()).first()
+    if link and link.supervisor and link.supervisor.is_active and 'مشرف محافظة' in actual_roles(link.supervisor):
+        return link.supervisor
+    # Backward-compatible fallback: infer from the governorate when exactly one supervisor is responsible.
     gids_for_user={b.governorate_id for b in Branch.query.join(UserBranch,UserBranch.branch_id==Branch.id).filter(UserBranch.user_id==u.id).all()}
     for gid in gids_for_user:
         suids=[x.user_id for x in UserGovernorate.query.filter_by(governorate_id=gid).all()]
-        for uid in suids:
-            sup=db.session.get(User,uid)
-            if sup and sup.is_active and 'مشرف محافظة' in roles(sup): return sup
+        sups=[db.session.get(User,uid) for uid in suids]
+        sups=[x for x in sups if x and x.is_active and 'مشرف محافظة' in actual_roles(x)]
+        if len(sups)==1: return sups[0]
     return None
+
+def entries_for_supervisor(supervisor, gid=None):
+    if not supervisor: return []
+    q=SupervisorEntry.query.filter_by(supervisor_id=supervisor.id)
+    links=q.order_by(SupervisorEntry.id.asc()).all()
+    out=[]
+    for link in links:
+        u=link.entry
+        if not u or not u.is_active or 'المدخل الأول' not in actual_roles(u): continue
+        if gid:
+            ub=[x.branch_id for x in UserBranch.query.filter_by(user_id=u.id).all()]
+            if not any(b.governorate_id==gid for b in Branch.query.filter(Branch.id.in_(ub)).all()): continue
+        out.append(u)
+    return out
 
 def approvers_for_employee(e):
     if not e or not e.branch: return []
@@ -179,10 +206,16 @@ def auto_approver_for_employee(e, creator=None):
     if not e or not e.branch: return None
     creator=creator or me()
     gid=e.branch.governorate_id
-    supervisor=supervisor_for_governorate(gid)
+    # A governorate supervisor creating a movement is the approver, unless delegation is active.
+    if creator and 'مشرف محافظة' in actual_roles(creator) and gid in user_gov_ids(creator):
+        supervisor=creator
+    elif creator and 'مسؤول التطبيق' in actual_roles(creator) and session.get('active_role')=='مشرف محافظة' and gid in user_gov_ids(creator):
+        supervisor=creator
+    else:
+        supervisor=supervisor_for_governorate(gid)
     if not supervisor: return None
     delegation=active_delegation_for(supervisor,gid)
-    if delegation and delegation.delegate and delegation.delegate.is_active and can_for_user(delegation.delegate,'review_movements'):
+    if delegation and delegation.delegate and delegation.delegate.is_active and can_for_user(delegation.delegate,'review_movements') and delegation.delegate.id!=creator.id:
         return delegation.delegate
     return supervisor
 
@@ -242,7 +275,7 @@ def inject_context():
     active_role=session.get('active_role') if u else None
     if active_role not in real_roles:
         active_role=None
-    return {'me':u,'roles':roles(),'real_roles':real_roles,'active_role':active_role,'csrf':csrf_token(),'user_roles':user_roles,'user_permissions':user_permissions,'can':can,'PERMISSIONS':PERMISSIONS,'user_gov_ids':user_gov_ids,'user_branch_ids':user_branch_ids,'assignment_state':assignment_state,'assignment_supervisor':assignment_supervisor,'supervisor_for_entry':supervisor_for_entry,'auto_approver_for_employee':auto_approver_for_employee,'can_manage_employee':can_manage_employee,'ASSIGNMENT_STATES':ASSIGNMENT_STATES,'ASSIGNMENT_ALERT_DAYS':ASSIGNMENT_ALERT_DAYS}
+    return {'me':u,'roles':roles(),'real_roles':real_roles,'active_role':active_role,'csrf':csrf_token(),'user_roles':user_roles,'user_permissions':user_permissions,'can':can,'PERMISSIONS':PERMISSIONS,'user_gov_ids':user_gov_ids,'user_branch_ids':user_branch_ids,'assignment_state':assignment_state,'assignment_supervisor':assignment_supervisor,'supervisor_for_entry':supervisor_for_entry,'entries_for_supervisor':entries_for_supervisor,'branch_entry':branch_entry,'auto_approver_for_employee':auto_approver_for_employee,'can_manage_employee':can_manage_employee,'ASSIGNMENT_STATES':ASSIGNMENT_STATES,'ASSIGNMENT_ALERT_DAYS':ASSIGNMENT_ALERT_DAYS}
 
 @app.after_request
 def security_headers(resp):
@@ -448,6 +481,19 @@ def home():
 
 @app.get('/structure')
 @req
+def entry_ids_for_governorate(gid):
+    if not gid: return set()
+    bids_g={b.id for b in Branch.query.filter_by(governorate_id=gid,is_active=True).all()}
+    if not bids_g: return set()
+    return {x.user_id for x in UserBranch.query.filter(UserBranch.branch_id.in_(bids_g)).all()}
+
+def branch_entry(b):
+    links=UserBranch.query.filter_by(branch_id=b.id).all()
+    for link in links:
+        u=db.session.get(User,link.user_id)
+        if u and u.is_active and 'المدخل الأول' in actual_roles(u): return u
+    return None
+
 def structure():
     # الإدارة متاحة لمسؤول التطبيق ولمشرف المحافظة فقط.
     # المدخل الأول لا يملك صلاحية دخول الإدارة.
@@ -476,13 +522,22 @@ def structure():
             if 'مشرف محافظة' not in roles(u): continue
             supervisors.append(u)
         entries=[]
-        # Show first-level users whose assigned branches are in this governorate.
+        # Explicit hierarchy: supervisor -> first-level user -> branches -> employees.
         for u in User.query.filter_by(is_active=True).order_by(User.full_name).all():
-            if 'المدخل الأول' not in roles(u): continue
+            if 'المدخل الأول' not in actual_roles(u): continue
             ubids={x.branch_id for x in UserBranch.query.filter_by(user_id=u.id).all()}
             scoped=[b for b in bs if b.id in ubids]
-            if scoped: entries.append((u,scoped))
+            if not scoped: continue
+            for b in scoped:
+                b.employee_items=Employee.query.filter_by(branch_id=b.id,is_active=True).order_by(Employee.full_name).all()
+            sup_link=SupervisorEntry.query.filter_by(entry_id=u.id).order_by(SupervisorEntry.id.asc()).first()
+            sup=sup_link.supervisor if sup_link else None
+            if not sup and len({b.governorate_id for b in scoped})==1: sup=supervisor_for_governorate(g.id)
+            entries.append((u,scoped,sup))
         counts={b.id:Employee.query.filter_by(branch_id=b.id,is_active=True).count() for b in bs}
+        for b in bs:
+            if not hasattr(b,'employee_items'):
+                b.employee_items=Employee.query.filter_by(branch_id=b.id,is_active=True).order_by(Employee.full_name).all()
         tree.append((g,bs,supervisors,entries,counts))
     govs_all=Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all() if is_admin else govs
     return render_template(
@@ -570,7 +625,7 @@ def gd(i):
 def branches():
     if not can('manage_structure') or not has_role('مسؤول التطبيق','مشرف محافظة'): abort(403)
     if request.method=='POST':
-        gid=request.form.get('governorate_id'); name=request.form.get('name','').strip(); code=request.form.get('code','').strip()
+        gid=request.form.get('governorate_id'); name=request.form.get('name','').strip(); code=request.form.get('code','').strip(); entry_user_id=request.form.get('entry_user_id','').strip()
         g=db.session.get(Governorate,int(gid)) if gid and gid.isdigit() else None
         if not g or not g.is_active or not name or not code:
             flash('جميع بيانات الفرع مطلوبة: المحافظة والاسم والكود.')
@@ -579,7 +634,12 @@ def branches():
         elif Branch.query.filter_by(governorate_id=g.id,name=name).first():
             flash('الفرع موجود بالفعل في هذه المحافظة.')
         else:
-            x=Branch(governorate_id=g.id,name=name,code=code); db.session.add(x); db.session.commit(); log('ADD','Branch',x.id,name); db.session.commit(); flash('تمت إضافة الفرع بنجاح.')
+            x=Branch(governorate_id=g.id,name=name,code=code); db.session.add(x); db.session.flush();
+            if entry_user_id.isdigit():
+                eu=db.session.get(User,int(entry_user_id))
+                if eu and 'المدخل الأول' in actual_roles(eu) and g.id in {b.governorate_id for b in Branch.query.filter(Branch.id.in_(user_branch_ids(eu))).all()}:
+                    db.session.add(UserBranch(user_id=eu.id,branch_id=x.id))
+            db.session.commit(); log('ADD','Branch',x.id,name); db.session.commit(); flash('تمت إضافة الفرع وربطه بالمدخل الأول تلقائيًا.')
     gs=Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True).order_by(Governorate.name).all()
     rows=Branch.query.filter(Branch.governorate_id.in_(gids())).order_by(Branch.name).all() if gids() else []
     return render_template('branches.html',rows=rows,gs=gs)
@@ -650,7 +710,17 @@ def users():
                 if not chosen:
                     db.session.rollback(); flash('يجب إسناد فرع واحد على الأقل للمدخل الأول.'); return redirect('/users')
                 for bid in chosen: db.session.add(UserBranch(user_id=nu.id,branch_id=bid))
-            log('ADD','User',nu.id,username); db.session.commit(); flash('تم إنشاء الحساب. سيُطلب من المستخدم تغيير كلمة المرور عند أول دخول.')
+                # Link first-level user to the responsible supervisor automatically.
+                gid_values={db.session.get(Branch,bid).governorate_id for bid in chosen if db.session.get(Branch,bid)}
+                requested_sup=request.form.get('supervisor_id','').strip()
+                sup=None
+                if requested_sup.isdigit():
+                    candidate=db.session.get(User,int(requested_sup))
+                    if candidate and 'مشرف محافظة' in actual_roles(candidate) and candidate.is_active and gid_values & user_gov_ids(candidate): sup=candidate
+                if not sup and 'مسؤول التطبيق' not in roles(u): sup=u if 'مشرف محافظة' in actual_roles(u) else None
+                if not sup and len(gid_values)==1: sup=supervisor_for_governorate(next(iter(gid_values)))
+                if sup: db.session.add(SupervisorEntry(supervisor_id=sup.id,entry_id=nu.id))
+            log('ADD','User',nu.id,username); db.session.commit(); flash('تم إنشاء الحساب وربطه تلقائيًا بالهيكل.')
     gs=Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True).all() if 'مسؤول التطبيق' not in roles(u) else Governorate.query.filter_by(is_active=True).all()
     bs=Branch.query.filter(Branch.id.in_(bids()),Branch.is_active==True).all() if 'مسؤول التطبيق' not in roles(u) else Branch.query.filter_by(is_active=True).all()
     role_default_permissions={r:sorted(ROLE_DEFAULT_PERMISSIONS.get(r,set())) for r in ROLES}
@@ -700,6 +770,16 @@ def user_edit(i):
                 if not chosen:
                     db.session.rollback(); flash('يجب إسناد فرع واحد على الأقل للمدخل الأول.'); return redirect(url_for('user_edit',i=i))
                 for bid in chosen: db.session.add(UserBranch(user_id=i,branch_id=bid))
+            # Explicitly keep the simple hierarchy link: first-level user -> responsible supervisor.
+            SupervisorEntry.query.filter_by(entry_id=i).delete()
+            if 'المدخل الأول' in selected:
+                chosen_gids={db.session.get(Branch,bid).governorate_id for bid in chosen if db.session.get(Branch,bid)}
+                sid=request.form.get('supervisor_id','').strip()
+                sup=db.session.get(User,int(sid)) if sid.isdigit() else None
+                if not sup and len(chosen_gids)==1:
+                    sup=supervisor_for_governorate(next(iter(chosen_gids)))
+                if sup and sup.is_active and 'مشرف محافظة' in actual_roles(sup) and chosen_gids & user_gov_ids(sup):
+                    db.session.add(SupervisorEntry(supervisor_id=sup.id,entry_id=i))
         else:
             # Supervisor may only edit first-level users in his governorate(s).
             selected_perm_set={x for x in request.form.getlist('permissions') if x in GRANTABLE_BY_SUPERVISOR}
@@ -709,10 +789,23 @@ def user_edit(i):
             if not chosen: flash('يجب إسناد فرع واحد على الأقل.'); return redirect(url_for('user_edit',i=i))
             UserBranch.query.filter_by(user_id=i).delete()
             for bid in chosen: db.session.add(UserBranch(user_id=i,branch_id=bid))
+            SupervisorEntry.query.filter_by(entry_id=i).delete()
+            chosen_gids={db.session.get(Branch,bid).governorate_id for bid in chosen if db.session.get(Branch,bid)}
+            sup=me() if 'مشرف محافظة' in actual_roles(me()) else None
+            if sup and sup.is_active and chosen_gids & user_gov_ids(sup):
+                db.session.add(SupervisorEntry(supervisor_id=sup.id,entry_id=i))
         log('EDIT','User',i,'تعديل الحساب والنطاق والصلاحيات'); db.session.commit(); flash('تم حفظ التعديلات.'); return redirect('/users')
     gs=Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True).all() if 'مسؤول التطبيق' not in roles() else Governorate.query.filter_by(is_active=True).all()
     bs=Branch.query.filter(Branch.id.in_(bids()),Branch.is_active==True).all() if 'مسؤول التطبيق' not in roles() else Branch.query.filter_by(is_active=True).all()
-    return render_template('user_edit.html',u=u,selected_roles=roles(u),selected_permissions=user_permissions(u),gs=gs,bs=bs)
+    linked=SupervisorEntry.query.filter_by(entry_id=i).order_by(SupervisorEntry.id.asc()).first()
+    entry_supervisor=linked.supervisor if linked else supervisor_for_entry(u)
+    supervisor_choices=[]
+    if 'المدخل الأول' in actual_roles(u):
+        gids_u={b.governorate_id for b in Branch.query.filter(Branch.id.in_(user_branch_ids(u))).all()}
+        if gids_u:
+            suids={x.user_id for x in UserGovernorate.query.filter(UserGovernorate.governorate_id.in_(gids_u)).all()}
+            supervisor_choices=[x for x in User.query.filter(User.id.in_(suids),User.is_active==True).order_by(User.full_name).all() if 'مشرف محافظة' in actual_roles(x)] if suids else []
+    return render_template('user_edit.html',u=u,selected_roles=roles(u),selected_permissions=user_permissions(u),gs=gs,bs=bs,entry_supervisor=entry_supervisor,supervisor_choices=supervisor_choices)
 @app.post('/users/<int:i>/delete')
 @req
 @only('مسؤول التطبيق')
@@ -1462,6 +1555,16 @@ def ensure_v25_schema():
     if 'approver_id' not in mcols:
         db.session.execute(text('ALTER TABLE movement ADD COLUMN approver_id INTEGER'))
     ApprovalDelegation.__table__.create(bind=db.engine, checkfirst=True)
+    SupervisorEntry.__table__.create(bind=db.engine, checkfirst=True)
+    # Backfill unambiguous old links: entry -> supervisor when one supervisor owns the entry's governorate.
+    for eu in User.query.filter_by(is_active=True).all():
+        if 'المدخل الأول' not in actual_roles(eu) or SupervisorEntry.query.filter_by(entry_id=eu.id).first():
+            continue
+        gids_e={b.governorate_id for b in Branch.query.filter(Branch.id.in_(user_branch_ids(eu))).all()}
+        if len(gids_e)==1:
+            sup=supervisor_for_governorate(next(iter(gids_e)))
+            if sup: db.session.add(SupervisorEntry(supervisor_id=sup.id,entry_id=eu.id))
+    db.session.commit()
     ecols={c['name'] for c in insp.get_columns('employee')}
     # Existing employee_code values are retained for legacy history; new registrations no longer populate this field.
     if 'employee_code' in ecols and db.engine.dialect.name=='postgresql':

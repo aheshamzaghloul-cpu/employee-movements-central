@@ -1,9 +1,9 @@
-# v34.8 — UI / Permissions / Mission Exact
+# v34.9 — SIMPLE HIERARCHY
 
-- نموذج المأمورية للطباعة مضبوط وفق النموذج المرفق: A4، Arial، أحجام 9/12/15/21pt، ومواقع وخانات مطابقة قدر الإمكان.
-- اعتماد مدير الفرع في نموذج المأمورية يعرض **جهة المأمورية (الفرع المنتدب إليه)**.
-- اسم المعتمد الفعلي ووظيفته يظهران عند الاعتماد، وقبل الاعتماد يظهر المعتمد المحدد تلقائيًا مع وظيفته.
-- الرئيسية: المحافظة والبحث في سطر واحد، ثم المدخلون الأوائل، ثم الحركات المسندة للاعتماد، ثم تنبيهات الانتهاء.
-- البنود الرئيسية قابلة للاختصار إلى اسم البند فقط وإعادة العرض بالكامل.
-- صلاحيات الدور تضاف تلقائيًا عند إنشاء الحساب، ويمكن لمسؤول التطبيق تعديلها لاحقًا بالزيادة أو النقصان.
-- عند إضافة دور جديد إلى حساب موجود، تضاف صلاحيات الدور الافتراضية تلقائيًا، مع بقاء الصلاحيات السابقة قابلة للتعديل.
+- Simplified hierarchy: governorate → supervisor → first-level user → branch → employee.
+- Added explicit first-level-user ↔ governorate-supervisor linkage with automatic backfill when unambiguous.
+- Adding a first-level user from a governorate/supervisor card links the supervisor automatically.
+- Adding a branch from a first-level user card links the branch automatically.
+- Employees remain linked to their branch only; supervisor and approver are resolved from the hierarchy automatically.
+- Movement approver logic respects the responsible governorate supervisor and active delegation.
+- User edit screen shows the administrative supervisor link; application administrator can change it.

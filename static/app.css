@@ -271,3 +271,13 @@ td{border-color:#c5d4db;color:#29414e}
 @media(max-width:800px){.home-top-row{grid-template-columns:1fr}.home-inline-search{max-width:100%}}
 
 /* v34.8: نموذج المأمورية — لا يؤثر على شاشات التطبيق */
+.hierarchy-link-box{border-right:4px solid var(--teal,#2b8290);margin-bottom:16px}
+.readonly-person{display:flex;gap:12px;align-items:center;padding:10px 12px;border:1px solid rgba(255,255,255,.10);border-radius:10px;background:rgba(255,255,255,.03)}
+.readonly-person span{opacity:.75}
+.hierarchy-entry,.hierarchy-branch{margin-top:10px;border:1px solid rgba(255,255,255,.08);border-radius:12px;overflow:hidden;background:rgba(255,255,255,.025)}
+.hierarchy-entry>summary,.hierarchy-branch>summary{cursor:pointer;padding:11px 13px;display:flex;justify-content:space-between;gap:10px;align-items:center;list-style:none}
+.hierarchy-entry>summary::-webkit-details-marker,.hierarchy-branch>summary::-webkit-details-marker{display:none}
+.entry-inner{padding:0 12px 12px}
+.employee-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:7px;padding:10px}
+.employee-list a{padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04);text-decoration:none}
+.employee-list a:hover{background:rgba(255,255,255,.08)}

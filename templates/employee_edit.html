@@ -5,6 +5,7 @@
 <div class="box"><form method="post" class="grid wide">
 <input type="hidden" name="_csrf" value="{{csrf}}">
 <label>اسم الموظف<input name="full_name" value="{{e.full_name}}" required></label>
+<label>البريد الإلكتروني<input name="email" type="email" value="{{e.email or ""}}" required autocomplete="email"></label>
 <label>الوظيفة<input name="job_title" value="{{e.job_title or ''}}" required></label>
 <label>الكود الوظيفي<input name="job_code" value="{{e.job_code or ''}}" required></label>
 <label>المحافظة<select name="governorate_id" id="employee_governorate" required>{% for g in govs %}<option value="{{g.id}}" {% if g.id==e.branch.governorate_id %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>

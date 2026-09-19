@@ -2,8 +2,13 @@
 {% block title %}الهيكل الإداري{% endblock %}
 {% block content %}
 <div class="toolbar">
-  <div><h1>الإدارة</h1>{% if not is_admin %}<div class="section-caption"><b>إدارة المحافظة</b><span>يمكنك إدارة المحافظات المسندة إليك وإضافة المدخلين الأوائل والفروع التابعة لهم.</span></div>{% endif %}</div>
+  <div><h1>الإدارة</h1>{% if is_supervisor %}<div class="section-caption"><b>إدارة المحافظات المسندة إليك</b><span>تظهر هنا فقط المحافظات والصلاحيات المرتبطة بحسابك.</span></div>{% elif is_entry %}<div class="section-caption"><b>إدارة فروعك</b><span>تظهر هنا فقط الفروع والموظفون الذين تتولى إدارتهم.</span></div>{% endif %}</div>
   {% if is_admin %}<div class="actions"><a class="btn" href="#add-governorate">+ محافظة</a></div>{% endif %}
+</div>
+
+<div class="admin-shortcuts no-print">
+  <a href="#structure"><strong>🏢 الهيكل الإداري</strong><small>المحافظات والمشرفون والمدخلون والفروع</small></a>
+  {% if is_admin %}<a href="/governorates"><strong>المحافظات</strong><small>إضافة وتعديل المحافظات</small></a><a href="/branches"><strong>الفروع</strong><small>إضافة وتعديل الفروع</small></a><a href="/users"><strong>المستخدمون</strong><small>الأدوار والصلاحيات</small></a>{% elif is_supervisor %}<a href="#my-governorates"><strong>محافظاتي</strong><small>المحافظات المسندة إليك فقط</small></a><a href="#add-entry"><strong>إضافة مدخل أول</strong><small>من بطاقة محافظتك</small></a>{% else %}<a href="#my-governorates"><strong>فروعي</strong><small>الفروع التي تديرها فقط</small></a><a href="/employees"><strong>موظفوك</strong><small>إضافة وتعديل موظفي فروعك</small></a>{% endif %}
 </div>
 
 {% if is_admin %}
@@ -40,7 +45,7 @@
     <div class="admin-tool-group">
       <h3>👨‍💼 الموظفون والحركات</h3>
       <div class="admin-tools">
-        <a href="/employees"><strong>الموظفون</strong><small>إضافة وتعديل وربط الموظفين بالفروع</small></a>
+        <a href="/employees"><strong>الموظفون</strong><small>إضافة وتعديل وربط الموظفين بالفروع</small></a><a href="/employees"><strong>تعديل بيانات موظف</strong><small>بحث سريع ثم تعديل بيانات الموظف</small></a>
         <a href="/movements"><strong>الحركات</strong><small>إجازة وانتداب وإذن</small></a>
         <a href="/review"><strong>المراجعة والاعتماد</strong><small>مراجعة واعتماد أو رفض الحركات</small></a>
       </div>
@@ -65,24 +70,24 @@
   </div>
 </section>
 <div class="admin-divider"></div>
-<div class="section-caption no-print"><b>الهيكل الإداري</b><span>من هنا تبدأ إدارة المحافظات والمشرفين والمدخلين والفروع.</span></div>
-<div class="box admin-gov-picker no-print"><form method="get" class="grid admin-gov-form"><label>المحافظة<select name="governorate_id" onchange="this.form.submit()"><option value="">كل المحافظات</option>{% for g in govs_all %}<option value="{{g.id}}" {% if selected_governorate == g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label></form></div>
+<div class="section-caption no-print"><b>{% if is_entry %}فروعك وموظفوها{% elif is_supervisor %}الهيكل الإداري لمحافظاتك{% else %}الهيكل الإداري{% endif %}</b><span>{% if is_entry %}عرض الفروع والموظفين المرتبطين بك فقط.{% elif is_supervisor %}عرض وإدارة ما يخص المحافظات المسندة إليك فقط.{% else %}من هنا تبدأ إدارة المحافظات والمشرفين والمدخلين والفروع.{% endif %}</span></div>
+<div id="my-governorates" class="box admin-gov-picker no-print"><form method="get" class="grid admin-gov-form"><label>المحافظة<select name="governorate_id" onchange="this.form.submit()"><option value="">كل المحافظات</option>{% for g in govs_all %}<option value="{{g.id}}" {% if selected_governorate == g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label></form></div>
 <div class="quick-panels" id="add-governorate">
   <details class="box quick-panel"><summary><b>+ إضافة محافظة</b><span>إنشاء محافظة جديدة</span></summary><form method="post" action="/governorates" class="quick-form"><input type="hidden" name="_csrf" value="{{csrf}}"><label>اسم المحافظة<input name="name" required></label><button>حفظ المحافظة</button></form></details>
 </div>
 {% endif %}
-<div class="structure-grid">
+<div class="structure-grid" id="structure">
 {% for g,bs,sups,entries,counts in tree %}
 <section class="structure-card supervisor-clean-card">
   <div class="structure-head"><div><span class="eyebrow">المحافظة</span><h2>{{g.name}}</h2></div><span class="tag">{{bs|length}} فرع</span></div>
   {% if is_admin %}
-  <details class="inline-add no-print" style="margin-bottom:10px"><summary>＋ إضافة مشرف لهذه المحافظة</summary><form method="post" action="/users" class="quick-form wide-form"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="from_structure" value="1"><input type="hidden" name="role" value="مشرف محافظة"><input type="hidden" name="governorate_id" value="{{g.id}}"><label>اسم المشرف<input name="full_name" required></label><label>الوظيفة<input name="job_title" required></label><label>الكود الوظيفي<input name="job_code" required></label><label>اسم المستخدم<input name="username" required></label><label>كلمة المرور الأولية<input name="password" type="password" minlength="8" required></label><button>إنشاء المشرف وربطه بالمحافظة</button></form></details>
+  <details class="inline-add no-print" style="margin-bottom:10px"><summary>＋ إضافة مشرف لهذه المحافظة</summary><form method="post" action="/users" class="quick-form wide-form"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="from_structure" value="1"><input type="hidden" name="role" value="مشرف محافظة"><input type="hidden" name="governorate_id" value="{{g.id}}"><label>اسم المشرف<input name="full_name" required></label><label>البريد الإلكتروني<input name="email" type="email" required autocomplete="email"></label><label>الوظيفة<input name="job_title" required></label><label>الكود الوظيفي<input name="job_code" required></label><label>اسم المستخدم<input name="username" required></label><label>كلمة المرور الأولية<input name="password" type="password" minlength="8" required></label><button>إنشاء المشرف وربطه بالمحافظة</button></form></details>
   {% endif %}
   <div class="node">
     <div class="node-title">👤 المشرفون <span class="node-count">{{sups|length}}</span></div>
     {% for sup in sups %}
       <div class="person block"><div><b>{{sup.full_name}}</b><small>{{sup.job_title or '—'}}{% if sup.job_code %} — {{sup.job_code}}{% endif %}</small></div><a class="btn secondary mini" href="/users/{{sup.id}}/edit">تعديل</a></div>
-      {% if is_admin or real_roles and 'مشرف محافظة' in real_roles %}<details class="inline-add"><summary>＋ إضافة مدخل أول تحت هذا المشرف</summary><form method="post" action="/users" class="quick-form"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="from_structure" value="1"><input type="hidden" name="role" value="المدخل الأول"><input type="hidden" name="supervisor_id" value="{{sup.id}}"><input type="hidden" name="governorate_id" value="{{g.id}}"><label>اسم المدخل الأول<input name="full_name" required></label><label>الوظيفة<input name="job_title" required></label><label>الكود الوظيفي<input name="job_code" required></label><label>اسم المستخدم<input name="username" required></label><label>كلمة المرور الأولية<input name="password" type="password" minlength="8" required></label><label>فرع التعيين كموظف<select name="employee_branch_id" required><option value="">اختر فرع التعيين</option>{% for b in bs %}<option value="{{b.id}}">{{b.name}}{% if b.code %} — {{b.code}}{% endif %}</option>{% endfor %}</select></label><div class="full"><div class="multi-dropdown" data-multi-dropdown><details><summary><span>فروع مسؤوليته كمدخل أول</span><b data-multi-summary="branch_id">لم يتم الاختيار</b></summary><div class="multi-dropdown-menu"><div class="choice-tools"><button type="button" class="gray mini" data-choice-all="branch_id">تحديد الكل</button><button type="button" class="gray mini" data-choice-none="branch_id">إلغاء الكل</button></div><div class="choice-list" data-choice-group="branch_id">{% for b in bs %}<label class="choice-item"><input type="checkbox" name="branch_id" value="{{b.id}}">{{b.name}}</label>{% endfor %}</div></div></details></div></div><button>إنشاء المدخل</button></form></details>{% endif %}
+      {% if is_admin or (is_supervisor and sup.id == me.id) %}<details class="inline-add" id="add-entry"><summary>＋ إضافة مدخل أول تحت هذا المشرف</summary><form method="post" action="/users" class="quick-form"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="from_structure" value="1"><input type="hidden" name="role" value="المدخل الأول"><input type="hidden" name="supervisor_id" value="{{sup.id}}"><input type="hidden" name="governorate_id" value="{{g.id}}"><label>اسم المدخل الأول<input name="full_name" required></label><label>البريد الإلكتروني<input name="email" type="email" required autocomplete="email"></label><label>الوظيفة<input name="job_title" required></label><label>الكود الوظيفي<input name="job_code" required></label><label>اسم المستخدم<input name="username" required></label><label>كلمة المرور الأولية<input name="password" type="password" minlength="8" required></label><label>فرع التعيين كموظف<select name="employee_branch_id" required><option value="">اختر فرع التعيين</option>{% for b in bs %}<option value="{{b.id}}">{{b.name}}{% if b.code %} — {{b.code}}{% endif %}</option>{% endfor %}</select></label><div class="full"><div class="multi-dropdown" data-multi-dropdown><details><summary><span>فروع مسؤوليته كمدخل أول</span><b data-multi-summary="branch_id">لم يتم الاختيار</b></summary><div class="multi-dropdown-menu"><div class="choice-tools"><button type="button" class="gray mini" data-choice-all="branch_id">تحديد الكل</button><button type="button" class="gray mini" data-choice-none="branch_id">إلغاء الكل</button></div><div class="choice-list" data-choice-group="branch_id">{% for b in bs %}<label class="choice-item"><input type="checkbox" name="branch_id" value="{{b.id}}">{{b.name}}</label>{% endfor %}</div></div></details></div></div><button>إنشاء المدخل</button></form></details>{% endif %}
     {% else %}<div class="empty-small">لا يوجد مشرف مسند لهذه المحافظة.</div>{% endfor %}
   </div>
 
@@ -101,12 +106,12 @@
               </div>
             </details>
           {% else %}<div class="empty-small">لم يتم ربط فروع بهذا المدخل بعد.</div>{% endfor %}
-          {% if is_admin or real_roles and 'مشرف محافظة' in real_roles %}<details class="inline-add no-print"><summary>＋ إضافة فرع لهذا المدخل</summary><form method="post" action="/branches" class="quick-form"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="from_structure" value="1"><input type="hidden" name="governorate_id" value="{{g.id}}"><input type="hidden" name="entry_user_id" value="{{u.id}}"><label>اسم الفرع<input name="name" required></label><label>كود الفرع<input name="code" required></label><button>حفظ الفرع وربطه بالمدخل</button></form></details>{% endif %}
+          {% if is_admin or (is_supervisor and sup and sup.id == me.id) %}<details class="inline-add no-print"><summary>＋ إضافة فرع لهذا المدخل</summary><form method="post" action="/branches" class="quick-form"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="from_structure" value="1"><input type="hidden" name="governorate_id" value="{{g.id}}"><input type="hidden" name="entry_user_id" value="{{u.id}}"><label>اسم الفرع<input name="name" required></label><label>كود الفرع<input name="code" required></label><button>حفظ الفرع وربطه بالمدخل</button></form></details>{% endif %}
         </div>
       </details>
     {% else %}<div class="empty-small">لا يوجد مدخلون أولون مرتبطون بهذه المحافظة.</div>{% endfor %}
   </div>
-  {% if is_admin or real_roles and 'مشرف محافظة' in real_roles %}<div class="node no-print"><div class="node-title">🏢 فروع غير مرتبطة بمدخل أول</div>{% for b in bs if not branch_entry(b) %}<div class="branch-row"><div><b>{{b.name}}</b>{% if b.code %}<small>{{b.code}}</small>{% endif %}</div><span class="tag">{{counts[b.id]}} موظف</span></div>{% else %}<div class="empty-small">كل الفروع مرتبطة بمدخل أول.</div>{% endfor %}</div>{% endif %}
+  {% if is_admin or is_supervisor %}<div class="node no-print"><div class="node-title">🏢 فروع غير مرتبطة بمدخل أول</div>{% for b in bs if not branch_entry(b) %}<div class="branch-row"><div><b>{{b.name}}</b>{% if b.code %}<small>{{b.code}}</small>{% endif %}</div><span class="tag">{{counts[b.id]}} موظف</span></div>{% else %}<div class="empty-small">كل الفروع مرتبطة بمدخل أول.</div>{% endfor %}</div>{% endif %}
 </section>
 {% endfor %}
 </div>

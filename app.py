@@ -482,7 +482,7 @@ def home():
         is_admin=has_role('مسؤول التطبيق')
     )
 
-@app.get('/structure')
+@app.get('/api/entry-ids/<int:gid>')
 @req
 def entry_ids_for_governorate(gid):
     if not gid: return set()
@@ -497,6 +497,8 @@ def branch_entry(b):
         if u and u.is_active and 'المدخل الأول' in actual_roles(u): return u
     return None
 
+@app.get('/structure')
+@req
 def structure():
     # الإدارة متاحة لمسؤول التطبيق ولمشرف المحافظة فقط.
     # المدخل الأول لا يملك صلاحية دخول الإدارة.

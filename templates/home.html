@@ -57,9 +57,6 @@
           <span class="entry-meta">
             <b>{{row.branches|length}}</b><small>فروع</small>
           </span>
-          <span class="entry-meta">
-            <b>{{row.branches|sum(attribute='employees')|length if false else ''}}</b>
-          </span>
           <span class="entry-chevron">‹</span>
         </summary>
         <div class="entry-panel">
@@ -97,21 +94,6 @@
     {% endfor %}
   </div>
 </section>
-{% endif %}<span class="tree-govs">{{row.governorates|join(' — ')}}</span></summary>
-        <div class="tree-branches">
-          {% for bg in row.branches %}
-            <details class="tree-branch">
-              <summary><span class="tree-arrow">›</span><strong>{{bg.branch.name}}</strong><span class="tag">{{bg.employees|length}} موظف</span></summary>
-              <div class="tree-employees">
-                {% for e in bg.employees %}<a class="tree-employee" href="/employee/{{e.id}}"><span>{{e.full_name}}</span><small>{{e.job_title or '—'}}{% if e.job_code %} — {{e.job_code }}{% endif %}</small></a>{% else %}<div class="empty-small">لا يوجد موظفون بهذا الفرع.</div>{% endfor %}
-              </div>
-            </details>
-          {% endfor %}
-        </div>
-      </details>
-    {% endfor %}
-  </div>
-</details>
 {% endif %}
 
 <div class="home-alert-grid">
@@ -142,90 +124,4 @@
   <div class="home-report-links"><a href="/reports/leaves">الإجازات</a><a href="/reports/assignments">الانتدابات</a><a href="/reports/permissions">الأذونات</a></div>
 </div>
 {% endif %}
-{% endblock %}
-{% block content %}
-<div class="home-top-row">
-  <div class="home-governorates">
-    <span class="home-label">المحافظة:</span>
-    {% if visible_govs %}
-      {% for gobj in visible_govs %}<span class="home-gov">{{gobj.name}}</span>{% endfor %}
-    {% else %}<span class="home-gov empty-gov">لا توجد محافظة مسندة</span>{% endif %}
-  </div>
-  <form method="get" action="/employees" class="home-inline-search">
-    <input name="q" type="search" placeholder="بحث عن موظف..." autocomplete="off">
-    <button>بحث</button>
-  </form>
-</div>
-
-<div class="box home-quick-actions">
-  <div class="section-title">
-    <div><h3>إجراءات سريعة</h3></div>
-  </div>
-  <div class="home-action-grid">
-    {% if 'مسؤول التطبيق' in roles %}
-      <a class="home-action" href="/governorates"><b>＋ إضافة محافظة</b><small>إنشاء محافظة جديدة وإدارتها</small></a>
-      <a class="home-action" href="/branches"><b>＋ إضافة فرع</b><small>إضافة فرع وربطه بمحافظة</small></a>
-      <a class="home-action" href="/structure#add-governorate"><b>＋ إدارة الهيكل</b><small>المحافظات والمشرفون والمدخلون والفروع</small></a>
-    {% elif 'مشرف محافظة' in roles %}
-      <a class="home-action" href="/structure#add-entry"><b>＋ إضافة مدخل أول</b><small>إضافة مدخل أول تحت نطاقك</small></a>
-      <a class="home-action" href="/branches"><b>＋ إضافة فرع</b><small>إضافة فرع داخل محافظاتك</small></a>
-    {% endif %}
-    {% if can('manage_employees') %}
-      <a class="home-action" href="/employees"><b>＋ إضافة موظف</b><small>إضافة موظف داخل الفروع المسموح بها</small></a>
-    {% endif %}
-    {% if can('manage_movements') %}
-      <a class="home-action accent" href="/movements"><b>＋ تسجيل حركة</b><small>إجازة أو انتداب أو إذن</small></a>
-    {% endif %}
-    {% if can('review_movements') and ('مسؤول التطبيق' in roles or 'مشرف محافظة' in roles) %}
-      <a class="home-action" href="/review"><b>✓ المراجعة والاعتماد</b><small>الحركات التي تحتاج إجراءً منك</small></a>
-    {% endif %}
-    {% if can('view_reports') %}
-      <a class="home-action" href="/reports"><b>▤ التقارير</b><small>مركز التقارير داخل التطبيق</small></a>
-      <a class="home-action report-action" href="/reports/leaves"><b>📄 تقرير الإجازات</b><small>النتيجة مباشرة داخل التطبيق — التحميل اختياري</small></a>
-      <a class="home-action report-action" href="/reports/assignments"><b>📄 تقرير الانتدابات</b><small>النتيجة مباشرة داخل التطبيق — التحميل اختياري</small></a>
-      <a class="home-action report-action" href="/reports/permissions"><b>📄 تقرير الأذونات</b><small>النتيجة مباشرة داخل التطبيق — التحميل اختياري</small></a>
-    {% endif %}
-  </div>
-</div>
-
-{% if not is_admin %}
-<div class="box home-tree">
-  <div class="section-title"><div><h3>المدخلون الأوائل</h3></div></div>
-  {% for row in entry_rows %}
-    <details class="tree-entry">
-      <summary><span class="tree-arrow">›</span><strong>{{row.user.full_name}}</strong>{% if row.user.job_title %}<small>{{row.user.job_title}}</small>{% endif %}<span class="tree-govs">{{row.governorates|join(' — ')}}</span></summary>
-      <div class="tree-branches">
-        {% for bg in row.branches %}
-          <details class="tree-branch">
-            <summary><span class="tree-arrow">›</span><strong>{{bg.branch.name}}</strong><span class="tag">{{bg.employees|length}} موظف</span></summary>
-            <div class="tree-employees">
-              {% for e in bg.employees %}
-                <a class="tree-employee" href="/employee/{{e.id}}"><span>{{e.full_name}}</span><small>{{e.job_title or '—'}}{% if e.job_code %} — {{e.job_code}}{% endif %}</small></a>
-              {% else %}<div class="empty-small">لا يوجد موظفون بهذا الفرع.</div>{% endfor %}
-            </div>
-          </details>
-        {% endfor %}
-      </div>
-    </details>
-  {% else %}<div class="empty">لا يوجد مدخلون أولون ضمن نطاقك حاليًا.</div>{% endfor %}
-</div>
-{% endif %}
-
-{% if pending is not none and pending %}
-<div class="box tablewrap">
-  <div class="section-title"><div><h3>الحركات المسندة للاعتماد</h3></div><a class="btn secondary" href="/review?tab=pending">عرض الكل</a></div>
-  <table><thead><tr><th>الموظف</th><th>الحركة</th><th>الفترة</th><th>الحالة</th></tr></thead><tbody>
-  {% for m in pending %}<tr><td><a href="/employee/{{m.employee.id}}">{{m.employee.full_name}}</a><br><small>{{m.employee.branch.name}}</small></td><td>{{m.movement_type}}{% if m.leave_type %}<br><small>{{m.leave_type}}</small>{% endif %}</td><td>{{m.from_date or m.permission_date or '—'}}{% if m.to_date %} إلى {{m.to_date}}{% endif %}</td><td><span class="tag">{{m.status}}</span></td></tr>{% endfor %}
-  </tbody></table>
-</div>
-{% endif %}
-
-{% if ending %}
-<div class="box tablewrap">
-  <div class="section-title"><div><h3>الإجازات والانتدابات التي تنتهي اليوم أو غدًا</h3></div></div>
-  <table><thead><tr><th>الموظف</th><th>الحركة</th><th>تاريخ الانتهاء</th><th>الحالة</th></tr></thead><tbody>
-  {% for m in ending %}<tr><td><a href="/employee/{{m.employee.id}}">{{m.employee.full_name}}</a><br><small>{{m.employee.branch.name}}</small></td><td>{{m.movement_type}}</td><td>{{m.to_date}}</td><td><span class="tag">{{m.status}}</span></td></tr>{% endfor %}
-  </tbody></table>
-</div>
-{% else %}<div class="box"><div class="empty">لا توجد إجازات أو انتدابات تنتهي اليوم أو غدًا.</div></div>{% endif %}
 {% endblock %}

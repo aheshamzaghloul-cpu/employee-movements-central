@@ -201,7 +201,7 @@ def supervisor_for_governorate(gid):
     if not gid: return None
     suids={x.user_id for x in UserGovernorate.query.filter_by(governorate_id=gid).all()}
     for u in User.query.filter(User.is_active==True).order_by(User.full_name,User.id).all():
-        if u.id in suids and 'مشرف محافظة' in roles(u) and can_for_user(u,'review_movements'):
+        if u.id in suids and 'مشرف محافظة' in actual_roles(u) and can_for_user(u,'review_movements'):
             return u
     return None
 
@@ -500,12 +500,21 @@ def branch_entry(b):
 @app.get('/structure')
 @req
 def structure():
-    # الإدارة متاحة لمسؤول التطبيق ولمشرف المحافظة فقط.
-    # المدخل الأول لا يملك صلاحية دخول الإدارة.
-    if not (has_role('مسؤول التطبيق') or has_role('مشرف محافظة')): abort(403)
-    is_admin=has_role('مسؤول التطبيق')
+    # الإدارة متاحة لمسؤول التطبيق ولمشرف المحافظة.
+    # إذا كان المستخدم متعدد الأدوار ودخل الإدارة وهو على دور آخر،
+    # نفعّل دور المشرف تلقائيًا حتى لا تظهر له صفحة 403.
+    current=me()
+    real=actual_roles(current)
+    # صلاحية الإدارة هنا تعتمد على الدور الحقيقي المحفوظ للحساب، وليس على الدور النشط في الجلسة.
+    # هذا يمنع تعطل صفحة الإدارة للمشرف متعدد الأدوار.
+    is_admin = 'مسؤول التطبيق' in real
+    is_supervisor = 'مشرف محافظة' in real
+    if not is_admin and not is_supervisor:
+        abort(403)
+    if is_supervisor and not is_admin:
+        session['active_role']='مشرف محافظة'
 
-    # مسؤول التطبيق يختار المحافظة من قائمة منسدلة، والمشرف يرى محافظاته فقط.
+    # مسؤول التطبيق يرى كل المحافظات، والمشرف يرى فقط المحافظات المرتبطة بحسابه.
     selected_gov=request.args.get('governorate_id','').strip()
     if is_admin:
         all_govs=Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all()
@@ -515,7 +524,8 @@ def structure():
             govs=all_govs
             selected_gov=''
     else:
-        govs=Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True).order_by(Governorate.name).all() if gids() else []
+        supervisor_gids = [x.governorate_id for x in UserGovernorate.query.filter_by(user_id=current.id).all()]
+        govs=Governorate.query.filter(Governorate.id.in_(supervisor_gids),Governorate.is_active==True).order_by(Governorate.name).all() if supervisor_gids else []
         selected_gov=''
 
     tree=[]
@@ -641,7 +651,11 @@ def gd(i):
 def branches():
     if not can('manage_structure') or not has_role('مسؤول التطبيق','مشرف محافظة'): abort(403)
     if request.method=='GET':
-        return redirect('/structure')
+        # صفحة الفروع مستقلة لمسؤول التطبيق والمشرف، وتحتوي على نموذج إضافة الفرع.
+        # مسؤول التطبيق يرى جميع المحافظات، بينما المشرف يرى محافظاته فقط.
+        gs=Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True).order_by(Governorate.name).all() if gids() else []
+        rows=Branch.query.filter(Branch.governorate_id.in_(gids())).order_by(Branch.governorate_id,Branch.name).all() if gids() else []
+        return render_template('branches.html',rows=rows,gs=gs,is_admin=('مسؤول التطبيق' in roles()))
     if request.method=='POST':
         gid=request.form.get('governorate_id'); name=request.form.get('name','').strip(); code=request.form.get('code','').strip(); entry_user_id=request.form.get('entry_user_id','').strip()
         g=db.session.get(Governorate,int(gid)) if gid and gid.isdigit() else None
@@ -657,9 +671,8 @@ def branches():
                 eu=db.session.get(User,int(entry_user_id))
                 if eu and 'المدخل الأول' in actual_roles(eu) and g.id == g.id:
                     db.session.add(UserBranch(user_id=eu.id,branch_id=x.id))
-                    employee=Employee.query.filter_by(user_id=eu.id).first()
-                    if not employee:
-                        db.session.add(Employee(user_id=eu.id,employee_code=None,full_name=eu.full_name,branch_id=x.id,job_title=eu.job_title,job_code=eu.job_code,is_active=True))
+                    # الفرع المضاف هنا هو فرع مسؤولية المدخل الأول، وليس فرع تعيينه كموظف.
+                    # لا نغيّر فرع التعيين للموظف المرتبط بالمدخل الأول.
             db.session.commit(); log('ADD','Branch',x.id,name); db.session.commit(); flash('تمت إضافة الفرع وربطه بالمدخل الأول تلقائيًا.')
     gs=Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True).order_by(Governorate.name).all()
     rows=Branch.query.filter(Branch.governorate_id.in_(gids())).order_by(Branch.name).all() if gids() else []

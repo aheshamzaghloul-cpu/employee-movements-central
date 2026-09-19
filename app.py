@@ -7,7 +7,7 @@ from sqlalchemy import UniqueConstraint
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app=Flask(__name__)
-APP_VERSION='v34.21-HOME-500-FIX'
+APP_VERSION='v34.23-HOME-REPORTS-CARDS'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg://',1)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or 'dev-only-change-me',SQLALCHEMY_DATABASE_URI=DATABASE_URL,SQLALCHEMY_TRACK_MODIFICATIONS=False,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','0')=='1',MAX_CONTENT_LENGTH=2*1024*1024)
@@ -601,6 +601,11 @@ def structure():
             'entries': sum(1 for u in User.query.filter_by(is_active=True).all() if 'المدخل الأول' in actual_roles(u)),
             'movements': Movement.query.filter_by(is_active=True).count(),
         }
+    available_entry_employees=[]
+    if is_admin:
+        available_entry_employees=(Employee.query.filter(Employee.is_active==True)
+            .order_by(Employee.full_name).all())
+        available_entry_employees=[e for e in available_entry_employees if not (e.user_id and 'المدخل الأول' in actual_roles(db.session.get(User,e.user_id)))]
     return render_template(
         'structure.html',
         tree=tree,
@@ -609,8 +614,26 @@ def structure():
         is_entry=is_entry,
         govs_all=govs_all,
         selected_governorate=selected_gov,
-        admin_stats=admin_stats
+        admin_stats=admin_stats,
+        available_entry_employees=available_entry_employees
     )
+
+@app.get('/employee-role-select')
+@req
+@only('مسؤول التطبيق')
+def employee_role_select():
+    eid=request.args.get('employee_id','').strip()
+    if not eid.isdigit():
+        flash('اختر موظفًا مسجلًا أولًا.')
+        return redirect('/structure#add-entry-role')
+    e=db.session.get(Employee,int(eid))
+    if not e or not e.is_active:
+        flash('الموظف غير موجود أو غير نشط.')
+        return redirect('/structure#add-entry-role')
+    if e.user_id and 'المدخل الأول' in actual_roles(db.session.get(User,e.user_id)):
+        flash('هذا الموظف مسجل بالفعل كمدخل أول.')
+        return redirect('/structure#add-entry-role')
+    return redirect(url_for('employee_convert_role',i=e.id))
 
 @app.get('/employee-search')
 @req

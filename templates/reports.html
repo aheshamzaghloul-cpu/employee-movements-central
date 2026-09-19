@@ -1,27 +1,37 @@
 {% extends 'base.html' %}
 {% block title %}التقارير{% endblock %}
 {% block content %}
-<div class="box mission-report-card no-print">
-  <div class="mission-report-card-text"><h3>📄 طباعة المأموريات PDF</h3><p>اختر المأمورية ثم اطبع النموذج الفعلي بصيغة PDF.</p></div>
-  <a class="btn teal" href="/reports/assignments/print-missions">فتح طباعة المأموريات</a>
+<div class="reports-page-head">
+  <div><span class="home-kicker">مركز التقارير</span><h1>التقارير</h1><p class="subtitle">اختر التقرير المطلوب، ثم استخدم الفلاتر داخل التقرير للوصول إلى البيانات.</p></div>
+  <a class="btn teal" href="/reports/assignments/print-missions">📄 طباعة المأموريات PDF</a>
 </div>
-<div class="toolbar"><div><h1>التقارير</h1><p class="subtitle">اختر التقرير وسيظهر الناتج مباشرة داخل التطبيق. التحميل اختياري فقط عند الحاجة.</p></div></div>
-<div class="box report-launch">
-  <div class="section-title"><div><h3>إنشاء تقرير</h3></div></div>
+
+<div class="report-dashboard-grid">
+  <a class="report-dashboard-card" href="/reports/leaves">
+    <span class="report-dashboard-icon">🏖️</span><span class="report-dashboard-body"><b>تقرير الإجازات</b><small>عرض الإجازات حسب المحافظة والفرع والموظف والفترة والحالة.</small></span><span class="report-dashboard-arrow">›</span>
+  </a>
+  <a class="report-dashboard-card" href="/reports/assignments">
+    <span class="report-dashboard-icon">📍</span><span class="report-dashboard-body"><b>تقرير الانتدابات</b><small>متابعة الانتدابات والجهات المنتدب إليها ومواعيدها.</small></span><span class="report-dashboard-arrow">›</span>
+  </a>
+  <a class="report-dashboard-card" href="/reports/permissions">
+    <span class="report-dashboard-icon">🕘</span><span class="report-dashboard-body"><b>تقرير الأذونات</b><small>عرض الأذونات وتصفية النتائج حسب الموظف والفترة والحالة.</small></span><span class="report-dashboard-arrow">›</span>
+  </a>
+  <a class="report-dashboard-card mission-card" href="/reports/assignments/print-missions">
+    <span class="report-dashboard-icon">🖨️</span><span class="report-dashboard-body"><b>طباعة المأموريات PDF</b><small>اختيار المأمورية وفتح النموذج الرسمي للطباعة.</small></span><span class="report-dashboard-arrow">›</span>
+  </a>
+</div>
+
+<div class="report-summary-cards">
+  {% for label, value, cls in [('إجمالي الحركات', summary.values()|sum, 'total'), ('إجازات', by_type.get('إجازة',0), 'leave'), ('انتدابات', by_type.get('انتداب',0), 'assignment'), ('أذونات', by_type.get('إذن',0), 'permission')] %}
+  <div class="report-summary-card {{cls}}"><span>{{label}}</span><b>{{value}}</b></div>
+  {% endfor %}
+</div>
+
+<div class="box report-filter-card">
+  <div class="section-title"><div><h3>تصفية سريعة</h3><small>اختياري — يمكنك أيضًا الدخول إلى أي بطاقة تقرير مباشرة.</small></div></div>
   <form method="get" class="report-launch-form" onsubmit="this.action='/reports/'+this.report_type.value; return true;">
-    <label>نوع التقرير
-      <select name="report_type" required>
-        <option value="">اختر نوع التقرير</option>
-        <option value="leaves">تقرير الإجازات</option>
-        <option value="assignments">تقرير الانتدابات</option>
-        <option value="permissions">تقرير الأذونات</option>
-      </select>
-    </label>
-    <button>عرض التقرير داخل التطبيق</button>
+    <label>نوع التقرير<select name="report_type" required><option value="">اختر نوع التقرير</option><option value="leaves">تقرير الإجازات</option><option value="assignments">تقرير الانتدابات</option><option value="permissions">تقرير الأذونات</option></select></label>
+    <button class="btn teal">عرض التقرير</button>
   </form>
-</div>
-<div class="box report-help">
-  <h3>طريقة الاستخدام</h3>
-  <div class="report-steps"><span>1</span> اختر نوع التقرير <b>←</b><span>2</span> اختر المحافظة <b>←</b><span>3</span> اختر الفرع <b>←</b><span>4</span> اختر الموظف عند الحاجة <b>←</b><span>5</span> حدد من يوم وإلى يوم</div>
 </div>
 {% endblock %}

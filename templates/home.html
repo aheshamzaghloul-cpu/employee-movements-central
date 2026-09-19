@@ -96,8 +96,8 @@
 </section>
 {% endif %}
 
-<div class="home-alert-grid">
-  <details class="box home-collapsible" {% if pending %}open{% endif %}>
+<div class="home-alert-grid home-card-section">
+  <details class="box home-collapsible home-info-card" {% if pending %}open{% endif %}>
     <summary><strong>الحركات المسندة للاعتماد</strong><span>{{pending|length}}</span></summary>
     <div class="home-collapsible-body">
       {% if pending %}
@@ -108,7 +108,7 @@
     </div>
   </details>
 
-  <details class="box home-collapsible" {% if ending %}open{% endif %}>
+  <details class="box home-collapsible home-info-card" {% if ending %}open{% endif %}>
     <summary><strong>إجازات وانتدابات تنتهي اليوم أو غدًا</strong><span>{{ending|length}}</span></summary>
     <div class="home-collapsible-body">
       {% if ending %}<div class="tablewrap"><table><thead><tr><th>الموظف</th><th>الحركة</th><th>تاريخ الانتهاء</th><th>الحالة</th></tr></thead><tbody>
@@ -119,9 +119,13 @@
 </div>
 
 {% if can('view_reports') %}
-<div class="box home-reports-strip">
-  <div><h3>التقارير</h3><small>تُفتح داخل التطبيق ويمكن تحميلها عند الحاجة.</small></div>
-  <div class="home-report-links"><a href="/reports/leaves">الإجازات</a><a href="/reports/assignments">الانتدابات</a><a href="/reports/permissions">الأذونات</a></div>
-</div>
+<section class="home-reports-cards">
+  <div class="home-section-head"><div><span class="home-kicker">مركز التقارير</span><h2>التقارير</h2></div><a class="btn secondary mini" href="/reports">كل التقارير</a></div>
+  <div class="home-report-card-grid">
+    <a class="home-report-card" href="/reports/leaves"><span class="home-report-icon">🏖️</span><span><b>تقرير الإجازات</b><small>عرض ومراجعة جميع الإجازات</small></span><strong>›</strong></a>
+    <a class="home-report-card" href="/reports/assignments"><span class="home-report-icon">📍</span><span><b>تقرير الانتدابات</b><small>متابعة الانتدابات والمأموريات</small></span><strong>›</strong></a>
+    <a class="home-report-card" href="/reports/permissions"><span class="home-report-icon">🕘</span><span><b>تقرير الأذونات</b><small>عرض الأذونات المسجلة</small></span><strong>›</strong></a>
+  </div>
+</section>
 {% endif %}
 {% endblock %}

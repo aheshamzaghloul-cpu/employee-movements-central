@@ -1,13 +1,13 @@
 import os, secrets
 from datetime import datetime, date, timedelta
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, session, flash, abort
+from flask import Flask, render_template, request, redirect, url_for, session, flash, abort, has_request_context
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import UniqueConstraint
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app=Flask(__name__)
-APP_VERSION='v34.8-UI-PERMISSIONS-MISSION-EXACT'
+APP_VERSION='v34.9.1-REQUEST-CONTEXT-FIX'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg://',1)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or 'dev-only-change-me',SQLALCHEMY_DATABASE_URI=DATABASE_URL,SQLALCHEMY_TRACK_MODIFICATIONS=False,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','0')=='1',MAX_CONTENT_LENGTH=2*1024*1024)
@@ -102,7 +102,10 @@ def roles(u=None):
     if not u:
         return set()
     real = actual_roles(u)
-    if u.id == session.get('uid'):
+    # session is only available while handling an HTTP request.
+    # Startup/database migrations also call role helpers, so never touch
+    # the Flask session outside a request context.
+    if has_request_context() and u.id == session.get('uid'):
         active = session.get('active_role')
         if active in real:
             return {active}
@@ -252,7 +255,7 @@ def assignment_followups():
 def user_permissions(u):
     explicit={x.permission for x in UserPermission.query.filter_by(user_id=u.id).all()}
     selected = None
-    if u and u.id == session.get('uid'):
+    if u and has_request_context() and u.id == session.get('uid'):
         selected = session.get('active_role')
     effective = {selected} if selected else actual_roles(u)
     if selected:

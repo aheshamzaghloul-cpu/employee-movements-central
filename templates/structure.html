@@ -7,6 +7,65 @@
 </div>
 
 {% if is_admin %}
+<section class="admin-control-center no-print">
+  <div class="admin-control-head">
+    <div><span class="eyebrow">مسؤول التطبيق</span><h2>مركز التحكم والإدارة</h2><p>جميع أدوات النظام في مكان واحد، مرتبة حسب المهمة.</p></div>
+    <div class="admin-control-badge">صلاحية كاملة</div>
+  </div>
+  <div class="admin-stat-grid">
+    <a class="admin-stat" href="/governorates"><b>{{admin_stats.governorates}}</b><span>المحافظات</span></a>
+    <a class="admin-stat" href="/branches"><b>{{admin_stats.branches}}</b><span>الفروع</span></a>
+    <a class="admin-stat" href="/users"><b>{{admin_stats.supervisors}}</b><span>المشرفون</span></a>
+    <a class="admin-stat" href="/users"><b>{{admin_stats.entries}}</b><span>المدخلون الأوائل</span></a>
+    <a class="admin-stat" href="/employees"><b>{{admin_stats.employees}}</b><span>الموظفون</span></a>
+    <a class="admin-stat" href="/movements"><b>{{admin_stats.movements}}</b><span>الحركات</span></a>
+  </div>
+  <div class="admin-tool-groups">
+    <div class="admin-tool-group">
+      <h3>🏢 الهيكل الإداري</h3>
+      <div class="admin-tools">
+        <a href="/governorates"><strong>المحافظات</strong><small>إضافة وتعديل وحذف المحافظات</small></a>
+        <a href="/branches"><strong>الفروع</strong><small>إدارة الفروع وربطها بالمحافظات والمدخلين</small></a>
+        <a href="#add-governorate"><strong>إضافة من هنا</strong><small>ابدأ محافظة جديدة مباشرة</small></a>
+      </div>
+    </div>
+    <div class="admin-tool-group">
+      <h3>👥 المستخدمون والصلاحيات</h3>
+      <div class="admin-tools">
+        <a href="/users"><strong>إدارة المستخدمين</strong><small>المشرفون والمدخلون وكلمات المرور والأدوار</small></a>
+        <a href="/users"><strong>الصلاحيات</strong><small>إسناد وتعديل صلاحيات كل مستخدم</small></a>
+        <a href="/delegations"><strong>التفويضات</strong><small>إدارة تفويض اعتماد المشرفين</small></a>
+      </div>
+    </div>
+    <div class="admin-tool-group">
+      <h3>👨‍💼 الموظفون والحركات</h3>
+      <div class="admin-tools">
+        <a href="/employees"><strong>الموظفون</strong><small>إضافة وتعديل وربط الموظفين بالفروع</small></a>
+        <a href="/movements"><strong>الحركات</strong><small>إجازة وانتداب وإذن</small></a>
+        <a href="/review"><strong>المراجعة والاعتماد</strong><small>مراجعة واعتماد أو رفض الحركات</small></a>
+      </div>
+    </div>
+    <div class="admin-tool-group">
+      <h3>📊 التقارير والمتابعة</h3>
+      <div class="admin-tools">
+        <a href="/reports"><strong>التقارير</strong><small>ملخص شامل للحركات وحالتها</small></a>
+        <a href="/reports/leaves"><strong>تقرير الإجازات</strong><small>تفاصيل إجازات الموظفين</small></a>
+        <a href="/reports/assignments"><strong>تقرير الانتدابات</strong><small>متابعة الانتدابات والمأموريات</small></a>
+        <a href="/reports/permissions"><strong>تقرير الأذونات</strong><small>تفاصيل أذونات الموظفين</small></a>
+        <a href="/audit"><strong>سجل العمليات</strong><small>متابعة ما تم داخل النظام</small></a>
+      </div>
+    </div>
+    <div class="admin-tool-group">
+      <h3>⚙️ إعدادات النظام</h3>
+      <div class="admin-tools">
+        <a href="/lookups"><strong>القوائم الأساسية</strong><small>أنواع الحركات والإجازات</small></a>
+        <a href="/change-password"><strong>حساب مسؤول التطبيق</strong><small>تغيير كلمة المرور والبيانات الشخصية</small></a>
+      </div>
+    </div>
+  </div>
+</section>
+<div class="admin-divider"></div>
+<div class="section-caption no-print"><b>الهيكل الإداري</b><span>من هنا تبدأ إدارة المحافظات والمشرفين والمدخلين والفروع.</span></div>
 <div class="box admin-gov-picker no-print"><form method="get" class="grid admin-gov-form"><label>المحافظة<select name="governorate_id" onchange="this.form.submit()"><option value="">كل المحافظات</option>{% for g in govs_all %}<option value="{{g.id}}" {% if selected_governorate == g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label></form></div>
 <div class="quick-panels" id="add-governorate">
   <details class="box quick-panel"><summary><b>+ إضافة محافظة</b><span>إنشاء محافظة جديدة</span></summary><form method="post" action="/governorates" class="quick-form"><input type="hidden" name="_csrf" value="{{csrf}}"><label>اسم المحافظة<input name="name" required></label><button>حفظ المحافظة</button></form></details>

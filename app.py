@@ -7,7 +7,7 @@ from sqlalchemy import UniqueConstraint
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app=Flask(__name__)
-APP_VERSION='v34.9.6-CLEAN-DATA'
+APP_VERSION='v34.9.7-ADMIN-CONTROL-CENTER'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg://',1)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or 'dev-only-change-me',SQLALCHEMY_DATABASE_URI=DATABASE_URL,SQLALCHEMY_TRACK_MODIFICATIONS=False,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','0')=='1',MAX_CONTENT_LENGTH=2*1024*1024)
@@ -544,12 +544,24 @@ def structure():
                 b.employee_items=Employee.query.filter_by(branch_id=b.id,is_active=True).order_by(Employee.full_name).all()
         tree.append((g,bs,supervisors,entries,counts))
     govs_all=Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all() if is_admin else govs
+    admin_stats = None
+    if is_admin:
+        admin_stats = {
+            'governorates': Governorate.query.filter_by(is_active=True).count(),
+            'branches': Branch.query.filter_by(is_active=True).count(),
+            'employees': Employee.query.filter_by(is_active=True).count(),
+            'users': User.query.filter_by(is_active=True).count(),
+            'supervisors': sum(1 for u in User.query.filter_by(is_active=True).all() if 'مشرف محافظة' in actual_roles(u)),
+            'entries': sum(1 for u in User.query.filter_by(is_active=True).all() if 'المدخل الأول' in actual_roles(u)),
+            'movements': Movement.query.filter_by(is_active=True).count(),
+        }
     return render_template(
         'structure.html',
         tree=tree,
         is_admin=is_admin,
         govs_all=govs_all,
-        selected_governorate=selected_gov
+        selected_governorate=selected_gov,
+        admin_stats=admin_stats
     )
 
 @app.get('/employee-search')

@@ -1,6 +1,149 @@
 {% extends 'base.html' %}
 {% block title %}الرئيسية — نظام إدارة حركات الموظفين{% endblock %}
 {% block content %}
+<div class="home-dashboard-head">
+  <div>
+    <div class="home-kicker">لوحة التحكم</div>
+    <h1 class="home-title">الرئيسية</h1>
+    <div class="home-scope">{% if visible_govs %}نطاقك: {{ visible_govs|map(attribute='name')|join(' — ') }}{% else %}لا توجد محافظة مسندة{% endif %}</div>
+  </div>
+  <form method="get" action="/employees" class="home-dashboard-search">
+    <input name="q" type="search" placeholder="ابحث باسم الموظف أو الكود..." autocomplete="off">
+    <button>بحث</button>
+  </form>
+</div>
+
+<div class="home-stat-grid">
+  <a class="home-stat-card" href="/employees"><span>الموظفون</span><b>{{e}}</b></a>
+  <a class="home-stat-card" href="/branches"><span>الفروع ضمن نطاقك</span><b>{{b}}</b></a>
+  <div class="home-stat-card"><span>المحافظات</span><b>{{g}}</b></div>
+  <div class="home-stat-card"><span>اعتمادات معلقة</span><b>{{pending|length}}</b></div>
+</div>
+
+<div class="box home-quick-actions compact-home-actions">
+  <div class="section-title"><div><h3>الإجراءات الرئيسية</h3></div></div>
+  <div class="home-action-grid">
+    {% if 'مسؤول التطبيق' in roles %}
+      <a class="home-action" href="/structure"><b>إدارة الهيكل</b><small>المحافظات والفروع والمشرفون والمدخلون</small></a>
+    {% elif 'مشرف محافظة' in roles %}
+      <a class="home-action" href="/structure"><b>إدارة النطاق</b><small>المدخلون والفروع التابعة لمحافظاتك</small></a>
+    {% endif %}
+    {% if can('manage_employees') %}<a class="home-action" href="/employees"><b>الموظفون</b><small>إضافة أو تعديل بيانات الموظفين</small></a>{% endif %}
+    {% if can('manage_movements') %}<a class="home-action accent" href="/movements"><b>تسجيل حركة</b><small>إجازة أو انتداب أو إذن</small></a>{% endif %}
+    {% if can('review_movements') and ('مسؤول التطبيق' in roles or 'مشرف محافظة' in roles) %}<a class="home-action" href="/review"><b>المراجعة والاعتماد</b><small>الحركات التي تحتاج إجراءً منك</small></a>{% endif %}
+    {% if can('view_reports') %}<a class="home-action" href="/reports"><b>التقارير</b><small>عرض تقارير الحركات داخل التطبيق</small></a>{% endif %}
+  </div>
+</div>
+
+{% if entry_rows %}
+<section class="home-entry-directory">
+  <div class="entry-directory-head">
+    <div>
+      <span class="home-kicker">الدليل الإداري</span>
+      <h2>المدخلون الأوائل</h2>
+      <p>اضغط على اسم المدخل لعرض فروع مسؤوليته، ثم اضغط على الفرع لعرض الموظفين.</p>
+    </div>
+    <div class="entry-directory-badge"><b>{{ entry_rows|length }}</b><span>مدخل أول</span></div>
+  </div>
+  <div class="entry-directory-list">
+    {% for row in entry_rows %}
+      <details class="entry-card">
+        <summary>
+          <span class="entry-avatar">👤</span>
+          <span class="entry-main">
+            <strong>{{row.user.full_name}}</strong>
+            <small>{{row.user.job_title or 'مدخل أول'}}</small>
+          </span>
+          <span class="entry-meta">
+            <b>{{row.branches|length}}</b><small>فروع</small>
+          </span>
+          <span class="entry-meta">
+            <b>{{row.branches|sum(attribute='employees')|length if false else ''}}</b>
+          </span>
+          <span class="entry-chevron">‹</span>
+        </summary>
+        <div class="entry-panel">
+          <div class="entry-panel-top">
+            <span>{% if row.governorates %}{{row.governorates|join(' · ')}}{% else %}ضمن نطاقك الحالي{% endif %}</span>
+            {% if row.employee_link %}<a href="/employee/{{row.employee_link.id}}" class="btn secondary mini">ملف الموظف</a>{% endif %}
+          </div>
+          <div class="entry-branch-grid">
+            {% for bg in row.branches %}
+              <details class="branch-card">
+                <summary>
+                  <span class="branch-icon">🏢</span>
+                  <span class="branch-main"><strong>{{bg.branch.name}}</strong><small>{% if bg.branch.code %}كود {{bg.branch.code}}{% else %}فرع ضمن المسؤولية{% endif %}</small></span>
+                  <span class="branch-count"><b>{{bg.employees|length}}</b> موظف</span>
+                  <span class="branch-chevron">‹</span>
+                </summary>
+                <div class="branch-employees">
+                  {% for e in bg.employees %}
+                    <a class="employee-card" href="/employee/{{e.id}}">
+                      <span class="employee-card-avatar">{{ (e.full_name or 'م')[:1] }}</span>
+                      <span><strong>{{e.full_name}}</strong><small>{{e.job_title or 'موظف'}}{% if e.job_code %} · {{e.job_code}}{% endif %}</small></span>
+                      <span class="employee-open">عرض ›</span>
+                    </a>
+                  {% else %}
+                    <div class="entry-empty">لا يوجد موظفون مسجلون بهذا الفرع.</div>
+                  {% endfor %}
+                </div>
+              </details>
+            {% else %}
+              <div class="entry-empty">لم يتم إسناد فروع لهذا المدخل بعد.</div>
+            {% endfor %}
+          </div>
+        </div>
+      </details>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}<span class="tree-govs">{{row.governorates|join(' — ')}}</span></summary>
+        <div class="tree-branches">
+          {% for bg in row.branches %}
+            <details class="tree-branch">
+              <summary><span class="tree-arrow">›</span><strong>{{bg.branch.name}}</strong><span class="tag">{{bg.employees|length}} موظف</span></summary>
+              <div class="tree-employees">
+                {% for e in bg.employees %}<a class="tree-employee" href="/employee/{{e.id}}"><span>{{e.full_name}}</span><small>{{e.job_title or '—'}}{% if e.job_code %} — {{e.job_code }}{% endif %}</small></a>{% else %}<div class="empty-small">لا يوجد موظفون بهذا الفرع.</div>{% endfor %}
+              </div>
+            </details>
+          {% endfor %}
+        </div>
+      </details>
+    {% endfor %}
+  </div>
+</details>
+{% endif %}
+
+<div class="home-alert-grid">
+  <details class="box home-collapsible" {% if pending %}open{% endif %}>
+    <summary><strong>الحركات المسندة للاعتماد</strong><span>{{pending|length}}</span></summary>
+    <div class="home-collapsible-body">
+      {% if pending %}
+      <div class="tablewrap"><table><thead><tr><th>الموظف</th><th>الحركة</th><th>الفترة</th><th>الحالة</th></tr></thead><tbody>
+      {% for m in pending %}<tr><td><a href="/employee/{{m.employee.id}}">{{m.employee.full_name}}</a><br><small>{{m.employee.branch.name}}</small></td><td>{{m.movement_type}}{% if m.leave_type %}<br><small>{{m.leave_type}}</small>{% endif %}</td><td>{{m.from_date or m.permission_date or '—'}}{% if m.to_date %} إلى {{m.to_date}}{% endif %}</td><td><span class="tag">{{m.status}}</span></td></tr>{% endfor %}
+      </tbody></table></div><div class="home-more"><a class="btn secondary mini" href="/review?tab=pending">عرض كل الحركات</a></div>
+      {% else %}<div class="empty">لا توجد حركات مسندة للاعتماد.</div>{% endif %}
+    </div>
+  </details>
+
+  <details class="box home-collapsible" {% if ending %}open{% endif %}>
+    <summary><strong>إجازات وانتدابات تنتهي اليوم أو غدًا</strong><span>{{ending|length}}</span></summary>
+    <div class="home-collapsible-body">
+      {% if ending %}<div class="tablewrap"><table><thead><tr><th>الموظف</th><th>الحركة</th><th>تاريخ الانتهاء</th><th>الحالة</th></tr></thead><tbody>
+      {% for m in ending %}<tr><td><a href="/employee/{{m.employee.id}}">{{m.employee.full_name}}</a><br><small>{{m.employee.branch.name}}</small></td><td>{{m.movement_type}}</td><td>{{m.to_date}}</td><td><span class="tag">{{m.status}}</span></td></tr>{% endfor %}
+      </tbody></table></div>{% else %}<div class="empty">لا توجد حركات تنتهي اليوم أو غدًا.</div>{% endif %}
+    </div>
+  </details>
+</div>
+
+{% if can('view_reports') %}
+<div class="box home-reports-strip">
+  <div><h3>التقارير</h3><small>تُفتح داخل التطبيق ويمكن تحميلها عند الحاجة.</small></div>
+  <div class="home-report-links"><a href="/reports/leaves">الإجازات</a><a href="/reports/assignments">الانتدابات</a><a href="/reports/permissions">الأذونات</a></div>
+</div>
+{% endif %}
+{% endblock %}
+{% block content %}
 <div class="home-top-row">
   <div class="home-governorates">
     <span class="home-label">المحافظة:</span>

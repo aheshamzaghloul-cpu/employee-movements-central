@@ -477,11 +477,15 @@ def home():
             pending=(base.filter(Movement.status=='تحت المراجعة')
                      .filter((Movement.approver_id==me().id) if 'مسؤول التطبيق' not in roles() else True)
                      .order_by(Movement.id.desc()).limit(20).all())
+        # لا نكرر نفس الحركة في بطاقتين على الرئيسية: إذا كانت الحركة ضمن
+        # الحركات المسندة للاعتماد، تُعرض هناك فقط ولا تُعاد في تنبيهات الانتهاء.
+        pending_ids={m.id for m in pending}
         ending=(base.filter(
                     Movement.movement_type.in_(['إجازة','انتداب']),
                     Movement.to_date!=None,
                     Movement.to_date>=today,
-                    Movement.to_date<=tomorrow
+                    Movement.to_date<=tomorrow,
+                    ~Movement.id.in_(pending_ids) if pending_ids else True
                 ).order_by(Movement.to_date.asc(),Movement.id.desc()).limit(30).all())
 
     return render_template(

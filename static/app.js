@@ -158,3 +158,45 @@ document.addEventListener('DOMContentLoaded', function(){
     title.appendChild(btn);
   });
 })();
+
+// v34.31: smart home dashboard — drag/reorder, resize and persistent layout.
+(function(){
+  const workspace=document.querySelector('#dashboard-workspace');
+  if(!workspace) return;
+  const key='employeeMovements.dashboard.v34.31';
+  const widgets=()=>[...workspace.querySelectorAll(':scope > .dashboard-widget')];
+  let state={order:[],sizes:{}};
+  try{state=JSON.parse(localStorage.getItem(key)||'{}')||{};}catch(e){state={};}
+  state.order=Array.isArray(state.order)?state.order:[]; state.sizes=state.sizes||{};
+  function save(){
+    state.order=widgets().map(w=>w.dataset.widgetId).filter(Boolean);
+    state.sizes={}; widgets().forEach(w=>{state.sizes[w.dataset.widgetId]=['widget-sm','widget-lg','widget-xl'].find(c=>w.classList.contains(c))||'md';});
+    try{localStorage.setItem(key,JSON.stringify(state));}catch(e){}
+  }
+  function restore(){
+    if(state.order.length){state.order.slice().reverse().forEach(id=>{const w=workspace.querySelector(`[data-widget-id="${CSS.escape(id)}"]`); if(w) workspace.prepend(w);});}
+    widgets().forEach(w=>{const size=state.sizes[w.dataset.widgetId]; if(size&&size!=='md') w.classList.add('widget-'+size);});
+  }
+  restore();
+  widgets().forEach(w=>{
+    w.querySelectorAll('[data-widget-size]').forEach(btn=>btn.addEventListener('click',e=>{
+      e.preventDefault();e.stopPropagation();
+      const sm=btn.dataset.widgetSize==='sm';
+      w.classList.remove('widget-sm','widget-lg','widget-xl');
+      if(sm) w.classList.add('widget-sm'); else w.classList.add(w.classList.contains('widget-sm')?'widget-lg':'widget-lg');
+      save();
+    }));
+    w.addEventListener('dragstart',e=>{w.classList.add('dragging');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',w.dataset.widgetId||'');});
+    w.addEventListener('dragend',()=>{w.classList.remove('dragging');save();});
+  });
+  workspace.addEventListener('dragover',e=>{
+    e.preventDefault();
+    const dragging=workspace.querySelector('.dragging'); if(!dragging)return;
+    const candidates=widgets().filter(w=>w!==dragging);
+    let before=null, best=Infinity;
+    for(const w of candidates){const r=w.getBoundingClientRect();const dx=Math.abs(e.clientX-(r.left+r.width/2));const dy=Math.abs(e.clientY-(r.top+r.height/2));const d=dx+dy;if(d<best){best=d;before=(e.clientY<r.top+r.height/2 || e.clientX<r.left+r.width/2)?w:null;}}
+    if(before) workspace.insertBefore(dragging,before); else workspace.appendChild(dragging);
+  });
+  // Double click a widget resets it to the default compact size.
+  workspace.addEventListener('dblclick',e=>{const w=e.target.closest('.dashboard-widget'); if(!w||e.target.closest('a,button,input,select,summary'))return;w.classList.remove('widget-sm','widget-lg','widget-xl');save();});
+})();

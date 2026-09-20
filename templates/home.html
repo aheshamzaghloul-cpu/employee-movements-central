@@ -13,13 +13,14 @@
   </form>
 </div>
 
-<section class="home-summary-card">
-  <a class="home-summary-item" href="/employees"><span>الموظفون</span><b>{{e}}</b></a>
-  <a class="home-summary-item" href="/branches"><span>الفروع ضمن نطاقك</span><b>{{b}}</b></a>
-  <a class="home-summary-item" href="/governorates"><span>المحافظات</span><b>{{g}}</b></a>
-  <a class="home-summary-item" href="/review?tab=approved"><span>اعتمادات مغلقة</span><b>{{approved_count}}</b></a>
-</section>
-
+<div class="home-content-layout">
+  <aside class="home-summary-card" aria-label="ملخص النظام">
+    <a class="home-summary-item summary-employees" href="/employees"><span>الموظفون</span><b>{{e}}</b></a>
+    <a class="home-summary-item summary-branches" href="/branches"><span>الفروع ضمن نطاقك</span><b>{{b}}</b></a>
+    <a class="home-summary-item summary-governorates" href="/governorates"><span>المحافظات</span><b>{{g}}</b></a>
+    <a class="home-summary-item summary-approvals" href="/review?tab=approved"><span>اعتمادات مغلقة</span><b>{{approved_count}}</b></a>
+  </aside>
+  <div class="home-main-column">
 <section class="home-groups">
   {% if 'مسؤول التطبيق' in roles or 'مشرف محافظة' in roles %}
   <div class="home-group-card">
@@ -117,6 +118,10 @@
   </div>
 </section>
 {% endif %}
+
+</div>
+  </div>
+</div>
 
 <div class="home-alert-grid home-card-section">
   <details class="box home-collapsible home-info-card" {% if pending %}open{% endif %}>

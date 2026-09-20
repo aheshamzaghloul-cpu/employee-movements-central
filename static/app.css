@@ -415,3 +415,21 @@ label{font-size:13px}.box>form label,.quick-form label{min-width:0}.form-actions
 .home-summary-item b{font-size:26px;line-height:1;color:var(--primary)}
 @media(max-width:850px){.home-summary-card{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:480px){.home-summary-card{grid-template-columns:1fr 1fr;gap:8px;padding:8px}.home-summary-item{min-height:78px;padding:9px 6px}.home-summary-item span{font-size:11px}.home-summary-item b{font-size:23px}}
+
+
+/* v34.30 — right-side compact summary rail using the approved pastel palette */
+.home-content-layout{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:16px;align-items:start;direction:ltr}
+.home-main-column{min-width:0;direction:rtl}
+.home-summary-card{grid-column:2;grid-row:1;display:grid;grid-template-columns:1fr;gap:10px;margin:0;padding:0;background:transparent;border:0;box-shadow:none;direction:rtl;position:sticky;top:14px}
+.home-summary-item{min-height:104px;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:7px;text-decoration:none;border-radius:15px;padding:14px 17px;transition:.16s;border:1px solid transparent;box-shadow:0 5px 16px rgba(24,55,84,.055);position:relative;overflow:hidden}
+.home-summary-item:after{content:"";position:absolute;inset:6px;border:1px solid rgba(255,255,255,.58);border-radius:11px;pointer-events:none}
+.home-summary-item span,.home-summary-item b{position:relative;z-index:1}
+.home-summary-item span{font-size:13px;font-weight:800;text-align:right;line-height:1.35}
+.home-summary-item b{font-size:27px;line-height:1;font-weight:900}
+.home-summary-item:hover{transform:translateY(-2px);box-shadow:0 9px 22px rgba(24,55,84,.10)}
+.summary-employees{background:linear-gradient(145deg,#f4f9ff,#eaf3ff);border-color:#c9def6;color:#2778e8}.summary-employees b{color:#2778e8}
+.summary-branches{background:linear-gradient(145deg,#f2fcf8,#e8f8f1);border-color:#c6e8d9;color:#239f73}.summary-branches b{color:#239f73}
+.summary-governorates{background:linear-gradient(145deg,#fffaf0,#fff4dd);border-color:#f1d8a5;color:#f0a11c}.summary-governorates b{color:#f0a11c}
+.summary-approvals{background:linear-gradient(145deg,#fbf8ff,#f1eaff);border-color:#d9c8f7;color:#8d63dc}.summary-approvals b{color:#8d63dc}
+@media(max-width:900px){.home-content-layout{grid-template-columns:1fr}.home-summary-card{grid-column:auto;grid-row:auto;grid-template-columns:repeat(4,minmax(0,1fr));position:static;order:-1}.home-summary-item{min-height:86px;align-items:center;padding:11px 9px}.home-summary-item span{text-align:center}}
+@media(max-width:620px){.home-summary-card{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.home-summary-item{min-height:78px}.home-summary-item b{font-size:23px}.home-summary-item span{font-size:11px}}

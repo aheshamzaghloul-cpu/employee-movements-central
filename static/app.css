@@ -358,3 +358,50 @@ label{font-size:13px}.box>form label,.quick-form label{min-width:0}.form-actions
 .reports-page-head{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:14px}.reports-page-head h1{margin:2px 0 4px;color:#203746}.report-dashboard-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:14px}.report-dashboard-card{display:flex;align-items:center;gap:12px;min-height:92px;padding:13px 14px;text-decoration:none;color:inherit;background:linear-gradient(145deg,#fff,#f8fbfd);border:1px solid #dfe8ef;border-radius:15px;box-shadow:0 5px 16px rgba(24,55,84,.045);transition:.15s}.report-dashboard-card:hover{transform:translateY(-2px);border-color:#b9d1e4;box-shadow:0 9px 21px rgba(24,55,84,.08)}.report-dashboard-icon{width:43px;height:43px;border-radius:12px;display:grid;place-items:center;background:#eef5fa;font-size:21px;flex:none}.report-dashboard-body{display:flex;flex-direction:column;min-width:0;flex:1}.report-dashboard-body b{font-size:15px;color:#24577d}.report-dashboard-body small{font-size:11px;color:#718493;line-height:1.55;margin-top:4px}.report-dashboard-arrow{font-size:25px;color:#6d899a}.mission-card{background:linear-gradient(145deg,#f8fffd,#f2faf8);border-color:#cfe6df}.report-summary-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-bottom:14px}.report-summary-card{background:#fff;border:1px solid #dfe8ef;border-radius:13px;padding:11px 13px;box-shadow:0 4px 12px rgba(24,55,84,.035)}.report-summary-card span{display:block;color:#6f8492;font-size:11px;font-weight:700}.report-summary-card b{display:block;color:#24577d;font-size:23px;margin-top:4px}.report-summary-card.leave{border-right:3px solid #9fc9b9}.report-summary-card.assignment{border-right:3px solid #a9c4dd}.report-summary-card.permission{border-right:3px solid #d6c39b}.report-filter-card{margin-top:0}.report-filter-card .report-launch-form{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:10px}.report-filter-card label{display:block}.report-filter-card select{width:100%;margin-top:5px}
 @media(max-width:850px){.home-report-card-grid,.report-dashboard-grid{grid-template-columns:1fr}.report-summary-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.reports-page-head{align-items:flex-start;flex-direction:column}}
 @media(max-width:520px){.report-summary-cards{grid-template-columns:1fr 1fr}.report-filter-card .report-launch-form{grid-template-columns:1fr}.home-section-head{align-items:flex-start}}
+
+/* v34.24 — medium grouped cards for home and reports */
+.home-groups{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:0 0 16px}
+.home-group-card,.reports-group-card{background:linear-gradient(145deg,#fff,#f8fbfd);border:1px solid #dbe6ee;border-radius:16px;padding:14px;box-shadow:0 5px 16px rgba(24,55,84,.05)}
+.home-group-head,.reports-group-head{display:flex;align-items:center;gap:10px;margin-bottom:11px}
+.home-group-head h3,.reports-group-head h3{margin:0;color:#234e6b;font-size:16px}.home-group-head small,.reports-group-head small{display:block;color:#718493;font-size:11px;margin-top:3px;line-height:1.45}
+.home-group-icon,.reports-group-icon{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:#eef5fa;font-size:19px;flex:none}
+.home-group-links,.reports-group-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.home-group-links a,.reports-group-links a{display:flex;flex-direction:column;text-decoration:none;color:inherit;background:#fff;border:1px solid #e5ecf1;border-radius:11px;padding:10px;min-height:67px;transition:.15s}
+.home-group-links a:hover,.reports-group-links a:hover{transform:translateY(-1px);border-color:#b9d1e4;box-shadow:0 6px 15px rgba(27,55,90,.06)}
+.home-group-links b,.reports-group-links b{font-size:12px;color:#24577d}.home-group-links small,.reports-group-links small{font-size:10px;color:#738795;line-height:1.4;margin-top:3px}.home-group-links .accent{background:#f2faf8;border-color:#cbe4dd}
+.reports-group-grid{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px}.reports-group-links{grid-template-columns:repeat(3,minmax(0,1fr))}.reports-group-links a{align-items:flex-start;gap:3px}.reports-group-links a>span{font-size:18px;margin-bottom:2px}.reports-group-links.single{grid-template-columns:1fr}.mission-group-card{background:linear-gradient(145deg,#f9fffd,#f2faf8);border-color:#cfe6df}
+@media(max-width:1000px){.home-groups{grid-template-columns:1fr 1fr}.reports-group-grid{grid-template-columns:1fr}.reports-group-links{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:650px){.home-groups{grid-template-columns:1fr}.home-group-links,.reports-group-links{grid-template-columns:1fr 1fr}.reports-group-links.single{grid-template-columns:1fr}}
+@media(max-width:430px){.home-group-links,.reports-group-links{grid-template-columns:1fr}}
+
+/* v34.25 — grouped square actions + governorate-first structure */
+.home-group-links a,.reports-group-links a{position:relative;border:1px solid #d7e4ec;background:linear-gradient(180deg,#fff,#f8fbfd);box-shadow:inset 0 0 0 1px rgba(255,255,255,.75);justify-content:center}
+.home-group-links a:before,.reports-group-links a:before{content:"";position:absolute;inset:5px;border:1px solid #edf2f5;border-radius:8px;pointer-events:none}
+.home-group-links a b,.home-group-links a small,.reports-group-links a b,.reports-group-links a small,.reports-group-links a>span{position:relative;z-index:1}
+.home-group-links,.reports-group-links{gap:10px}
+.structure-select-first{max-width:620px;margin:26px auto;padding:34px 24px;text-align:center;background:linear-gradient(145deg,#fff,#f6fafc);border:1px solid #d9e6ee;border-radius:18px;box-shadow:0 8px 24px rgba(24,55,84,.07)}
+.structure-select-icon{width:58px;height:58px;margin:0 auto 12px;border-radius:16px;display:grid;place-items:center;background:#eef5fa;font-size:28px}
+.structure-select-first h2{margin:0;color:#234e6b;font-size:20px}.structure-select-first p{margin:8px 0 0;color:#718493;font-size:13px;line-height:1.8}
+.admin-gov-picker{max-width:520px;margin:0 auto 18px}.admin-gov-form{grid-template-columns:1fr}.admin-gov-form label{font-weight:700;color:#31556c}.admin-gov-form select{margin-top:6px}
+
+/* v34.26 — governorate structure only after governorate selection */
+.structure-gov-first{display:grid;gap:9px;width:100%}
+.structure-gov-picker-link,.structure-gov-locked{display:flex;align-items:center;gap:10px;border:1px solid #dbe6ee;border-radius:12px;background:#fff;padding:11px;text-decoration:none;color:inherit}
+.structure-gov-picker-link{background:#f2f8fc;border-color:#c8dce9}.structure-gov-picker-link strong{color:#24577d;font-size:12px}.structure-gov-picker-link small,.structure-gov-locked small{display:block;color:#738795;font-size:10px;margin-top:3px}
+.structure-gov-locked{background:#f7f9fb;color:#718493}.structure-gov-locked>span{font-size:18px}.structure-gov-locked b{font-size:11px;color:#687b88}
+
+/* v34.27 — grouped square cards: home / administration / reports */
+.admin-shortcuts.admin-card-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.admin-shortcut-group{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;align-items:center;min-height:125px;padding:14px;border-radius:16px}
+.admin-shortcut-group .admin-card-icon{grid-row:1 / span 2}
+.admin-shortcut-group .admin-card-action{grid-column:2;justify-self:start;margin-top:8px;display:inline-flex;align-items:center;text-decoration:none;background:#eef6fb;border:1px solid #cfe0eb;border-radius:9px;padding:7px 11px;color:#24577d;font-size:11px;font-weight:700}
+.home-groups{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.home-group-card{min-height:170px}
+.home-group-links{grid-template-columns:repeat(2,minmax(0,1fr))}
+.home-group-links a{min-height:82px;justify-content:center}
+.reports-group-grid{grid-template-columns:1.7fr 1fr}
+.reports-group-card{min-height:190px}
+.reports-group-links a{min-height:100px;justify-content:center}
+@media(max-width:1100px){.home-groups{grid-template-columns:1fr 1fr}.admin-shortcuts.admin-card-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:650px){.home-groups,.admin-shortcuts.admin-card-grid{grid-template-columns:1fr}.home-group-links,.reports-group-links{grid-template-columns:1fr 1fr}}
+@media(max-width:430px){.home-group-links,.reports-group-links{grid-template-columns:1fr}}

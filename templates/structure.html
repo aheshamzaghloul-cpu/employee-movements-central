@@ -6,9 +6,13 @@
 </div>
 
 <div class="admin-shortcuts no-print admin-card-grid">
-  <a class="admin-shortcut-card" href="#structure"><span class="admin-card-icon">🏢</span><span><strong>الهيكل الإداري</strong><small>المحافظات والفروع والمشرفون والمدخلون</small></span></a>
-  {% if is_admin %}<a class="admin-shortcut-card" href="/employees"><span class="admin-card-icon">👥</span><span><strong>الموظفون</strong><small>تسجيل الموظف أولًا ثم إضافة الأدوار</small></span></a>
-  <a class="admin-shortcut-card highlight" href="#add-entry-role"><span class="admin-card-icon">➕</span><span><strong>إضافة دور مدخل أول</strong><small>اختر موظفًا مسجلًا من القائمة المنسدلة</small></span></a>{% endif %}
+  <div class="admin-shortcut-card admin-shortcut-group">
+    <span class="admin-card-icon">🏢</span><span><strong>الهيكل الإداري للمحافظات</strong><small>اختر المحافظة أولًا، ثم تظهر بطاقة الهيكل الخاصة بها.</small></span>
+    <a class="admin-card-action" href="#my-governorates">اختيار المحافظة</a>
+  </div>
+  {% if is_admin %}<div class="admin-shortcut-card admin-shortcut-group"><span class="admin-card-icon">👥</span><span><strong>الموظفون</strong><small>تسجيل الموظف أولًا ثم إضافة الأدوار عند الحاجة.</small></span><a class="admin-card-action" href="/employees">فتح الموظفين</a></div>
+  <div class="admin-shortcut-card admin-shortcut-group"><span class="admin-card-icon">➕</span><span><strong>إضافة دور مدخل أول</strong><small>اختر موظفًا مسجلًا دون إنشاء سجل موظف جديد.</small></span><a class="admin-card-action" href="#add-entry-role">إضافة الدور</a></div>{% endif %}
+  {% if is_admin %}<div class="admin-shortcut-card admin-shortcut-group"><span class="admin-card-icon">🔐</span><span><strong>المستخدمون والصلاحيات</strong><small>إدارة المستخدمين والأدوار وكلمات المرور.</small></span><a class="admin-card-action" href="/users">فتح الإدارة</a></div>{% endif %}
 </div>
 
 {% if is_admin %}
@@ -26,12 +30,18 @@
     <div class="admin-stat"><b>{{admin_stats.movements}}</b><span>الحركات</span></div>
   </div>
   <div class="admin-tool-groups">
-    <div class="admin-tool-group">
-      <h3>🏢 الهيكل الإداري</h3>
+    <div class="admin-tool-group governorate-structure-group">
+      <h3>🏢 الهيكل الإداري للمحافظات</h3>
       <div class="admin-tools">
-        <a href="/governorates"><strong>المحافظات</strong><small>إضافة وتعديل وحذف المحافظات</small></a>
-        <a href="/branches"><strong>الفروع</strong><small>إدارة الفروع وربطها بالمحافظات والمدخلين</small></a>
-        
+        <div class="structure-gov-first">
+          <a class="structure-gov-picker-link" href="#my-governorates"><strong>1. اختر المحافظة أولًا</strong><small>بعد الاختيار فقط تظهر أدوات وهيكل المحافظة.</small></a>
+          {% if selected_governorate %}
+          <a href="/governorates"><strong>المحافظات</strong><small>إضافة وتعديل وحذف المحافظات</small></a>
+          <a href="/branches?governorate_id={{selected_governorate}}"><strong>الفروع</strong><small>إدارة فروع المحافظة وربطها بالمدخلين</small></a>
+          {% else %}
+          <div class="structure-gov-locked"><span>🔒</span><div><b>الهيكل مخفي حتى اختيار المحافظة</b><small>اختر المحافظة من القائمة أسفل مركز التحكم.</small></div></div>
+          {% endif %}
+        </div>
       </div>
     </div>
     <div class="admin-tool-group">
@@ -50,7 +60,7 @@
 </section>
 <div class="admin-divider"></div>
 <div class="section-caption no-print"><b>{% if is_entry %}فروعك وموظفوها{% elif is_supervisor %}الهيكل الإداري لمحافظاتك{% else %}الهيكل الإداري{% endif %}</b><span>{% if is_entry %}عرض الفروع والموظفين المرتبطين بك فقط.{% elif is_supervisor %}عرض وإدارة ما يخص المحافظات المسندة إليك فقط.{% else %}من هنا تبدأ إدارة المحافظات والمشرفين والمدخلين والفروع.{% endif %}</span></div>
-<div id="my-governorates" class="box admin-gov-picker no-print"><form method="get" class="grid admin-gov-form"><label>المحافظة<select name="governorate_id" onchange="this.form.submit()"><option value="">كل المحافظات</option>{% for g in govs_all %}<option value="{{g.id}}" {% if selected_governorate == g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label></form></div>
+<div id="my-governorates" class="box admin-gov-picker no-print"><form method="get" class="grid admin-gov-form"><label>المحافظة<select name="governorate_id" onchange="this.form.submit()"><option value="">اختر المحافظة أولًا</option>{% for g in govs_all %}<option value="{{g.id}}" {% if selected_governorate == g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label></form></div>
 {% endif %}
 {% if is_admin %}
 <div class="admin-entry-role-card" id="add-entry-role">
@@ -58,6 +68,7 @@
   <form method="get" action="/employee-role-select" class="entry-role-picker"><label>اختر الموظف<select name="employee_id" required><option value="">اختر موظفًا مسجلًا</option>{% for e in available_entry_employees %}<option value="{{e.id}}">{{e.full_name}} — {{e.job_code or 'بدون كود'}} — {{e.branch.name if e.branch else ''}}</option>{% endfor %}</select></label><button class="btn">متابعة وإضافة الدور</button></form>
 </div>
 {% endif %}
+{% if selected_governorate %}
 <div class="structure-grid" id="structure">
 {% for g,bs,sups,entries,counts in tree %}
 <section class="structure-card supervisor-clean-card">
@@ -97,4 +108,11 @@
 </section>
 {% endfor %}
 </div>
+{% else %}
+<div class="structure-select-first no-print">
+  <div class="structure-select-icon">🏢</div>
+  <h2>اختر المحافظة أولًا</h2>
+  <p>بعد اختيار المحافظة ستظهر الفروع والمشرفون والمدخلون والموظفون التابعون لها.</p>
+</div>
+{% endif %}
 {% endblock %}

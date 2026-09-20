@@ -20,20 +20,42 @@
   <div class="home-stat-card"><span>اعتمادات معلقة</span><b>{{pending|length}}</b></div>
 </div>
 
-<div class="box home-quick-actions compact-home-actions">
-  <div class="section-title"><div><h3>الإجراءات الرئيسية</h3></div></div>
-  <div class="home-action-grid">
-    {% if 'مسؤول التطبيق' in roles %}
-      <a class="home-action" href="/structure"><b>إدارة الهيكل</b><small>المحافظات والفروع والمشرفون والمدخلون</small></a>
-    {% elif 'مشرف محافظة' in roles %}
-      <a class="home-action" href="/structure"><b>إدارة النطاق</b><small>المدخلون والفروع التابعة لمحافظاتك</small></a>
-    {% endif %}
-    {% if can('manage_employees') %}<a class="home-action" href="/employees"><b>الموظفون</b><small>إضافة أو تعديل بيانات الموظفين</small></a>{% endif %}
-    {% if can('manage_movements') %}<a class="home-action accent" href="/movements"><b>تسجيل حركة</b><small>إجازة أو انتداب أو إذن</small></a>{% endif %}
-    {% if can('review_movements') and ('مسؤول التطبيق' in roles or 'مشرف محافظة' in roles) %}<a class="home-action" href="/review"><b>المراجعة والاعتماد</b><small>الحركات التي تحتاج إجراءً منك</small></a>{% endif %}
-    {% if can('view_reports') %}<a class="home-action" href="/reports"><b>التقارير</b><small>عرض تقارير الحركات داخل التطبيق</small></a>{% endif %}
+<section class="home-groups">
+  {% if 'مسؤول التطبيق' in roles or 'مشرف محافظة' in roles %}
+  <div class="home-group-card">
+    <div class="home-group-head"><span class="home-group-icon">🏢</span><div><h3>الإدارة</h3><small>إدارة الهيكل والصلاحيات</small></div></div>
+    <div class="home-group-links">
+      {% if 'مسؤول التطبيق' in roles %}<a href="/structure"><b>الهيكل الإداري</b><small>المحافظات والمشرفون والمدخلون والفروع</small></a>{% elif 'مشرف محافظة' in roles %}<a href="/structure"><b>إدارة النطاق</b><small>المدخلون والفروع التابعة لمحافظاتك</small></a>{% endif %}
+      {% if 'مسؤول التطبيق' in roles %}<a href="/users"><b>المستخدمون والصلاحيات</b><small>الأدوار وكلمات المرور والصلاحيات</small></a>{% endif %}
+      {% if 'مسؤول التطبيق' in roles %}<a href="/lookups"><b>القوائم الأساسية</b><small>أنواع الحركات والإجازات</small></a>{% endif %}
+    </div>
   </div>
-</div>
+  {% endif %}
+  {% if can('manage_employees') %}
+  <div class="home-group-card">
+    <div class="home-group-head"><span class="home-group-icon">👥</span><div><h3>الموظفون</h3><small>إدارة بيانات الموظفين وسجلاتهم</small></div></div>
+    <div class="home-group-links">
+      <a href="/employees"><b>دليل الموظفين</b><small>بحث وإضافة وتعديل بيانات الموظفين</small></a>
+      <a href="/employees"><b>بيانات الموظفين</b><small>الفرع والوظيفة وبيانات التواصل</small></a>
+    </div>
+  </div>
+  {% endif %}
+  {% if can('manage_movements') or (can('review_movements') and ('مسؤول التطبيق' in roles or 'مشرف محافظة' in roles)) %}
+  <div class="home-group-card">
+    <div class="home-group-head"><span class="home-group-icon">🔄</span><div><h3>حركات الموظفين</h3><small>التسجيل والمراجعة والاعتماد</small></div></div>
+    <div class="home-group-links">
+      {% if can('manage_movements') %}<a class="accent" href="/movements"><b>تسجيل حركة</b><small>إجازة أو انتداب أو إذن</small></a>{% endif %}
+      {% if can('review_movements') and ('مسؤول التطبيق' in roles or 'مشرف محافظة' in roles) %}<a href="/review"><b>المراجعة والاعتماد</b><small>الحركات التي تحتاج إجراءً منك</small></a>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+  {% if can('view_reports') %}
+  <div class="home-group-card">
+    <div class="home-group-head"><span class="home-group-icon">📊</span><div><h3>التقارير</h3><small>الوصول السريع إلى التقارير</small></div></div>
+    <div class="home-group-links"><a href="/reports"><b>مركز التقارير</b><small>الإجازات والانتدابات والأذونات والمأموريات</small></a></div>
+  </div>
+  {% endif %}
+</section>
 
 {% if entry_rows %}
 <section class="home-entry-directory">

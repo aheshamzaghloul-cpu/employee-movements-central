@@ -6,20 +6,20 @@
   <a class="btn teal" href="/reports/assignments/print-missions">📄 طباعة المأموريات PDF</a>
 </div>
 
-<div class="report-dashboard-grid">
-  <a class="report-dashboard-card" href="/reports/leaves">
-    <span class="report-dashboard-icon">🏖️</span><span class="report-dashboard-body"><b>تقرير الإجازات</b><small>عرض الإجازات حسب المحافظة والفرع والموظف والفترة والحالة.</small></span><span class="report-dashboard-arrow">›</span>
-  </a>
-  <a class="report-dashboard-card" href="/reports/assignments">
-    <span class="report-dashboard-icon">📍</span><span class="report-dashboard-body"><b>تقرير الانتدابات</b><small>متابعة الانتدابات والجهات المنتدب إليها ومواعيدها.</small></span><span class="report-dashboard-arrow">›</span>
-  </a>
-  <a class="report-dashboard-card" href="/reports/permissions">
-    <span class="report-dashboard-icon">🕘</span><span class="report-dashboard-body"><b>تقرير الأذونات</b><small>عرض الأذونات وتصفية النتائج حسب الموظف والفترة والحالة.</small></span><span class="report-dashboard-arrow">›</span>
-  </a>
-  <a class="report-dashboard-card mission-card" href="/reports/assignments/print-missions">
-    <span class="report-dashboard-icon">🖨️</span><span class="report-dashboard-body"><b>طباعة المأموريات PDF</b><small>اختيار المأمورية وفتح النموذج الرسمي للطباعة.</small></span><span class="report-dashboard-arrow">›</span>
-  </a>
-</div>
+<section class="reports-group-grid">
+  <div class="reports-group-card">
+    <div class="reports-group-head"><span class="reports-group-icon">📋</span><div><h3>تقارير الحركات</h3><small>اختر نوع الحركة لعرض التفاصيل والفلاتر</small></div></div>
+    <div class="reports-group-links">
+      <a href="/reports/leaves"><span>🏖️</span><b>الإجازات</b><small>حسب المحافظة والفرع والموظف والفترة</small></a>
+      <a href="/reports/assignments"><span>📍</span><b>الانتدابات</b><small>متابعة الجهات والمواعيد والحالات</small></a>
+      <a href="/reports/permissions"><span>🕘</span><b>الأذونات</b><small>عرض الأذونات وتصفية النتائج</small></a>
+    </div>
+  </div>
+  <div class="reports-group-card mission-group-card">
+    <div class="reports-group-head"><span class="reports-group-icon">🖨️</span><div><h3>المأموريات والطباعة</h3><small>الوصول المباشر إلى النماذج الرسمية</small></div></div>
+    <div class="reports-group-links single"><a href="/reports/assignments/print-missions"><span>📄</span><b>طباعة المأموريات PDF</b><small>اختيار المأمورية وفتح النموذج الرسمي للطباعة</small></a></div>
+  </div>
+</section>
 
 <div class="report-summary-cards">
   {% for label, value, cls in [('إجمالي الحركات', summary.values()|sum, 'total'), ('إجازات', by_type.get('إجازة',0), 'leave'), ('انتدابات', by_type.get('انتداب',0), 'assignment'), ('أذونات', by_type.get('إذن',0), 'permission')] %}

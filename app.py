@@ -7,7 +7,7 @@ from sqlalchemy import UniqueConstraint
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app=Flask(__name__)
-APP_VERSION='v34.23-HOME-REPORTS-CARDS'
+APP_VERSION='v34.27-GROUPED-SQUARE-CARDS'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg://',1)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or 'dev-only-change-me',SQLALCHEMY_DATABASE_URI=DATABASE_URL,SQLALCHEMY_TRACK_MODIFICATIONS=False,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','0')=='1',MAX_CONTENT_LENGTH=2*1024*1024)
@@ -546,8 +546,12 @@ def structure():
             selected_gov=''
     elif is_supervisor:
         supervisor_gids = list(user_gov_ids(current))
-        govs=Governorate.query.filter(Governorate.id.in_(supervisor_gids),Governorate.is_active==True).order_by(Governorate.name).all() if supervisor_gids else []
-        selected_gov=''
+        allowed_govs=Governorate.query.filter(Governorate.id.in_(supervisor_gids),Governorate.is_active==True).order_by(Governorate.name).all() if supervisor_gids else []
+        if selected_gov.isdigit() and any(g.id==int(selected_gov) for g in allowed_govs):
+            govs=[db.session.get(Governorate,int(selected_gov))]
+        else:
+            govs=[]
+            selected_gov=''
     else:
         entry_branch_ids=user_branch_ids(current)
         entry_gids={b.governorate_id for b in Branch.query.filter(Branch.id.in_(entry_branch_ids),Branch.is_active==True).all()} if entry_branch_ids else set()
@@ -555,6 +559,7 @@ def structure():
         selected_gov=''
 
     tree=[]
+    # لا نعرض تفاصيل الهيكل قبل اختيار المحافظة صراحةً.
     for g in govs:
         bs=Branch.query.filter_by(governorate_id=g.id,is_active=True).order_by(Branch.name).all()
         supervisors=[]

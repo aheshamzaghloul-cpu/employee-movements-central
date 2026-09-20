@@ -436,6 +436,7 @@ def home():
     tomorrow=today + timedelta(days=1)
     pending=[]
     ending=[]
+    approved_count=0
 
     # Governorates visible to the current effective role.
     visible_govs=(Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True)
@@ -474,7 +475,8 @@ def home():
     if bs:
         base=Movement.query.join(Employee).filter(Employee.branch_id.in_(bs),Movement.is_active==True)
         if can('review_movements') and (has_role('مسؤول التطبيق') or has_role('مشرف محافظة')):
-            pending=(base.filter(Movement.status=='تحت المراجعة')
+            approved_count=base.filter(Movement.status=='معتمدة').count()
+        pending=(base.filter(Movement.status=='تحت المراجعة')
                      .filter((Movement.approver_id==me().id) if 'مسؤول التطبيق' not in roles() else True)
                      .order_by(Movement.id.desc()).limit(20).all())
         # لا نكرر نفس الحركة في بطاقتين على الرئيسية: إذا كانت الحركة ضمن
@@ -497,6 +499,7 @@ def home():
         entry_rows=entry_rows,
         pending=pending,
         ending=ending,
+        approved_count=approved_count,
         today=today,
         tomorrow=tomorrow,
         is_admin=has_role('مسؤول التطبيق')

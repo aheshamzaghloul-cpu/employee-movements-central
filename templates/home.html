@@ -13,12 +13,12 @@
   </form>
 </div>
 
-<div class="home-stat-grid">
-  <a class="home-stat-card" href="/employees"><span>الموظفون</span><b>{{e}}</b></a>
-  <a class="home-stat-card" href="/branches"><span>الفروع ضمن نطاقك</span><b>{{b}}</b></a>
-  <div class="home-stat-card"><span>المحافظات</span><b>{{g}}</b></div>
-  <div class="home-stat-card"><span>اعتمادات معلقة</span><b>{{pending|length}}</b></div>
-</div>
+<section class="home-summary-card">
+  <a class="home-summary-item" href="/employees"><span>الموظفون</span><b>{{e}}</b></a>
+  <a class="home-summary-item" href="/branches"><span>الفروع ضمن نطاقك</span><b>{{b}}</b></a>
+  <a class="home-summary-item" href="/governorates"><span>المحافظات</span><b>{{g}}</b></a>
+  <a class="home-summary-item" href="/review?tab=approved"><span>اعتمادات مغلقة</span><b>{{approved_count}}</b></a>
+</section>
 
 <section class="home-groups">
   {% if 'مسؤول التطبيق' in roles or 'مشرف محافظة' in roles %}

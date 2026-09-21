@@ -159,64 +159,127 @@ document.addEventListener('DOMContentLoaded', function(){
   });
 })();
 
-// v34.32: precise home dashboard workspace — handle-only drag, four fixed sizes, persistent order.
+// v34.34: free home dashboard canvas — medium defaults, free drag/resize, persistent layout.
 (function(){
   const workspace=document.querySelector('#dashboard-workspace');
   if(!workspace) return;
-  const key='employee_dashboard_layout_v34_32';
-  const sizes=['sm','md','lg','xl'];
+  const key='employee_dashboard_layout_v34_34';
   const widgets=()=>[...workspace.querySelectorAll(':scope > .dashboard-widget')];
+  const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
   function read(){try{return JSON.parse(localStorage.getItem(key)||'{}')}catch(e){return {}}}
+  function canvasSize(){
+    const maxBottom=widgets().reduce((m,w)=>Math.max(m,(parseFloat(w.style.top)||0)+(parseFloat(w.style.height)||0)),0);
+    const minHeight=Math.max(window.innerHeight-150,760);
+    workspace.style.minHeight=Math.max(minHeight,maxBottom+80)+'px';
+  }
   function save(){
-    const state={order:widgets().map(w=>w.dataset.widgetId).filter(Boolean),sizes:{}};
-    widgets().forEach(w=>{state.sizes[w.dataset.widgetId]=sizes.find(s=>w.classList.contains('widget-'+s))||'md'});
-    localStorage.setItem(key,JSON.stringify(state));
-  }
-  function apply(){
-    const state=read();
-    if(Array.isArray(state.order)){
-      state.order.forEach(id=>{const w=workspace.querySelector('[data-widget-id="'+CSS.escape(id)+'"]');if(w)workspace.appendChild(w)});
-    }
+    canvasSize();
+    const state={canvasWidth:workspace.clientWidth,canvasHeight:workspace.scrollHeight,widgets:{}};
+    const wr=workspace.getBoundingClientRect();
     widgets().forEach(w=>{
-      const size=state.sizes&&state.sizes[w.dataset.widgetId];
-      w.classList.remove('widget-sm','widget-md','widget-lg','widget-xl');
-      w.classList.add('widget-'+(sizes.includes(size)?size:'md'));
+      state.widgets[w.dataset.widgetId]={
+        x:Math.round(w.offsetLeft),y:Math.round(w.offsetTop),
+        w:Math.round(w.offsetWidth),h:Math.round(w.offsetHeight)
+      };
     });
+    try{localStorage.setItem(key,JSON.stringify(state))}catch(e){}
   }
-  function markActive(w){
-    const current=sizes.find(s=>w.classList.contains('widget-'+s))||'md';
-    w.querySelectorAll('[data-widget-size]').forEach(b=>b.classList.toggle('active',b.dataset.widgetSize===current));
+  function place(w,x,y,width,height){
+    const minW=220,minH=145;
+    const maxW=Math.max(minW,workspace.clientWidth-16);
+    const ww=clamp(width||340,minW,maxW);
+    const hh=Math.max(minH,height||190);
+    const xx=clamp(x||0,0,Math.max(0,workspace.clientWidth-ww));
+    const yy=Math.max(0,y||0);
+    w.style.left=xx+'px';w.style.top=yy+'px';w.style.width=ww+'px';w.style.height=hh+'px';
   }
-  apply();
-  widgets().forEach(w=>{
-    markActive(w);
-    w.querySelectorAll('[data-widget-size]').forEach(btn=>btn.addEventListener('click',e=>{
-      e.preventDefault();e.stopPropagation();
-      const size=btn.dataset.widgetSize;
-      if(!sizes.includes(size))return;
-      w.classList.remove('widget-sm','widget-md','widget-lg','widget-xl');
-      w.classList.add('widget-'+size); markActive(w); save();
-    }));
-    const handle=w.querySelector('.widget-drag');
-    if(!handle) return;
-    handle.addEventListener('dragstart',e=>{
-      w.classList.add('dragging');
-      e.dataTransfer.effectAllowed='move';
-      e.dataTransfer.setData('text/plain',w.dataset.widgetId||'');
+  function initialLayout(){
+    // First visit: every widget starts at a consistent medium size.
+    const width=workspace.clientWidth;
+    const gap=20;
+    const col=Math.max(260,Math.floor((width-gap*2)/3));
+    const rowH=190;
+    const positions=[
+      [0,0],[col+gap,0],[2*(col+gap),0],
+      [0,rowH+gap],[col+gap,rowH+gap],[2*(col+gap),rowH+gap],
+      [0,2*(rowH+gap)]
+    ];
+    widgets().forEach((w,i)=>{
+      const [x,y]=positions[i]||[0,i*(rowH+gap)];
+      place(w,x,y,col,rowH);
     });
-    handle.addEventListener('dragend',()=>{w.classList.remove('dragging');save();});
-  });
-  workspace.addEventListener('dragover',e=>{
+    canvasSize();
+  }
+  function applySaved(){
+    const state=read();
+    if(!state.widgets || !Object.keys(state.widgets).length){initialLayout();save();return;}
+    const oldWidth=state.canvasWidth||workspace.clientWidth;
+    const ratio=workspace.clientWidth>0 ? workspace.clientWidth/oldWidth : 1;
+    widgets().forEach((w,i)=>{
+      const d=state.widgets[w.dataset.widgetId];
+      if(d){
+        const ww=Math.min((d.w||340)*ratio,workspace.clientWidth-16);
+        place(w,(d.x||0)*ratio,d.y||0,ww,d.h||190);
+      }else{
+        const col=Math.max(260,Math.floor((workspace.clientWidth-40)/3));
+        place(w,(i%3)*(col+20),Math.floor(i/3)*210,col,190);
+      }
+    });
+    canvasSize();
+  }
+  let active=null;
+  function beginDrag(w,e){
+    if(e.button!==0)return;
+    const wr=workspace.getBoundingClientRect();
+    active={type:'drag',w,startX:e.clientX,startY:e.clientY,left:w.offsetLeft,top:w.offsetTop,width:w.offsetWidth,height:w.offsetHeight};
+    w.classList.add('dragging','widget-active');
+    w.setPointerCapture?.(e.pointerId);
     e.preventDefault();
-    const dragging=workspace.querySelector('.dashboard-widget.dragging'); if(!dragging)return;
-    const target=e.target.closest('.dashboard-widget');
-    if(!target||target===dragging||!workspace.contains(target))return;
-    const r=target.getBoundingClientRect();
-    const after=e.clientY>r.top+r.height/2 || (Math.abs(e.clientY-(r.top+r.height/2))<r.height*.25 && e.clientX<r.left+r.width/2);
-    if(after){ if(target.nextElementSibling!==dragging) workspace.insertBefore(dragging,target.nextElementSibling); }
-    else { if(target.previousElementSibling!==dragging) workspace.insertBefore(dragging,target); }
+  }
+  function beginResize(w,e){
+    if(e.button!==0)return;
+    active={type:'resize',w,startX:e.clientX,startY:e.clientY,left:w.offsetLeft,top:w.offsetTop,width:w.offsetWidth,height:w.offsetHeight};
+    w.classList.add('dragging','widget-active');
+    w.setPointerCapture?.(e.pointerId);
+    e.preventDefault();e.stopPropagation();
+  }
+  function move(e){
+    if(!active)return;
+    const a=active,dx=e.clientX-a.startX,dy=e.clientY-a.startY;
+    if(a.type==='drag'){
+      const x=clamp(a.left+dx,0,Math.max(0,workspace.clientWidth-a.width));
+      const y=Math.max(0,a.top+dy);
+      a.w.style.left=x+'px';a.w.style.top=y+'px';
+    }else{
+      const minW=220,minH=145;
+      const width=clamp(a.width+dx,minW,Math.max(minW,workspace.clientWidth-a.left));
+      const height=Math.max(minH,a.height+dy);
+      a.w.style.width=width+'px';a.w.style.height=height+'px';
+    }
+    canvasSize();
+  }
+  function end(){
+    if(!active)return;
+    active.w.classList.remove('dragging');
+    setTimeout(()=>active&&active.w.classList.remove('widget-active'),80);
+    active=null;save();
+  }
+  applySaved();
+  widgets().forEach(w=>{
+    const grip=w.querySelector('.widget-drag');
+    const resize=w.querySelector('.widget-resize');
+    grip?.addEventListener('pointerdown',e=>beginDrag(w,e));
+    resize?.addEventListener('pointerdown',e=>beginResize(w,e));
   });
-  workspace.addEventListener('drop',e=>{e.preventDefault();const d=workspace.querySelector('.dashboard-widget.dragging');if(d){d.classList.remove('dragging');save();}});
-  // Double-click a card background resets its size only; links/buttons remain unaffected.
-  workspace.addEventListener('dblclick',e=>{const w=e.target.closest('.dashboard-widget');if(!w||e.target.closest('a,button,input,select,summary,.widget-drag'))return;w.classList.remove('widget-sm','widget-md','widget-lg','widget-xl');w.classList.add('widget-md');markActive(w);save();});
+  document.addEventListener('pointermove',move,{passive:false});
+  document.addEventListener('pointerup',end,{passive:true});
+  window.addEventListener('resize',()=>{
+    const oldWidth=read().canvasWidth||workspace.clientWidth;
+    const ratio=workspace.clientWidth/oldWidth;
+    widgets().forEach(w=>{
+      const x=clamp(w.offsetLeft*ratio,0,Math.max(0,workspace.clientWidth-w.offsetWidth));
+      w.style.left=x+'px';
+    });
+    canvasSize();save();
+  });
 })();

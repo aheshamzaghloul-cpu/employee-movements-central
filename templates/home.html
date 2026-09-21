@@ -23,7 +23,7 @@
   <div class="home-main-column">
     <div class="dashboard-workspace" id="dashboard-workspace">
   {% if 'مسؤول التطبيق' in roles or 'مشرف محافظة' in roles %}
-  <div class="home-group-card dashboard-widget" data-widget-id="group-management"><div class="widget-tools"><button type="button" data-widget-size="sm" title="تصغير">−</button><button type="button" data-widget-size="md" title="حجم متوسط">□</button><button type="button" data-widget-size="lg" title="تكبير">+</button><button type="button" data-widget-size="xl" title="عرض كامل">↔</button><span class="widget-drag" title="اسحب البطاقة من هنا">⋮⋮</span></div>
+  <div class="home-group-card dashboard-widget" data-widget-id="group-management"><div class="widget-tools"><span class="widget-drag" title="اسحب البطاقة">⋮⋮</span></div><span class="widget-resize" title="تغيير الحجم"></span>
     <div class="home-group-head"><span class="home-group-icon">🏢</span><div><h3>الإدارة</h3><small>إدارة الهيكل والصلاحيات</small></div></div>
     <div class="home-group-links">
       {% if 'مسؤول التطبيق' in roles %}<a href="/structure"><b>الهيكل الإداري</b><small>المحافظات والمشرفون والمدخلون والفروع</small></a>{% elif 'مشرف محافظة' in roles %}<a href="/structure"><b>إدارة النطاق</b><small>المدخلون والفروع التابعة لمحافظاتك</small></a>{% endif %}
@@ -33,7 +33,7 @@
   </div>
   {% endif %}
   {% if can('manage_employees') %}
-  <div class="home-group-card dashboard-widget" data-widget-id="group-employees"><div class="widget-tools"><button type="button" data-widget-size="sm" title="تصغير">−</button><button type="button" data-widget-size="md" title="حجم متوسط">□</button><button type="button" data-widget-size="lg" title="تكبير">+</button><button type="button" data-widget-size="xl" title="عرض كامل">↔</button><span class="widget-drag" title="اسحب البطاقة من هنا">⋮⋮</span></div>
+  <div class="home-group-card dashboard-widget" data-widget-id="group-employees"><div class="widget-tools"><span class="widget-drag" title="اسحب البطاقة">⋮⋮</span></div><span class="widget-resize" title="تغيير الحجم"></span>
     <div class="home-group-head"><span class="home-group-icon">👥</span><div><h3>الموظفون</h3><small>إدارة بيانات الموظفين وسجلاتهم</small></div></div>
     <div class="home-group-links">
       <a href="/employees"><b>دليل الموظفين</b><small>بحث وإضافة وتعديل بيانات الموظفين</small></a>
@@ -42,7 +42,7 @@
   </div>
   {% endif %}
   {% if can('manage_movements') or (can('review_movements') and ('مسؤول التطبيق' in roles or 'مشرف محافظة' in roles)) %}
-  <div class="home-group-card dashboard-widget" data-widget-id="group-movements"><div class="widget-tools"><button type="button" data-widget-size="sm" title="تصغير">−</button><button type="button" data-widget-size="md" title="حجم متوسط">□</button><button type="button" data-widget-size="lg" title="تكبير">+</button><button type="button" data-widget-size="xl" title="عرض كامل">↔</button><span class="widget-drag" title="اسحب البطاقة من هنا">⋮⋮</span></div>
+  <div class="home-group-card dashboard-widget" data-widget-id="group-movements"><div class="widget-tools"><span class="widget-drag" title="اسحب البطاقة">⋮⋮</span></div><span class="widget-resize" title="تغيير الحجم"></span>
     <div class="home-group-head"><span class="home-group-icon">🔄</span><div><h3>حركات الموظفين</h3><small>التسجيل والمراجعة والاعتماد</small></div></div>
     <div class="home-group-links">
       {% if can('manage_movements') %}<a class="accent" href="/movements"><b>تسجيل حركة</b><small>إجازة أو انتداب أو إذن</small></a>{% endif %}
@@ -51,7 +51,7 @@
   </div>
   {% endif %}
   {% if can('view_reports') %}
-  <div class="home-group-card dashboard-widget" data-widget-id="group-reports"><div class="widget-tools"><button type="button" data-widget-size="sm" title="تصغير">−</button><button type="button" data-widget-size="md" title="حجم متوسط">□</button><button type="button" data-widget-size="lg" title="تكبير">+</button><button type="button" data-widget-size="xl" title="عرض كامل">↔</button><span class="widget-drag" title="اسحب البطاقة من هنا">⋮⋮</span></div>
+  <div class="home-group-card dashboard-widget" data-widget-id="group-reports"><div class="widget-tools"><span class="widget-drag" title="اسحب البطاقة">⋮⋮</span></div><span class="widget-resize" title="تغيير الحجم"></span>
     <div class="home-group-head"><span class="home-group-icon">📊</span><div><h3>التقارير</h3><small>الوصول السريع إلى التقارير</small></div></div>
     <div class="home-group-links"><a href="/reports"><b>مركز التقارير</b><small>الإجازات والانتدابات والأذونات والمأموريات</small></a></div>
   </div>
@@ -59,7 +59,7 @@
 
   <details class="box home-collapsible home-info-card dashboard-widget" data-widget-id="pending" {% if pending %}open{% endif %}>
     <summary><strong>الحركات المسندة للاعتماد</strong><span>{{pending|length}}</span></summary>
-    <div class="widget-tools"><button type="button" data-widget-size="sm" title="تصغير">−</button><button type="button" data-widget-size="md" title="حجم متوسط">□</button><button type="button" data-widget-size="lg" title="تكبير">+</button><button type="button" data-widget-size="xl" title="عرض كامل">↔</button><span class="widget-drag" title="اسحب البطاقة من هنا">⋮⋮</span></div>
+    <div class="widget-tools"><span class="widget-drag" title="اسحب البطاقة">⋮⋮</span></div><span class="widget-resize" title="تغيير الحجم"></span>
     <div class="home-collapsible-body">
       {% if pending %}
       <div class="tablewrap"><table><thead><tr><th>الموظف</th><th>الحركة</th><th>الفترة</th><th>الحالة</th></tr></thead><tbody>
@@ -71,7 +71,7 @@
 
   <details class="box home-collapsible home-info-card dashboard-widget" data-widget-id="ending" {% if ending %}open{% endif %}>
     <summary><strong>إجازات وانتدابات تنتهي اليوم أو غدًا</strong><span>{{ending|length}}</span></summary>
-    <div class="widget-tools"><button type="button" data-widget-size="sm" title="تصغير">−</button><button type="button" data-widget-size="md" title="حجم متوسط">□</button><button type="button" data-widget-size="lg" title="تكبير">+</button><button type="button" data-widget-size="xl" title="عرض كامل">↔</button><span class="widget-drag" title="اسحب البطاقة من هنا">⋮⋮</span></div>
+    <div class="widget-tools"><span class="widget-drag" title="اسحب البطاقة">⋮⋮</span></div><span class="widget-resize" title="تغيير الحجم"></span>
     <div class="home-collapsible-body">
       {% if ending %}<div class="tablewrap"><table><thead><tr><th>الموظف</th><th>الحركة</th><th>تاريخ الانتهاء</th><th>الحالة</th></tr></thead><tbody>
       {% for m in ending %}<tr><td><a href="/employee/{{m.employee.id}}">{{m.employee.full_name}}</a><br><small>{{m.employee.branch.name}}</small></td><td>{{m.movement_type}}</td><td>{{m.to_date}}</td><td><span class="tag">{{m.status}}</span></td></tr>{% endfor %}
@@ -81,7 +81,7 @@
 
 {% if can('view_reports') %}
 <section class="home-reports-cards dashboard-widget" data-widget-id="reports-center">
-  <div class="widget-tools"><button type="button" data-widget-size="sm" title="تصغير">−</button><button type="button" data-widget-size="md" title="حجم متوسط">□</button><button type="button" data-widget-size="lg" title="تكبير">+</button><button type="button" data-widget-size="xl" title="عرض كامل">↔</button><span class="widget-drag" title="اسحب البطاقة من هنا">⋮⋮</span></div>
+  <div class="widget-tools"><span class="widget-drag" title="اسحب البطاقة">⋮⋮</span></div><span class="widget-resize" title="تغيير الحجم"></span>
   <div class="home-section-head"><div><span class="home-kicker">مركز التقارير</span><h2>التقارير</h2></div><a class="btn secondary mini" href="/reports">كل التقارير</a></div>
   <div class="home-report-card-grid">
     <a class="home-report-card" href="/reports/leaves"><span class="home-report-icon">🏖️</span><span><b>تقرير الإجازات</b><small>عرض ومراجعة جميع الإجازات</small></span><strong>›</strong></a>

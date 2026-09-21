@@ -15,4 +15,24 @@
 <div class="duration-box"><b>المدة</b><strong id="movement_days">—</strong><span>يوم</span><small id="movement_duration_hint">تحسب تلقائيًا للإجازة والانتداب</small></div>
 <div class="form-actions"><button type="submit">حفظ الحركة</button></div>
 </form></div>
+
+<div class="box movement-list-box">
+  <div class="toolbar"><div><h2>الحركات المسجلة</h2><p class="subtitle">يمكنك فتح أي حركة وتعديل بياناتها مباشرة.</p></div></div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>الموظف</th><th>نوع الحركة</th><th>التفاصيل</th><th>الفترة</th><th>الحالة</th><th>إجراء</th></tr></thead>
+    <tbody>
+    {% for m in rows %}
+      <tr>
+        <td><a class="table-link" href="/employee/{{m.employee.id}}">{{m.employee.full_name}}</a><small>{{m.employee.branch.name if m.employee.branch else '—'}}</small></td>
+        <td><span class="badge">{{m.movement_type}}</span></td>
+        <td>{% if m.movement_type=='إجازة' %}{{m.leave_type or 'إجازة'}}{% elif m.movement_type=='انتداب' %}{{m.destination.name if m.destination else '—'}}{% else %}إذن{% endif %}</td>
+        <td>{% if m.movement_type=='إذن' %}{{m.permission_date or '—'}}{% else %}{{m.from_date or '—'}} ← {{m.to_date or '—'}}{% endif %}</td>
+        <td>{{m.status}}</td>
+        <td><a class="btn mini" href="/movements/{{m.id}}/edit">تعديل الحركة</a></td>
+      </tr>
+    {% else %}<tr><td colspan="6" class="empty">لا توجد حركات مسجلة.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</div>
+
 {% endblock %}

@@ -975,3 +975,16 @@ main:not(.login){padding-left:0!important;padding-right:0!important}
 .home-movements-panel .home-group-head h3{font-size:clamp(21px,1.8cqw,27px)!important}
 .home-movements-panel .home-group-head small{font-size:clamp(12px,1cqw,15px)!important}
 @media(max-width:900px){.home-movements-panel .movement-action-grid{grid-template-columns:1fr}}
+
+
+/* v34.53 — current status clarity + movement editing */
+.current-status-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
+.current-status-card{position:relative;display:grid;grid-template-columns:minmax(150px,1.15fr) auto minmax(160px,1fr) auto;gap:12px;align-items:center;padding:16px 18px;border:1px solid var(--border,#e4e7ec);border-radius:16px;background:#fff;text-decoration:none;color:inherit;box-shadow:0 4px 14px rgba(15,23,42,.05);transition:.15s}
+.current-status-card:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(15,23,42,.08)}
+.current-status-main strong{display:block;font-size:16px;line-height:1.45}.current-status-main small,.current-status-detail span,.current-status-remaining span{display:block;font-size:12px;color:#687386;margin-top:3px}
+.current-status-badge{padding:7px 10px;border-radius:10px;font-weight:800;font-size:12px;white-space:nowrap;background:#eef6ff;color:#1769aa}.is-leave .current-status-badge{background:#fff5e8;color:#9a5b00}
+.current-status-detail b{display:block;font-size:13px}.current-status-remaining{text-align:center;min-width:70px}.current-status-remaining b{display:block;font-size:20px}.current-status-alert{position:absolute;top:8px;left:10px;font-size:10px;font-weight:800;padding:4px 7px;border-radius:8px;background:#fff0f0;color:#b42318}
+.status-empty{padding:26px;text-align:center;border:1px dashed var(--border,#d9dee7);border-radius:14px;background:#fafbfc;margin-top:14px}.status-empty strong{display:block;font-size:15px}.status-empty span{display:block;margin-top:6px;color:#6b7280;font-size:12px}
+.movement-list-box{margin-top:18px}.movement-list-box td small{display:block;color:#6b7280;margin-top:3px}.movement-list-box .table-link{font-weight:800}
+@media(max-width:1100px){.current-status-list{grid-template-columns:1fr}.current-status-card{grid-template-columns:1fr 1fr}.current-status-detail{grid-column:1/2}.current-status-remaining{grid-column:2/3;grid-row:2}.current-status-alert{position:static;justify-self:start;grid-column:1/-1}}
+@media(max-width:650px){.current-status-card{grid-template-columns:1fr}.current-status-detail,.current-status-remaining{grid-column:auto;grid-row:auto;text-align:right}.current-status-remaining{text-align:right}.current-status-alert{grid-column:auto}}

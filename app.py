@@ -7,7 +7,7 @@ from sqlalchemy import UniqueConstraint
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app=Flask(__name__)
-APP_VERSION='v34.51-REPLACEMENT'
+APP_VERSION='v34.53-FIXES-CURRENT-STATUS'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg://',1)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or 'dev-only-change-me',SQLALCHEMY_DATABASE_URI=DATABASE_URL,SQLALCHEMY_TRACK_MODIFICATIONS=False,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','0')=='1',MAX_CONTENT_LENGTH=2*1024*1024)
@@ -455,7 +455,7 @@ def change_password():
         else: u.password_hash=generate_password_hash(new); u.must_change_password=False; sync_role_accounts(u); log('PASSWORD_CHANGE','User',u.id); db.session.commit(); flash('تم تغيير كلمة المرور بنجاح.'); return redirect('/')
     return render_template('change_password.html')
 def current_employee_status_rows(branch_ids, today):
-    """Build a clear current-location snapshot for supervisors/first-entry users."""
+    """Return only employees with a currently active leave or assignment."""
     if not branch_ids:
         return []
     employees=(Employee.query.filter(Employee.branch_id.in_(branch_ids),Employee.is_active==True)
@@ -465,28 +465,28 @@ def current_employee_status_rows(branch_ids, today):
         moves=(Movement.query.filter_by(employee_id=e.id,is_active=True)
                .order_by(Movement.created_at.desc(),Movement.id.desc()).all())
         current=None
-        # A movement is considered current by its dates, independent of any old approval status.
         for m in moves:
             if m.movement_type in ('إجازة','انتداب') and m.from_date and m.to_date and m.from_date <= today <= m.to_date:
                 current=m
                 break
-            if m.movement_type=='إذن' and m.permission_date==today:
-                current=m
-                break
-        if current:
-            if current.movement_type=='انتداب':
-                state='انتداب'; place=current.destination.name if current.destination else 'جهة الانتداب غير محددة'; until=current.to_date
-                detail='من {} إلى {}'.format(current.from_date,current.to_date)
-            elif current.movement_type=='إجازة':
-                state='إجازة'; place=current.leave_type or 'إجازة'; until=current.to_date
-                detail='من {} إلى {}'.format(current.from_date,current.to_date)
-            else:
-                state='إذن'; place='إذن اليوم'; until=today
-                detail='بتاريخ {}'.format(current.permission_date)
-            remaining=(until-today).days if until else 0
+        # الصفحة «حالة الموظفين الآن» تعرض فقط الإجازات والانتدابات السارية.
+        if not current:
+            continue
+        if current.movement_type=='انتداب':
+            state='انتداب ساري'
+            place=current.destination.name if current.destination else 'جهة الانتداب غير محددة'
+            until=current.to_date
+            detail='من {} إلى {}'.format(current.from_date,current.to_date)
         else:
-            state='على رأس العمل'; place=e.branch.name if e.branch else '—'; until=None; detail='متواجد بفرعه الأساسي'; remaining=None
-        rows.append({'employee':e,'state':state,'place':place,'until':until,'detail':detail,'remaining':remaining,'movement':current})
+            state='إجازة مستمرة'
+            place=current.leave_type or 'إجازة'
+            until=current.to_date
+            detail='من {} إلى {}'.format(current.from_date,current.to_date)
+        remaining=(until-today).days if until else 0
+        rows.append({'employee':e,'state':state,'place':place,'until':until,'detail':detail,
+                     'remaining':remaining,'movement':current,
+                     'ending_notice':bool(until and until <= today + timedelta(days=1))})
+    rows.sort(key=lambda r: (r['until'] or date.max, r['employee'].full_name))
     return rows
 
 @app.get('/')
@@ -534,9 +534,7 @@ def home():
         # الحركات أصبحت معلومات تشغيلية مباشرة وليست دورة اعتماد.
         if has_role('مشرف محافظة','مسؤول التطبيق','المدخل الأول'):
             current_status_rows=current_employee_status_rows(bs,today)
-            for row in current_status_rows:
-                mv=row.get('movement')
-                row['ending_notice'] = bool(mv and mv.movement_type in ('إجازة','انتداب') and mv.to_date and mv.to_date <= tomorrow and mv.to_date >= today)
+            # ending_notice is calculated while building the current-status rows.
         # تبقى بيانات الاعتماد القديمة قابلة للعرض في السجلات القديمة، لكن لا تُستخدم
         # لتحديد حالة الموظف الحالية.
         base=Movement.query.join(Employee).filter(Employee.branch_id.in_(bs),Movement.is_active==True)
@@ -634,7 +632,9 @@ def structure():
         if selected_gov.isdigit() and any(g.id==int(selected_gov) for g in all_govs):
             govs=[db.session.get(Governorate,int(selected_gov))]
         else:
-            govs=all_govs
+            # لا نبني شجرة المحافظات كاملة قبل الاختيار؛ هذا يمنع أخطاء البيانات
+            # في أي فرع غير مختار ويجعل صفحة الإدارة أخف وأوضح.
+            govs=[]
             selected_gov=''
     elif is_supervisor:
         supervisor_gids = list(user_gov_ids(current))
@@ -1379,7 +1379,7 @@ def employees():
 def employee_edit_data():
     if not can('manage_employees'): abort(403)
     bs=bids()
-    rows=Employee.query.filter(Employee.is_active==True,Employee.branch_id.in_(bs)).order_by(Employee.full_name).all() if bs else []
+    rows=Employee.query.join(Branch, Employee.branch_id==Branch.id).filter(Employee.is_active==True,Branch.is_active==True,Employee.branch_id.in_(bs)).order_by(Employee.full_name).all() if bs else []
     q=request.args.get('q','').strip()
     if q:
         ql=q.lower()

@@ -13,151 +13,120 @@
   </form>
 </div>
 
-<div class="home-content-layout">
-  <div class="home-left-column">
-    <aside class="home-summary-card" aria-label="ملخص النظام">
-      <a class="home-summary-item summary-employees" href="/employees"><span>الموظفون</span><b>{{e}}</b></a>
-      <a class="home-summary-item summary-branches" href="/branches"><span>الفروع ضمن نطاقك</span><b>{{b}}</b></a>
-      <a class="home-summary-item summary-governorates" href="/governorates"><span>المحافظات</span><b>{{g}}</b></a>
-    </aside>
-    <div class="home-main-column">
-      <div class="dashboard-workspace" id="dashboard-workspace">
-  {% if 'مسؤول التطبيق' in roles or 'مشرف محافظة' in roles %}
-  <div class="home-group-card dashboard-widget" data-widget-id="group-management">    <div class="home-group-head"><span class="home-group-icon">🏢</span><div><h3>الإدارة</h3><small>إدارة الهيكل والصلاحيات</small></div></div>
-    <div class="home-group-links">
-      {% if 'مسؤول التطبيق' in roles %}<a href="/structure"><b>الهيكل الإداري</b><small>المحافظات والمشرفون والمدخلون والفروع</small></a>{% elif 'مشرف محافظة' in roles %}<a href="/structure"><b>إدارة النطاق</b><small>المدخلون والفروع التابعة لمحافظاتك</small></a>{% endif %}
-      {% if 'مسؤول التطبيق' in roles %}<a href="/users"><b>المستخدمون والصلاحيات</b><small>الأدوار وكلمات المرور والصلاحيات</small></a>{% endif %}
-      {% if 'مسؤول التطبيق' in roles %}<a href="/lookups"><b>القوائم الأساسية</b><small>أنواع الحركات والإجازات</small></a>{% endif %}
-    </div>
-  </div>
-  {% endif %}
-  {% if can('manage_employees') %}
-  <div class="home-group-card dashboard-widget" data-widget-id="group-employees">    <div class="home-group-head"><span class="home-group-icon">👥</span><div><h3>الموظفون</h3><small>إدارة بيانات الموظفين وسجلاتهم</small></div></div>
-    <div class="home-group-links">
-      <a href="/employees"><b>دليل الموظفين</b><small>بحث وإضافة وتعديل بيانات الموظفين</small></a>
-      <a href="/employees"><b>بيانات الموظفين</b><small>الفرع والوظيفة وبيانات التواصل</small></a>
-    </div>
-  </div>
-  {% endif %}
-  {% if can('manage_movements') or (can('review_movements') and ('مسؤول التطبيق' in roles or 'مشرف محافظة' in roles)) %}
-  <div class="home-group-card dashboard-widget" data-widget-id="group-movements">    <div class="home-group-head"><span class="home-group-icon">🔄</span><div><h3>حركات الموظفين</h3><small>التسجيل والمتابعة المباشرة</small></div></div>
-    <div class="home-group-links">
-      {% if can('manage_movements') %}<a class="accent" href="/movements"><b>تسجيل حركة</b><small>إجازة أو انتداب أو إذن</small></a>{% endif %}
-    </div>
-  </div>
-  {% endif %}
+<!-- الصفحة الرئيسية: ثلاث لوحات متساوية فقط -->
+<div class="home-three-panels" id="dashboard-workspace">
 
-
-{% if can('view_reports') %}
-<section class="home-reports-cards dashboard-widget" data-widget-id="reports-center">
-  <div class="home-section-head"><div><span class="home-kicker">مركز المتابعة</span><h2>تقرير حركات الموظفين</h2></div><a class="btn secondary mini" href="/reports">فتح التقرير</a></div>
-  <div class="home-report-card-grid">
-    <a class="home-report-card" href="/reports/leaves"><span class="home-report-icon">🏖️</span><span><b>الإجازات</b><small>جميع الإجازات والفترات</small></span><strong>›</strong></a>
-    <a class="home-report-card" href="/reports/assignments"><span class="home-report-icon">📍</span><span><b>الانتدابات</b><small>الجهة وموعد الانتهاء</small></span><strong>›</strong></a>
-    <a class="home-report-card" href="/reports/permissions"><span class="home-report-icon">🕘</span><span><b>الأذونات</b><small>الأذونات المسجلة</small></span><strong>›</strong></a>
-  </div>
-</section>
-{% endif %}
-
-
-
-      </div>
-    </div>
-  </div>
-  <aside class="home-right-column">
+  <!-- 1) حالة الموظفين الآن -->
   {% if 'مشرف محافظة' in roles or 'مسؤول التطبيق' in roles %}
-  <section class="home-current-status dashboard-widget" data-widget-id="employee-current-status">
-        <div class="home-section-head">
-      <div><span class="home-kicker">متابعة مباشرة</span><h2>حالة الموظفين الآن</h2><p class="home-current-note">معلومات تشغيلية واضحة: أين الموظف الآن، ونوع الحركة، ومكانه، وموعد العودة.</p></div>
+  <section class="home-panel dashboard-widget home-current-status" data-widget-id="employee-current-status">
+    <div class="home-section-head">
+      <div>
+        <span class="home-kicker">متابعة مباشرة</span>
+        <h2>حالة الموظفين الآن</h2>
+        <p class="home-current-note">أين الموظف الآن، نوع الحركة، مكانه، وموعد انتهاء الحركة.</p>
+      </div>
       <span class="home-current-count">{{current_status_rows|length}} موظف</span>
     </div>
-    <div class="home-current-table-wrap"><table class="home-current-table"><thead><tr><th>الموظف</th><th>الفرع</th><th>الحالة</th><th>مكان التواجد</th><th>الفترة / التاريخ</th><th>حتى</th><th>تنبيه</th></tr></thead><tbody>
-    {% for row in current_status_rows %}
-      <tr>
-        <td><a class="employee-name-link" href="/employee/{{row.employee.id}}">{{row.employee.full_name}}</a><small>{{row.employee.job_code or 'بدون كود'}}</small></td>
-        <td>{{row.employee.branch.name if row.employee.branch else '—'}}</td>
-        <td><span class="current-state state-{{row.state|replace(' ','-')}}">{{row.state}}</span></td>
-        <td><strong>{{row.place}}</strong></td>
-        <td>{{row.detail}}</td>
-        <td>{% if row.until %}{{row.until}}{% if row.remaining is not none and row.remaining>0 %}<small class="remaining-days">متبقي {{row.remaining}} يوم</small>{% elif row.remaining==0 %}<small class="remaining-days">ينتهي اليوم</small>{% endif %}{% else %}—{% endif %}</td><td>{% if row.ending_notice %}<span class="tag warning">ينتهي {% if row.until == today %}اليوم{% else %}غدًا{% endif %}</span>{% else %}—{% endif %}</td>
-      </tr>
-    {% endfor %}
-    </tbody></table></div>
+    <div class="home-current-table-wrap">
+      <table class="home-current-table">
+        <thead><tr><th>الموظف</th><th>الحالة</th><th>مكان التواجد</th><th>حتى</th><th>تنبيه</th></tr></thead>
+        <tbody>
+        {% for row in current_status_rows %}
+          <tr>
+            <td><a class="employee-name-link" href="/employee/{{row.employee.id}}">{{row.employee.full_name}}</a><small>{{row.employee.job_code or 'بدون كود'}}</small></td>
+            <td><span class="current-state state-{{row.state|replace(' ','-')}}">{{row.state}}</span></td>
+            <td><strong>{{row.place}}</strong></td>
+            <td>{% if row.until %}{{row.until}}{% if row.remaining is not none and row.remaining>0 %}<small class="remaining-days">متبقي {{row.remaining}} يوم</small>{% elif row.remaining==0 %}<small class="remaining-days">ينتهي اليوم</small>{% endif %}{% else %}—{% endif %}</td>
+            <td>{% if row.ending_notice %}<span class="tag warning">ينتهي {% if row.until == today %}اليوم{% else %}غدًا{% endif %}</span>{% else %}—{% endif %}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5" class="home-empty-cell">لا توجد حركات حالية. جميع الموظفين على رأس العمل.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </section>
   {% endif %}
 
-{% if 'مشرف محافظة' in roles or 'مسؤول التطبيق' in roles %}
-<section class="home-entry-directory dashboard-widget" data-widget-id="entry-directory">
+  <!-- 2) المدخلون الأوائل: بند تنظيمي دائم حتى عند عدم وجود مدخلين -->
+  {% if 'مشرف محافظة' in roles or 'مسؤول التطبيق' in roles %}
+  <section class="home-panel home-entry-directory dashboard-widget" data-widget-id="entry-directory">
     <div class="entry-directory-head">
-    <div>
-      <span class="home-kicker">الدليل الإداري</span>
-      <h2>المدخلون الأوائل</h2>
-      <p>سلسلة تنظيمية فقط لترتيب الموظفين إلى مجموعات: المدخل الأول ← فروع مسؤوليته ← موظفو كل فرع. لا يحتاج المدخل الأول إلى حساب دخول.</p>
+      <div>
+        <span class="home-kicker">السلسلة الوظيفية</span>
+        <h2>المدخلون الأوائل</h2>
+        <p>سلسلة تنظيمية فقط: المدخل الأول ← فروع مسؤوليته ← موظفو كل فرع. لا يحتاج هذا الدور إلى حساب دخول.</p>
+      </div>
+      <div class="entry-directory-badge"><b>{{ entry_rows|length }}</b><span>مدخل أول</span></div>
     </div>
-    <div class="entry-directory-badge"><b>{{ entry_rows|length }}</b><span>مدخل أول تنظيمي</span></div>
-  </div>
-  <div class="entry-role-chain-add">
-    <div><b>＋ إضافة دور مدخل أول</b><small>الإضافة من هذه السلسلة مباشرة، والدور تنظيمي فقط ولا ينشئ حساب مستخدم.</small></div>
-    <form method="post" action="/entry-role/add" class="inline-entry-role-form">
-      <input type="hidden" name="_csrf" value="{{csrf}}">
-      <select name="employee_id" required><option value="">اختر الموظف</option>{% for e in available_entry_employees %}<option value="{{e.id}}">{{e.full_name}} — {{e.branch.name if e.branch else ''}}</option>{% endfor %}</select>
-      {% if is_admin %}<select name="supervisor_id" required><option value="">المشرف المسؤول</option>{% for s in entry_supervisors %}<option value="{{s.id}}">{{s.full_name}}</option>{% endfor %}</select>{% endif %}
-      <button class="btn mini">إضافة</button>
-    </form>
-  </div>
-  <div class="entry-directory-list">
-    {% for row in entry_rows %}
-      <details class="entry-card">
-        <summary>
-          <span class="entry-avatar">👤</span>
-          <span class="entry-main">
-            <strong>{{row.employee.full_name}}</strong>
-            <small>{{row.employee.job_title or 'مدخل أول تنظيمي'}}{% if row.supervisor %} · المشرف: {{row.supervisor.full_name}}{% endif %}</small>
-          </span>
-          <span class="entry-meta">
-            <b>{{row.branches|length}}</b><small>فروع</small>
-          </span>
-          <span class="entry-chevron">‹</span>
-        </summary>
-        <div class="entry-panel">
-          <div class="entry-panel-top">
-            <span>{% if row.governorates %}{{row.governorates|join(' · ')}}{% else %}ضمن نطاقك الحالي{% endif %}</span>
-            <div class="entry-quick-actions no-print">
-              {% if row.assignment %}<form method="post" action="/entry-role/{{row.employee.id}}/remove" class="inline" onsubmit="return confirm('إزالة دور المدخل الأول التنظيمي؟')"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="btn red mini">إزالة الدور</button></form>{% endif %}
-              <a href="/employee/{{row.employee.id}}" class="btn secondary mini">ملف الموظف</a>
+
+    <div class="entry-role-chain-add">
+      <div><b>＋ إضافة دور مدخل أول</b><small>تتم الإضافة من السلسلة نفسها، والدور تنظيمي فقط.</small></div>
+      <form method="post" action="/entry-role/add" class="inline-entry-role-form">
+        <input type="hidden" name="_csrf" value="{{csrf}}">
+        <select name="employee_id" required><option value="">اختر الموظف</option>{% for e in available_entry_employees %}<option value="{{e.id}}">{{e.full_name}} — {{e.branch.name if e.branch else ''}}</option>{% endfor %}</select>
+        {% if is_admin %}<select name="supervisor_id" required><option value="">المشرف المسؤول</option>{% for s in entry_supervisors %}<option value="{{s.id}}">{{s.full_name}}</option>{% endfor %}</select>{% endif %}
+        <button class="btn mini">إضافة</button>
+      </form>
+    </div>
+
+    <div class="entry-directory-list">
+      {% for row in entry_rows %}
+        <details class="entry-card">
+          <summary>
+            <span class="entry-avatar">👤</span>
+            <span class="entry-main"><strong>{{row.employee.full_name}}</strong><small>{{row.employee.job_title or 'مدخل أول تنظيمي'}}{% if row.supervisor %} · المشرف: {{row.supervisor.full_name}}{% endif %}</small></span>
+            <span class="entry-meta"><b>{{row.branches|length}}</b><small>فروع</small></span>
+            <span class="entry-chevron">‹</span>
+          </summary>
+          <div class="entry-panel">
+            <div class="entry-panel-top">
+              <span>{% if row.governorates %}{{row.governorates|join(' · ')}}{% else %}ضمن نطاقك الحالي{% endif %}</span>
+              <div class="entry-quick-actions no-print">
+                {% if row.assignment %}<form method="post" action="/entry-role/{{row.employee.id}}/remove" class="inline" onsubmit="return confirm('إزالة دور المدخل الأول التنظيمي؟')"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="btn red mini">إزالة الدور</button></form>{% endif %}
+                <a href="/employee/{{row.employee.id}}" class="btn secondary mini">ملف الموظف</a>
+              </div>
+            </div>
+            <div class="entry-branch-grid">
+              {% for bg in row.branches %}
+                <details class="branch-card">
+                  <summary><span class="branch-icon">🏢</span><span class="branch-main"><strong>{{bg.branch.name}}</strong><small>{% if bg.branch.code %}كود {{bg.branch.code}}{% else %}فرع ضمن المسؤولية{% endif %}</small></span><span class="branch-count"><b>{{bg.employees|length}}</b> موظف</span><span class="branch-chevron">‹</span></summary>
+                  <div class="branch-employees">
+                    {% for e in bg.employees %}<a class="employee-card" href="/employee/{{e.id}}"><span class="employee-card-avatar">{{ (e.full_name or 'م')[:1] }}</span><span><strong>{{e.full_name}}</strong><small>{{e.job_title or 'موظف'}}{% if e.job_code %} · {{e.job_code}}{% endif %}</small></span><span class="employee-open">عرض ›</span></a>{% else %}<div class="entry-empty">لا يوجد موظفون مسجلون بهذا الفرع.</div>{% endfor %}
+                  </div>
+                </details>
+              {% else %}<div class="entry-empty">لم يتم إسناد فروع لهذا المدخل بعد.</div>{% endfor %}
             </div>
           </div>
-          <div class="entry-branch-grid">
-            {% for bg in row.branches %}
-              <details class="branch-card">
-                <summary>
-                  <span class="branch-icon">🏢</span>
-                  <span class="branch-main"><strong>{{bg.branch.name}}</strong><small>{% if bg.branch.code %}كود {{bg.branch.code}}{% else %}فرع ضمن المسؤولية{% endif %}</small></span>
-                  <span class="branch-count"><b>{{bg.employees|length}}</b> موظف</span>
-                  <span class="branch-chevron">‹</span>
-                </summary>
-                <div class="branch-employees">
-                  {% for e in bg.employees %}
-                    <a class="employee-card" href="/employee/{{e.id}}">
-                      <span class="employee-card-avatar">{{ (e.full_name or 'م')[:1] }}</span>
-                      <span><strong>{{e.full_name}}</strong><small>{{e.job_title or 'موظف'}}{% if e.job_code %} · {{e.job_code}}{% endif %}</small></span>
-                      <span class="employee-open">عرض ›</span>
-                    </a>
-                  {% else %}
-                    <div class="entry-empty">لا يوجد موظفون مسجلون بهذا الفرع.</div>
-                  {% endfor %}
-                </div>
-              </details>
-            {% else %}
-              <div class="entry-empty">لم يتم إسناد فروع لهذا المدخل بعد.</div>
-            {% endfor %}
-          </div>
-        </div>
-      </details>
-    {% else %}<div class="empty">لا يوجد مدخلون أوائل حاليًا. يمكنك إضافة أول مدخل من السلسلة أعلاه.</div>{% endfor %}
-  </div>
-</section>
-{% endif %}
-  </aside>
+        </details>
+      {% else %}
+        <div class="entry-empty entry-empty-large"><strong>لا يوجد مدخلون أوائل حتى الآن</strong><span>هذه الخاصية موجودة هنا دائمًا، ويمكن إضافة الدور مباشرة من زر «إضافة دور مدخل أول».</span></div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- 3) حركات الموظفين: المحتوى ظاهر مباشرة دون بند داخلي -->
+  {% if can('manage_movements') or can('view_reports') %}
+  <section class="home-panel home-movements-panel dashboard-widget" data-widget-id="group-movements">
+    <div class="home-group-head">
+      <span class="home-group-icon">🔄</span>
+      <div><h3>حركات الموظفين</h3><small>التسجيل والمتابعة والتقارير في واجهة واحدة</small></div>
+    </div>
+    <div class="movement-action-grid">
+      {% if can('manage_movements') %}
+      <a class="movement-action accent" href="/movements"><span>➕</span><b>تسجيل حركة</b><small>إجازة أو انتداب أو إذن</small></a>
+      <a class="movement-action" href="/movements"><span>📝</span><b>سجل الحركات</b><small>عرض وتعديل الحركات المسجلة مباشرة</small></a>
+      {% endif %}
+      {% if can('view_reports') %}
+      <a class="movement-action" href="/reports"><span>📊</span><b>تقرير حركات الموظفين</b><small>الإجازات والانتدابات والأذونات</small></a>
+      {% endif %}
+      {% if can('manage_movements') %}
+      <a class="movement-action" href="/reports/assignments/print-missions"><span>📄</span><b>طباعة المأموريات</b><small>النماذج الرسمية للانتدابات</small></a>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+
 </div>
 {% endblock %}

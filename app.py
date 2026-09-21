@@ -7,7 +7,7 @@ from sqlalchemy import UniqueConstraint
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app=Flask(__name__)
-APP_VERSION='v34.43-ONE-TIME-ADMIN-CLEANUP'
+APP_VERSION='v34.45-ONE-TIME-SOHAG-CLEANUP'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg://',1)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or 'dev-only-change-me',SQLALCHEMY_DATABASE_URI=DATABASE_URL,SQLALCHEMY_TRACK_MODIFICATIONS=False,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','0')=='1',MAX_CONTENT_LENGTH=2*1024*1024)
@@ -1005,7 +1005,10 @@ def users():
     gs=Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True).all() if 'مسؤول التطبيق' not in roles(u) else Governorate.query.filter_by(is_active=True).all()
     bs=Branch.query.filter(Branch.id.in_(bids()),Branch.is_active==True).all() if 'مسؤول التطبيق' not in roles(u) else Branch.query.filter_by(is_active=True).all()
     role_default_permissions={r:sorted(ROLE_DEFAULT_PERMISSIONS.get(r,set())) for r in ROLES}
-    return render_template('users.html',rows=visible,gs=gs,bs=bs,role_default_permissions=role_default_permissions)
+    # الحساب الوهمي لكل دور محفوظ ككيان RoleAccount مستقل؛ نعرضه للإدارة
+    # حتى يكون واضحًا أن كل دور إضافي له حسابه الداخلي المستقل بنفس بيانات الدخول.
+    role_accounts_by_user={u.id: RoleAccount.query.filter_by(user_id=u.id).order_by(RoleAccount.role.asc()).all() for u in visible}
+    return render_template('users.html',rows=visible,gs=gs,bs=bs,role_default_permissions=role_default_permissions,role_accounts_by_user=role_accounts_by_user)
 @app.route('/users/<int:i>/edit',methods=['GET','POST'])
 @req
 def user_edit(i):
@@ -2062,11 +2065,12 @@ with app.app_context():
         db.session.commit()
     # تنظيف دور/ارتباطات مشرف سوهاج من حساب مسؤول التطبيق: تنفيذ لمرة واحدة فقط.
     # بعد وضع علامة الترحيل في Lookup لن يعاد حذف أي أدوار أو ارتباطات مستقبلية عند كل تشغيل.
-    cleanup_key='migration:admin-supervisor-scope-cleanup-v34.43'
+    cleanup_key='migration:admin-supervisor-scope-cleanup-v34.45'
     cleanup_done=Lookup.query.filter_by(kind='system_migration',name=cleanup_key).first()
     if not cleanup_done:
         UserRole.query.filter_by(user_id=u.id,role='مشرف محافظة').delete()
         UserGovernorate.query.filter_by(user_id=u.id).delete()
+        UserBranch.query.filter_by(user_id=u.id).delete()
         RoleAccount.query.filter_by(user_id=u.id,role='مشرف محافظة').delete()
         if not UserRole.query.filter_by(user_id=u.id,role='مسؤول التطبيق').first():
             db.session.add(UserRole(user_id=u.id,role='مسؤول التطبيق'))

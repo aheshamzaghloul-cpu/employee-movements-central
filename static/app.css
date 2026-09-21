@@ -703,3 +703,77 @@ label{font-size:13px}.box>form label,.quick-form label{min-width:0}.form-actions
 .admin-entry-role-card{scroll-margin-top:20px}
 @media(max-width:1100px){.home-content-layout{grid-template-columns:minmax(0,1fr) 300px!important}}
 @media(max-width:820px){.home-content-layout{grid-template-columns:1fr!important}.home-right-column{grid-column:1!important}.home-left-column{grid-column:1!important}.home-right-column .home-current-status{min-height:420px!important}}
+
+/* v34.46 — الصفحة الرئيسية بثلاث لوحات متساوية: حالة الموظفين / المدخلون الأوائل / حركات الموظفين */
+.home-content-layout{display:block!important;width:100%!important;max-width:none!important;direction:rtl!important}
+.home-content-layout > .home-left-column,.home-content-layout > .home-right-column{display:contents!important}
+.home-content-layout > .home-left-column > .home-main-column{display:contents!important}
+.home-content-layout > .home-left-column > .home-summary-card{display:none!important}
+.home-three-panels{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:16px!important;width:100%!important;min-height:0!important;align-items:stretch!important;direction:rtl!important}
+.home-three-panels > .dashboard-widget{position:relative!important;inset:auto!important;width:auto!important;height:auto!important;min-width:0!important;min-height:720px!important;margin:0!important;box-sizing:border-box!important;overflow:hidden!important}
+.home-three-panels > .home-current-status{grid-column:auto!important;grid-row:auto!important}
+.home-three-panels > .home-entry-directory{grid-column:auto!important;grid-row:auto!important}
+.home-three-panels > .home-movements-panel{grid-column:auto!important;grid-row:auto!important}
+.home-panel{background:linear-gradient(145deg,#fff,#f7fbfd);border:1px solid #d5e5ef;border-radius:18px;padding:20px!important;box-shadow:0 7px 20px rgba(28,70,98,.07)}
+.home-panel .widget-inner{height:100%;overflow:auto;box-sizing:border-box;padding:0}
+.home-panel .widget-inner > *{max-width:100%}
+.home-panel .home-section-head,.home-panel .entry-directory-head{margin-bottom:16px}
+.home-panel .home-section-head h2,.home-panel .entry-directory-head h2{font-size:clamp(20px,2.0cqw,28px)!important;line-height:1.35}
+.home-panel .home-current-note,.home-panel .entry-directory-head p{font-size:clamp(12px,1.05cqw,15px)!important;line-height:1.75}
+.home-panel .home-current-count{font-size:clamp(12px,1cqw,15px)!important;padding:8px 12px}
+.home-current-table-wrap{height:calc(100% - 100px)!important;overflow:auto!important}
+.home-current-table{width:100%!important;min-width:0!important;table-layout:fixed!important;font-size:clamp(12px,1.05cqw,16px)!important}
+.home-current-table th{font-size:clamp(11px,.95cqw,14px)!important;padding:12px 8px!important;white-space:normal!important;line-height:1.5}
+.home-current-table td{font-size:clamp(11px,1cqw,15px)!important;padding:12px 8px!important;line-height:1.65;word-break:break-word}
+.home-current-table th:nth-child(1){width:29%}.home-current-table th:nth-child(2){width:18%}.home-current-table th:nth-child(3){width:25%}.home-current-table th:nth-child(4){width:16%}.home-current-table th:nth-child(5){width:12%}
+.home-panel .employee-name-link{font-size:clamp(13px,1.15cqw,17px)!important;line-height:1.5}
+.home-panel .home-current-table td:first-child small{font-size:clamp(10px,.8cqw,12px)!important}
+.home-panel .current-state{font-size:clamp(10px,.9cqw,13px)!important;padding:6px 9px}
+.home-panel .remaining-days{font-size:clamp(10px,.8cqw,12px)!important}
+.home-empty-cell{padding:30px!important;text-align:center;color:#718493!important}
+
+.home-entry-directory{display:flex!important;flex-direction:column!important}
+.home-entry-directory .entry-directory-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.home-entry-directory .entry-directory-head h2{margin:3px 0}
+.home-entry-directory .entry-directory-head p{margin:0;color:#718493}
+.home-entry-directory .entry-directory-list{flex:1;overflow:auto;display:grid;align-content:start;gap:10px}
+.home-entry-directory .entry-role-chain-add{padding:12px;border:1px solid #dbe6ee;border-radius:13px;background:#f8fbfd;margin-bottom:12px}
+.home-entry-directory .inline-entry-role-form{display:grid;grid-template-columns:1fr;gap:8px;margin-top:9px}
+.home-entry-directory .inline-entry-role-form select,.home-entry-directory .inline-entry-role-form .btn{width:100%;min-width:0}
+.entry-empty-large{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:240px;text-align:center;padding:24px;border:1px dashed #cbdde7;border-radius:14px;background:#fbfdfe;color:#718493}
+.entry-empty-large strong{font-size:clamp(15px,1.2cqw,19px);color:#2a5873}
+.entry-empty-large span{font-size:clamp(11px,1cqw,14px);line-height:1.7}
+.home-entry-directory .entry-card summary,.home-entry-directory .branch-card summary{padding:12px!important}
+.home-entry-directory .entry-main strong,.home-entry-directory h2{font-size:clamp(15px,1.3cqw,20px)!important}
+.home-entry-directory .entry-main small,.home-entry-directory .branch-main small{font-size:clamp(10px,.85cqw,12px)!important}
+.home-entry-directory .entry-card,.home-entry-directory .branch-card,.home-entry-directory .employee-card{font-size:clamp(11px,.95cqw,14px)!important}
+.home-entry-directory .entry-branch-grid{grid-template-columns:1fr!important}
+.home-entry-directory .employee-card{padding:10px!important}
+
+.home-movements-panel{display:flex!important;flex-direction:column!important}
+.home-movements-panel .home-group-head{margin-bottom:18px}
+.home-movements-panel .home-group-head h3{font-size:clamp(20px,2cqw,28px)!important}
+.home-movements-panel .home-group-head small{font-size:clamp(12px,1cqw,15px)!important}
+.movement-action-grid{display:grid;grid-template-columns:1fr;gap:12px;overflow:auto;flex:1;align-content:start}
+.movement-action{display:flex;align-items:center;gap:12px;min-height:92px;padding:16px;border:1px solid #dce7ee;border-radius:14px;background:#fff;text-decoration:none;color:inherit;box-sizing:border-box}
+.movement-action:hover{border-color:#b9d1e4;box-shadow:0 6px 15px rgba(27,55,90,.07);transform:translateY(-1px)}
+.movement-action>span{width:42px;height:42px;display:grid;place-items:center;border-radius:12px;background:#eef5fa;font-size:22px;flex:none}
+.movement-action b{display:block;color:#24577d;font-size:clamp(13px,1.15cqw,17px)}
+.movement-action small{display:block;color:#738795;font-size:clamp(10px,.9cqw,13px);line-height:1.5;margin-top:3px}
+.movement-action.accent{background:#f2faf8;border-color:#cbe4dd}
+.movement-action.accent>span{background:#e1f4ed}
+
+/* تغيير الحجم فقط من الزاوية؛ لا توجد أيقونة سحب أو نقل */
+.home-three-panels .widget-tools,.home-three-panels .widget-drag{display:none!important}
+.home-three-panels .widget-resize{display:block!important;position:absolute!important;right:4px!important;bottom:4px!important;width:20px!important;height:20px!important;z-index:50!important;cursor:nwse-resize!important;opacity:.55}
+.home-three-panels .widget-resize:hover{opacity:1}
+
+@media(max-width:1100px){
+  .home-three-panels{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:10px!important}
+  .home-three-panels > .dashboard-widget{min-height:650px!important;padding:15px!important}
+}
+@media(max-width:820px){
+  .home-three-panels{grid-template-columns:1fr!important}
+  .home-three-panels > .dashboard-widget{min-height:420px!important}
+  .home-current-table{table-layout:auto!important}
+}

@@ -189,7 +189,7 @@ document.addEventListener('DOMContentLoaded', function(){
   // Only the corner resize handle remains active. Grid placement is controlled by CSS.
   const home=document.querySelector('#dashboard-workspace');
   if(home){
-    const key='employee_dashboard_sizes_v34_40';
+    const key='employee_dashboard_sizes_v34_46';
     const widgets=()=>[...home.querySelectorAll(':scope > .dashboard-widget')];
     const read=()=>{try{return JSON.parse(localStorage.getItem(key)||'{}')}catch(e){return {}}};
     function save(){const state={};widgets().forEach(w=>{state[w.dataset.widgetId]={w:Math.round(w.offsetWidth),h:Math.round(w.offsetHeight)}});try{localStorage.setItem(key,JSON.stringify(state))}catch(e){}}
@@ -200,8 +200,11 @@ document.addEventListener('DOMContentLoaded', function(){
     function end(){if(!active)return;active.w.classList.remove('dragging');active=null;save()}
     apply();
     widgets().forEach(w=>{
-      const r=w.querySelector('.widget-resize');
-      r?.addEventListener('pointerdown',e=>resize(w,e));
+      ensureInner(w);
+      let r=w.querySelector(':scope > .widget-resize');
+      if(!r){r=document.createElement('span');r.className='widget-resize';r.title='تغيير الحجم';w.appendChild(r)}
+      scaleInner(w);
+      r.addEventListener('pointerdown',e=>resize(w,e));
     });
     document.addEventListener('pointermove',move,{passive:false});
     document.addEventListener('pointerup',end,{passive:true});

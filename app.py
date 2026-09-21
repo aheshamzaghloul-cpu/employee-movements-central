@@ -7,7 +7,7 @@ from sqlalchemy import UniqueConstraint
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app=Flask(__name__)
-APP_VERSION='v34.45-ONE-TIME-SOHAG-CLEANUP'
+APP_VERSION='v34.51-REPLACEMENT'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg://',1)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or 'dev-only-change-me',SQLALCHEMY_DATABASE_URI=DATABASE_URL,SQLALCHEMY_TRACK_MODIFICATIONS=False,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','0')=='1',MAX_CONTENT_LENGTH=2*1024*1024)
@@ -728,6 +728,107 @@ def structure():
         admin_stats=admin_stats,
         available_entry_employees=available_entry_employees, entry_supervisors=entry_supervisors
     )
+
+
+@app.route('/replacement', methods=['GET','POST'])
+@req
+def replacement():
+    if 'مسؤول التطبيق' not in roles():
+        abort(403)
+    mode=request.form.get('mode','') if request.method=='POST' else request.args.get('mode','supervisor')
+    if request.method=='POST':
+        if mode=='supervisor':
+            old_id=request.form.get('old_supervisor_id','').strip()
+            new_id=request.form.get('new_supervisor_id','').strip()
+            old=db.session.get(User,int(old_id)) if old_id.isdigit() else None
+            new=db.session.get(User,int(new_id)) if new_id.isdigit() else None
+            if not old or not new or old.id==new.id or not old.is_active or not new.is_active:
+                flash('يجب اختيار مشرف حالي وبديل نشط مختلف عنه.')
+                return redirect(url_for('replacement',mode='supervisor'))
+            if 'مشرف محافظة' not in actual_roles(old):
+                flash('الشخص المحدد للاستبدال ليس مشرف محافظة حاليًا.')
+                return redirect(url_for('replacement',mode='supervisor'))
+            # Target receives the supervisor role and its default permissions; existing target roles remain intact.
+            if 'مشرف محافظة' not in actual_roles(new):
+                db.session.add(UserRole(user_id=new.id,role='مشرف محافظة'))
+                for perm in ROLE_DEFAULT_PERMISSIONS['مشرف محافظة']:
+                    if not UserPermission.query.filter_by(user_id=new.id,permission=perm).first():
+                        db.session.add(UserPermission(user_id=new.id,permission=perm))
+            # Move governorate scope and subordinate entry relationships.
+            old_govs=UserGovernorate.query.filter_by(user_id=old.id).all()
+            moved=0
+            for link in old_govs:
+                if not UserGovernorate.query.filter_by(user_id=new.id,governorate_id=link.governorate_id).first():
+                    db.session.add(UserGovernorate(user_id=new.id,governorate_id=link.governorate_id))
+                moved+=1
+            UserGovernorate.query.filter_by(user_id=old.id).delete()
+            for rel in SupervisorEntry.query.filter_by(supervisor_id=old.id).all():
+                exists=SupervisorEntry.query.filter_by(supervisor_id=new.id,entry_id=rel.entry_id).first()
+                if exists:
+                    db.session.delete(rel)
+                else:
+                    rel.supervisor_id=new.id
+            # Active approval delegations tied to the outgoing supervisor follow the replacement.
+            for d in ApprovalDelegation.query.filter_by(supervisor_id=old.id,is_active=True).all():
+                d.supervisor_id=new.id
+            # Remove only the replaced role from the old user; preserve other roles and employee history.
+            UserRole.query.filter_by(user_id=old.id,role='مشرف محافظة').delete()
+            UserPermission.query.filter_by(user_id=old.id,permission='review_movements').delete()
+            sync_role_accounts(old); sync_role_accounts(new)
+            if not actual_roles(old):
+                old.is_active=False
+            log('REPLACE','User',old.id,f'استبدال مشرف محافظة بالبديل {new.full_name} — نقل {moved} ارتباط محافظة')
+            log('REPLACE','User',new.id,f'استلام دور ونطاق مشرف المحافظة بدل {old.full_name}')
+            db.session.commit()
+            flash(f'تم استبدال المشرف ونقل نطاقه وارتباطاته إلى {new.full_name} دون حذف الموظف أو تاريخه.')
+            return redirect(url_for('replacement',mode='supervisor'))
+        if mode=='entry':
+            old_id=request.form.get('old_entry_employee_id','').strip()
+            new_id=request.form.get('new_entry_employee_id','').strip()
+            old=db.session.get(Employee,int(old_id)) if old_id.isdigit() else None
+            new=db.session.get(Employee,int(new_id)) if new_id.isdigit() else None
+            if not old or not new or old.id==new.id or not old.is_active or not new.is_active:
+                flash('يجب اختيار مدخل أول حالي وموظف بديل نشط مختلف عنه.')
+                return redirect(url_for('replacement',mode='entry'))
+            old_a=EntryAssignment.query.filter_by(employee_id=old.id,is_active=True).first()
+            new_a=EntryAssignment.query.filter_by(employee_id=new.id,is_active=True).first()
+            if not old_a:
+                flash('الموظف المحدد ليس مدخلًا أول تنظيميًا حاليًا.')
+                return redirect(url_for('replacement',mode='entry'))
+            if new_a:
+                flash('الموظف البديل لديه بالفعل دور مدخل أول. اختر موظفًا آخر.')
+                return redirect(url_for('replacement',mode='entry'))
+            # Transfer the same assignment object to preserve branch responsibility and supervisor link.
+            old_a.employee_id=new.id
+            # Legacy compatibility: if the old entry still has an account role, transfer its branch/supervisor links too.
+            if old.user_id and new.user_id:
+                old_u=db.session.get(User,old.user_id); new_u=db.session.get(User,new.user_id)
+                if old_u and new_u:
+                    for link in UserBranch.query.filter_by(user_id=old_u.id).all():
+                        if not UserBranch.query.filter_by(user_id=new_u.id,branch_id=link.branch_id).first():
+                            db.session.add(UserBranch(user_id=new_u.id,branch_id=link.branch_id))
+                    UserBranch.query.filter_by(user_id=old_u.id).delete()
+                    for rel in SupervisorEntry.query.filter_by(entry_id=old_u.id).all():
+                        if not SupervisorEntry.query.filter_by(supervisor_id=rel.supervisor_id,entry_id=new_u.id).first():
+                            rel.entry_id=new_u.id
+                        else:
+                            db.session.delete(rel)
+                    UserRole.query.filter_by(user_id=old_u.id,role='المدخل الأول').delete()
+                    sync_role_accounts(old_u); sync_role_accounts(new_u)
+                    if not actual_roles(old_u): old_u.is_active=False
+            log('REPLACE','Employee',old.id,f'استبدال المدخل الأول بالموظف البديل {new.full_name}')
+            log('REPLACE','Employee',new.id,f'استلام دور المدخل الأول بدل {old.full_name}')
+            db.session.commit()
+            flash(f'تم استبدال المدخل الأول ونقل الفروع والمسؤولية إلى {new.full_name} مع الحفاظ على سجل الموظف القديم.')
+            return redirect(url_for('replacement',mode='entry'))
+        flash('نوع الاستبدال غير صحيح.')
+    supervisors=[u for u in User.query.filter_by(is_active=True).order_by(User.full_name).all() if 'مشرف محافظة' in actual_roles(u)]
+    supervisor_targets=[u for u in User.query.filter_by(is_active=True).order_by(User.full_name).all() if u not in supervisors and u.id!=me().id]
+    entry_assignments=EntryAssignment.query.filter_by(is_active=True).order_by(EntryAssignment.id.asc()).all()
+    entry_employees=[a.employee for a in entry_assignments if a.employee and a.employee.is_active]
+    entry_ids={e.id for e in entry_employees}
+    entry_targets=Employee.query.filter(Employee.is_active==True,~Employee.id.in_(entry_ids) if entry_ids else True).order_by(Employee.full_name).all()
+    return render_template('replacement.html',mode=mode,supervisors=supervisors,supervisor_targets=supervisor_targets,entry_assignments=entry_assignments,entry_employees=entry_employees,entry_targets=entry_targets)
 
 @app.post('/entry-role/add')
 @req

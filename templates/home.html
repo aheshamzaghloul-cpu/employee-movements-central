@@ -115,11 +115,12 @@
     </div>
     <div class="movement-action-grid">
       {% if can('manage_movements') %}
-      <a class="movement-action accent" href="/movements"><span>➕</span><b>تسجيل حركة</b><small>إجازة أو انتداب أو إذن</small></a>
-      <a class="movement-action" href="/movements"><span>📝</span><b>سجل الحركات</b><small>عرض وتعديل الحركات المسجلة مباشرة</small></a>
+      <a class="movement-action accent" href="/movements"><span>➕</span><b>تسجيل إجازة - انتداب - إذن</b><small>تسجيل حركة الموظف مباشرة دون اعتماد</small></a>
       {% endif %}
       {% if can('view_reports') %}
-      <a class="movement-action" href="/reports"><span>📊</span><b>تقرير حركات الموظفين</b><small>الإجازات والانتدابات والأذونات</small></a>
+      <a class="movement-action" href="/reports/leaves"><span>🏖️</span><b>تقرير الإجازات</b><small>الإجازات حسب المحافظة والفرع والموظف والفترة</small></a>
+      <a class="movement-action" href="/reports/assignments"><span>📍</span><b>تقرير الانتدابات</b><small>الجهات المنتدب إليها والمواعيد والحالات</small></a>
+      <a class="movement-action" href="/reports/permissions"><span>🕘</span><b>تقرير الأذونات</b><small>الأذونات وتفاصيلها حسب الموظفين والفترة</small></a>
       {% endif %}
       {% if can('manage_movements') %}
       <a class="movement-action" href="/reports/assignments/print-missions"><span>📄</span><b>طباعة المأموريات</b><small>النماذج الرسمية للانتدابات</small></a>

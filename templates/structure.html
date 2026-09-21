@@ -5,63 +5,85 @@
   <div><h1>الإدارة</h1>{% if is_supervisor %}<div class="section-caption"><b>إدارة المحافظات المسندة إليك</b><span>تظهر هنا فقط المحافظات والصلاحيات المرتبطة بحسابك.</span></div>{% elif is_entry %}<div class="section-caption"><b>إدارة فروعك</b><span>تظهر هنا فقط الفروع والموظفون الذين تتولى إدارتهم.</span></div>{% endif %}</div>
 </div>
 
-<div class="free-card-workspace admin-free-workspace" id="admin-shortcuts-workspace"><div class="admin-shortcuts no-print admin-card-grid">
-  <div class="admin-shortcut-card admin-shortcut-group free-card" data-free-card-id="admin-structure">
-    <span class="admin-card-icon">🏢</span><span><strong>الهيكل الإداري للمحافظات</strong><small>اختر المحافظة أولًا، ثم تظهر بطاقة الهيكل الخاصة بها.</small></span>
-    <a class="admin-card-action" href="#my-governorates">اختيار المحافظة</a>
-  </div>
-  {% if is_admin %}<div class="admin-shortcut-card admin-shortcut-group free-card" data-free-card-id="admin-employees"><span class="admin-card-icon">👥</span><span><strong>الموظفون</strong><small>تسجيل الموظف أولًا ثم إضافة الأدوار الإدارية عند الحاجة.</small></span><a class="admin-card-action" href="/employees">فتح الموظفين</a></div>
-  <div class="admin-shortcut-card admin-shortcut-group free-card" data-free-card-id="admin-entry-role"><span class="admin-card-icon">➕</span><span><strong>إضافة دور مدخل أول</strong><small>اختر موظفًا مسجلًا دون إنشاء سجل موظف جديد.</small></span><a class="admin-card-action" href="#entry-role-chain">إضافة الدور</a></div>{% endif %}
-  {% if is_admin %}<div class="admin-shortcut-card admin-shortcut-group free-card" data-free-card-id="admin-users"><span class="admin-card-icon">🔐</span><span><strong>المستخدمون والصلاحيات</strong><small>إدارة المستخدمين والأدوار وكلمات المرور.</small></span><a class="admin-card-action" href="/users">فتح الإدارة</a></div>{% endif %}
-</div>
-
 {% if is_admin %}
-<section class="admin-control-center no-print">
-  <div class="admin-control-head">
-    <div><span class="eyebrow">مسؤول التطبيق</span><h2>مركز التحكم والإدارة</h2><p>جميع أدوات النظام في مكان واحد، مرتبة حسب المهمة.</p></div>
-    <div class="admin-control-badge">صلاحية كاملة</div>
-  </div>
-  <div class="admin-stat-grid">
-    <div class="admin-stat"><b>{{admin_stats.governorates}}</b><span>المحافظات</span></div>
-    <div class="admin-stat"><b>{{admin_stats.branches}}</b><span>الفروع</span></div>
-    <div class="admin-stat"><b>{{admin_stats.supervisors}}</b><span>المشرفون</span></div>
-    <div class="admin-stat"><b>{{admin_stats.entries}}</b><span>المدخلون الأوائل</span></div>
-    <div class="admin-stat"><b>{{admin_stats.employees}}</b><span>الموظفون</span></div>
-    <div class="admin-stat"><b>{{admin_stats.movements}}</b><span>الحركات</span></div>
-  </div>
-  <div class="admin-tool-groups">
-    <div class="admin-tool-group governorate-structure-group">
-      <h3>🏢 الهيكل الإداري للمحافظات</h3>
-      <div class="admin-tools">
-        <div class="structure-gov-first">
-          <a class="structure-gov-picker-link" href="#my-governorates"><strong>1. اختر المحافظة أولًا</strong><small>بعد الاختيار فقط تظهر أدوات وهيكل المحافظة.</small></a>
-          {% if selected_governorate %}
-          <a href="/governorates"><strong>المحافظات</strong><small>إضافة وتعديل وحذف المحافظات</small></a>
-          <a href="/branches?governorate_id={{selected_governorate}}"><strong>الفروع</strong><small>إدارة فروع المحافظة وربطها بالمدخلين</small></a>
-          {% else %}
-          <div class="structure-gov-locked"><span>🔒</span><div><b>الهيكل مخفي حتى اختيار المحافظة</b><small>اختر المحافظة من القائمة أسفل مركز التحكم.</small></div></div>
-          {% endif %}
-        </div>
-      </div>
+<section class="admin-dashboard-v2">
+  <div class="admin-dashboard-hero">
+    <div>
+      <span class="eyebrow">مسؤول التطبيق</span>
+      <h2>مركز إدارة التطبيق</h2>
+      <p>جميع أدوات إدارة النظام في مكان واحد، مرتبة حسب المهمة مع وصول مباشر لكل وظيفة.</p>
     </div>
-    <div class="admin-tool-group">
-      <h3>👥 المستخدمون والصلاحيات</h3>
-      <div class="admin-tools">
-        <a href="/users"><strong>إدارة المستخدمين والصلاحيات</strong><small>المشرفون والمدخلون وكلمات المرور والأدوار والصلاحيات</small></a>
-      </div>
-    </div>
-    <div class="admin-tool-group">
-      <h3>⚙️ إعدادات النظام</h3>
-      <div class="admin-tools">
-        <a href="/lookups"><strong>القوائم الأساسية</strong><small>أنواع الحركات والإجازات</small></a>
-      </div>
-    </div>
+    <div class="admin-full-badge">صلاحية كاملة</div>
   </div>
+
+  <div class="admin-overview-grid">
+    <a href="/governorates" class="admin-overview-card gov"><b>{{admin_stats.governorates}}</b><span>المحافظات</span><small>إضافة وتعديل وحذف المحافظات</small></a>
+    <a href="/branches" class="admin-overview-card branch"><b>{{admin_stats.branches}}</b><span>الفروع</span><small>إدارة الفروع وربطها بالمحافظات</small></a>
+    <a href="/employees" class="admin-overview-card emp"><b>{{admin_stats.employees}}</b><span>الموظفون</span><small>بيانات الموظفين والأدوار التنظيمية</small></a>
+    <a href="/users" class="admin-overview-card users"><b>{{admin_stats.users}}</b><span>الحسابات</span><small>المستخدمون والأدوار والصلاحيات</small></a>
+    <a href="#entry-role-chain" class="admin-overview-card entry"><b>{{admin_stats.entries}}</b><span>المدخلون الأوائل</span><small>السلسلة التنظيمية للموظفين</small></a>
+    <a href="/movements" class="admin-overview-card movement"><b>{{admin_stats.movements}}</b><span>الحركات</span><small>الإجازات والانتدابات والأذونات</small></a>
+  </div>
+
+  <div class="admin-sections-grid">
+    <section class="admin-section-card">
+      <div class="admin-section-head"><span>🏢</span><div><h3>الهيكل الإداري</h3><small>إدارة البناء الإداري للتطبيق من الأعلى إلى الأسفل.</small></div></div>
+      <div class="admin-action-grid">
+        <a href="/governorates"><b>المحافظات</b><small>إضافة وتعديل وحذف المحافظات.</small></a>
+        <a href="/branches"><b>الفروع</b><small>إدارة الفروع وربطها بالمحافظات.</small></a>
+        <a href="#my-governorates"><b>هيكل المحافظة</b><small>اختر المحافظة ثم راجع المشرفين والمدخلين والفروع والموظفين.</small></a>
+        <a href="#entry-role-chain"><b>السلسلة الوظيفية</b><small>إضافة وتنظيم دور المدخل الأول دون إنشاء حساب.</small></a>
+      </div>
+    </section>
+
+    <section class="admin-section-card">
+      <div class="admin-section-head"><span>🔐</span><div><h3>المستخدمون والصلاحيات</h3><small>إدارة الحسابات والأدوار والنطاقات بدون تداخل.</small></div></div>
+      <div class="admin-action-grid">
+        <a href="/users"><b>المستخدمون والصلاحيات</b><small>إنشاء وتعديل وتعطيل الحسابات وإسناد الأدوار.</small></a>
+        <a href="/users"><b>الأدوار المتعددة</b><small>إدارة أدوار الشخص وحسابات الأدوار الوهمية.</small></a>
+        <a href="/delegations"><b>التفويضات</b><small>إدارة التفويضات ومتابعة حالتها.</small></a>
+        <a href="/audit"><b>سجل العمليات</b><small>مراجعة العمليات الإدارية المسجلة على النظام.</small></a>
+      </div>
+    </section>
+
+    <section class="admin-section-card">
+      <div class="admin-section-head"><span>👥</span><div><h3>الموظفون والحركات</h3><small>إدارة البيانات التشغيلية ومتابعة حركة الموظفين.</small></div></div>
+      <div class="admin-action-grid">
+        <a href="/employees"><b>الموظفون</b><small>إضافة وتعديل وحذف بيانات الموظفين.</small></a>
+        <a href="/movements"><b>حركات الموظفين</b><small>تسجيل ومتابعة الإجازات والانتدابات والأذونات.</small></a>
+        <a href="/review"><b>المراجعة والمتابعة</b><small>الوصول إلى شاشة المراجعة الحالية عند الحاجة.</small></a>
+        <a href="/reports"><b>تقرير حركات الموظفين</b><small>التقارير المجمعة حسب الفترة والمحافظة والفرع والموظف.</small></a>
+      </div>
+    </section>
+
+    <section class="admin-section-card">
+      <div class="admin-section-head"><span>⚙️</span><div><h3>إعدادات النظام والتقارير</h3><small>الأدوات العامة التي يحتاجها مسؤول التطبيق.</small></div></div>
+      <div class="admin-action-grid">
+        <a href="/lookups"><b>القوائم الأساسية</b><small>أنواع الحركات والإجازات والقيم المساعدة.</small></a>
+        <a href="/reports/assignments/print-missions"><b>طباعة المأموريات</b><small>النماذج الرسمية للمأموريات والانتدابات.</small></a>
+        <a href="/change-password"><b>حساب مسؤول التطبيق</b><small>إدارة كلمة مرور الحساب الشخصي.</small></a>
+      </div>
+    </section>
+  </div>
+
+  <div class="admin-governance-note"><b>ترتيب الإدارة:</b><span>المحافظة ← المشرف ← المدخل الأول التنظيمي ← الفروع ← الموظفون</span><small>دور المدخل الأول تنظيمي فقط ولا يحتاج إلى حساب دخول مستقل.</small></div>
 </section>
-<div class="admin-divider"></div>
-<div class="section-caption no-print"><b>{% if is_entry %}فروعك وموظفوها{% elif is_supervisor %}الهيكل الإداري لمحافظاتك{% else %}الهيكل الإداري{% endif %}</b><span>{% if is_entry %}عرض الفروع والموظفين المرتبطين بك فقط.{% elif is_supervisor %}عرض وإدارة ما يخص المحافظات المسندة إليك فقط.{% else %}من هنا تبدأ إدارة المحافظات والمشرفين والمدخلين والفروع.{% endif %}</span></div>
-<div id="my-governorates" class="box admin-gov-picker no-print"><form method="get" class="grid admin-gov-form"><label>المحافظة<select name="governorate_id" onchange="this.form.submit()"><option value="">اختر المحافظة أولًا</option>{% for g in govs_all %}<option value="{{g.id}}" {% if selected_governorate == g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label></form></div>
+{% else %}
+<div class="free-card-workspace admin-free-workspace" id="admin-shortcuts-workspace"><div class="admin-shortcuts no-print admin-card-grid">
+  <div class="admin-shortcut-card admin-shortcut-group free-card" data-free-card-id="admin-structure"><span class="admin-card-icon">🏢</span><span><strong>الهيكل الإداري</strong><small>اختر المحافظة أولًا، ثم تظهر بطاقة الهيكل الخاصة بها.</small></span><a class="admin-card-action" href="#my-governorates">اختيار المحافظة</a></div>
+  {% if is_supervisor %}<div class="admin-shortcut-card admin-shortcut-group free-card" data-free-card-id="admin-employees"><span class="admin-card-icon">👥</span><span><strong>الموظفون</strong><small>إدارة الموظفين ضمن نطاقك.</small></span><a class="admin-card-action" href="/employees">فتح الموظفين</a></div>{% endif %}
+</div>
 {% endif %}
+
+<div class="admin-replacement-link no-print"><a class="admin-card-action" href="/replacement">🔁 الاستبدال — نقل مسؤولية المشرف أو المدخل الأول</a></div>
+<div class="admin-structure-picker no-print" id="my-governorates">
+  <div class="section-caption"><b>{% if is_entry %}فروعك وموظفوها{% elif is_supervisor %}هيكل محافظاتك{% else %}الهيكل الإداري{% endif %}</b><span>اختر المحافظة للوصول إلى الهيكل والتعديل والإدارة.</span></div>
+  <form method="get" class="grid admin-gov-form">
+    <label>المحافظة<select name="governorate_id" onchange="this.form.submit()"><option value="">اختر المحافظة أولًا</option>{% for g in govs_all %}<option value="{{g.id}}" {% if selected_governorate == g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>
+  </form>
+</div>
+{% endif %}
+
 <section class="admin-entry-role-card" id="entry-role-chain">
   <div><span class="eyebrow">السلسلة الوظيفية</span><h3>إضافة دور «المدخل الأول»</h3><p>المدخل الأول هنا دور تنظيمي فقط لترتيب الموظفين في مجموعات. لا يتم إنشاء حساب أو اسم مستخدم له.</p></div>
   <form method="post" action="/entry-role/add" class="entry-role-picker">

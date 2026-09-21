@@ -116,14 +116,14 @@
         <summary><span>👤 <b>{{emp.full_name}}</b> — {{emp.job_title or 'مدخل أول تنظيمي'}}</span><span class="tag">{{scoped|length}} فرع{% if sup %} · المشرف: {{sup.full_name}}{% endif %}</span></summary>
         <div class="entry-inner">
           <div class="entry-actions no-print">
-            <a class="btn secondary mini" href="{{ url_for('employee_profile',i=emp.id) }}">ملف الموظف</a>
+            <a class="btn secondary mini" href="{{ url_for('card',i=emp.id) }}">ملف الموظف</a>
             {% if assignment and (is_admin or (is_supervisor and sup and sup.id == me.id)) %}<form method="post" action="/entry-role/{{emp.id}}/remove" class="inline" onsubmit="return confirm('إزالة دور المدخل الأول التنظيمي؟')"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="btn red mini">إزالة الدور</button></form>{% endif %}
           </div>
           {% for b in scoped %}
             <details class="hierarchy-branch" open>
               <summary><span>🏢 <b>{{b.name}}</b>{% if b.code %} — {{b.code}}{% endif %}</span><span class="tag">{{counts[b.id]}} موظف</span></summary>
               <div class="employee-list">
-                {% for e in b.employee_items %}<a href="{{ url_for('employee_profile',i=e.id) }}">{{e.full_name}}{% if e.job_code %} <small>({{e.job_code}})</small>{% endif %}</a>{% else %}<span class="empty-small">لا يوجد موظفون مسجلون.</span>{% endfor %}
+                {% for e in b.employee_items %}<a href="{{ url_for('card',i=e.id) }}">{{e.full_name}}{% if e.job_code %} <small>({{e.job_code}})</small>{% endif %}</a>{% else %}<span class="empty-small">لا يوجد موظفون مسجلون.</span>{% endfor %}
               </div>
             </details>
           {% else %}<div class="empty-small">لم يتم ربط فروع بهذا المدخل بعد.</div>{% endfor %}

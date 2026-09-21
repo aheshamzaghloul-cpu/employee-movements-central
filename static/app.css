@@ -931,3 +931,28 @@ header{
   .main-nav{overflow-x:auto!important;justify-content:flex-start!important}
   .main-nav a{flex:0 0 auto!important}
 }
+
+/* v34.48 — استغلال عرض الشاشة بالكامل للتطبيق كله */
+html,body{width:100%;min-width:0}
+body{overflow-x:hidden}
+.wrap{width:100%!important;max-width:none!important;margin:0!important;padding:10px 12px!important}
+header,nav,main{width:100%!important;max-width:none!important}
+header{margin-left:0!important;margin-right:0!important}
+.main-nav{width:100%!important}
+main:not(.login){padding-left:0!important;padding-right:0!important}
+.box,.structure-card,.toolbar,.tablewrap,.cards,.quick{max-width:none}
+.home-three-panels{width:100%!important;max-width:none!important}
+
+/* استغلال المساحة داخل اللوحات مع الحفاظ على وضوح المحتوى */
+.home-three-panels>.dashboard-widget{min-width:0!important;width:100%!important}
+.home-three-panels .home-panel{width:100%!important;max-width:none!important}
+
+/* الشريط العلوي يمتد من أقصى اليمين إلى أقصى اليسار */
+.main-nav a{flex:0 0 auto}
+
+@media(max-width:1100px){
+  .wrap{padding:8px 9px!important}
+}
+@media(max-width:700px){
+  .wrap{padding:6px!important}
+}

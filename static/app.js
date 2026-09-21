@@ -173,14 +173,14 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   function scaleInner(w){
     const inner=ensureInner(w); if(!inner)return;
-    const baseW=360,baseH=190;
+    const baseW=500,baseH=650;
     const area=Math.max(1,w.offsetWidth*w.offsetHeight);
-    // Scale the complete inner content with the card so text, icons, links and tables
-    // grow/shrink together instead of leaving a large empty card or cramped contents.
-    const scale=clamp(Math.sqrt(area/(baseW*baseH)),0.68,1.85);
+    // v34.47: هدوء في مقياس المحتوى حتى تبقى النصوص واضحة داخل اللوحات الثلاث
+    // دون أن تتضخم العناصر عند زيادة ارتفاع البطاقة.
+    const scale=clamp(Math.sqrt(area/(baseW*baseH)),0.88,1.18);
     w.style.setProperty('--widget-scale',scale.toFixed(3));
-    inner.style.width=(100/scale)+'%';
-    inner.style.minHeight=(100/scale)+'%';
+    inner.style.width='100%';
+    inner.style.minHeight='100%';
     inner.style.zoom=scale;
     inner.style.transformOrigin='top right';
   }

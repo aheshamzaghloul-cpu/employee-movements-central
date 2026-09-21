@@ -1,8 +1,8 @@
 {% extends 'base.html' %}{% block title %}تسجيل حركة{% endblock %}{% block content %}
-<div class="toolbar"><div><h1>تسجيل حركة</h1><p class="subtitle">اختر البيانات من القوائم المنسدلة. يظهر المعتمد تلقائيًا حسب تبعية الموظف للمحافظة.</p></div><a class="btn secondary" href="/employees">العودة للموظفين</a></div>
+<div class="toolbar"><div><h1>تسجيل حركة</h1><p class="subtitle">اختر البيانات من القوائم المنسدلة. الحركة تُسجل مباشرة وتظهر فورًا في متابعة الموظفين.</p></div><a class="btn secondary" href="/employees">العودة للموظفين</a></div>
 <div class="box smart-movement-box"><form method="post" id="movement_form"><input type="hidden" name="_csrf" value="{{csrf}}">
 <div class="grid wide">
-<label>الموظف<select name="employee_id" id="movement_employee" required><option value="">اختر الموظف</option>{% for e in emps %}{% set a=auto_approver_for_employee(e) %}<option value="{{e.id}}" data-approver-id="{{a.id if a else ''}}" data-approver-label="{% if a %}{{a.full_name}}{% if a.job_title %} — {{a.job_title}}{% endif %}{% endif %}" data-branch-label="{{e.branch.name}}" {% if selected_employee_id==e.id %}selected{% endif %}>{{e.full_name}} — {{e.job_code or 'بدون كود وظيفي'}} — {{e.branch.name}}</option>{% endfor %}</select></label>
+<label>الموظف<select name="employee_id" id="movement_employee" required><option value="">اختر الموظف</option>{% for e in emps %}<option value="{{e.id}}" data-branch-label="{{e.branch.name}}" {% if selected_employee_id==e.id %}selected{% endif %}>{{e.full_name}} — {{e.job_code or 'بدون كود وظيفي'}} — {{e.branch.name}}</option>{% endfor %}</select></label>
 <label>الفرع الأساسي للموظف<input id="employee_home_branch" value="" readonly></label>
 <label>نوع الحركة<select name="movement_type" id="movement_type" required><option value="">اختر نوع الحركة</option>{% for x in movement_types %}<option value="{{x}}">{{x}}</option>{% endfor %}</select></label>
 <label data-movement="إجازة" hidden>نوع الإجازة<select name="leave_type" id="leave_type"><option value="">اختر نوع الإجازة</option>{% for x in leave_types %}<option value="{{x}}">{{x}}</option>{% endfor %}</select></label>
@@ -10,9 +10,9 @@
 <label data-movement="إجازة" data-movement2="انتداب" hidden>من تاريخ<input type="date" name="from_date" id="from_date"></label>
 <label data-movement="إجازة" data-movement2="انتداب" hidden>إلى تاريخ<input type="date" name="to_date" id="to_date"></label>
 <label data-movement="إذن" hidden>تاريخ الإذن<input type="date" name="permission_date" id="permission_date"></label>
-<label>المعتمد حسب التبعية<select id="approver_display" disabled><option value="">يظهر تلقائيًا بعد اختيار الموظف</option></select></label>
+
 </div>
 <div class="duration-box"><b>المدة</b><strong id="movement_days">—</strong><span>يوم</span><small id="movement_duration_hint">تحسب تلقائيًا للإجازة والانتداب</small></div>
-<div class="form-actions"><button type="submit">حفظ وإرسال للمراجعة</button></div>
+<div class="form-actions"><button type="submit">حفظ الحركة</button></div>
 </form></div>
 {% endblock %}

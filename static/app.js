@@ -159,7 +159,7 @@ document.addEventListener('DOMContentLoaded', function(){
   });
 })();
 
-// v34.35 — free dashboard cards with proportional inner scaling + reusable free-card workspaces.
+// v34.36 — proportional content scaling + free placement, including the first-entry directory.
 (function(){
   const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
   function ensureInner(w){
@@ -175,17 +175,20 @@ document.addEventListener('DOMContentLoaded', function(){
     const inner=ensureInner(w); if(!inner)return;
     const baseW=360,baseH=190;
     const area=Math.max(1,w.offsetWidth*w.offsetHeight);
-    const scale=clamp(Math.sqrt(area/(baseW*baseH)),0.72,1.55);
+    // Scale the complete inner content with the card so text, icons, links and tables
+    // grow/shrink together instead of leaving a large empty card or cramped contents.
+    const scale=clamp(Math.sqrt(area/(baseW*baseH)),0.68,1.85);
     w.style.setProperty('--widget-scale',scale.toFixed(3));
     inner.style.width=(100/scale)+'%';
     inner.style.minHeight=(100/scale)+'%';
     inner.style.zoom=scale;
+    inner.style.transformOrigin='top right';
   }
 
   // Home dashboard: medium first-open defaults, free drag/resize, persistent layout.
   const home=document.querySelector('#dashboard-workspace');
   if(home){
-    const key='employee_dashboard_layout_v34_35';
+    const key='employee_dashboard_layout_v34_36';
     const widgets=()=>[...home.querySelectorAll(':scope > .dashboard-widget')];
     const read=()=>{try{return JSON.parse(localStorage.getItem(key)||'{}')}catch(e){return {}}};
     function canvasSize(){
@@ -205,7 +208,7 @@ document.addEventListener('DOMContentLoaded', function(){
     }
     function initial(){
       const gap=20,col=Math.max(260,Math.floor((home.clientWidth-gap*2)/3)),rowH=190;
-      const pos=[[0,0],[col+gap,0],[2*(col+gap),0],[0,rowH+gap],[col+gap,rowH+gap],[2*(col+gap),rowH+gap],[0,2*(rowH+gap)]];
+      const pos=[[0,0],[col+gap,0],[2*(col+gap),0],[0,rowH+gap],[col+gap,rowH+gap],[2*(col+gap),rowH+gap],[0,2*(rowH+gap)],[col+gap,2*(rowH+gap)]];
       widgets().forEach((w,i)=>{const [x,y]=pos[i]||[0,i*(rowH+gap)];place(w,x,y,col,rowH)});canvasSize();
     }
     function apply(){
@@ -226,7 +229,7 @@ document.addEventListener('DOMContentLoaded', function(){
   // Reusable free canvas for administration/report cards. Cards are movable anywhere and resizable from the corner.
   document.querySelectorAll('.free-card-workspace').forEach(workspace=>{
     const id=workspace.id||('workspace-'+Math.random().toString(36).slice(2));
-    const key='employee_free_cards_v34_35_'+id+location.search;
+    const key='employee_free_cards_v34_36_'+id+location.search;
     const cards=()=>[...workspace.querySelectorAll('.free-card')];
     const read=()=>{try{return JSON.parse(localStorage.getItem(key)||'{}')}catch(e){return {}}};
     function canvasSize(){const max=cards().reduce((m,c)=>Math.max(m,(parseFloat(c.style.top)||0)+(parseFloat(c.style.height)||0)),0);workspace.style.minHeight=Math.max(max+40,260)+'px'}

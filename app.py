@@ -7,7 +7,7 @@ from sqlalchemy import UniqueConstraint
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app=Flask(__name__)
-APP_VERSION='v34.35-SCALING-FREE-CARDS-ALL-DASHBOARDS'
+APP_VERSION='v34.37-EASY-FIRST-ENTRY-MANAGEMENT'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg://',1)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or 'dev-only-change-me',SQLALCHEMY_DATABASE_URI=DATABASE_URL,SQLALCHEMY_TRACK_MODIFICATIONS=False,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','0')=='1',MAX_CONTENT_LENGTH=2*1024*1024)
@@ -428,6 +428,41 @@ def change_password():
         elif new!=confirm: flash('تأكيد كلمة المرور غير مطابق.')
         else: u.password_hash=generate_password_hash(new); u.must_change_password=False; log('PASSWORD_CHANGE','User',u.id); db.session.commit(); flash('تم تغيير كلمة المرور بنجاح.'); return redirect('/')
     return render_template('change_password.html')
+def current_employee_status_rows(branch_ids, today):
+    """Build a clear current-location snapshot for supervisors/first-entry users."""
+    if not branch_ids:
+        return []
+    employees=(Employee.query.filter(Employee.branch_id.in_(branch_ids),Employee.is_active==True)
+               .order_by(Employee.full_name.asc()).all())
+    rows=[]
+    for e in employees:
+        moves=(Movement.query.filter_by(employee_id=e.id,is_active=True)
+               .order_by(Movement.created_at.desc(),Movement.id.desc()).all())
+        current=None
+        # A movement is considered current by its dates, independent of any old approval status.
+        for m in moves:
+            if m.movement_type in ('إجازة','انتداب') and m.from_date and m.to_date and m.from_date <= today <= m.to_date:
+                current=m
+                break
+            if m.movement_type=='إذن' and m.permission_date==today:
+                current=m
+                break
+        if current:
+            if current.movement_type=='انتداب':
+                state='انتداب'; place=current.destination.name if current.destination else 'جهة الانتداب غير محددة'; until=current.to_date
+                detail='من {} إلى {}'.format(current.from_date,current.to_date)
+            elif current.movement_type=='إجازة':
+                state='إجازة'; place=current.leave_type or 'إجازة'; until=current.to_date
+                detail='من {} إلى {}'.format(current.from_date,current.to_date)
+            else:
+                state='إذن'; place='إذن اليوم'; until=today
+                detail='بتاريخ {}'.format(current.permission_date)
+            remaining=(until-today).days if until else 0
+        else:
+            state='على رأس العمل'; place=e.branch.name if e.branch else '—'; until=None; detail='متواجد بفرعه الأساسي'; remaining=None
+        rows.append({'employee':e,'state':state,'place':place,'until':until,'detail':detail,'remaining':remaining,'movement':current})
+    return rows
+
 @app.get('/')
 @req
 def home():
@@ -437,6 +472,7 @@ def home():
     pending=[]
     ending=[]
     approved_count=0
+    current_status_rows=[]
 
     # Governorates visible to the current effective role.
     visible_govs=(Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True)
@@ -473,21 +509,17 @@ def home():
         entry_rows.append({'user':u,'branches':branch_groups,'governorates':gov_names,'employee_link':Employee.query.filter_by(user_id=u.id).first()})
 
     if bs:
+        # الحركات أصبحت معلومات تشغيلية مباشرة وليست دورة اعتماد.
+        if has_role('مشرف محافظة','المدخل الأول'):
+            current_status_rows=current_employee_status_rows(bs,today)
+        # تبقى بيانات الاعتماد القديمة قابلة للعرض في السجلات القديمة، لكن لا تُستخدم
+        # لتحديد حالة الموظف الحالية.
         base=Movement.query.join(Employee).filter(Employee.branch_id.in_(bs),Movement.is_active==True)
-        if can('review_movements') and (has_role('مسؤول التطبيق') or has_role('مشرف محافظة')):
-            approved_count=base.filter(Movement.status=='معتمدة').count()
-        pending=(base.filter(Movement.status=='تحت المراجعة')
-                     .filter((Movement.approver_id==me().id) if 'مسؤول التطبيق' not in roles() else True)
-                     .order_by(Movement.id.desc()).limit(20).all())
-        # لا نكرر نفس الحركة في بطاقتين على الرئيسية: إذا كانت الحركة ضمن
-        # الحركات المسندة للاعتماد، تُعرض هناك فقط ولا تُعاد في تنبيهات الانتهاء.
-        pending_ids={m.id for m in pending}
         ending=(base.filter(
                     Movement.movement_type.in_(['إجازة','انتداب']),
                     Movement.to_date!=None,
                     Movement.to_date>=today,
-                    Movement.to_date<=tomorrow,
-                    ~Movement.id.in_(pending_ids) if pending_ids else True
+                    Movement.to_date<=tomorrow
                 ).order_by(Movement.to_date.asc(),Movement.id.desc()).limit(30).all())
 
     return render_template(
@@ -500,6 +532,7 @@ def home():
         pending=pending,
         ending=ending,
         approved_count=approved_count,
+        current_status_rows=current_status_rows,
         today=today,
         tomorrow=tomorrow,
         is_admin=has_role('مسؤول التطبيق')
@@ -1030,6 +1063,51 @@ def ub(i):
     log('ASSIGN','User',i,'فروع المسؤولية'); db.session.commit(); return redirect('/structure')
 
 
+@app.route('/users/<int:i>/entry-management',methods=['GET','POST'])
+@req
+def entry_management(i):
+    u=db.session.get(User,i)
+    if not u or 'المدخل الأول' not in actual_roles(u): abort(404)
+    if not allowed_target_user(u): abort(403)
+    if 'مسؤول التطبيق' not in roles() and 'مشرف محافظة' not in roles(): abort(403)
+    current_ids=user_branch_ids(u)
+    allowed_branch_objs=Branch.query.filter(Branch.is_active==True, Branch.governorate_id.in_(gids() if 'مسؤول التطبيق' not in roles() else [g.id for g in Governorate.query.filter_by(is_active=True).all()])).order_by(Branch.name.asc()).all() if gids() or 'مسؤول التطبيق' in roles() else []
+    # الفرع المتاح للمدخل = غير مرتبط بمدخل أول آخر، أو مرتبط بالمدخل الحالي.
+    available=[]
+    for b in allowed_branch_objs:
+        owners=[x.user_id for x in UserBranch.query.filter_by(branch_id=b.id).all() if x.user_id!=u.id]
+        occupied=False
+        for oid in owners:
+            ou=db.session.get(User,oid)
+            if ou and ou.is_active and 'المدخل الأول' in actual_roles(ou):
+                occupied=True; break
+        if not occupied or b.id in current_ids: available.append(b)
+    if request.method=='POST':
+        action=request.form.get('action','branches')
+        if action=='branches':
+            chosen={int(x) for x in request.form.getlist('branch_id') if x.isdigit()}
+            allowed_ids={b.id for b in available}
+            chosen &= allowed_ids
+            if not chosen:
+                flash('يجب اختيار فرع واحد على الأقل للمدخل الأول.')
+                return redirect(url_for('entry_management',i=i))
+            UserBranch.query.filter_by(user_id=i).delete()
+            for bid in sorted(chosen): db.session.add(UserBranch(user_id=i,branch_id=bid))
+            log('ASSIGN','User',i,'تحديث فروع مسؤولية المدخل الأول'); db.session.commit(); flash('تم تحديث فروع مسؤولية المدخل الأول بنجاح.')
+            return redirect(url_for('entry_management',i=i))
+        if action=='remove_role':
+            if 'مسؤول التطبيق' not in roles(): abort(403)
+            linked=Employee.query.filter_by(user_id=u.id).first()
+            UserRole.query.filter_by(user_id=u.id,role='المدخل الأول').delete()
+            UserBranch.query.filter_by(user_id=u.id).delete()
+            SupervisorEntry.query.filter_by(entry_id=u.id).delete()
+            remaining=actual_roles(u)-{'المدخل الأول'}
+            if not remaining: u.is_active=False
+            if linked: linked.user_id=None
+            log('ROLE_CHANGE','User',i,'إزالة دور المدخل الأول'); db.session.commit(); flash('تمت إزالة دور المدخل الأول مع الاحتفاظ بسجل الموظف وحركاته.')
+            return redirect('/')
+    return render_template('entry_management.html',u=u,branches=available,current_ids=current_ids,linked_emp=Employee.query.filter_by(user_id=u.id).first(),supervisors=[s for s in User.query.all() if s.is_active and 'مشرف محافظة' in actual_roles(s)])
+
 @app.route('/employees',methods=['GET','POST'])
 @req
 def employees():
@@ -1271,16 +1349,12 @@ def movements():
     if request.method=='POST':
         f=request.form; eid=int(f.get('employee_id','0')) if f.get('employee_id','').isdigit() else 0; e=db.session.get(Employee,eid)
         if not e or not branch_ok(e.branch_id): abort(403)
-        mt=f.get('movement_type'); fd=f.get('from_date'); td=f.get('to_date'); pd=f.get('permission_date'); dest=int(f['destination_branch_id']) if f.get('destination_branch_id','').isdigit() else None; status='تحت المراجعة'; approver=auto_approver_for_employee(e, me()); approver_id=approver.id if approver else None
+        mt=f.get('movement_type'); fd=f.get('from_date'); td=f.get('to_date'); pd=f.get('permission_date'); dest=int(f['destination_branch_id']) if f.get('destination_branch_id','').isdigit() else None; status='مدخلة'; approver_id=None
         err=validate_movement_fields(mt,f.get('leave_type') or None,dest,fd,td,pd)
         if err: flash(err); return redirect('/movements')
         overlap=movement_overlaps(e.id,mt,fd,td,pd)
         if overlap: flash(overlap); return redirect('/movements')
-        if not approver_id:
-            flash('لا يوجد معتمد محدد تلقائيًا لهذه المحافظة. يجب إسناد مشرف محافظة مخول بالمراجعة أولًا.')
-            return redirect('/movements')
-        status='تحت المراجعة'
-        m=Movement(employee_id=e.id,movement_type=mt,leave_type=f.get('leave_type') or None,destination_branch_id=dest,from_date=parse_date(fd),to_date=parse_date(td),permission_date=parse_date(pd),notes=None,created_by=me().id,status=status,assignment_state='ساري',approver_id=approver_id); db.session.add(m); db.session.commit(); record_movement_history(m,None,status,'ADD','إنشاء الحركة'); log('ADD','Movement',m.id,status); db.session.commit(); flash('تم حفظ الحركة.')
+        m=Movement(employee_id=e.id,movement_type=mt,leave_type=f.get('leave_type') or None,destination_branch_id=dest,from_date=parse_date(fd),to_date=parse_date(td),permission_date=parse_date(pd),notes=None,created_by=me().id,status=status,assignment_state='ساري',approver_id=None); db.session.add(m); db.session.commit(); record_movement_history(m,None,status,'ADD','تسجيل الحركة — لا تحتاج لاعتماد'); log('ADD','Movement',m.id,status); db.session.commit(); flash('تم تسجيل الحركة وأصبحت ظاهرة مباشرة في متابعة الموظفين.')
     rows=Movement.query.join(Employee).filter(Employee.branch_id.in_(bs),Movement.is_active==True).order_by(Movement.created_at.desc()).all() if bs else []
     selected_employee_id=request.args.get('employee_id', type=int)
     return render_template('movements.html',rows=rows,emps=emps,bs=Branch.query.filter(Branch.id.in_(bs),Branch.is_active==True).all() if bs else [],leave_types=active_leave_types(),movement_types=active_movement_types(),statuses=STATUSES,selected_employee_id=selected_employee_id,approvers={e.id:approvers_for_employee(e) for e in emps})
@@ -1289,50 +1363,29 @@ def movements():
 def movement_edit(i):
     m=db.session.get(Movement,i)
     if not m or not branch_ok(m.employee.branch_id): abort(403)
-    # بعد إلغاء الاعتماد فقط يمكن تعديل تاريخ (من) و(إلى).
+    # الحركات معلومات تشغيلية مباشرة ويمكن تعديلها دون انتظار اعتماد.
     last_history=MovementHistory.query.filter_by(movement_id=i).order_by(MovementHistory.id.desc()).first()
-    dates_edit_after_cancel = (m.status=='تحت المراجعة' and last_history and last_history.action=='CANCEL_APPROVAL')
-    if m.status=='تحت المراجعة' and not dates_edit_after_cancel:
-        flash('لا يمكن تعديل الحركة وهي تحت المراجعة.'); return redirect('/movements')
-    if m.status=='معتمدة':
-        flash('لا يمكن تعديل الحركة المعتمدة. يجب إلغاء الاعتماد أولًا.'); return redirect('/movements')
+    dates_edit_after_cancel=False
     if not can_manage_movement(m) or not can('manage_movements'):
         abort(403)
     if request.method=='POST':
         f=request.form
-        if dates_edit_after_cancel:
-            if m.movement_type not in ('إجازة','انتداب'):
-                flash('تعديل تاريخ البداية والنهاية متاح للإجازات والانتدابات فقط.'); return redirect(url_for('movement_edit',i=i))
-            new_from=parse_date(f.get('from_date')); new_to=parse_date(f.get('to_date'))
-            if not new_from or not new_to: flash('يجب إدخال تاريخ بداية ونهاية صحيحين.'); return redirect(url_for('movement_edit',i=i))
-            if new_from>new_to: flash('تاريخ البداية يجب أن يكون قبل أو مساويًا لتاريخ النهاية.'); return redirect(url_for('movement_edit',i=i))
-            overlap=movement_overlaps(m.employee_id,m.movement_type,f.get('from_date'),f.get('to_date'),None,i)
-            if overlap: flash(overlap); return redirect(url_for('movement_edit',i=i))
-            m.from_date=new_from; m.to_date=new_to; m.modified_by=me().id; m.modified_at=datetime.utcnow()
-            record_movement_history(m,'تحت المراجعة','تحت المراجعة','EDIT','تعديل تاريخ البداية والنهاية بعد إلغاء الاعتماد')
-            log('EDIT','Movement',i,'تعديل تاريخ البداية والنهاية بعد إلغاء الاعتماد')
-            db.session.commit(); flash('تم تعديل تاريخ البداية والنهاية بعد إلغاء الاعتماد.'); return redirect('/movements')
         mt=f.get('movement_type'); dest=int(f['destination_branch_id']) if f.get('destination_branch_id','').isdigit() else None
-        approver=auto_approver_for_employee(m.employee, me()); approver_id=approver.id if approver else None
-        if not approver_id:
-            flash('لا يوجد معتمد محدد تلقائيًا لهذه المحافظة. يجب إسناد مشرف محافظة مخول بالمراجعة أولًا.'); return redirect(url_for('movement_edit',i=i))
+        approver_id=None
         err=validate_movement_fields(mt,f.get('leave_type') or None,dest,f.get('from_date'),f.get('to_date'),f.get('permission_date'))
         if err: flash(err); return redirect(url_for('movement_edit',i=i))
         overlap=movement_overlaps(m.employee_id,mt,f.get('from_date'),f.get('to_date'),f.get('permission_date'),i)
         if overlap: flash(overlap); return redirect(url_for('movement_edit',i=i))
         old_status=m.status
-        m.movement_type=mt; m.leave_type=f.get('leave_type') or None; m.destination_branch_id=dest; m.from_date=parse_date(f.get('from_date')); m.to_date=parse_date(f.get('to_date')); m.permission_date=parse_date(f.get('permission_date')); m.approver_id=approver_id; m.notes=None; m.modified_by=me().id; m.modified_at=datetime.utcnow(); m.status='تحت المراجعة'; m.rejection_reason=None; record_movement_history(m,old_status,'تحت المراجعة','EDIT','تعديل بيانات الحركة وإرسالها للمراجعة'); log('EDIT','Movement',i,'تعديل الحركة وإعادة إرسالها للمراجعة'); db.session.commit(); flash('تم تعديل الحركة وإرسالها للمراجعة.'); return redirect('/review')
+        m.movement_type=mt; m.leave_type=f.get('leave_type') or None; m.destination_branch_id=dest; m.from_date=parse_date(f.get('from_date')); m.to_date=parse_date(f.get('to_date')); m.permission_date=parse_date(f.get('permission_date')); m.approver_id=None; m.notes=None; m.modified_by=me().id; m.modified_at=datetime.utcnow(); m.status='مدخلة'; m.rejection_reason=None; record_movement_history(m,old_status,'مدخلة','EDIT','تعديل بيانات الحركة — لا تحتاج لاعتماد'); log('EDIT','Movement',i,'تعديل الحركة'); db.session.commit(); flash('تم تعديل الحركة وحفظها مباشرة.'); return redirect('/movements')
     return render_template('movement_edit.html',m=m,emps=Employee.query.filter(Employee.branch_id.in_(bids()),Employee.is_active==True).order_by(Employee.full_name).all(),bs=Branch.query.filter(Branch.id.in_(bids()),Branch.is_active==True).all(),leave_types=active_leave_types(),movement_types=active_movement_types(),approvers=approvers_for_employee(m.employee))
 @app.post('/movements/<int:i>/submit')
 @req
 def movement_submit(i):
     m=db.session.get(Movement,i)
     if not m or not branch_ok(m.employee.branch_id) or not can_manage_movement(m): abort(403)
-    if m.status in ('مسودة','مدخلة','مرفوضة'):
-        approver=auto_approver_for_employee(m.employee, me()); aid=approver.id if approver else 0
-        if not aid:
-            flash('لا يوجد معتمد محدد تلقائيًا لهذه المحافظة. يجب إسناد مشرف محافظة مخول بالمراجعة أولًا.'); return redirect('/movements')
-        old_status=m.status; m.status='تحت المراجعة'; m.approver_id=aid; m.rejection_reason=None; m.modified_by=me().id; m.modified_at=datetime.utcnow(); record_movement_history(m,old_status,'تحت المراجعة','SUBMIT','إرسال للمراجعة — المعتمد محدد تلقائيًا حسب التبعية'); log('SUBMIT','Movement',i,f'المعتمد التلقائي: {aid}'); db.session.commit(); flash('تم إرسال الحركة للمراجعة، وتم تحديد المعتمد تلقائيًا حسب التبعية.')
+    if m.status in ('مسودة','مدخلة','مرفوضة','تحت المراجعة'):
+        old_status=m.status; m.status='مدخلة'; m.approver_id=None; m.rejection_reason=None; m.modified_by=me().id; m.modified_at=datetime.utcnow(); record_movement_history(m,old_status,'مدخلة','SUBMIT','تثبيت الحركة كمعلومة تشغيلية — لا تحتاج لاعتماد'); log('SUBMIT','Movement',i,'الحركة لا تحتاج اعتمادًا'); db.session.commit(); flash('الحركة مسجلة مباشرة ولا تحتاج إلى اعتماد.')
     return redirect('/movements')
 @app.post('/movements/<int:i>/approver')
 @req

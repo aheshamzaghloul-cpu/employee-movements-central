@@ -480,3 +480,40 @@ label{font-size:13px}.box>form label,.quick-form label{min-width:0}.form-actions
 .structure-free-workspace .structure-card{position:absolute!important;margin:0!important;min-width:280px;min-height:180px;overflow:hidden}
 .structure-free-workspace .structure-card .widget-inner{height:100%}
 @media(max-width:900px){.free-card-workspace{min-height:600px}.free-card-workspace .free-card,.structure-free-workspace .structure-card{min-width:220px}}
+
+/* v34.36 — proportional card content + first-entry directory as a movable/resizable card */
+.home-entry-directory.dashboard-widget{padding:16px;overflow:hidden;background:linear-gradient(145deg,#ffffff,#f4f9fd);border:1px solid #d5e5ef;border-radius:16px;box-shadow:0 7px 20px rgba(28,70,98,.07)}
+.home-entry-directory.dashboard-widget .entry-directory-head{margin-bottom:12px}
+.home-entry-directory.dashboard-widget .entry-directory-list{display:grid;gap:10px}
+.home-entry-directory.dashboard-widget .entry-card{margin:0}
+.home-entry-directory.dashboard-widget .entry-card summary{cursor:pointer}
+.home-entry-directory.dashboard-widget .entry-panel{overflow:auto}
+.home-entry-directory.dashboard-widget .entry-branch-grid{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.home-entry-directory.dashboard-widget .entry-main strong,.home-entry-directory.dashboard-widget h2{font-size:calc(1.15rem * var(--widget-scale,1))}
+.home-entry-directory.dashboard-widget .entry-card,.home-entry-directory.dashboard-widget .branch-card,.home-entry-directory.dashboard-widget .employee-card{font-size:calc(1em * var(--widget-scale,1))}
+.dashboard-widget .widget-inner{height:100%;max-width:none}
+.dashboard-widget .widget-inner > *{max-width:100%}
+.dashboard-widget .widget-inner img,.dashboard-widget .widget-inner svg{max-width:100%}
+/* v34.37 — easy first-entry management from home */
+.entry-quick-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.entry-manage-layout{display:grid;grid-template-columns:1fr 1.8fr;gap:14px;align-items:start}
+.entry-manage-card{border-radius:18px}
+.entry-manage-person{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid #dce8ef;border-radius:14px;background:#f8fbfd}
+.entry-manage-person>div:nth-child(2){display:flex;flex-direction:column;gap:4px;flex:1}.entry-manage-person strong{font-size:16px;color:#24577d}.entry-manage-person small{color:#728695}
+.entry-avatar.large{width:46px;height:46px;font-size:21px;display:grid;place-items:center;background:#eef5fa;border-radius:14px}
+.hint-box{margin-top:10px;padding:10px 12px;border-radius:12px;background:#f3f8fb;border:1px solid #dbe7ee;color:#607786;font-size:12px}
+.entry-branch-picker{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.entry-branch-option{display:flex;align-items:center;gap:9px;padding:11px;border:1px solid #dce7ee;border-radius:13px;background:#fff;cursor:pointer;transition:.15s}
+.entry-branch-option:hover{border-color:#a9c7dc;transform:translateY(-1px)}.entry-branch-option.selected{background:#f2faf8;border-color:#b9dfd2}.entry-branch-option input{accent-color:#2fb58a}
+.entry-branch-option span:not(.available-mark){display:flex;flex-direction:column;gap:2px;flex:1}.entry-branch-option strong{font-size:12px;color:#285977}.entry-branch-option small{font-size:10px;color:#7a8c98}.selected-mark{color:#20a77c}.available-mark{font-size:10px;padding:3px 7px;border-radius:999px;background:#eef6fb;color:#4b7897}
+.danger-zone{grid-column:1/-1;border-color:#efd6d6;background:#fffafa}
+@media(max-width:900px){.entry-manage-layout{grid-template-columns:1fr}.entry-branch-picker{grid-template-columns:1fr}.danger-zone{grid-column:auto}}
+
+
+/* v34.38 — direct employee status dashboard */
+.home-current-status{background:linear-gradient(145deg,#ffffff,#f7fbfd);border:1px solid #d8e5ed;border-radius:16px;padding:15px;box-shadow:0 6px 18px rgba(24,55,84,.06);overflow:hidden}
+.home-current-status .home-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.home-current-status h2{margin:2px 0 3px;color:#234e6b;font-size:18px}.home-current-note{margin:0;color:#718493;font-size:11px;line-height:1.5}
+.home-current-count{background:#eef5fa;color:#24577d;border:1px solid #d5e5ef;border-radius:999px;padding:7px 11px;font-size:11px;white-space:nowrap}
+.home-current-table-wrap{overflow:auto}.home-current-table{width:100%;min-width:850px;border-collapse:separate;border-spacing:0;font-size:12px}.home-current-table th{background:#f1f6f9;color:#587083;font-size:11px;padding:9px 10px;text-align:right;white-space:nowrap}.home-current-table td{padding:9px 10px;border-top:1px solid #e7eef2;vertical-align:middle;color:#405767}.home-current-table tbody tr:hover{background:#fbfdfe}.employee-name-link{display:block;color:#205b83;font-weight:800;text-decoration:none}.employee-name-link:hover{text-decoration:underline}.home-current-table td:first-child small{display:block;color:#8a9aa5;font-size:9px;margin-top:2px}.current-state{display:inline-flex;align-items:center;padding:5px 8px;border-radius:999px;font-weight:800;font-size:10px;background:#edf4f8;color:#426477}.state-إجازة{background:#fff3dc;color:#9a6a18}.state-انتداب{background:#e9f2ff;color:#32638e}.state-إذن{background:#f1eafe;color:#6d4a94}.state-على-رأس-العمل{background:#eaf7f1;color:#2f7657}.remaining-days{display:block;margin-top:3px;color:#7a8d99;font-size:9px}
+@media(max-width:700px){.home-current-status{padding:11px}.home-current-status .home-section-head{flex-direction:column}.home-current-count{align-self:flex-start}}

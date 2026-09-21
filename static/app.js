@@ -159,44 +159,64 @@ document.addEventListener('DOMContentLoaded', function(){
   });
 })();
 
-// v34.31: smart home dashboard — drag/reorder, resize and persistent layout.
+// v34.32: precise home dashboard workspace — handle-only drag, four fixed sizes, persistent order.
 (function(){
   const workspace=document.querySelector('#dashboard-workspace');
   if(!workspace) return;
-  const key='employeeMovements.dashboard.v34.31';
+  const key='employee_dashboard_layout_v34_32';
+  const sizes=['sm','md','lg','xl'];
   const widgets=()=>[...workspace.querySelectorAll(':scope > .dashboard-widget')];
-  let state={order:[],sizes:{}};
-  try{state=JSON.parse(localStorage.getItem(key)||'{}')||{};}catch(e){state={};}
-  state.order=Array.isArray(state.order)?state.order:[]; state.sizes=state.sizes||{};
+  function read(){try{return JSON.parse(localStorage.getItem(key)||'{}')}catch(e){return {}}}
   function save(){
-    state.order=widgets().map(w=>w.dataset.widgetId).filter(Boolean);
-    state.sizes={}; widgets().forEach(w=>{state.sizes[w.dataset.widgetId]=['widget-sm','widget-lg','widget-xl'].find(c=>w.classList.contains(c))||'md';});
-    try{localStorage.setItem(key,JSON.stringify(state));}catch(e){}
+    const state={order:widgets().map(w=>w.dataset.widgetId).filter(Boolean),sizes:{}};
+    widgets().forEach(w=>{state.sizes[w.dataset.widgetId]=sizes.find(s=>w.classList.contains('widget-'+s))||'md'});
+    localStorage.setItem(key,JSON.stringify(state));
   }
-  function restore(){
-    if(state.order.length){state.order.slice().reverse().forEach(id=>{const w=workspace.querySelector(`[data-widget-id="${CSS.escape(id)}"]`); if(w) workspace.prepend(w);});}
-    widgets().forEach(w=>{const size=state.sizes[w.dataset.widgetId]; if(size&&size!=='md') w.classList.add('widget-'+size);});
+  function apply(){
+    const state=read();
+    if(Array.isArray(state.order)){
+      state.order.forEach(id=>{const w=workspace.querySelector('[data-widget-id="'+CSS.escape(id)+'"]');if(w)workspace.appendChild(w)});
+    }
+    widgets().forEach(w=>{
+      const size=state.sizes&&state.sizes[w.dataset.widgetId];
+      w.classList.remove('widget-sm','widget-md','widget-lg','widget-xl');
+      w.classList.add('widget-'+(sizes.includes(size)?size:'md'));
+    });
   }
-  restore();
+  function markActive(w){
+    const current=sizes.find(s=>w.classList.contains('widget-'+s))||'md';
+    w.querySelectorAll('[data-widget-size]').forEach(b=>b.classList.toggle('active',b.dataset.widgetSize===current));
+  }
+  apply();
   widgets().forEach(w=>{
+    markActive(w);
     w.querySelectorAll('[data-widget-size]').forEach(btn=>btn.addEventListener('click',e=>{
       e.preventDefault();e.stopPropagation();
-      const sm=btn.dataset.widgetSize==='sm';
-      w.classList.remove('widget-sm','widget-lg','widget-xl');
-      if(sm) w.classList.add('widget-sm'); else w.classList.add(w.classList.contains('widget-sm')?'widget-lg':'widget-lg');
-      save();
+      const size=btn.dataset.widgetSize;
+      if(!sizes.includes(size))return;
+      w.classList.remove('widget-sm','widget-md','widget-lg','widget-xl');
+      w.classList.add('widget-'+size); markActive(w); save();
     }));
-    w.addEventListener('dragstart',e=>{w.classList.add('dragging');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',w.dataset.widgetId||'');});
-    w.addEventListener('dragend',()=>{w.classList.remove('dragging');save();});
+    const handle=w.querySelector('.widget-drag');
+    if(!handle) return;
+    handle.addEventListener('dragstart',e=>{
+      w.classList.add('dragging');
+      e.dataTransfer.effectAllowed='move';
+      e.dataTransfer.setData('text/plain',w.dataset.widgetId||'');
+    });
+    handle.addEventListener('dragend',()=>{w.classList.remove('dragging');save();});
   });
   workspace.addEventListener('dragover',e=>{
     e.preventDefault();
-    const dragging=workspace.querySelector('.dragging'); if(!dragging)return;
-    const candidates=widgets().filter(w=>w!==dragging);
-    let before=null, best=Infinity;
-    for(const w of candidates){const r=w.getBoundingClientRect();const dx=Math.abs(e.clientX-(r.left+r.width/2));const dy=Math.abs(e.clientY-(r.top+r.height/2));const d=dx+dy;if(d<best){best=d;before=(e.clientY<r.top+r.height/2 || e.clientX<r.left+r.width/2)?w:null;}}
-    if(before) workspace.insertBefore(dragging,before); else workspace.appendChild(dragging);
+    const dragging=workspace.querySelector('.dashboard-widget.dragging'); if(!dragging)return;
+    const target=e.target.closest('.dashboard-widget');
+    if(!target||target===dragging||!workspace.contains(target))return;
+    const r=target.getBoundingClientRect();
+    const after=e.clientY>r.top+r.height/2 || (Math.abs(e.clientY-(r.top+r.height/2))<r.height*.25 && e.clientX<r.left+r.width/2);
+    if(after){ if(target.nextElementSibling!==dragging) workspace.insertBefore(dragging,target.nextElementSibling); }
+    else { if(target.previousElementSibling!==dragging) workspace.insertBefore(dragging,target); }
   });
-  // Double click a widget resets it to the default compact size.
-  workspace.addEventListener('dblclick',e=>{const w=e.target.closest('.dashboard-widget'); if(!w||e.target.closest('a,button,input,select,summary'))return;w.classList.remove('widget-sm','widget-lg','widget-xl');save();});
+  workspace.addEventListener('drop',e=>{e.preventDefault();const d=workspace.querySelector('.dashboard-widget.dragging');if(d){d.classList.remove('dragging');save();}});
+  // Double-click a card background resets its size only; links/buttons remain unaffected.
+  workspace.addEventListener('dblclick',e=>{const w=e.target.closest('.dashboard-widget');if(!w||e.target.closest('a,button,input,select,summary,.widget-drag'))return;w.classList.remove('widget-sm','widget-md','widget-lg','widget-xl');w.classList.add('widget-md');markActive(w);save();});
 })();

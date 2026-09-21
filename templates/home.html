@@ -14,13 +14,14 @@
 </div>
 
 <div class="home-content-layout">
-  <aside class="home-summary-card" aria-label="ملخص النظام">
-    <a class="home-summary-item summary-employees" href="/employees"><span>الموظفون</span><b>{{e}}</b></a>
-    <a class="home-summary-item summary-branches" href="/branches"><span>الفروع ضمن نطاقك</span><b>{{b}}</b></a>
-    <a class="home-summary-item summary-governorates" href="/governorates"><span>المحافظات</span><b>{{g}}</b></a>
-  </aside>
-  <div class="home-main-column">
-    <div class="dashboard-workspace" id="dashboard-workspace">
+  <div class="home-left-column">
+    <aside class="home-summary-card" aria-label="ملخص النظام">
+      <a class="home-summary-item summary-employees" href="/employees"><span>الموظفون</span><b>{{e}}</b></a>
+      <a class="home-summary-item summary-branches" href="/branches"><span>الفروع ضمن نطاقك</span><b>{{b}}</b></a>
+      <a class="home-summary-item summary-governorates" href="/governorates"><span>المحافظات</span><b>{{g}}</b></a>
+    </aside>
+    <div class="home-main-column">
+      <div class="dashboard-workspace" id="dashboard-workspace">
   {% if 'مسؤول التطبيق' in roles or 'مشرف محافظة' in roles %}
   <div class="home-group-card dashboard-widget" data-widget-id="group-management">    <div class="home-group-head"><span class="home-group-icon">🏢</span><div><h3>الإدارة</h3><small>إدارة الهيكل والصلاحيات</small></div></div>
     <div class="home-group-links">
@@ -51,26 +52,6 @@
   </div>
   {% endif %}
 
-  {% if current_status_rows %}
-  <section class="home-current-status dashboard-widget" data-widget-id="employee-current-status">
-        <div class="home-section-head">
-      <div><span class="home-kicker">متابعة مباشرة</span><h2>حالة الموظفين الآن</h2><p class="home-current-note">معلومات تشغيلية واضحة: أين الموظف الآن، ونوع الحركة، ومكانه، وموعد العودة.</p></div>
-      <span class="home-current-count">{{current_status_rows|length}} موظف</span>
-    </div>
-    <div class="home-current-table-wrap"><table class="home-current-table"><thead><tr><th>الموظف</th><th>الفرع</th><th>الحالة</th><th>مكان التواجد</th><th>الفترة / التاريخ</th><th>حتى</th></tr></thead><tbody>
-    {% for row in current_status_rows %}
-      <tr>
-        <td><a class="employee-name-link" href="/employee/{{row.employee.id}}">{{row.employee.full_name}}</a><small>{{row.employee.job_code or 'بدون كود'}}</small></td>
-        <td>{{row.employee.branch.name if row.employee.branch else '—'}}</td>
-        <td><span class="current-state state-{{row.state|replace(' ','-')}}">{{row.state}}</span></td>
-        <td><strong>{{row.place}}</strong></td>
-        <td>{{row.detail}}</td>
-        <td>{% if row.until %}{{row.until}}{% if row.remaining is not none and row.remaining>0 %}<small class="remaining-days">متبقي {{row.remaining}} يوم</small>{% elif row.remaining==0 %}<small class="remaining-days">ينتهي اليوم</small>{% endif %}{% else %}—{% endif %}</td>
-      </tr>
-    {% endfor %}
-    </tbody></table></div>
-  </section>
-  {% endif %}
 
   <details class="box home-collapsible home-info-card dashboard-widget" data-widget-id="ending" {% if ending %}open{% endif %}>
     <summary><strong>إجازات وانتدابات تنتهي اليوم أو غدًا</strong><span>{{ending|length}}</span></summary>
@@ -156,7 +137,30 @@
 </section>
 {% endif %}
 
+      </div>
     </div>
   </div>
+  <aside class="home-right-column">
+  {% if current_status_rows %}
+  <section class="home-current-status dashboard-widget" data-widget-id="employee-current-status">
+        <div class="home-section-head">
+      <div><span class="home-kicker">متابعة مباشرة</span><h2>حالة الموظفين الآن</h2><p class="home-current-note">معلومات تشغيلية واضحة: أين الموظف الآن، ونوع الحركة، ومكانه، وموعد العودة.</p></div>
+      <span class="home-current-count">{{current_status_rows|length}} موظف</span>
+    </div>
+    <div class="home-current-table-wrap"><table class="home-current-table"><thead><tr><th>الموظف</th><th>الفرع</th><th>الحالة</th><th>مكان التواجد</th><th>الفترة / التاريخ</th><th>حتى</th></tr></thead><tbody>
+    {% for row in current_status_rows %}
+      <tr>
+        <td><a class="employee-name-link" href="/employee/{{row.employee.id}}">{{row.employee.full_name}}</a><small>{{row.employee.job_code or 'بدون كود'}}</small></td>
+        <td>{{row.employee.branch.name if row.employee.branch else '—'}}</td>
+        <td><span class="current-state state-{{row.state|replace(' ','-')}}">{{row.state}}</span></td>
+        <td><strong>{{row.place}}</strong></td>
+        <td>{{row.detail}}</td>
+        <td>{% if row.until %}{{row.until}}{% if row.remaining is not none and row.remaining>0 %}<small class="remaining-days">متبقي {{row.remaining}} يوم</small>{% elif row.remaining==0 %}<small class="remaining-days">ينتهي اليوم</small>{% endif %}{% else %}—{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody></table></div>
+  </section>
+  {% endif %}
+  </aside>
 </div>
 {% endblock %}

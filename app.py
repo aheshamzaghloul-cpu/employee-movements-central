@@ -693,7 +693,7 @@ def structure():
             if is_supervisor and sup and sup.id != current.id: continue
             if is_entry and u.id != current.id: continue
             if not sup and len({b.governorate_id for b in scoped})==1: sup=supervisor_for_governorate(g.id)
-            entries.append((u,scoped,sup,Employee.query.filter_by(user_id=u.id).first()))
+            entries.append((u,scoped,sup,None,Employee.query.filter_by(user_id=u.id).first()))
         counts={b.id:Employee.query.filter_by(branch_id=b.id,is_active=True).count() for b in bs}
         for b in bs:
             if not hasattr(b,'employee_items'):

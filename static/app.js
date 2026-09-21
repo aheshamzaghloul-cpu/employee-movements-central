@@ -185,45 +185,26 @@ document.addEventListener('DOMContentLoaded', function(){
     inner.style.transformOrigin='top right';
   }
 
-  // Home dashboard: medium first-open defaults, free drag/resize, persistent layout.
+  // Home dashboard v34.40: fixed 30/70 responsive layout; cards are not draggable.
+  // Only the corner resize handle remains active. Grid placement is controlled by CSS.
   const home=document.querySelector('#dashboard-workspace');
   if(home){
-    const key='employee_dashboard_layout_v34_36';
+    const key='employee_dashboard_sizes_v34_40';
     const widgets=()=>[...home.querySelectorAll(':scope > .dashboard-widget')];
     const read=()=>{try{return JSON.parse(localStorage.getItem(key)||'{}')}catch(e){return {}}};
-    function canvasSize(){
-      const maxBottom=widgets().reduce((m,w)=>Math.max(m,(parseFloat(w.style.top)||0)+(parseFloat(w.style.height)||0)),0);
-      home.style.minHeight=Math.max(window.innerHeight-150,760,maxBottom+80)+'px';
-    }
-    function save(){
-      canvasSize();
-      const state={canvasWidth:home.clientWidth,widgets:{}};
-      widgets().forEach(w=>{state.widgets[w.dataset.widgetId]={x:Math.round(w.offsetLeft),y:Math.round(w.offsetTop),w:Math.round(w.offsetWidth),h:Math.round(w.offsetHeight)}});
-      try{localStorage.setItem(key,JSON.stringify(state))}catch(e){}
-    }
-    function place(w,x,y,width,height){
-      const minW=220,minH=145,maxW=Math.max(minW,home.clientWidth-16);
-      const ww=clamp(width||340,minW,maxW),hh=Math.max(minH,height||190),xx=clamp(x||0,0,Math.max(0,home.clientWidth-ww));
-      w.style.left=xx+'px';w.style.top=Math.max(0,y||0)+'px';w.style.width=ww+'px';w.style.height=hh+'px';scaleInner(w);
-    }
-    function initial(){
-      const gap=20,col=Math.max(260,Math.floor((home.clientWidth-gap*2)/3)),rowH=190;
-      const pos=[[0,0],[col+gap,0],[2*(col+gap),0],[0,rowH+gap],[col+gap,rowH+gap],[2*(col+gap),rowH+gap],[0,2*(rowH+gap)],[col+gap,2*(rowH+gap)]];
-      widgets().forEach((w,i)=>{const [x,y]=pos[i]||[0,i*(rowH+gap)];place(w,x,y,col,rowH)});canvasSize();
-    }
-    function apply(){
-      const state=read(); if(!state.widgets||!Object.keys(state.widgets).length){initial();save();return;}
-      const old=state.canvasWidth||home.clientWidth,ratio=home.clientWidth>0?home.clientWidth/old:1;
-      widgets().forEach((w,i)=>{const d=state.widgets[w.dataset.widgetId];if(d)place(w,(d.x||0)*ratio,(d.y||0),(d.w||340)*ratio,d.h||190);else place(w,(i%3)*280,Math.floor(i/3)*210,340,190)});canvasSize();
-    }
+    function save(){const state={};widgets().forEach(w=>{state[w.dataset.widgetId]={w:Math.round(w.offsetWidth),h:Math.round(w.offsetHeight)}});try{localStorage.setItem(key,JSON.stringify(state))}catch(e){}}
+    function apply(){const state=read();widgets().forEach(w=>{const d=state[w.dataset.widgetId];if(d){w.style.height=Math.max(170,d.h)+'px';}})}
     let active=null;
-    function drag(w,e){if(e.button!==0)return;active={type:'drag',w,sx:e.clientX,sy:e.clientY,l:w.offsetLeft,t:w.offsetTop,width:w.offsetWidth};w.classList.add('dragging');w.setPointerCapture?.(e.pointerId);e.preventDefault()}
-    function resize(w,e){if(e.button!==0)return;active={type:'resize',w,sx:e.clientX,sy:e.clientY,l:w.offsetLeft,t:w.offsetTop,width:w.offsetWidth,height:w.offsetHeight};w.classList.add('dragging');w.setPointerCapture?.(e.pointerId);e.preventDefault();e.stopPropagation()}
-    function move(e){if(!active)return;const a=active,dx=e.clientX-a.sx,dy=e.clientY-a.sy;if(a.type==='drag'){a.w.style.left=clamp(a.l+dx,0,Math.max(0,home.clientWidth-a.width))+'px';a.w.style.top=Math.max(0,a.t+dy)+'px'}else{a.w.style.width=clamp(a.width+dx,220,Math.max(220,home.clientWidth-a.l))+'px';a.w.style.height=Math.max(145,a.height+dy)+'px';scaleInner(a.w)}canvasSize()}
+    function resize(w,e){if(e.button!==0)return;active={w,sx:e.clientX,sy:e.clientY,h:w.offsetHeight};w.classList.add('dragging');w.setPointerCapture?.(e.pointerId);e.preventDefault();e.stopPropagation()}
+    function move(e){if(!active)return;const a=active,dy=e.clientY-a.sy;a.w.style.height=Math.max(170,a.h+dy)+'px'}
     function end(){if(!active)return;active.w.classList.remove('dragging');active=null;save()}
-    apply();widgets().forEach(w=>{ensureInner(w);scaleInner(w);w.querySelector('.widget-drag')?.addEventListener('pointerdown',e=>drag(w,e));w.querySelector('.widget-resize')?.addEventListener('pointerdown',e=>resize(w,e))});
-    document.addEventListener('pointermove',move,{passive:false});document.addEventListener('pointerup',end,{passive:true});
-    window.addEventListener('resize',()=>{const old=read().canvasWidth||home.clientWidth,ratio=home.clientWidth/old;widgets().forEach(w=>{w.style.left=clamp(w.offsetLeft*ratio,0,Math.max(0,home.clientWidth-w.offsetWidth))+'px';scaleInner(w)});canvasSize();save()});
+    apply();
+    widgets().forEach(w=>{
+      const r=w.querySelector('.widget-resize');
+      r?.addEventListener('pointerdown',e=>resize(w,e));
+    });
+    document.addEventListener('pointermove',move,{passive:false});
+    document.addEventListener('pointerup',end,{passive:true});
   }
 
   // Reusable free canvas for administration/report cards. Cards are movable anywhere and resizable from the corner.

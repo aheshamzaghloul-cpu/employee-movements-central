@@ -159,127 +159,91 @@ document.addEventListener('DOMContentLoaded', function(){
   });
 })();
 
-// v34.34: free home dashboard canvas — medium defaults, free drag/resize, persistent layout.
+// v34.35 — free dashboard cards with proportional inner scaling + reusable free-card workspaces.
 (function(){
-  const workspace=document.querySelector('#dashboard-workspace');
-  if(!workspace) return;
-  const key='employee_dashboard_layout_v34_34';
-  const widgets=()=>[...workspace.querySelectorAll(':scope > .dashboard-widget')];
   const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
-  function read(){try{return JSON.parse(localStorage.getItem(key)||'{}')}catch(e){return {}}}
-  function canvasSize(){
-    const maxBottom=widgets().reduce((m,w)=>Math.max(m,(parseFloat(w.style.top)||0)+(parseFloat(w.style.height)||0)),0);
-    const minHeight=Math.max(window.innerHeight-150,760);
-    workspace.style.minHeight=Math.max(minHeight,maxBottom+80)+'px';
-  }
-  function save(){
-    canvasSize();
-    const state={canvasWidth:workspace.clientWidth,canvasHeight:workspace.scrollHeight,widgets:{}};
-    const wr=workspace.getBoundingClientRect();
-    widgets().forEach(w=>{
-      state.widgets[w.dataset.widgetId]={
-        x:Math.round(w.offsetLeft),y:Math.round(w.offsetTop),
-        w:Math.round(w.offsetWidth),h:Math.round(w.offsetHeight)
-      };
+  function ensureInner(w){
+    if(w.querySelector(':scope > .widget-inner')) return w.querySelector(':scope > .widget-inner');
+    const inner=document.createElement('div'); inner.className='widget-inner';
+    [...w.childNodes].forEach(n=>{
+      if(n.nodeType===1 && (n.classList.contains('widget-tools')||n.classList.contains('widget-resize'))) return;
+      inner.appendChild(n);
     });
-    try{localStorage.setItem(key,JSON.stringify(state))}catch(e){}
+    w.appendChild(inner); return inner;
   }
-  function place(w,x,y,width,height){
-    const minW=220,minH=145;
-    const maxW=Math.max(minW,workspace.clientWidth-16);
-    const ww=clamp(width||340,minW,maxW);
-    const hh=Math.max(minH,height||190);
-    const xx=clamp(x||0,0,Math.max(0,workspace.clientWidth-ww));
-    const yy=Math.max(0,y||0);
-    w.style.left=xx+'px';w.style.top=yy+'px';w.style.width=ww+'px';w.style.height=hh+'px';
+  function scaleInner(w){
+    const inner=ensureInner(w); if(!inner)return;
+    const baseW=360,baseH=190;
+    const area=Math.max(1,w.offsetWidth*w.offsetHeight);
+    const scale=clamp(Math.sqrt(area/(baseW*baseH)),0.72,1.55);
+    w.style.setProperty('--widget-scale',scale.toFixed(3));
+    inner.style.width=(100/scale)+'%';
+    inner.style.minHeight=(100/scale)+'%';
+    inner.style.zoom=scale;
   }
-  function initialLayout(){
-    // First visit: every widget starts at a consistent medium size.
-    const width=workspace.clientWidth;
-    const gap=20;
-    const col=Math.max(260,Math.floor((width-gap*2)/3));
-    const rowH=190;
-    const positions=[
-      [0,0],[col+gap,0],[2*(col+gap),0],
-      [0,rowH+gap],[col+gap,rowH+gap],[2*(col+gap),rowH+gap],
-      [0,2*(rowH+gap)]
-    ];
-    widgets().forEach((w,i)=>{
-      const [x,y]=positions[i]||[0,i*(rowH+gap)];
-      place(w,x,y,col,rowH);
-    });
-    canvasSize();
-  }
-  function applySaved(){
-    const state=read();
-    if(!state.widgets || !Object.keys(state.widgets).length){initialLayout();save();return;}
-    const oldWidth=state.canvasWidth||workspace.clientWidth;
-    const ratio=workspace.clientWidth>0 ? workspace.clientWidth/oldWidth : 1;
-    widgets().forEach((w,i)=>{
-      const d=state.widgets[w.dataset.widgetId];
-      if(d){
-        const ww=Math.min((d.w||340)*ratio,workspace.clientWidth-16);
-        place(w,(d.x||0)*ratio,d.y||0,ww,d.h||190);
-      }else{
-        const col=Math.max(260,Math.floor((workspace.clientWidth-40)/3));
-        place(w,(i%3)*(col+20),Math.floor(i/3)*210,col,190);
-      }
-    });
-    canvasSize();
-  }
-  let active=null;
-  function beginDrag(w,e){
-    if(e.button!==0)return;
-    const wr=workspace.getBoundingClientRect();
-    active={type:'drag',w,startX:e.clientX,startY:e.clientY,left:w.offsetLeft,top:w.offsetTop,width:w.offsetWidth,height:w.offsetHeight};
-    w.classList.add('dragging','widget-active');
-    w.setPointerCapture?.(e.pointerId);
-    e.preventDefault();
-  }
-  function beginResize(w,e){
-    if(e.button!==0)return;
-    active={type:'resize',w,startX:e.clientX,startY:e.clientY,left:w.offsetLeft,top:w.offsetTop,width:w.offsetWidth,height:w.offsetHeight};
-    w.classList.add('dragging','widget-active');
-    w.setPointerCapture?.(e.pointerId);
-    e.preventDefault();e.stopPropagation();
-  }
-  function move(e){
-    if(!active)return;
-    const a=active,dx=e.clientX-a.startX,dy=e.clientY-a.startY;
-    if(a.type==='drag'){
-      const x=clamp(a.left+dx,0,Math.max(0,workspace.clientWidth-a.width));
-      const y=Math.max(0,a.top+dy);
-      a.w.style.left=x+'px';a.w.style.top=y+'px';
-    }else{
-      const minW=220,minH=145;
-      const width=clamp(a.width+dx,minW,Math.max(minW,workspace.clientWidth-a.left));
-      const height=Math.max(minH,a.height+dy);
-      a.w.style.width=width+'px';a.w.style.height=height+'px';
+
+  // Home dashboard: medium first-open defaults, free drag/resize, persistent layout.
+  const home=document.querySelector('#dashboard-workspace');
+  if(home){
+    const key='employee_dashboard_layout_v34_35';
+    const widgets=()=>[...home.querySelectorAll(':scope > .dashboard-widget')];
+    const read=()=>{try{return JSON.parse(localStorage.getItem(key)||'{}')}catch(e){return {}}};
+    function canvasSize(){
+      const maxBottom=widgets().reduce((m,w)=>Math.max(m,(parseFloat(w.style.top)||0)+(parseFloat(w.style.height)||0)),0);
+      home.style.minHeight=Math.max(window.innerHeight-150,760,maxBottom+80)+'px';
     }
-    canvasSize();
+    function save(){
+      canvasSize();
+      const state={canvasWidth:home.clientWidth,widgets:{}};
+      widgets().forEach(w=>{state.widgets[w.dataset.widgetId]={x:Math.round(w.offsetLeft),y:Math.round(w.offsetTop),w:Math.round(w.offsetWidth),h:Math.round(w.offsetHeight)}});
+      try{localStorage.setItem(key,JSON.stringify(state))}catch(e){}
+    }
+    function place(w,x,y,width,height){
+      const minW=220,minH=145,maxW=Math.max(minW,home.clientWidth-16);
+      const ww=clamp(width||340,minW,maxW),hh=Math.max(minH,height||190),xx=clamp(x||0,0,Math.max(0,home.clientWidth-ww));
+      w.style.left=xx+'px';w.style.top=Math.max(0,y||0)+'px';w.style.width=ww+'px';w.style.height=hh+'px';scaleInner(w);
+    }
+    function initial(){
+      const gap=20,col=Math.max(260,Math.floor((home.clientWidth-gap*2)/3)),rowH=190;
+      const pos=[[0,0],[col+gap,0],[2*(col+gap),0],[0,rowH+gap],[col+gap,rowH+gap],[2*(col+gap),rowH+gap],[0,2*(rowH+gap)]];
+      widgets().forEach((w,i)=>{const [x,y]=pos[i]||[0,i*(rowH+gap)];place(w,x,y,col,rowH)});canvasSize();
+    }
+    function apply(){
+      const state=read(); if(!state.widgets||!Object.keys(state.widgets).length){initial();save();return;}
+      const old=state.canvasWidth||home.clientWidth,ratio=home.clientWidth>0?home.clientWidth/old:1;
+      widgets().forEach((w,i)=>{const d=state.widgets[w.dataset.widgetId];if(d)place(w,(d.x||0)*ratio,(d.y||0),(d.w||340)*ratio,d.h||190);else place(w,(i%3)*280,Math.floor(i/3)*210,340,190)});canvasSize();
+    }
+    let active=null;
+    function drag(w,e){if(e.button!==0)return;active={type:'drag',w,sx:e.clientX,sy:e.clientY,l:w.offsetLeft,t:w.offsetTop,width:w.offsetWidth};w.classList.add('dragging');w.setPointerCapture?.(e.pointerId);e.preventDefault()}
+    function resize(w,e){if(e.button!==0)return;active={type:'resize',w,sx:e.clientX,sy:e.clientY,l:w.offsetLeft,t:w.offsetTop,width:w.offsetWidth,height:w.offsetHeight};w.classList.add('dragging');w.setPointerCapture?.(e.pointerId);e.preventDefault();e.stopPropagation()}
+    function move(e){if(!active)return;const a=active,dx=e.clientX-a.sx,dy=e.clientY-a.sy;if(a.type==='drag'){a.w.style.left=clamp(a.l+dx,0,Math.max(0,home.clientWidth-a.width))+'px';a.w.style.top=Math.max(0,a.t+dy)+'px'}else{a.w.style.width=clamp(a.width+dx,220,Math.max(220,home.clientWidth-a.l))+'px';a.w.style.height=Math.max(145,a.height+dy)+'px';scaleInner(a.w)}canvasSize()}
+    function end(){if(!active)return;active.w.classList.remove('dragging');active=null;save()}
+    apply();widgets().forEach(w=>{ensureInner(w);scaleInner(w);w.querySelector('.widget-drag')?.addEventListener('pointerdown',e=>drag(w,e));w.querySelector('.widget-resize')?.addEventListener('pointerdown',e=>resize(w,e))});
+    document.addEventListener('pointermove',move,{passive:false});document.addEventListener('pointerup',end,{passive:true});
+    window.addEventListener('resize',()=>{const old=read().canvasWidth||home.clientWidth,ratio=home.clientWidth/old;widgets().forEach(w=>{w.style.left=clamp(w.offsetLeft*ratio,0,Math.max(0,home.clientWidth-w.offsetWidth))+'px';scaleInner(w)});canvasSize();save()});
   }
-  function end(){
-    if(!active)return;
-    active.w.classList.remove('dragging');
-    setTimeout(()=>active&&active.w.classList.remove('widget-active'),80);
-    active=null;save();
-  }
-  applySaved();
-  widgets().forEach(w=>{
-    const grip=w.querySelector('.widget-drag');
-    const resize=w.querySelector('.widget-resize');
-    grip?.addEventListener('pointerdown',e=>beginDrag(w,e));
-    resize?.addEventListener('pointerdown',e=>beginResize(w,e));
-  });
-  document.addEventListener('pointermove',move,{passive:false});
-  document.addEventListener('pointerup',end,{passive:true});
-  window.addEventListener('resize',()=>{
-    const oldWidth=read().canvasWidth||workspace.clientWidth;
-    const ratio=workspace.clientWidth/oldWidth;
-    widgets().forEach(w=>{
-      const x=clamp(w.offsetLeft*ratio,0,Math.max(0,workspace.clientWidth-w.offsetWidth));
-      w.style.left=x+'px';
-    });
-    canvasSize();save();
+
+  // Reusable free canvas for administration/report cards. Cards are movable anywhere and resizable from the corner.
+  document.querySelectorAll('.free-card-workspace').forEach(workspace=>{
+    const id=workspace.id||('workspace-'+Math.random().toString(36).slice(2));
+    const key='employee_free_cards_v34_35_'+id+location.search;
+    const cards=()=>[...workspace.querySelectorAll('.free-card')];
+    const read=()=>{try{return JSON.parse(localStorage.getItem(key)||'{}')}catch(e){return {}}};
+    function canvasSize(){const max=cards().reduce((m,c)=>Math.max(m,(parseFloat(c.style.top)||0)+(parseFloat(c.style.height)||0)),0);workspace.style.minHeight=Math.max(max+40,260)+'px'}
+    function ensureControls(c){
+      if(!c.querySelector(':scope > .widget-tools')){const t=document.createElement('div');t.className='widget-tools';t.innerHTML='<span class="widget-drag" title="سحب البطاقة">⋮⋮</span>';c.appendChild(t)}
+      if(!c.querySelector(':scope > .widget-resize')){const r=document.createElement('span');r.className='widget-resize';r.title='تغيير الحجم';c.appendChild(r)}
+      return ensureInner(c);
+    }
+    function place(c,x,y,w,h){const minW=220,minH=145,ww=clamp(w||340,minW,Math.max(minW,workspace.clientWidth-12));c.style.left=clamp(x||0,0,Math.max(0,workspace.clientWidth-ww))+'px';c.style.top=Math.max(0,y||0)+'px';c.style.width=ww+'px';c.style.height=Math.max(minH,h||190)+'px';scaleInner(c)}
+    function initial(){const gap=18,col=Math.max(260,Math.floor((workspace.clientWidth-gap*2)/3)),row=190;cards().forEach((c,i)=>place(c,(i%3)*(col+gap),Math.floor(i/3)*(row+gap),col,row));canvasSize();save()}
+    function save(){canvasSize();const state={canvasWidth:workspace.clientWidth,cards:{}};cards().forEach(c=>state.cards[c.dataset.freeCardId]={x:Math.round(c.offsetLeft),y:Math.round(c.offsetTop),w:Math.round(c.offsetWidth),h:Math.round(c.offsetHeight)});try{localStorage.setItem(key,JSON.stringify(state))}catch(e){}}
+    function apply(){const state=read();if(!state.cards||!Object.keys(state.cards).length){initial();return}const ratio=workspace.clientWidth/(state.canvasWidth||workspace.clientWidth);cards().forEach((c,i)=>{const d=state.cards[c.dataset.freeCardId];if(d)place(c,d.x*ratio,d.y,d.w*ratio,d.h);else place(c,(i%3)*280,Math.floor(i/3)*210,340,190)});canvasSize()}
+    let active=null;
+    function down(c,e,type){if(e.button!==0)return;active={type,c,sx:e.clientX,sy:e.clientY,l:c.offsetLeft,t:c.offsetTop,w:c.offsetWidth,h:c.offsetHeight};c.classList.add('dragging');c.setPointerCapture?.(e.pointerId);e.preventDefault();e.stopPropagation()}
+    function move(e){if(!active)return;const a=active,dx=e.clientX-a.sx,dy=e.clientY-a.sy;if(a.type==='drag'){a.c.style.left=clamp(a.l+dx,0,Math.max(0,workspace.clientWidth-a.w))+'px';a.c.style.top=Math.max(0,a.t+dy)+'px'}else{a.c.style.width=clamp(a.w+dx,220,Math.max(220,workspace.clientWidth-a.l))+'px';a.c.style.height=Math.max(145,a.h+dy)+'px';scaleInner(a.c)}canvasSize()}
+    function end(){if(!active)return;active.c.classList.remove('dragging');active=null;save()}
+    apply();cards().forEach(c=>{ensureControls(c);scaleInner(c);c.querySelector('.widget-drag')?.addEventListener('pointerdown',e=>down(c,e,'drag'));c.querySelector('.widget-resize')?.addEventListener('pointerdown',e=>down(c,e,'resize'))});
+    document.addEventListener('pointermove',move,{passive:false});document.addEventListener('pointerup',end,{passive:true});window.addEventListener('resize',()=>{cards().forEach(scaleInner);save()});
   });
 })();

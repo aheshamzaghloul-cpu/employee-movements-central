@@ -5,14 +5,14 @@
   <div><h1>الإدارة</h1>{% if is_supervisor %}<div class="section-caption"><b>إدارة المحافظات المسندة إليك</b><span>تظهر هنا فقط المحافظات والصلاحيات المرتبطة بحسابك.</span></div>{% elif is_entry %}<div class="section-caption"><b>إدارة فروعك</b><span>تظهر هنا فقط الفروع والموظفون الذين تتولى إدارتهم.</span></div>{% endif %}</div>
 </div>
 
-<div class="admin-shortcuts no-print admin-card-grid">
-  <div class="admin-shortcut-card admin-shortcut-group">
+<div class="free-card-workspace admin-free-workspace" id="admin-shortcuts-workspace"><div class="admin-shortcuts no-print admin-card-grid">
+  <div class="admin-shortcut-card admin-shortcut-group free-card" data-free-card-id="admin-structure">
     <span class="admin-card-icon">🏢</span><span><strong>الهيكل الإداري للمحافظات</strong><small>اختر المحافظة أولًا، ثم تظهر بطاقة الهيكل الخاصة بها.</small></span>
     <a class="admin-card-action" href="#my-governorates">اختيار المحافظة</a>
   </div>
-  {% if is_admin %}<div class="admin-shortcut-card admin-shortcut-group"><span class="admin-card-icon">👥</span><span><strong>الموظفون</strong><small>تسجيل الموظف أولًا ثم إضافة الأدوار عند الحاجة.</small></span><a class="admin-card-action" href="/employees">فتح الموظفين</a></div>
-  <div class="admin-shortcut-card admin-shortcut-group"><span class="admin-card-icon">➕</span><span><strong>إضافة دور مدخل أول</strong><small>اختر موظفًا مسجلًا دون إنشاء سجل موظف جديد.</small></span><a class="admin-card-action" href="#add-entry-role">إضافة الدور</a></div>{% endif %}
-  {% if is_admin %}<div class="admin-shortcut-card admin-shortcut-group"><span class="admin-card-icon">🔐</span><span><strong>المستخدمون والصلاحيات</strong><small>إدارة المستخدمين والأدوار وكلمات المرور.</small></span><a class="admin-card-action" href="/users">فتح الإدارة</a></div>{% endif %}
+  {% if is_admin %}<div class="admin-shortcut-card admin-shortcut-group free-card" data-free-card-id="admin-employees"><span class="admin-card-icon">👥</span><span><strong>الموظفون</strong><small>تسجيل الموظف أولًا ثم إضافة الأدوار عند الحاجة.</small></span><a class="admin-card-action" href="/employees">فتح الموظفين</a></div>
+  <div class="admin-shortcut-card admin-shortcut-group free-card" data-free-card-id="admin-entry-role"><span class="admin-card-icon">➕</span><span><strong>إضافة دور مدخل أول</strong><small>اختر موظفًا مسجلًا دون إنشاء سجل موظف جديد.</small></span><a class="admin-card-action" href="#add-entry-role">إضافة الدور</a></div>{% endif %}
+  {% if is_admin %}<div class="admin-shortcut-card admin-shortcut-group free-card" data-free-card-id="admin-users"><span class="admin-card-icon">🔐</span><span><strong>المستخدمون والصلاحيات</strong><small>إدارة المستخدمين والأدوار وكلمات المرور.</small></span><a class="admin-card-action" href="/users">فتح الإدارة</a></div>{% endif %}
 </div>
 
 {% if is_admin %}
@@ -69,7 +69,7 @@
 </div>
 {% endif %}
 {% if selected_governorate %}
-<div class="structure-grid" id="structure">
+<div class="free-card-workspace structure-free-workspace" id="structure-card-workspace"><div class="structure-grid" id="structure">
 {% for g,bs,sups,entries,counts in tree %}
 <section class="structure-card supervisor-clean-card">
   <div class="structure-head"><div><span class="eyebrow">المحافظة</span><h2>{{g.name}}</h2></div><span class="tag">{{bs|length}} فرع</span></div>
@@ -107,7 +107,7 @@
   {% if is_admin or is_supervisor %}<div class="node no-print"><div class="node-title">🏢 فروع غير مرتبطة بمدخل أول</div>{% for b in bs if not branch_entry(b) %}<div class="branch-row"><div><b>{{b.name}}</b>{% if b.code %}<small>{{b.code}}</small>{% endif %}</div><span class="tag">{{counts[b.id]}} موظف</span></div>{% else %}<div class="empty-small">كل الفروع مرتبطة بمدخل أول.</div>{% endfor %}</div>{% endif %}
 </section>
 {% endfor %}
-</div>
+</div></div>
 {% else %}
 <div class="structure-select-first no-print">
   <div class="structure-select-icon">🏢</div>

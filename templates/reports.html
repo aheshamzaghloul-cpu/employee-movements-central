@@ -6,8 +6,9 @@
   <a class="btn teal" href="/reports/assignments/print-missions">📄 طباعة المأموريات PDF</a>
 </div>
 
+<div class="free-card-workspace" id="reports-card-workspace">
 <section class="reports-group-grid">
-  <div class="reports-group-card">
+  <div class="reports-group-card free-card" data-free-card-id="reports-movements">
     <div class="reports-group-head"><span class="reports-group-icon">📋</span><div><h3>تقارير الحركات</h3><small>اختر نوع الحركة لعرض التفاصيل والفلاتر</small></div></div>
     <div class="reports-group-links">
       <a href="/reports/leaves"><span>🏖️</span><b>الإجازات</b><small>حسب المحافظة والفرع والموظف والفترة</small></a>
@@ -15,11 +16,12 @@
       <a href="/reports/permissions"><span>🕘</span><b>الأذونات</b><small>عرض الأذونات وتصفية النتائج</small></a>
     </div>
   </div>
-  <div class="reports-group-card mission-group-card">
+  <div class="reports-group-card mission-group-card free-card" data-free-card-id="reports-missions">
     <div class="reports-group-head"><span class="reports-group-icon">🖨️</span><div><h3>المأموريات والطباعة</h3><small>الوصول المباشر إلى النماذج الرسمية</small></div></div>
     <div class="reports-group-links single"><a href="/reports/assignments/print-missions"><span>📄</span><b>طباعة المأموريات PDF</b><small>اختيار المأمورية وفتح النموذج الرسمي للطباعة</small></a></div>
   </div>
 </section>
+</div>
 
 <div class="report-summary-cards">
   {% for label, value, cls in [('إجمالي الحركات', summary.values()|sum, 'total'), ('إجازات', by_type.get('إجازة',0), 'leave'), ('انتدابات', by_type.get('انتداب',0), 'assignment'), ('أذونات', by_type.get('إذن',0), 'permission')] %}

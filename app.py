@@ -7,7 +7,7 @@ from sqlalchemy import UniqueConstraint
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app=Flask(__name__)
-APP_VERSION='v34.37-EASY-FIRST-ENTRY-MANAGEMENT'
+APP_VERSION='v34.43-ONE-TIME-ADMIN-CLEANUP'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg://',1)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or 'dev-only-change-me',SQLALCHEMY_DATABASE_URI=DATABASE_URL,SQLALCHEMY_TRACK_MODIFICATIONS=False,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','0')=='1',MAX_CONTENT_LENGTH=2*1024*1024)
@@ -44,6 +44,32 @@ class UserPermission(db.Model):
 class UserRole(db.Model):
     __table_args__=(UniqueConstraint('user_id','role',name='uq_user_role'),)
     id=db.Column(db.Integer,primary_key=True); user_id=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='CASCADE'),nullable=False); role=db.Column(db.String(40),nullable=False)
+class RoleAccount(db.Model):
+    __table_args__=(UniqueConstraint('user_id','role',name='uq_role_account_user_role'),)
+    id=db.Column(db.Integer,primary_key=True)
+    user_id=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='CASCADE'),nullable=False)
+    role=db.Column(db.String(40),nullable=False)
+    username=db.Column(db.String(80),nullable=False)
+    password_hash=db.Column(db.Text,nullable=False)
+    created_at=db.Column(db.DateTime,default=datetime.utcnow)
+
+class EntryAssignment(db.Model):
+    __table_args__=(UniqueConstraint('employee_id',name='uq_entry_assignment_employee'),)
+    id=db.Column(db.Integer,primary_key=True)
+    employee_id=db.Column(db.Integer,db.ForeignKey('employee.id',ondelete='CASCADE'),nullable=False)
+    supervisor_id=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='RESTRICT'),nullable=False)
+    is_active=db.Column(db.Boolean,default=True,nullable=False)
+    created_at=db.Column(db.DateTime,default=datetime.utcnow)
+    employee=db.relationship('Employee',foreign_keys=[employee_id])
+    supervisor=db.relationship('User',foreign_keys=[supervisor_id])
+
+class EntryAssignmentBranch(db.Model):
+    __table_args__=(UniqueConstraint('entry_assignment_id','branch_id',name='uq_entry_assignment_branch'),)
+    id=db.Column(db.Integer,primary_key=True)
+    entry_assignment_id=db.Column(db.Integer,db.ForeignKey('entry_assignment.id',ondelete='CASCADE'),nullable=False)
+    branch_id=db.Column(db.Integer,db.ForeignKey('branch.id',ondelete='RESTRICT'),nullable=False)
+    assignment=db.relationship('EntryAssignment',foreign_keys=[entry_assignment_id])
+    branch=db.relationship('Branch',foreign_keys=[branch_id])
 class Governorate(db.Model):
     id=db.Column(db.Integer,primary_key=True); name=db.Column(db.String(150),unique=True,nullable=False); is_active=db.Column(db.Boolean,default=True,nullable=False)
 class Branch(db.Model):
@@ -426,7 +452,7 @@ def change_password():
         if not check_password_hash(u.password_hash,old): flash('كلمة المرور الحالية غير صحيحة.')
         elif not valid_password(new): flash('كلمة المرور يجب أن تكون 8 أحرف على الأقل وتحتوي على حروف وأرقام.')
         elif new!=confirm: flash('تأكيد كلمة المرور غير مطابق.')
-        else: u.password_hash=generate_password_hash(new); u.must_change_password=False; log('PASSWORD_CHANGE','User',u.id); db.session.commit(); flash('تم تغيير كلمة المرور بنجاح.'); return redirect('/')
+        else: u.password_hash=generate_password_hash(new); u.must_change_password=False; sync_role_accounts(u); log('PASSWORD_CHANGE','User',u.id); db.session.commit(); flash('تم تغيير كلمة المرور بنجاح.'); return redirect('/')
     return render_template('change_password.html')
 def current_employee_status_rows(branch_ids, today):
     """Build a clear current-location snapshot for supervisors/first-entry users."""
@@ -478,49 +504,43 @@ def home():
     visible_govs=(Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True)
                   .order_by(Governorate.name.asc()).all() if gids() else [])
 
-    # First-level users and their assigned branches, grouped for the expandable home tree.
+    # المدخل الأول هنا بند تنظيمي فقط: لا يحتاج حساب دخول.
     entry_rows=[]
     effective=roles()
-    if 'المدخل الأول' in effective:
-        entry_users=[me()]
-    elif 'مشرف محافظة' in effective and 'مسؤول التطبيق' not in effective:
-        # جمع المدخلين المرتبطين بالمشرف داخل محافظاته فقط.
-        entry_users=[]
-        for gid in gids():
-            for eu in entries_for_supervisor(me(), gid):
-                if eu.id not in {x.id for x in entry_users}: entry_users.append(eu)
-        entry_users.sort(key=lambda x: x.full_name or '')
-    else:
-        entry_users=User.query.join(UserRole,UserRole.user_id==User.id).filter(
-            User.is_active==True, UserRole.role=='المدخل الأول'
-        ).order_by(User.full_name.asc()).all()
-    for u in entry_users:
-        scoped=[b for b in Branch.query.join(UserBranch,UserBranch.branch_id==Branch.id).filter(
-            UserBranch.user_id==u.id, Branch.is_active==True
-        ).order_by(Branch.name.asc()).all() if b.id in bs]
-        if not scoped:
-            continue
-        branch_groups=[]
-        for b in scoped:
-            emps=Employee.query.filter(Employee.branch_id==b.id,Employee.is_active==True).order_by(Employee.full_name.asc()).all()
-            branch_groups.append({'branch':b,'employees':emps})
-        gov_ids_for_entry={x['branch'].governorate_id for x in branch_groups}
-        gov_names=[gobj.name for gobj in Governorate.query.filter(Governorate.id.in_(gov_ids_for_entry),Governorate.is_active==True).order_by(Governorate.name.asc()).all()] if gov_ids_for_entry else []
-        entry_rows.append({'user':u,'branches':branch_groups,'governorates':gov_names,'employee_link':Employee.query.filter_by(user_id=u.id).first()})
+    if 'مشرف محافظة' in effective or 'مسؤول التطبيق' in effective:
+        supervisors = [me()] if ('مشرف محافظة' in effective and 'مسؤول التطبيق' not in effective) else [u for u in User.query.filter_by(is_active=True).order_by(User.full_name).all() if 'مشرف محافظة' in actual_roles(u)]
+        seen=set()
+        for sup in supervisors:
+            for a,scoped_all in organizational_entries_for_supervisor(sup):
+                scoped=[b for b in scoped_all if b.id in bs]
+                if not scoped or a.id in seen: continue
+                seen.add(a.id)
+                branch_groups=[]
+                for b in scoped:
+                    emps=Employee.query.filter(Employee.branch_id==b.id,Employee.is_active==True).order_by(Employee.full_name.asc()).all()
+                    branch_groups.append({'branch':b,'employees':emps})
+                gov_ids_for_entry={x['branch'].governorate_id for x in branch_groups}
+                gov_names=[gobj.name for gobj in Governorate.query.filter(Governorate.id.in_(gov_ids_for_entry),Governorate.is_active==True).order_by(Governorate.name.asc()).all()] if gov_ids_for_entry else []
+                entry_rows.append({'assignment':a,'employee':a.employee,'branches':branch_groups,'governorates':gov_names,'supervisor':sup})
+        # Legacy accounts remain visible only as compatibility records. New organizational entries never create them.
+    elif 'المدخل الأول' in effective:
+        # Legacy account compatibility; not used for new assignments.
+        u=me(); scoped=[b for b in Branch.query.join(UserBranch,UserBranch.branch_id==Branch.id).filter(UserBranch.user_id==u.id,Branch.is_active==True).order_by(Branch.name).all() if b.id in bs]
+        if scoped:
+            groups=[{'branch':b,'employees':Employee.query.filter(Employee.branch_id==b.id,Employee.is_active==True).order_by(Employee.full_name).all()} for b in scoped]
+            entry_rows=[{'assignment':None,'employee':Employee.query.filter_by(user_id=u.id).first(),'branches':groups,'governorates':[],'supervisor':supervisor_for_entry(u)}]
 
     if bs:
         # الحركات أصبحت معلومات تشغيلية مباشرة وليست دورة اعتماد.
-        if has_role('مشرف محافظة','المدخل الأول'):
+        if has_role('مشرف محافظة','مسؤول التطبيق','المدخل الأول'):
             current_status_rows=current_employee_status_rows(bs,today)
+            for row in current_status_rows:
+                mv=row.get('movement')
+                row['ending_notice'] = bool(mv and mv.movement_type in ('إجازة','انتداب') and mv.to_date and mv.to_date <= tomorrow and mv.to_date >= today)
         # تبقى بيانات الاعتماد القديمة قابلة للعرض في السجلات القديمة، لكن لا تُستخدم
         # لتحديد حالة الموظف الحالية.
         base=Movement.query.join(Employee).filter(Employee.branch_id.in_(bs),Movement.is_active==True)
-        ending=(base.filter(
-                    Movement.movement_type.in_(['إجازة','انتداب']),
-                    Movement.to_date!=None,
-                    Movement.to_date>=today,
-                    Movement.to_date<=tomorrow
-                ).order_by(Movement.to_date.asc(),Movement.id.desc()).limit(30).all())
+        ending=[]
 
     return render_template(
         'home.html',
@@ -548,7 +568,43 @@ def entry_ids_for_governorate(gid):
     ids={x.user_id for x in UserBranch.query.filter(UserBranch.branch_id.in_(bids_g)).all()}
     return {'entry_ids': sorted(ids)}
 
+def organizational_entries_for_supervisor(supervisor, gid=None):
+    if not supervisor: return []
+    q=EntryAssignment.query.filter_by(supervisor_id=supervisor.id,is_active=True)
+    out=[]
+    for a in q.order_by(EntryAssignment.id.asc()).all():
+        if not a.employee or not a.employee.is_active: continue
+        branch_ids={x.branch_id for x in EntryAssignmentBranch.query.filter_by(entry_assignment_id=a.id).all()}
+        branches=Branch.query.filter(Branch.id.in_(branch_ids),Branch.is_active==True).order_by(Branch.name).all() if branch_ids else []
+        if gid: branches=[b for b in branches if b.governorate_id==gid]
+        if branches or not gid: out.append((a,branches))
+    return out
+
+def organizational_entry_for_employee(e):
+    if not e: return None
+    return EntryAssignment.query.filter_by(employee_id=e.id,is_active=True).first()
+
+def entry_role_exists(e):
+    return bool(organizational_entry_for_employee(e) or (e.user_id and 'المدخل الأول' in actual_roles(db.session.get(User,e.user_id))))
+
+def sync_role_accounts(u):
+    if not u: return
+    real=actual_roles(u)
+    existing={x.role:x for x in RoleAccount.query.filter_by(user_id=u.id).all()}
+    for role in list(existing):
+        if role not in real:
+            db.session.delete(existing[role])
+    for role in real:
+        x=existing.get(role)
+        if not x:
+            db.session.add(RoleAccount(user_id=u.id,role=role,username=u.username,password_hash=u.password_hash))
+        else:
+            x.username=u.username; x.password_hash=u.password_hash
+
 def branch_entry(b):
+    # التنظيم الجديد أولًا، ثم روابط الحسابات القديمة للتوافق.
+    link=EntryAssignmentBranch.query.join(EntryAssignment).filter(EntryAssignmentBranch.branch_id==b.id,EntryAssignment.is_active==True).first()
+    if link and link.assignment and link.assignment.employee: return link.assignment.employee
     links=UserBranch.query.filter_by(branch_id=b.id).all()
     for link in links:
         u=db.session.get(User,link.user_id)
@@ -605,7 +661,20 @@ def structure():
             if is_supervisor and u.id != current.id: continue
             supervisors.append(u)
         entries=[]
-        # Explicit hierarchy: supervisor -> first-level user -> branches -> employees.
+        # التنظيم الجديد: المدخل الأول موظف/تصنيف إداري فقط، بلا حساب دخول.
+        org_entries=[]
+        if is_admin:
+            org_entries=[(a,[b for b in Branch.query.join(EntryAssignmentBranch,EntryAssignmentBranch.branch_id==Branch.id).filter(EntryAssignmentBranch.entry_assignment_id==a.id,Branch.is_active==True).all()],a.supervisor) for a in EntryAssignment.query.filter_by(is_active=True).all() if a.employee and a.employee.is_active]
+        elif is_supervisor:
+            org_entries=[(a,bs2,a.supervisor) for a,bs2 in organizational_entries_for_supervisor(current,g.id)]
+        for a,scoped,sup in org_entries:
+            if not scoped and g.id: continue
+            scoped=[b for b in scoped if b.governorate_id==g.id]
+            if not scoped: continue
+            for b in scoped:
+                b.employee_items=Employee.query.filter_by(branch_id=b.id,is_active=True).order_by(Employee.full_name).all()
+            entries.append((a.employee,scoped,sup,a,None))
+        # Legacy account entries kept only for backward compatibility.
         candidate_entries = []
         if is_admin:
             candidate_entries = User.query.filter_by(is_active=True).order_by(User.full_name).all()
@@ -643,10 +712,11 @@ def structure():
             'movements': Movement.query.filter_by(is_active=True).count(),
         }
     available_entry_employees=[]
-    if is_admin:
-        available_entry_employees=(Employee.query.filter(Employee.is_active==True)
-            .order_by(Employee.full_name).all())
-        available_entry_employees=[e for e in available_entry_employees if not (e.user_id and 'المدخل الأول' in actual_roles(db.session.get(User,e.user_id)))]
+    if is_admin or is_supervisor:
+        allowed_branch_set=set(bids())
+        available_entry_employees=Employee.query.filter(Employee.is_active==True,Employee.branch_id.in_(allowed_branch_set)).order_by(Employee.full_name).all() if allowed_branch_set else []
+        available_entry_employees=[e for e in available_entry_employees if not entry_role_exists(e)]
+    entry_supervisors=[u for u in User.query.filter_by(is_active=True).order_by(User.full_name).all() if 'مشرف محافظة' in actual_roles(u)]
     return render_template(
         'structure.html',
         tree=tree,
@@ -656,8 +726,62 @@ def structure():
         govs_all=govs_all,
         selected_governorate=selected_gov,
         admin_stats=admin_stats,
-        available_entry_employees=available_entry_employees
+        available_entry_employees=available_entry_employees, entry_supervisors=entry_supervisors
     )
+
+@app.post('/entry-role/add')
+@req
+def add_organizational_entry_role():
+    if not has_role('مسؤول التطبيق','مشرف محافظة'): abort(403)
+    eid=request.form.get('employee_id','').strip()
+    if not eid.isdigit():
+        flash('اختر موظفًا مسجلًا أولًا.'); return redirect('/structure#entry-role-chain')
+    e=db.session.get(Employee,int(eid))
+    if not e or not e.is_active:
+        flash('الموظف غير موجود أو غير نشط.'); return redirect('/structure#entry-role-chain')
+    existing_entry=EntryAssignment.query.filter_by(employee_id=e.id).first()
+    if existing_entry and existing_entry.is_active:
+        flash('هذا الموظف لديه بالفعل دور المدخل الأول التنظيمي.'); return redirect('/structure#entry-role-chain')
+    if 'مسؤول التطبيق' in roles():
+        sup_id=request.form.get('supervisor_id','').strip()
+        sup=db.session.get(User,int(sup_id)) if sup_id.isdigit() else None
+        if not sup or 'مشرف محافظة' not in actual_roles(sup) or not sup.is_active:
+            flash('اختر المشرف المسؤول.'); return redirect('/structure#entry-role-chain')
+    else:
+        sup=me()
+        if e.branch.governorate_id not in user_gov_ids(sup): abort(403)
+    branch_ids={int(x) for x in request.form.getlist('branch_id') if x.isdigit()}
+    allowed=set(bids()) if 'مسؤول التطبيق' not in roles() else {b.id for b in Branch.query.filter_by(is_active=True).all()}
+    branch_ids &= allowed
+    if not branch_ids:
+        branch_ids={e.branch_id} if e.branch_id in allowed else set()
+    if not branch_ids:
+        flash('اختر فرع مسؤولية واحدًا على الأقل.'); return redirect('/structure#entry-role-chain')
+    # لا يُسمح بفرع مسؤولية مرتبط بمدخل تنظيمي آخر.
+    taken={x.branch_id for x in EntryAssignmentBranch.query.join(EntryAssignment).filter(EntryAssignment.is_active==True).all()}
+    if branch_ids & taken:
+        flash('يوجد فرع من الفروع المختارة مسند بالفعل إلى مدخل أول آخر.'); return redirect('/structure#entry-role-chain')
+    if existing_entry:
+        a=existing_entry; a.supervisor_id=sup.id; a.is_active=True
+        EntryAssignmentBranch.query.filter_by(entry_assignment_id=a.id).delete()
+    else:
+        a=EntryAssignment(employee_id=e.id,supervisor_id=sup.id,is_active=True); db.session.add(a); db.session.flush()
+    for bid in branch_ids: db.session.add(EntryAssignmentBranch(entry_assignment_id=a.id,branch_id=bid))
+    log('ROLE_CHANGE','Employee',e.id,'إضافة دور المدخل الأول التنظيمي بدون حساب دخول'); db.session.commit()
+    flash('تمت إضافة دور المدخل الأول التنظيمي. لم يتم إنشاء حساب أو اسم مستخدم للمدخل.')
+    return redirect('/structure#entry-role-chain')
+
+@app.post('/entry-role/<int:employee_id>/remove')
+@req
+def remove_organizational_entry_role(employee_id):
+    e=db.session.get(Employee,employee_id); a=organizational_entry_for_employee(e) if e else None
+    if not a: abort(404)
+    if 'مسؤول التطبيق' not in roles():
+        if 'مشرف محافظة' not in roles() or a.supervisor_id!=me().id: abort(403)
+    a.is_active=False
+    db.session.commit(); log('ROLE_CHANGE','Employee',employee_id,'إزالة دور المدخل الأول التنظيمي'); db.session.commit()
+    flash('تمت إزالة دور المدخل الأول التنظيمي، وأصبحت فروع مسؤوليته متاحة لإسنادها من جديد.')
+    return redirect('/structure#entry-role-chain')
 
 @app.get('/employee-role-select')
 @req
@@ -877,7 +1001,7 @@ def users():
                         db.session.add(employee)
                     else:
                         employee.full_name=nu.full_name; employee.email=nu.email; employee.job_title=nu.job_title; employee.job_code=nu.job_code
-            log('ADD','User',nu.id,username); db.session.commit(); flash('تم إنشاء الحساب وربطه تلقائيًا بالهيكل.')
+            sync_role_accounts(nu); log('ADD','User',nu.id,username); db.session.commit(); flash('تم إنشاء الحساب وربطه تلقائيًا بالهيكل.')
     gs=Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True).all() if 'مسؤول التطبيق' not in roles(u) else Governorate.query.filter_by(is_active=True).all()
     bs=Branch.query.filter(Branch.id.in_(bids()),Branch.is_active==True).all() if 'مسؤول التطبيق' not in roles(u) else Branch.query.filter_by(is_active=True).all()
     role_default_permissions={r:sorted(ROLE_DEFAULT_PERMISSIONS.get(r,set())) for r in ROLES}
@@ -919,6 +1043,7 @@ def user_edit(i):
             UserRole.query.filter_by(user_id=i).delete(); UserPermission.query.filter_by(user_id=i).delete()
             for r in selected: db.session.add(UserRole(user_id=i,role=r))
             for perm in selected_perm_set: db.session.add(UserPermission(user_id=i,permission=perm))
+            sync_role_accounts(target)
             # Always clear old scope assignments first so removing a role also removes its old scope.
             UserGovernorate.query.filter_by(user_id=i).delete()
             UserBranch.query.filter_by(user_id=i).delete()
@@ -965,6 +1090,7 @@ def user_edit(i):
             selected_perm_set={x for x in request.form.getlist('permissions') if x in GRANTABLE_BY_SUPERVISOR}
             UserPermission.query.filter_by(user_id=i).delete()
             for perm in selected_perm_set: db.session.add(UserPermission(user_id=i,permission=perm))
+            sync_role_accounts(target)
             chosen={int(x) for x in request.form.getlist('branch_id') if x.isdigit()} & set(bids())
             if not chosen: flash('يجب إسناد فرع واحد على الأقل ضمن فروع مسؤولية المدخل الأول.'); return redirect(url_for('user_edit',i=i))
             appointment_raw=request.form.get('employee_branch_id','').strip()
@@ -1031,7 +1157,7 @@ def ur(i):
     if 'مسؤول التطبيق' not in roles() and not ('المدخل الأول' in roles(u) and bool(set(gids()) & {b.governorate_id for b in Branch.query.join(UserBranch,UserBranch.branch_id==Branch.id).filter(UserBranch.user_id==i).all()})): abort(403)
     p=request.form.get('password','')
     if not valid_password(p): flash('كلمة المرور يجب أن تكون 8 أحرف على الأقل وتحتوي على حروف وأرقام.')
-    else: u.password_hash=generate_password_hash(p); u.must_change_password=True; log('PASSWORD_RESET','User',i); db.session.commit(); flash('تمت إعادة التعيين.')
+    else: u.password_hash=generate_password_hash(p); u.must_change_password=True; sync_role_accounts(u); log('PASSWORD_RESET','User',i); db.session.commit(); flash('تمت إعادة التعيين.')
     return redirect('/users')
 @app.post('/users/<int:i>/govs')
 @req
@@ -1889,6 +2015,9 @@ def ensure_v25_schema():
         db.session.execute(text('ALTER TABLE movement ADD COLUMN approver_id INTEGER'))
     ApprovalDelegation.__table__.create(bind=db.engine, checkfirst=True)
     SupervisorEntry.__table__.create(bind=db.engine, checkfirst=True)
+    RoleAccount.__table__.create(bind=db.engine, checkfirst=True)
+    EntryAssignment.__table__.create(bind=db.engine, checkfirst=True)
+    EntryAssignmentBranch.__table__.create(bind=db.engine, checkfirst=True)
     # Backfill unambiguous old links: entry -> supervisor when one supervisor owns the entry's governorate.
     for eu in User.query.filter_by(is_active=True).all():
         if 'المدخل الأول' not in actual_roles(eu) or SupervisorEntry.query.filter_by(entry_id=eu.id).first():
@@ -1931,8 +2060,21 @@ with app.app_context():
         if not u.job_title: u.job_title='مسؤول التطبيق'
         if not u.job_code: u.job_code='ADMIN'
         db.session.commit()
-    if not UserRole.query.filter_by(user_id=u.id,role='مسؤول التطبيق').first():
-        db.session.add(UserRole(user_id=u.id,role='مسؤول التطبيق')); db.session.commit()
+    # تنظيف دور/ارتباطات مشرف سوهاج من حساب مسؤول التطبيق: تنفيذ لمرة واحدة فقط.
+    # بعد وضع علامة الترحيل في Lookup لن يعاد حذف أي أدوار أو ارتباطات مستقبلية عند كل تشغيل.
+    cleanup_key='migration:admin-supervisor-scope-cleanup-v34.43'
+    cleanup_done=Lookup.query.filter_by(kind='system_migration',name=cleanup_key).first()
+    if not cleanup_done:
+        UserRole.query.filter_by(user_id=u.id,role='مشرف محافظة').delete()
+        UserGovernorate.query.filter_by(user_id=u.id).delete()
+        RoleAccount.query.filter_by(user_id=u.id,role='مشرف محافظة').delete()
+        if not UserRole.query.filter_by(user_id=u.id,role='مسؤول التطبيق').first():
+            db.session.add(UserRole(user_id=u.id,role='مسؤول التطبيق'))
+        db.session.add(Lookup(kind='system_migration',name=cleanup_key,is_active=True))
+        db.session.flush()
+    sync_role_accounts(u)
+    for _u in User.query.filter_by(is_active=True).all(): sync_role_accounts(_u)
+    db.session.commit()
     # Destructive legacy cleanup is intentionally never run at startup.
 
 if __name__=='__main__': app.run(host='0.0.0.0',port=8000)

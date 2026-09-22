@@ -1182,3 +1182,14 @@ main>.box,main>.toolbar,main>.section-tabs,main>.admin-control-center,main>.admi
 .supervisor-entry-form{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}.supervisor-entry-form label{margin:0}.supervisor-entry-form select{min-height:44px}
 @media(max-width:850px){.supervisor-admin-actions{grid-template-columns:1fr 1fr}.supervisor-admin-section-head{align-items:flex-start;flex-direction:column}.supervisor-entry-form{grid-template-columns:1fr}}
 @media(max-width:600px){.supervisor-admin-actions{grid-template-columns:1fr}}
+
+/* v34.82 — supervisor administration is hierarchy-only; keep the governorate selector compact */
+.supervisor-admin-scope-select{width:min(360px,100%);margin:0 0 12px auto;padding:10px 14px;background:#fff;border:1px solid #dbe6ed;border-radius:14px;box-shadow:0 4px 14px rgba(24,55,84,.045)}
+.supervisor-admin-scope-select label{display:flex;align-items:center;gap:10px;font-weight:800;color:#24576b}
+.supervisor-admin-scope-select select{flex:1;min-width:0}
+/* v34.84: persistent smart assistant access */
+.assistant-fab{position:fixed;right:22px;bottom:22px;z-index:1000;display:flex;align-items:center;gap:8px;padding:12px 17px;border-radius:18px;background:#236f82;color:#fff;text-decoration:none;font-weight:800;box-shadow:0 10px 28px rgba(25,73,86,.28);border:2px solid rgba(255,255,255,.75)}
+.assistant-fab:hover{transform:translateY(-2px);filter:brightness(1.05)}
+.assistant-fab .fab-icon{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:#e8f5f7;color:#236f82;font-size:18px}
+.assistant-page{max-width:1100px;margin:0 auto}.assistant-hero{display:flex;align-items:center;gap:16px}.assistant-icon{width:58px;height:58px;display:grid;place-items:center;border-radius:18px;background:#d8edf1;color:#236f82;font-size:30px;font-weight:800}.assistant-form{display:grid;gap:10px}.assistant-form textarea{min-height:130px;font-size:16px;line-height:1.8}.assistant-examples{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;color:var(--muted);font-size:13px}.assistant-examples span:not(:first-child){padding:6px 10px;border-radius:12px;background:var(--surface2);border:1px solid var(--border)}.assistant-result{white-space:normal}.assistant-answer{line-height:2;font-size:16px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px}.assistant-preview{margin-top:12px;padding:15px;border:1px solid #9bcbd2;border-radius:12px;background:#d8ecef;display:grid;gap:12px}.assistant-preview form{display:flex;gap:8px;flex-wrap:wrap}.assistant-preview .btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+@media(max-width:700px){.assistant-fab{right:12px;bottom:12px;padding:10px 12px;border-radius:15px}.assistant-fab .fab-label{display:none}.assistant-page{max-width:none}.assistant-hero{align-items:flex-start}}

@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}المساعد الذكي{% endblock %}
+{% block content %}
+<section class="assistant-page">
+  <div class="box assistant-hero">
+    <div class="assistant-icon">✦</div>
+    <div><h1>المساعد الذكي</h1><p>اطلب المساعدة بلغة بسيطة في أي وقت: حالة موظف، حالة فرع، سجل الحركات، أو تسجيل حركة بعد التأكيد.</p></div>
+  </div>
+  <div class="box">
+    <form method="post" class="assistant-form">
+      <input type="hidden" name="_csrf" value="{{csrf}}">
+      <textarea name="prompt" rows="4" placeholder="مثال: ما حالة الموظف أحمد محمد؟ أو سجل للموظف أحمد إجازة من 2026-09-20 إلى 2026-09-22">{{prompt}}</textarea>
+      <button type="submit">اسأل المساعد</button>
+    </form>
+    <div class="assistant-examples"><span>أمثلة:</span><span>ما حالة الموظف ...؟</span><span>ما حالة موظفي فرع ...؟</span><span>اعرض سجل حركات ...</span><span>سجل إجازة للموظف ...</span></div>
+  </div>
+  {% if result %}
+  <div class="box assistant-result">
+    <h2>{{result.title}}</h2>
+    {% if result.error %}<div class="alert">{{result.error}}</div>{% endif %}
+    {% if result.answer %}<div class="assistant-answer">{{result.answer|replace('\n','<br>')|safe}}</div>{% endif %}
+    {% if result.preview %}<div class="assistant-preview"><b>{{result.preview}}</b><form method="post" action="/assistant/confirm"><input type="hidden" name="_csrf" value="{{csrf}}"><button type="submit">تأكيد وتسجيل الحركة</button><a class="secondary btn" href="/assistant">إلغاء</a></form></div>{% endif %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1056,3 +1056,12 @@ main>.box,main>.toolbar,main>.section-tabs,main>.admin-control-center,main>.admi
 /* v34.66: جدول الموظفين يستغل العرض ويُظهر المحافظة والمدخل الأول بوضوح */
 #employees-table th,#employees-table td{vertical-align:middle}
 #employees-table td:nth-child(4),#employees-table td:nth-child(6){white-space:nowrap}
+
+/* v34.68 — supervisor administration is scoped and visually organized */
+.supervisor-admin-panel{width:100%;margin:0 0 18px;background:#fff;border:1px solid #dce6ef;border-radius:18px;padding:18px;box-shadow:0 8px 24px rgba(24,55,84,.06)}
+.supervisor-admin-hero{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:18px;border-radius:15px;background:linear-gradient(135deg,#f7fbff,#eef6fb);border:1px solid #e1ebf2}
+.supervisor-admin-hero h2{margin:3px 0 6px;font-size:24px}.supervisor-admin-hero p{margin:0;color:#637486;line-height:1.8}.supervisor-scope-badge{white-space:nowrap;padding:10px 14px;border-radius:999px;background:#fff;border:1px solid #cddde9;font-weight:800}
+.supervisor-admin-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:14px}
+.supervisor-scope-card{display:flex;align-items:center;gap:10px;min-height:82px;padding:13px 14px;background:#fff;border:1px solid #e1e8ef;border-radius:14px;text-decoration:none;color:inherit}.supervisor-scope-card>span{font-size:23px}.supervisor-scope-card div{flex:1}.supervisor-scope-card small{display:block;color:#7b8997;font-size:11px;margin-bottom:3px}.supervisor-scope-card strong{display:block;font-size:16px}.supervisor-scope-card>a,.supervisor-scope-card>b{font-size:12px}.supervisor-scope-card.action{background:#fbfdff}.supervisor-scope-card.action:hover{border-color:#9db9cc}
+.admin-gov-fixed{display:flex;flex-wrap:wrap;gap:10px}.scope-gov-pill{display:flex;align-items:center;gap:9px;min-width:210px;padding:12px 14px;background:#fff;border:1px solid #dce6ee;border-radius:12px;text-decoration:none;color:inherit}.scope-gov-pill small{margin-right:auto;color:#718096;font-size:11px}.supervisor-empty{padding:16px;text-align:center;color:#7b8794;background:#fafcfe;border:1px dashed #ccd8e2;border-radius:12px}
+@media(max-width:700px){.supervisor-admin-hero{align-items:flex-start;flex-direction:column}.supervisor-scope-badge{white-space:normal}}

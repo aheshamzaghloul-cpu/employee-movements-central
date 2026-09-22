@@ -7,7 +7,7 @@ from sqlalchemy import UniqueConstraint
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app=Flask(__name__)
-APP_VERSION = 'v34.66'
+APP_VERSION='v34.69'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg://',1)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or 'dev-only-change-me',SQLALCHEMY_DATABASE_URI=DATABASE_URL,SQLALCHEMY_TRACK_MODIFICATIONS=False,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','0')=='1',MAX_CONTENT_LENGTH=2*1024*1024)
@@ -1474,9 +1474,10 @@ def employees():
     query=Employee.query.filter(Employee.is_active==True,Employee.branch_id.in_(search_branch_ids)) if search_branch_ids else Employee.query.filter(False)
     if q:
         like=f'%{q}%'; query=query.filter(db.or_(Employee.full_name.ilike(like),Employee.job_code.ilike(like),Employee.job_title.ilike(like)))
-    if branch_filter.isdigit() and int(branch_filter) in bs: query=query.filter(Employee.branch_id==int(branch_filter))
+    if branch_filter.isdigit() and int(branch_filter) in allowed_search_branch_ids: query=query.filter(Employee.branch_id==int(branch_filter))
     rows=query.order_by(Employee.full_name).all()
     gov_filter=request.args.get('governorate_id','').strip()
+    allowed_search_branch_ids=set(search_branch_ids)
     govs=Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all() if supervisor_search_all else (Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True).order_by(Governorate.name).all() if gids() else [])
     allowed_search_gov_ids={g.id for g in govs}
     if gov_filter.isdigit() and int(gov_filter) in allowed_search_gov_ids:
@@ -1498,7 +1499,11 @@ def employees():
     # عرض جميع المحافظات في قائمة البحث للحسابات ذات النطاق الشامل،
     # بينما تبقى نتائج الموظفين نفسها محكومة بصلاحيات/nطاق الحساب.
     filter_govs = Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all() if (supervisor_search_all or 'مسؤول التطبيق' in roles() or 'Manager Application Support' in roles()) else govs
-    return render_template('employees.html',rows=rows,bs=branches,q=q,govs=filter_govs,gov_filter=gov_filter,entry_map=entry_map)
+    # محافظة الإضافة تبقى مقيدة بنطاق الإدارة للمستخدم، بينما قائمة البحث يمكن أن تشمل كل المحافظات للمشرف.
+    add_govs = Governorate.query.filter(Governorate.id.in_(gids()), Governorate.is_active==True).order_by(Governorate.name).all() if gids() else []
+    add_branch_ids = {b.id for b in Branch.query.filter(Branch.governorate_id.in_([g.id for g in add_govs]), Branch.is_active==True).all()} if add_govs else set()
+    add_branches = Branch.query.filter(Branch.id.in_(add_branch_ids), Branch.is_active==True).order_by(Branch.name).all() if add_branch_ids else []
+    return render_template('employees.html',rows=rows,bs=branches,add_govs=add_govs,add_bs=add_branches,q=q,govs=filter_govs,gov_filter=gov_filter,entry_map=entry_map)
 @app.get('/employees/edit-data')
 @req
 def employee_edit_data():

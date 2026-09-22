@@ -6,12 +6,21 @@
   <a class="section-tab active" href="/employees">قائمة الموظفين</a>
   {% if can('manage_employees') %}<a class="section-tab" href="/employees/edit-data">تعديل البيانات</a><a class="section-tab" href="/employees/deleted">الموظفون المحذوفون</a>{% endif %}
 </div>
+<div class="box quick-search-box">
+  <div class="section-title"><div><h3>البحث السريع عن موظف</h3><span class="hint">ابحث بالاسم أو الكود أو الوظيفة، ويمكن اختيار المحافظة والفرع.</span></div></div>
+  <form method="get" class="grid" style="align-items:end;margin-bottom:14px">
+    <label>بحث سريع<input name="q" value="{{q or ''}}" placeholder="الاسم أو الكود الوظيفي أو الوظيفة..." autocomplete="off"></label>
+    <label>المحافظة<select name="governorate_id" id="employee_governorate_filter"><option value="">كل المحافظات</option>{% for g in govs %}<option value="{{g.id}}" {% if gov_filter|string==g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>
+    <label>الفرع<select name="branch_id" id="employee_branch_filter"><option value="">كل الفروع</option>{% for b in bs %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}" {% if branch_filter|string==b.id|string %}selected{% endif %}>{{b.name}}</option>{% endfor %}</select></label>
+    <button class="secondary">بحث</button><a class="btn gray" href="/employees">مسح البحث</a>
+  </form>
+</div>
 <div class="box">
   <div class="section-title"><h3>إضافة موظف جديد</h3></div>
   <form method="post" class="grid wide">
     <input type="hidden" name="_csrf" value="{{csrf}}">
-    <label>المحافظة<select name="governorate_id" id="new_employee_governorate" required><option value="">اختر المحافظة</option>{% for g in govs %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
-    <label>الفرع<select name="branch_id" id="new_employee_branch" required><option value="">اختر الفرع</option>{% for b in bs %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}">{{b.name}}</option>{% endfor %}</select></label>
+    <label>المحافظة<select name="governorate_id" id="new_employee_governorate" required><option value="">اختر المحافظة</option>{% for g in add_govs %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
+    <label>الفرع<select name="branch_id" id="new_employee_branch" required><option value="">اختر الفرع</option>{% for b in add_bs %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}">{{b.name}}</option>{% endfor %}</select></label>
     <label>اسم الموظف<input name="full_name" required autocomplete="off"></label>
     <label>البريد الإلكتروني<input name="email" type="email" required autocomplete="email"></label>
     <label>الوظيفة<input name="job_title" required autocomplete="off"></label>
@@ -24,12 +33,7 @@
 </div>
 <div class="box tablewrap">
   <div class="section-title"><div><h3>قائمة الموظفين</h3></div></div>
-  <form method="get" class="grid" style="align-items:end;margin-bottom:14px">
-    <label>بحث سريع<input name="q" value="{{q or ''}}" placeholder="الاسم أو الكود الوظيفي أو الوظيفة..." autocomplete="off"></label>
-    <label>المحافظة<select name="governorate_id" id="employee_governorate_filter"><option value="">كل المحافظات</option>{% for g in govs %}<option value="{{g.id}}" {% if gov_filter|string==g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>
-    <label>الفرع<select name="branch_id" id="employee_branch_filter"><option value="">كل الفروع</option>{% for b in bs %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}" {% if branch_filter|string==b.id|string %}selected{% endif %}>{{b.name}}</option>{% endfor %}</select></label>
-    <button class="secondary">بحث</button><a class="btn gray" href="/employees">مسح البحث</a>
-  </form>
+
   <table id="employees-table"><thead><tr><th>الموظف</th><th>البريد الإلكتروني</th><th>الكود الوظيفي</th><th>المحافظة</th><th>الفرع</th><th>المدخل الأول المسؤول</th><th>الوظيفة</th><th>إجراءات</th></tr></thead>
   <tbody>{% for e in rows %}<tr>
     <td><a href="/employee/{{e.id}}"><b>{{e.full_name}}</b></a></td><td>{{e.email or "—"}}</td><td>{{e.job_code}}</td><td>{{e.branch.governorate.name if e.branch and e.branch.governorate else "—"}}</td><td>{{e.branch.name if e.branch else "—"}}</td><td>{% if entry_map.get(e.id) %}<b>{{entry_map.get(e.id)}}</b>{% else %}<span class="hint">غير مسند</span>{% endif %}</td><td>{{e.job_title}}</td>

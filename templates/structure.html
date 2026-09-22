@@ -1,9 +1,19 @@
 {% extends 'base.html' %}
 {% block title %}الهيكل الإداري{% endblock %}
 {% block content %}
-<div class="toolbar">
-  <div><h1>الإدارة</h1>{% if is_supervisor %}<div class="section-caption"><b>إدارة المحافظة المسندة إليك</b><span>{% if govs_all %}محافظتك المسجلة: <strong>{{ govs_all|map(attribute='name')|join(' — ') }}</strong> — تظهر هنا فقط المحافظة والصلاحيات المرتبطة بحسابك.{% else %}لا توجد محافظة مسجلة لهذا المشرف حتى الآن.{% endif %}</span></div>{% elif is_entry %}<div class="section-caption"><b>إدارة فروعك</b><span>تظهر هنا فقط الفروع والموظفون الذين تتولى إدارتهم.</span></div>{% endif %}</div>
+<div class="toolbar supervisor-toolbar">
+  <div><h1>الإدارة</h1>{% if is_supervisor %}<div class="section-caption"><b>لوحة إدارة المشرف</b><span>{% if govs_all %}نطاق الإدارة مقصور على: <strong>{{ govs_all|map(attribute='name')|join(' — ') }}</strong>. لا تظهر محافظات أخرى في خيارات الإدارة أو الإسناد.{% else %}لا توجد محافظة مسجلة لهذا المشرف حتى الآن.{% endif %}</span></div>{% elif is_entry %}<div class="section-caption"><b>إدارة فروعك</b><span>تظهر هنا فقط الفروع والموظفون الذين تتولى إدارتهم.</span></div>{% endif %}</div>
 </div>
+{% if is_supervisor and not is_admin %}
+<section class="supervisor-admin-panel">
+  <div class="supervisor-admin-hero"><div><span class="eyebrow">صلاحيات المشرف</span><h2>إدارة المحافظة</h2><p>جميع الخيارات هنا مرتبطة بالمحافظة المسندة إليك فقط. <b>البحث عن الموظفين</b> هو الاستثناء الوحيد الذي يسمح باختيار أي محافظة للاستعراض.</p></div><div class="supervisor-scope-badge">{{ govs_all|length }} محافظة مسندة</div></div>
+  <div class="supervisor-admin-grid">
+    {% for g in govs_all %}<div class="supervisor-scope-card"><span>📍</span><div><small>المحافظة المسجلة</small><strong>{{g.name}}</strong></div><a href="/structure?governorate_id={{g.id}}">فتح الهيكل</a></div>{% else %}<div class="supervisor-empty">لا توجد محافظة مسجلة لهذا المشرف.</div>{% endfor %}
+    <a class="supervisor-scope-card action" href="/employees"><span>🔎</span><div><small>بحث شامل</small><strong>البحث عن موظف</strong></div><b>جميع المحافظات</b></a>
+    <a class="supervisor-scope-card action" href="/replacement"><span>🔁</span><div><small>إدارة المسؤولية</small><strong>الاستبدال</strong></div><b>ضمن نطاقك</b></a>
+  </div>
+</section>
+{% endif %}
 
 {% if is_admin %}
 <section class="admin-dashboard-v2">
@@ -77,9 +87,9 @@
 
 <div class="admin-replacement-link no-print"><a class="admin-card-action" href="/replacement">🔁 الاستبدال — نقل مسؤولية المشرف أو المدخل الأول</a></div>
 <div class="admin-structure-picker no-print" id="my-governorates">
-  <div class="section-caption"><b>{% if is_entry %}فروعك وموظفوها{% elif is_supervisor %}محافظتك المسجلة: {{ govs_all|map(attribute='name')|join(' — ') if govs_all else 'غير مسجلة' }}{% else %}الهيكل الإداري{% endif %}</b><span>{% if is_supervisor and govs_all %}تم فتح المحافظة المسندة إليك تلقائيًا للوصول المباشر إلى الهيكل والتعديل والإدارة.{% else %}اختر المحافظة للوصول إلى الهيكل والتعديل والإدارة.{% endif %}</span></div>
-  {% if is_supervisor and govs_all|length == 1 %}
-  <div class="admin-gov-fixed"><span>المحافظة المسجلة</span><strong>{{ govs_all[0].name }}</strong><small>تم فتح هيكلها تلقائيًا حسب نطاق المشرف.</small></div>
+  <div class="section-caption"><b>{% if is_entry %}فروعك وموظفوها{% elif is_supervisor %}المحافظة / المحافظات المسجلة لك{% else %}الهيكل الإداري{% endif %}</b><span>{% if is_supervisor %}تظهر هنا فقط المحافظات المسندة إليك. لا تستخدم هذه الصفحة للبحث في محافظات أخرى؛ استخدم «الموظفون» للبحث الشامل.{% else %}اختر المحافظة للوصول إلى الهيكل والتعديل والإدارة.{% endif %}</span></div>
+  {% if is_supervisor %}
+  <div class="admin-gov-fixed">{% for g in govs_all %}<a class="scope-gov-pill" href="/structure?governorate_id={{g.id}}"><span>📍</span><strong>{{g.name}}</strong><small>فتح الهيكل</small></a>{% else %}<div class="supervisor-empty">لا توجد محافظة مسجلة لهذا المشرف.</div>{% endfor %}</div>
   {% else %}
   <form method="get" class="grid admin-gov-form">
     <label>المحافظة<select name="governorate_id" onchange="this.form.submit()"><option value="">اختر المحافظة أولًا</option>{% for g in govs_all %}<option value="{{g.id}}" {% if selected_governorate == g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>

@@ -1,47 +1,32 @@
 {% extends 'base.html' %}
 {% block title %}المساعد الذكي{% endblock %}
 {% block content %}
-<section class="assistant-page assistant-modern-page">
-  <div class="assistant-chat-head">
-    <div class="assistant-icon">✦</div>
-    <div><h1>المساعد الذكي</h1><p>اختر ما تريد أو اكتب طلبك، وسأجمع المطلوب خطوة بخطوة وفق صلاحيات دورك.</p></div>
+<section class="assistant-chat-shell">
+  <div class="assistant-chat-topbar">
+    <div><span class="assistant-window-mark">✦</span><div><b>المساعد الذكي</b><small>محادثة ذكية تفهم طلبك حسب صلاحيات دورك</small></div></div>
+    <form method="post" action="/assistant/clear"><input type="hidden" name="_csrf" value="{{csrf}}"><button title="مسح المحادثة">مسح</button></form>
   </div>
-  <div class="assistant-role-note">الدور الحالي: <b>{{ roles|join(' | ') }}</b> — الخيارات الظاهرة هنا مرتبطة بالصلاحيات الحالية.</div>
-  <div class="assistant-capability-note">يعرض لك المساعد هنا كل ما يستطيع دورك الحالي <b>الاستعلام عنه أو تنفيذه</b>. لا تظهر الخيارات غير المسموح بها لصلاحياتك.</div>
-  {% for group in assistant_option_groups %}
-  <div class="assistant-capability-group">
-    <div class="assistant-group-title">{{group['group']}}</div>
-    <div class="assistant-option-grid">
-      {% for item in group['items'] %}
-      {% if item.url %}
-      <a class="assistant-option" href="{{item.url}}"><span>{{item.icon}}</span><b>{{item.label}}</b><small>{{'تنفيذ' if item.kind=='action' else ('استعلام' if item.kind=='query' else 'تقرير')}}</small></a>
+  <div class="assistant-chat-body" id="assistantChatBody">
+    {% if not chat %}
+    <div class="chat-msg assistant-msg"><div class="chat-avatar">✦</div><div class="chat-bubble"><b>مرحبًا، أنا المساعد الذكي.</b><p>اكتب ما تريد بطريقتك الطبيعية، حتى لو لم تستخدم نفس أسماء البنود داخل التطبيق.</p><div class="chat-suggestions"><button type="button" data-prompt="إجازة">إجازة</button><button type="button" data-prompt="انتداب">انتداب</button><button type="button" data-prompt="إذن">إذن</button><button type="button" data-prompt="مدخل أول">مدخل أول</button><button type="button" data-prompt="الموظفين في فرع ">موظفو فرع</button></div></div></div>
+    {% endif %}
+    {% for msg in chat %}
+      {% if msg.role=='user' %}
+      <div class="chat-msg user-msg"><div class="chat-bubble">{{msg.text}}</div><div class="chat-avatar user-avatar">أنت</div></div>
       {% else %}
-      <button type="button" class="assistant-option" data-prompt="{{item.prompt}}"><span>{{item.icon}}</span><b>{{item.label}}</b><small>{{'تنفيذ' if item.kind=='action' else 'استعلام'}}</small></button>
+      <div class="chat-msg assistant-msg"><div class="chat-avatar">✦</div><div class="chat-bubble"><small class="chat-title">{{msg.title or 'المساعد الذكي'}}</small><div>{{msg.text|replace('\n','<br>')|safe}}</div></div></div>
       {% endif %}
-      {% endfor %}
-    </div>
+    {% endfor %}
+    {% if result and (not chat or prompt) %}
+    <div class="chat-msg assistant-msg current-response"><div class="chat-avatar">✦</div><div class="chat-bubble"><small class="chat-title">{{result.title}}</small>{% if result.error %}<div class="chat-error">{{result.error}}</div>{% endif %}{% if result.answer %}<div>{{result.answer|replace('\n','<br>')|safe}}</div>{% endif %}{% if result.preview %}<div class="assistant-preview"><b>{{result.preview}}</b><form method="post" action="/assistant/confirm"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="embed" value="0"><button type="submit">تأكيد وتنفيذ</button><button type="submit" name="cancel" value="1" class="secondary">إلغاء</button></form></div>{% endif %}{% if result.choices %}<div class="chat-suggestions">{% for x in result.choices %}<button type="button" data-prompt="{{ 'ما حالة الموظف ' ~ x.full_name if x.full_name else 'ما حالة فرع ' ~ x.name }}">{{x.full_name if x.full_name else x.name}}</button>{% endfor %}</div>{% endif %}{% if result.topic_items %}<div class="chat-topic-grid">{% for x in result.topic_items %}<button type="button" data-prompt="{{x.prompt}}"><span>{{x.icon}}</span>{{x.label}}</button>{% endfor %}</div>{% endif %}</div></div>
+    {% endif %}
   </div>
-  {% endfor %}
-  <form method="post" class="assistant-form assistant-chat-form">
-    <input type="hidden" name="_csrf" value="{{csrf}}">
-    <textarea name="prompt" rows="3" placeholder="مثال: أريد تسجيل إجازة للموظف أحمد من 2026-09-20 إلى 2026-09-22">{{prompt}}</textarea>
-    <div class="assistant-input-row"><span>✦ اكتب طلبك بطريقتك الطبيعية</span><button type="submit">إرسال الطلب</button></div>
-  </form>
-  {% if result %}
-  <div class="assistant-result assistant-chat-result">
-    <div class="assistant-result-title"><span>✦</span><b>{{result.title}}</b></div>
-    {% if result.error %}<div class="alert">{{result.error}}</div>{% endif %}
-    {% if result.answer %}<div class="assistant-answer">{{result.answer|replace('\n','<br>')|safe}}</div>{% endif %}
-    {% if result.preview %}<div class="assistant-preview"><b>{{result.preview}}</b><form method="post" action="/assistant/confirm"><input type="hidden" name="_csrf" value="{{csrf}}"><button type="submit">تأكيد وتنفيذ</button><a class="secondary btn" href="/assistant">إلغاء</a></form></div>{% endif %}
-    {% if result.choices %}<div class="assistant-choice-list">{% for x in result.choices %}<button type="button" class="assistant-choice" data-prompt="{{ 'ما حالة الموظف ' ~ x.full_name if x.full_name else 'ما حالة فرع ' ~ x.name }}">{{x.full_name if x.full_name else x.name}}</button>{% endfor %}</div>{% endif %}
-    {% if result.topic_items %}<div class="assistant-choice-list assistant-topic-choices">{% for x in result.topic_items %}<button type="button" class="assistant-choice assistant-topic-choice" data-prompt="{{x.prompt}}"><span>{{x.icon}}</span><b>{{x.label}}</b></button>{% endfor %}</div>{% endif %}
-  </div>
-  {% endif %}
+  <form method="post" action="/assistant" class="assistant-chat-input"><input type="hidden" name="_csrf" value="{{csrf}}"><textarea name="prompt" rows="1" placeholder="اكتب طلبك هنا... مثال: أريد إدخال إجازة لأحمد">{{'' if result else prompt}}</textarea><button type="submit" title="إرسال">➤</button></form>
 </section>
 <script>
-(function(){
- const form=document.querySelector('.assistant-chat-form'), ta=form?.querySelector('textarea');
- document.querySelectorAll('.assistant-option,.assistant-choice').forEach(b=>b.addEventListener('click',()=>{if(!ta||!form)return;ta.value=b.dataset.prompt||'';ta.focus();}));
+(function(){const body=document.getElementById('assistantChatBody'), form=document.querySelector('.assistant-chat-input'), ta=form?.querySelector('textarea');
+function bind(){document.querySelectorAll('[data-prompt]').forEach(b=>b.onclick=()=>{if(ta){ta.value=b.dataset.prompt||'';ta.focus();}})} bind(); if(body) body.scrollTop=body.scrollHeight;
+if(ta) ta.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();form.submit();}});
 })();
 </script>
 {% endblock %}

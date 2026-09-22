@@ -7,7 +7,7 @@ from sqlalchemy import UniqueConstraint
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app=Flask(__name__)
-APP_VERSION='v34.94'
+APP_VERSION='v34.95'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg://',1)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or 'dev-only-change-me',SQLALCHEMY_DATABASE_URI=DATABASE_URL,SQLALCHEMY_TRACK_MODIFICATIONS=False,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','0')=='1',MAX_CONTENT_LENGTH=2*1024*1024)
@@ -2093,8 +2093,11 @@ def assistant_render_read(a):
 @req
 def assistant():
     result=None; prompt=''
+    chat=session.get('assistant_chat', [])
     if request.method=='POST':
         prompt=(request.form.get('prompt') or '').strip()
+        if prompt:
+            chat.append({'role':'user','text':prompt})
         if not prompt:
             result={'title':'المساعد الذكي','error':'اكتب طلبك أولًا.'}
         else:
@@ -2123,6 +2126,10 @@ def assistant():
                     result=assistant_render_branch_entry(a)
                 else:
                     result=assistant_render_read(a)
+    if request.method=='POST' and prompt and result:
+        assistant_text = result.get('answer') or result.get('error') or result.get('preview') or result.get('title') or 'تمت معالجة طلبك.'
+        chat.append({'role':'assistant','text':assistant_text,'title':result.get('title','المساعد الذكي')})
+        session['assistant_chat']=chat[-24:]
     # v34.88 — قائمة قدرات المساعد ديناميكية حسب صلاحيات الدور الحالي.
     # تعرض الاستعلامات والتنفيذات الممكنة، ولا تظهر وظائف لا يملك المستخدم صلاحيتها.
     assistant_options=[
@@ -2192,7 +2199,15 @@ def assistant():
     assistant_options=[item for group in assistant_option_groups for item in group['items']]
     embed=request.args.get('embed')=='1'
     template='assistant_embed.html' if embed else 'assistant.html'
-    return render_template(template,result=result,prompt=prompt,assistant_options=assistant_options,assistant_option_groups=assistant_option_groups,embed=embed)
+    return render_template(template,result=result,prompt=prompt,assistant_options=assistant_options,assistant_option_groups=assistant_option_groups,embed=embed,chat=session.get('assistant_chat',[]))
+
+
+@app.post('/assistant/clear')
+@req
+def assistant_clear():
+    session.pop('assistant_chat', None)
+    session.pop('assistant_pending', None)
+    return redirect('/assistant?embed=1' if request.form.get('embed')=='1' else '/assistant')
 
 
 @app.post('/assistant/confirm')

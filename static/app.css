@@ -990,3 +990,34 @@ main:not(.login){padding-left:0!important;padding-right:0!important}
 @media(max-width:650px){.current-status-card{grid-template-columns:1fr}.current-status-detail,.current-status-remaining{grid-column:auto;grid-row:auto;text-align:right}.current-status-remaining{text-align:right}.current-status-alert{grid-column:auto}}
 
 .employee-deleted-badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#fde7e7;color:#a12b35;border:1px solid #efb7bb;font-size:12px;font-weight:800;vertical-align:middle}.notice{padding:12px 14px;border-radius:12px;margin-bottom:14px}
+
+/* v34.62 — Manager Application Support + الصفحة الرئيسية: بحث في الأعلى + لوحات أكبر + إدارة فروع واستبدال المدخل الأول */
+.home-dashboard-head{margin-bottom:10px!important}
+.home-top-search{display:grid!important;grid-template-columns:minmax(240px,.7fr) minmax(0,2fr)!important;gap:14px!important;align-items:center!important;width:100%!important;margin:0 0 20px!important;padding:14px 16px!important;background:linear-gradient(145deg,#ffffff,#f4f9fd)!important;border:1px solid #d5e5ef!important;border-radius:16px!important;box-shadow:0 7px 20px rgba(28,70,98,.07)!important;box-sizing:border-box!important}
+.home-top-search-title{display:flex!important;align-items:center!important;gap:8px!important;color:#24577d!important;font-size:18px!important}
+.home-top-search-title small{display:block!important;color:#718493!important;font-size:12px!important;font-weight:600!important}
+.home-top-search-form{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:8px!important}
+.home-top-search-form input{min-height:52px!important;padding:10px 16px!important;font-size:17px!important;border-radius:12px!important;box-sizing:border-box!important}
+.home-top-search-form button{min-height:52px!important;min-width:110px!important;font-size:16px!important}
+.home-three-panels{gap:20px!important}
+.home-three-panels > .dashboard-widget{min-height:840px!important}
+.home-panel{padding:22px!important}
+.home-entry-directory .entry-quick-actions{display:flex!important;flex-wrap:wrap!important;gap:7px!important;align-items:flex-start!important}
+.entry-home-action{position:relative!important;display:inline-block!important}
+.entry-home-action > summary{list-style:none!important;cursor:pointer!important;display:inline-flex!important;align-items:center!important;justify-content:center!important}
+.entry-home-action > summary::-webkit-details-marker{display:none!important}
+.entry-home-form{position:absolute!important;z-index:80!important;top:calc(100% + 7px)!important;right:0!important;width:min(360px,calc(100vw - 40px))!important;padding:14px!important;background:#fff!important;border:1px solid #cfdde6!important;border-radius:13px!important;box-shadow:0 15px 35px rgba(20,56,91,.18)!important;display:grid!important;gap:10px!important}
+.entry-home-form select{width:100%!important;min-height:42px!important}
+.entry-home-branch-list{display:grid!important;grid-template-columns:1fr!important;gap:6px!important;max-height:230px!important;overflow:auto!important;padding:8px!important;background:#f7fafc!important;border:1px solid #e0e8ee!important;border-radius:10px!important}
+.entry-home-branch-list label{display:flex!important;align-items:center!important;gap:7px!important;padding:7px 8px!important;border-radius:8px!important;background:#fff!important;font-size:13px!important}
+.entry-home-branch-list input{accent-color:#2f829e!important}
+@media(max-width:900px){
+  .home-top-search{grid-template-columns:1fr!important}
+  .home-three-panels > .dashboard-widget{min-height:760px!important}
+}
+@media(max-width:820px){
+  .home-three-panels{grid-template-columns:1fr!important}
+  .home-three-panels > .dashboard-widget{min-height:620px!important}
+  .home-top-search-form{grid-template-columns:1fr!important}
+  .home-top-search-form button{width:100%!important}
+}

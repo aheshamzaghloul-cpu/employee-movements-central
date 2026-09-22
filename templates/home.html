@@ -7,11 +7,13 @@
     <h1 class="home-title">الرئيسية</h1>
     <div class="home-scope">{% if visible_govs %}نطاقك: {{ visible_govs|map(attribute='name')|join(' — ') }}{% else %}لا توجد محافظة مسندة{% endif %}</div>
   </div>
-  <form method="get" action="/employees" class="home-dashboard-search">
-    <input name="q" type="search" placeholder="ابحث باسم الموظف أو الكود..." autocomplete="off">
-    <button>بحث</button>
-  </form>
 </div>
+
+<!-- البحث في أعلى الصفحة وبعرض كامل -->
+<form method="get" action="/employees" class="home-top-search">
+  <div class="home-top-search-title">🔎 <b>البحث عن موظف</b><small>بالاسم أو الكود الوظيفي أو البريد الإلكتروني</small></div>
+  <div class="home-top-search-form"><input name="q" type="search" placeholder="اكتب اسم الموظف أو الكود أو البريد الإلكتروني..." autocomplete="off"><button class="btn">بحث</button></div>
+</form>
 
 <!-- الصفحة الرئيسية: ثلاث لوحات متساوية فقط -->
 <div class="home-three-panels" id="dashboard-workspace">
@@ -47,7 +49,7 @@
 
   <!-- 2) المدخلون الأوائل: بند تنظيمي دائم حتى عند عدم وجود مدخلين -->
   {% if 'مشرف محافظة' in roles or 'مسؤول التطبيق' in roles %}
-  <section class="home-panel home-entry-directory dashboard-widget" data-widget-id="entry-directory">
+  <section class="home-panel home-entry-directory dashboard-widget" id="entry-directory" data-widget-id="entry-directory">
     <div class="entry-directory-head">
       <div>
         <span class="home-kicker">السلسلة الوظيفية</span>
@@ -63,7 +65,8 @@
         <input type="hidden" name="_csrf" value="{{csrf}}">
         <select name="employee_id" required><option value="">اختر الموظف</option>{% for e in available_entry_employees %}<option value="{{e.id}}">{{e.full_name}} — {{e.branch.name if e.branch else ''}}</option>{% endfor %}</select>
         {% if is_admin %}<select name="supervisor_id" required><option value="">المشرف المسؤول</option>{% for s in entry_supervisors %}<option value="{{s.id}}">{{s.full_name}}</option>{% endfor %}</select>{% endif %}
-        <button class="btn mini">إضافة</button>
+        <select name="branch_id" multiple required title="يمكن اختيار أكثر من فرع"><option value="" disabled>اختر فروع المسؤولية</option>{% for b in available_entry_branches %}<option value="{{b.id}}">{{b.name}}{% if b.code %} — {{b.code}}{% endif %}</option>{% endfor %}</select>
+        <button class="btn mini">إضافة المدخل والفروع</button>
       </form>
     </div>
 
@@ -80,8 +83,30 @@
             <div class="entry-panel-top">
               <span>{% if row.governorates %}{{row.governorates|join(' · ')}}{% else %}ضمن نطاقك الحالي{% endif %}</span>
               <div class="entry-quick-actions no-print">
-                {% if row.assignment %}<form method="post" action="/entry-role/{{row.employee.id}}/remove" class="inline" onsubmit="return confirm('إزالة دور المدخل الأول التنظيمي؟')"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="btn red mini">إزالة الدور</button></form>{% endif %}
+                {% if row.assignment %}
+                <details class="entry-home-action">
+                  <summary class="btn mini">إدارة الفروع</summary>
+                  <form method="post" action="/entry-role/{{row.employee.id}}/branches" class="entry-home-form">
+                    <input type="hidden" name="_csrf" value="{{csrf}}">
+                    <b>فروع مسؤولية {{row.employee.full_name}}</b>
+                    <div class="entry-home-branch-list">
+                      {% for b in row.available_branches %}<label><input type="checkbox" name="branch_id" value="{{b.id}}" {% if b.id in row.assignment_branch_ids %}checked{% endif %}> {{b.name}}{% if b.code %} — {{b.code}}{% endif %}</label>{% else %}<span class="hint">لا توجد فروع متاحة ضمن نطاقك.</span>{% endfor %}
+                    </div>
+                    <button class="btn mini" type="submit">حفظ الفروع</button>
+                  </form>
+                </details>
+                <details class="entry-home-action">
+                  <summary class="btn mini secondary">استبدال الدور</summary>
+                  <form method="post" action="/entry-role/{{row.employee.id}}/replace" class="entry-home-form">
+                    <input type="hidden" name="_csrf" value="{{csrf}}">
+                    <b>الموظف البديل</b>
+                    <select name="new_entry_employee_id" required><option value="">اختر الموظف البديل</option>{% for e in row.replace_targets %}<option value="{{e.id}}">{{e.full_name}} — {{e.branch.name if e.branch else ''}}</option>{% endfor %}</select>
+                    <button class="btn mini" type="submit" onclick="return confirm('سيتم نقل دور المدخل الأول وجميع فروع مسؤوليته إلى الموظف البديل، مع الاحتفاظ بسجل الموظف القديم. هل تريد المتابعة؟')">تنفيذ الاستبدال</button>
+                  </form>
+                </details>
+                <form method="post" action="/entry-role/{{row.employee.id}}/remove" class="inline" onsubmit="return confirm('إزالة دور المدخل الأول التنظيمي؟ ستصبح فروع مسؤوليته متاحة لإسنادها من جديد، مع بقاء سجل الموظف.');"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="btn red mini">إزالة الدور</button></form>
                 <a href="/employee/{{row.employee.id}}" class="btn secondary mini">ملف الموظف</a>
+                {% endif %}
               </div>
             </div>
             <div class="entry-branch-grid">

@@ -7,9 +7,9 @@
   <div class="assistant-capability-note">يعرض لك المساعد هنا كل ما يستطيع دورك الحالي <b>الاستعلام عنه أو تنفيذه</b>. لا تظهر الخيارات غير المسموح بها لصلاحياتك.</div>
   {% for group in assistant_option_groups %}
   <div class="assistant-capability-group">
-    <div class="assistant-group-title">{{group.group}}</div>
+    <div class="assistant-group-title">{{group['group']}}</div>
     <div class="assistant-option-grid">
-      {% for item in group.items %}
+      {% for item in group['items'] %}
       {% if item.url %}
       <a class="assistant-option" href="{{item.url}}"><span>{{item.icon}}</span><b>{{item.label}}</b><small>{{'تنفيذ' if item.kind=='action' else ('استعلام' if item.kind=='query' else 'تقرير')}}</small></a>
       {% else %}

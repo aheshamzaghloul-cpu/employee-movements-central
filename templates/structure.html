@@ -5,12 +5,41 @@
   <div><h1>الإدارة</h1>{% if is_supervisor %}<div class="section-caption"><b>لوحة إدارة المشرف</b><span>{% if govs_all %}نطاق الإدارة مقصور على: <strong>{{ govs_all|map(attribute='name')|join(' — ') }}</strong>. لا تظهر محافظات أخرى في خيارات الإدارة أو الإسناد.{% else %}لا توجد محافظة مسجلة لهذا المشرف حتى الآن.{% endif %}</span></div>{% elif is_entry %}<div class="section-caption"><b>إدارة فروعك</b><span>تظهر هنا فقط الفروع والموظفون الذين تتولى إدارتهم.</span></div>{% endif %}</div>
 </div>
 {% if is_supervisor and not is_admin %}
-<section class="supervisor-admin-panel">
-  <div class="supervisor-admin-hero"><div><span class="eyebrow">صلاحيات المشرف</span><h2>إدارة المحافظة</h2><p>جميع الخيارات هنا مرتبطة بالمحافظة المسندة إليك فقط. <b>البحث عن الموظفين</b> هو الاستثناء الوحيد الذي يسمح باختيار أي محافظة للاستعراض.</p></div><div class="supervisor-scope-badge">{{ govs_all|length }} محافظة مسندة</div></div>
-  <div class="supervisor-admin-grid">
-    {% for g in govs_all %}<div class="supervisor-scope-card"><span>📍</span><div><small>المحافظة المسجلة</small><strong>{{g.name}}</strong></div><a href="/structure?governorate_id={{g.id}}">فتح الهيكل</a></div>{% else %}<div class="supervisor-empty">لا توجد محافظة مسجلة لهذا المشرف.</div>{% endfor %}
-    <a class="supervisor-scope-card action" href="/employees"><span>🔎</span><div><small>بحث شامل</small><strong>البحث عن موظف</strong></div><b>جميع المحافظات</b></a>
-    <a class="supervisor-scope-card action" href="/replacement"><span>🔁</span><div><small>إدارة المسؤولية</small><strong>الاستبدال</strong></div><b>ضمن نطاقك</b></a>
+<section class="supervisor-admin-panel supervisor-admin-clean">
+  <div class="supervisor-admin-hero">
+    <div>
+      <span class="eyebrow">لوحة إدارة المشرف</span>
+      <h2>إدارة المحافظة</h2>
+      <p>إدارة المحافظات المسندة إليك فقط. البحث الشامل عن الموظفين متاح من صفحة «الموظفون» دون تغيير نطاق صلاحياتك.</p>
+    </div>
+    <div class="supervisor-scope-badge">{{ govs_all|length }} محافظة مسندة</div>
+  </div>
+
+  <div class="supervisor-admin-actions">
+    <div class="supervisor-admin-action supervisor-admin-scope">
+      <span class="supervisor-action-icon">📍</span>
+      <div><small>نطاق الإدارة</small><strong>{% if govs_all %}{% for g in govs_all %}{{ g.name }}{% if not loop.last %} — {% endif %}{% endfor %}{% else %}لا توجد محافظة مسجلة{% endif %}</strong></div>
+    </div>
+    <a class="supervisor-admin-action" href="/employees"><span class="supervisor-action-icon">👥</span><div><small>البيانات</small><strong>الموظفون</strong><em>إضافة وتعديل موظفي نطاقك</em></div></a>
+    <a class="supervisor-admin-action" href="/replacement"><span class="supervisor-action-icon">🔁</span><div><small>إدارة المسؤولية</small><strong>الاستبدال</strong><em>استبدال مشرف أو مدخل أول ضمن نطاقك</em></div></a>
+  </div>
+
+  <div class="supervisor-admin-section">
+    <div class="supervisor-admin-section-head"><div><span class="eyebrow">الهيكل</span><h3>المحافظات المسندة إليك</h3></div><small>اختر المحافظة لفتح هيكلها وإدارة المدخلين والفروع.</small></div>
+    <div class="supervisor-gov-grid">
+      {% for g in govs_all %}
+      <a class="supervisor-gov-card" href="/structure?governorate_id={{ g.id }}"><span>📍</span><div><strong>{{ g.name }}</strong><small>فتح الهيكل</small></div><b>›</b></a>
+      {% else %}<div class="supervisor-empty">لا توجد محافظة مسجلة لهذا المشرف.</div>{% endfor %}
+    </div>
+  </div>
+
+  <div class="supervisor-admin-section supervisor-admin-entry-section" id="entry-role-chain">
+    <div class="supervisor-admin-section-head"><div><span class="eyebrow">السلسلة الوظيفية</span><h3>المدخلون الأوائل</h3></div><small>إضافة وإدارة الدور التنظيمي للموظفين داخل محافظتك.</small></div>
+    <form method="post" action="/entry-role/add" class="supervisor-entry-form">
+      <input type="hidden" name="_csrf" value="{{csrf}}">
+      <label>الموظف<select name="employee_id" required><option value="">اختر موظفًا مسجلًا</option>{% for e in available_entry_employees %}<option value="{{e.id}}">{{e.full_name}} — {{e.branch.name if e.branch else ''}}</option>{% endfor %}</select></label>
+      <button class="btn">إضافة المدخل الأول</button>
+    </form>
   </div>
 </section>
 {% endif %}
@@ -84,6 +113,7 @@
 </div>
 {% endif %}
 
+{% if not is_supervisor %}
 <div class="admin-replacement-link no-print"><a class="admin-card-action" href="/replacement">🔁 الاستبدال — نقل مسؤولية المشرف أو المدخل الأول</a></div>
 <div class="admin-structure-picker no-print" id="my-governorates">
   <div class="section-caption"><b>{% if is_entry %}فروعك وموظفوها{% elif is_supervisor %}المحافظة / المحافظات المسجلة لك{% else %}الهيكل الإداري{% endif %}</b><span>{% if is_supervisor %}تظهر هنا فقط المحافظات المسندة إليك. لا تستخدم هذه الصفحة للبحث في محافظات أخرى؛ استخدم «الموظفون» للبحث الشامل.{% else %}اختر المحافظة للوصول إلى الهيكل والتعديل والإدارة.{% endif %}</span></div>
@@ -105,6 +135,7 @@
     <button class="btn">إضافة المدخل الأول</button>
   </form>
 </section>
+{% endif %}
 {% if selected_governorate %}
 <div class="free-card-workspace structure-free-workspace" id="structure-card-workspace"><div class="structure-grid" id="structure">
 {% for g,bs,sups,entries,counts in tree %}

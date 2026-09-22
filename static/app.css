@@ -1158,3 +1158,27 @@ main>.box,main>.toolbar,main>.section-tabs,main>.admin-control-center,main>.admi
 .home-dashboard-head .home-title{white-space:nowrap!important}
 .home-dashboard-head .home-scope{margin:0!important;white-space:nowrap!important;font-size:14px!important;font-weight:700!important;color:#526b7c!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:min(55vw,900px)!important}
 @media(max-width:850px){.home-dashboard-head{align-items:flex-start!important;flex-direction:column!important;gap:4px!important}.home-dashboard-head>div:first-child{align-items:center!important}.home-dashboard-head .home-scope{max-width:100%!important;white-space:normal!important}}
+
+/* v34.81 — لوحة إدارة المشرف: إزالة التكرار وترتيب الوظائف في مساحة واحدة */
+.supervisor-admin-clean{padding:18px 20px!important;background:#fafdff!important}
+.supervisor-admin-clean .supervisor-admin-hero{margin-bottom:14px}
+.supervisor-admin-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0 0 14px}
+.supervisor-admin-action{min-height:88px;display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid #dbe6ed;border-radius:14px;background:#fff;text-decoration:none;color:inherit;box-shadow:0 4px 14px rgba(24,55,84,.045);transition:.15s}
+.supervisor-admin-action:hover{border-color:#a9c7d6;background:#f8fcfe;transform:translateY(-1px)}
+.supervisor-action-icon{width:42px;height:42px;flex:0 0 42px;display:grid;place-items:center;border-radius:11px;background:#edf6fa;font-size:20px}
+.supervisor-admin-action div{min-width:0;display:flex;flex-direction:column;gap:3px}
+.supervisor-admin-action small{font-size:10px;color:#78909a}
+.supervisor-admin-action strong{font-size:15px;color:#24576b}
+.supervisor-admin-action em{font-style:normal;font-size:10px;color:#81919c;line-height:1.4}
+.supervisor-admin-scope{background:#f7fbfd}
+.supervisor-admin-section{background:#fff;border:1px solid #dbe6ed;border-radius:15px;padding:15px;margin-top:12px;box-shadow:0 4px 15px rgba(24,55,84,.045)}
+.supervisor-admin-section-head{display:flex;align-items:end;justify-content:space-between;gap:14px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #edf2f5}
+.supervisor-admin-section-head h3{margin:2px 0 0;font-size:17px;color:#24576b}
+.supervisor-admin-section-head>small{color:#7b8b95;font-size:11px}
+.supervisor-gov-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.supervisor-gov-card{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid #dce7ed;border-radius:12px;background:#f9fcfd;text-decoration:none;color:inherit}
+.supervisor-gov-card:hover{border-color:#a9c7d6;background:#f2f9fb}
+.supervisor-gov-card>span{font-size:20px}.supervisor-gov-card div{flex:1;min-width:0}.supervisor-gov-card strong{display:block;font-size:14px;color:#24576b}.supervisor-gov-card small{display:block;color:#7b8b95;font-size:10px;margin-top:2px}.supervisor-gov-card>b{font-size:20px;color:#8aa0ac}
+.supervisor-entry-form{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}.supervisor-entry-form label{margin:0}.supervisor-entry-form select{min-height:44px}
+@media(max-width:850px){.supervisor-admin-actions{grid-template-columns:1fr 1fr}.supervisor-admin-section-head{align-items:flex-start;flex-direction:column}.supervisor-entry-form{grid-template-columns:1fr}}
+@media(max-width:600px){.supervisor-admin-actions{grid-template-columns:1fr}}

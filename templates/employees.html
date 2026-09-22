@@ -6,15 +6,7 @@
   <a class="section-tab active" href="/employees">قائمة الموظفين</a>
   {% if can('manage_employees') %}<a class="section-tab" href="/employees/edit-data">تعديل البيانات</a><a class="section-tab" href="/employees/deleted">الموظفون المحذوفون</a>{% endif %}
 </div>
-<div class="box quick-search-box">
-  <div class="section-title"><div><h3>البحث السريع عن موظف</h3><span class="hint">ابحث بالاسم أو الكود أو الوظيفة، ويمكن اختيار المحافظة والفرع.</span></div></div>
-  <form method="get" class="grid" style="align-items:end;margin-bottom:14px">
-    <label>بحث سريع<input name="q" value="{{q or ''}}" placeholder="الاسم أو الكود الوظيفي أو الوظيفة..." autocomplete="off"></label>
-    <label>المحافظة<select name="governorate_id" id="employee_governorate_filter"><option value="">كل المحافظات</option>{% for g in govs %}<option value="{{g.id}}" {% if gov_filter|string==g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>
-    <label>الفرع<select name="branch_id" id="employee_branch_filter"><option value="">كل الفروع</option>{% for b in bs %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}" {% if branch_filter|string==b.id|string %}selected{% endif %}>{{b.name}}</option>{% endfor %}</select></label>
-    <button class="secondary">بحث</button><a class="btn gray" href="/employees">مسح البحث</a>
-  </form>
-</div>
+
 <div class="box">
   <div class="section-title"><h3>إضافة موظف جديد</h3></div>
   <form method="post" class="grid wide">

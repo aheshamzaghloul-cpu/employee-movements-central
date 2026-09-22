@@ -1119,3 +1119,25 @@ main>.box,main>.toolbar,main>.section-tabs,main>.admin-control-center,main>.admi
   .status-dates{justify-content:flex-start!important;flex-wrap:wrap!important}
   .current-status-main strong{font-size:13px!important}
 }
+
+/* v34.74 — تحسين وضوح الخط داخل بطاقة حالة الموظفين الآن */
+.current-status-card{font-family:"Cairo",Tahoma,"Segoe UI",Arial,sans-serif;color:#203b4d}
+.current-status-main strong{font-size:14px!important;font-weight:800!important;color:#173d5b!important;letter-spacing:0!important}
+.current-status-main small{font-size:11px!important;font-weight:700!important;color:#536b7b!important}
+.current-status-badge{font-size:11px!important;font-weight:800!important;color:#7b4b00!important}
+.current-status-detail>b{font-size:12px!important;font-weight:800!important;color:#274e66!important}
+.status-dates span{background:#f9fbfc!important;border-color:#c9d9e3!important}
+.status-dates em{font-size:10px!important;font-weight:800!important;color:#526b7c!important}
+.status-dates strong{font-size:12px!important;font-weight:900!important;color:#184e73!important;letter-spacing:.15px!important}
+.current-status-remaining b{font-size:18px!important;font-weight:900!important;color:#174f70!important}
+.current-status-remaining span{font-size:10px!important;font-weight:700!important;color:#536b7b!important}
+.current-status-alert{font-size:10px!important;font-weight:800!important}
+.home-current-status .home-current-count{font-weight:800!important}
+
+
+/* v34.75 — dropdown filters for current status and first-entry directory */
+.current-status-filters,.entry-directory-filters{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin:0 0 12px;padding:10px 12px;background:#f7fafc;border:1px solid #dce8ef;border-radius:12px}
+.current-status-filters label,.entry-directory-filters label{display:flex;flex-direction:column;gap:5px;min-width:210px;color:#496273;font-size:11px;font-weight:800}
+.current-status-filters select,.entry-directory-filters select{height:38px;border:1px solid #cbdde7;border-radius:9px;background:#fff;color:#23465c;padding:0 10px;font-family:inherit;font-size:12px;font-weight:700;min-width:210px}
+.status-filter-empty{margin-top:10px;padding:16px;text-align:center;border:1px dashed #cbdde7;border-radius:12px;color:#6c8190;background:#fbfdfe;font-size:12px;font-weight:700}
+@media(max-width:700px){.current-status-filters,.entry-directory-filters{display:grid;grid-template-columns:1fr}.current-status-filters label,.entry-directory-filters label,.current-status-filters select,.entry-directory-filters select{min-width:0;width:100%}}

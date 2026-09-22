@@ -21,12 +21,30 @@
         <h2>حالة الموظفين الآن</h2>
         <p class="home-current-note">يعرض فقط الموظفين الذين لديهم إجازة مستمرة أو انتداب ساري اليوم.</p>
       </div>
-      <span class="home-current-count">{{current_status_rows|length}} موظف</span>
+      <span class="home-current-count" id="current-status-count">{{current_status_rows|length}} موظف</span>
     </div>
     {% if current_status_rows %}
-    <div class="current-status-list">
+    <div class="current-status-filters no-print">
+      <label>البحث بالفرع
+        <select id="current-status-branch-filter">
+          <option value="">كل الفروع</option>
+          {% for branch in current_status_rows|map(attribute='employee')|map(attribute='branch')|select|unique(attribute='id')|sort(attribute='name') %}
+            <option value="{{branch.id}}">{{branch.name}}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>البحث باسم الموظف
+        <select id="current-status-employee-filter">
+          <option value="">كل الموظفين</option>
+          {% for row in current_status_rows|sort(attribute='employee.full_name') %}
+            <option value="{{row.employee.id}}">{{row.employee.full_name}}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="current-status-list" id="current-status-list">
       {% for row in current_status_rows %}
-      <a class="current-status-card {% if row.movement.movement_type=='انتداب' %}is-assignment{% else %}is-leave{% endif %}" href="/employee/{{row.employee.id}}">
+      <a class="current-status-card {% if row.movement.movement_type=='انتداب' %}is-assignment{% else %}is-leave{% endif %}" data-status-employee="{{row.employee.id}}" data-status-branch="{{row.employee.branch.id if row.employee.branch else ''}}" href="/employee/{{row.employee.id}}">
         <div class="current-status-main"><strong>{{row.employee.full_name}}</strong><small>{{row.employee.branch.name if row.employee.branch else '—'}}</small></div>
         <div class="current-status-badge">{{row.state}}</div>
         <div class="current-status-detail"><b>{{row.place}}</b><div class="status-dates"><span><em>من</em><strong>{{row.from_date.strftime('%d/%m/%Y')}}</strong></span><span><em>إلى</em><strong>{{row.to_date.strftime('%d/%m/%Y')}}</strong></span></div></div>
@@ -35,6 +53,7 @@
       </a>
       {% endfor %}
     </div>
+    <div class="status-filter-empty" id="current-status-filter-empty" hidden>لا توجد نتائج مطابقة للبحث المحدد.</div>
     {% else %}
       <div class="status-empty"><strong>لا توجد حاليًا إجازات مستمرة أو انتدابات سارية</strong><span>سيظهر الموظف هنا تلقائيًا طوال فترة الإجازة أو الانتداب.</span></div>
     {% endif %}
@@ -53,9 +72,25 @@
       <div class="entry-directory-badge"><b>{{ entry_rows|length }}</b><span>مدخل أول</span></div>
     </div>
 
-    <div class="entry-directory-list">
+    <div class="entry-directory-filters no-print">
+      <label>البحث باسم المدخل الأول أو اسم الموظف
+        <select id="entry-directory-filter">
+          <option value="">كل المدخلين والموظفين</option>
+          {% for row in entry_rows %}
+            <option value="entry-{{row.employee.id}}">مدخل أول: {{row.employee.full_name}}</option>
+            {% for bg in row.branches %}
+              {% for emp in bg.employees %}
+                <option value="employee-{{emp.id}}-entry-{{row.employee.id}}">موظف: {{emp.full_name}} — المدخل: {{row.employee.full_name}}</option>
+              {% endfor %}
+            {% endfor %}
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+
+    <div class="entry-directory-list" id="entry-directory-list">
       {% for row in entry_rows %}
-        <details class="entry-card">
+        <details class="entry-card" data-entry-id="{{row.employee.id}}" data-entry-employee-ids="{% for bg in row.branches %}{% for emp in bg.employees %}{{emp.id}}{% if not loop.last or not loop.parent.last %},{% endif %}{% endfor %}{% endfor %}">
           <summary>
             <span class="entry-avatar">👤</span>
             <span class="entry-main"><strong>{{row.employee.full_name}}</strong><small>{{row.employee.job_title or 'مدخل أول تنظيمي'}}{% if row.supervisor %} · المشرف: {{row.supervisor.full_name}}{% endif %}</small></span>
@@ -146,4 +181,41 @@
   {% endif %}
 
 </div>
+<script>
+(function(){
+  const branch=document.getElementById('current-status-branch-filter');
+  const employee=document.getElementById('current-status-employee-filter');
+  const statusList=document.getElementById('current-status-list');
+  const statusEmpty=document.getElementById('current-status-filter-empty');
+  const statusCount=document.getElementById('current-status-count');
+  function filterStatus(){
+    if(!statusList) return;
+    const b=branch?branch.value:''; const e=employee?employee.value:''; let visible=0;
+    statusList.querySelectorAll('.current-status-card').forEach(card=>{
+      const ok=(!b || card.dataset.statusBranch===b) && (!e || card.dataset.statusEmployee===e);
+      card.style.display=ok?'grid':'none'; if(ok) visible++;
+    });
+    if(statusCount) statusCount.textContent=visible+' موظف';
+    if(statusEmpty) statusEmpty.hidden=visible!==0;
+  }
+  branch?.addEventListener('change',filterStatus); employee?.addEventListener('change',filterStatus);
+
+  const entryFilter=document.getElementById('entry-directory-filter');
+  const entryList=document.getElementById('entry-directory-list');
+  function filterEntries(){
+    if(!entryList || !entryFilter) return;
+    const value=entryFilter.value;
+    entryList.querySelectorAll('.entry-card').forEach(card=>{
+      let ok=!value;
+      if(value.startsWith('entry-')) ok=card.dataset.entryId===value.slice(6);
+      else if(value.startsWith('employee-')) {
+        const parts=value.split('-entry-'); const ids=(card.dataset.entryEmployeeIds||'').split(',').filter(Boolean);
+        ok=card.dataset.entryId===parts[1] || ids.includes(parts[0]);
+      }
+      card.style.display=ok?'block':'none';
+    });
+  }
+  entryFilter?.addEventListener('change',filterEntries);
+})();
+</script>
 {% endblock %}

@@ -1082,9 +1082,40 @@ main>.box,main>.toolbar,main>.section-tabs,main>.admin-control-center,main>.admi
 .current-status-card.is-leave .status-dates strong{color:#9a5b00}
 @media(max-width:1100px){.current-status-detail{min-width:0}.current-status-remaining{border-right:0;padding-right:0}}
 
-/* v34.72 — تصغير مربع اسم الموظف والفرع في حالة الموظفين الآن */
+/* v34.73 — تصغير مربع اسم الموظف والفرع في حالة الموظفين الآن */
 .current-status-card{grid-template-columns:minmax(115px,.78fr) auto minmax(160px,1fr) auto;gap:9px;padding:11px 13px}
 .current-status-main{min-width:0;padding:2px 4px}
 .current-status-main strong{font-size:13px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .current-status-main small{font-size:10px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
 @media(max-width:1100px){.current-status-card{grid-template-columns:1fr 1fr}.current-status-main{min-width:0}.current-status-main strong{font-size:13px}.current-status-main small{font-size:10px}}
+
+/* v34.73 — ضبط وتنسيق بطاقات حالة الموظفين الآن داخل اللوحات الضيقة */
+.current-status-list{grid-template-columns:1fr!important;gap:10px!important;margin-top:12px!important}
+.current-status-card{grid-template-columns:minmax(0,1fr) auto!important;grid-template-areas:
+  "main badge"
+  "detail detail"
+  "remaining remaining"!important;
+  gap:9px 10px!important;padding:12px 13px!important;border-radius:14px!important;min-width:0!important;box-sizing:border-box!important;overflow:hidden!important}
+.current-status-main{grid-area:main;min-width:0!important;align-self:center!important}
+.current-status-main strong{font-size:14px!important;line-height:1.35!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.current-status-main small{font-size:10px!important;margin-top:2px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.current-status-badge{grid-area:badge;align-self:center!important;justify-self:start!important;padding:6px 8px!important;font-size:10px!important;border-radius:9px!important}
+.current-status-detail{grid-area:detail!important;display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:8px!important;align-items:center!important;min-width:0!important;padding-top:7px!important;border-top:1px solid #edf1f4!important}
+.current-status-detail>b{font-size:11px!important;line-height:1.4!important;min-width:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.status-dates{display:flex!important;gap:5px!important;align-items:center!important;justify-content:flex-start!important;flex-wrap:nowrap!important}
+.status-dates span{display:inline-flex!important;align-items:center!important;gap:4px!important;padding:5px 7px!important;background:#f7fafc!important;border:1px solid #d9e5ec!important;border-radius:8px!important;white-space:nowrap!important}
+.status-dates em{font-style:normal!important;color:#718493!important;font-size:9px!important;font-weight:700!important}
+.status-dates strong{font-size:11px!important;color:#24577d!important;line-height:1.2!important}
+.current-status-remaining{grid-area:remaining!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:6px!important;min-width:0!important;padding-top:6px!important;border-top:1px solid #edf1f4!important;text-align:center!important}
+.current-status-remaining b{font-size:16px!important;line-height:1!important;color:#24577d!important}
+.current-status-remaining span{font-size:10px!important;margin:0!important;color:#718493!important}
+.current-status-alert{position:static!important;grid-column:1/-1!important;grid-row:auto!important;justify-self:start!important;font-size:9px!important;padding:3px 6px!important;margin-top:-2px!important}
+.home-current-status .home-section-head{gap:8px!important}
+.home-current-status .home-section-head h2{font-size:17px!important}
+.home-current-status .home-current-note{font-size:10px!important;line-height:1.5!important}
+.home-current-status .home-current-count{font-size:10px!important;padding:6px 9px!important}
+@media(max-width:420px){
+  .current-status-detail{grid-template-columns:1fr!important}
+  .status-dates{justify-content:flex-start!important;flex-wrap:wrap!important}
+  .current-status-main strong{font-size:13px!important}
+}

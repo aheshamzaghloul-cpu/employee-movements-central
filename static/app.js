@@ -212,6 +212,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
   // Reusable free canvas for administration/report cards. Cards are movable anywhere and resizable from the corner.
   document.querySelectorAll('.free-card-workspace').forEach(workspace=>{
+    if(workspace.classList.contains('supervisor-full-workspace')) return;
     const id=workspace.id||('workspace-'+Math.random().toString(36).slice(2));
     const key='employee_free_cards_v34_36_'+id+location.search;
     const cards=()=>[...workspace.querySelectorAll('.free-card')];

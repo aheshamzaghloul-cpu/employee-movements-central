@@ -102,9 +102,9 @@
 </section>
 {% endif %}
 {% if selected_governorate %}
-<div class="free-card-workspace structure-free-workspace" id="structure-card-workspace"><div class="structure-grid" id="structure">
+<div class="free-card-workspace structure-free-workspace {% if is_supervisor %}supervisor-full-workspace{% endif %}" id="structure-card-workspace"><div class="structure-grid" id="structure">
 {% for g,bs,sups,entries,counts in tree %}
-<section class="structure-card supervisor-clean-card">
+<section class="structure-card supervisor-clean-card {% if is_supervisor %}supervisor-full-page-card{% endif %}">
   <div class="structure-head"><div><span class="eyebrow">المحافظة</span><h2>{{g.name}}</h2></div><span class="tag">{{bs|length}} فرع</span></div>
   {% if is_admin %}
   <details class="inline-add no-print" style="margin-bottom:10px"><summary>＋ إضافة مشرف لهذه المحافظة</summary><form method="post" action="/users" class="quick-form wide-form"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="from_structure" value="1"><input type="hidden" name="role" value="مشرف محافظة"><input type="hidden" name="governorate_id" value="{{g.id}}"><label>اسم المشرف<input name="full_name" required></label><label>البريد الإلكتروني<input name="email" type="email" required autocomplete="email"></label><label>الوظيفة<input name="job_title" required></label><label>الكود الوظيفي<input name="job_code" required></label><label>اسم المستخدم<input name="username" required></label><label>كلمة المرور الأولية<input name="password" type="password" minlength="8" required></label><button>إنشاء المشرف وربطه بالمحافظة</button></form></details>

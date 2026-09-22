@@ -310,7 +310,7 @@ def inject_context():
 @app.after_request
 def security_headers(resp):
     resp.headers.setdefault('X-Content-Type-Options','nosniff')
-    resp.headers.setdefault('X-Frame-Options','DENY')
+    resp.headers.setdefault('X-Frame-Options','SAMEORIGIN' if request.path.startswith('/assistant') else 'DENY')
     resp.headers.setdefault('Referrer-Policy','strict-origin-when-cross-origin')
     resp.headers.setdefault('Permissions-Policy','camera=(), microphone=(), geolocation=()')
     if request.is_secure:
@@ -1830,7 +1830,7 @@ def review():
                            assignment_states=ASSIGNMENT_STATES, approved_people=approved_people)
 
 
-# v34.85 — المساعد الذكي: استعادة المسار وإتاحة الاستعلام/تجهيز تسجيل الحركة من أي وقت.
+# v34.91 — إصلاح نافذة المساعد العائمة داخل التطبيق وإزالة حجب X-Frame-Options.
 def assistant_scope_employee_query():
     bs=bids()
     return Employee.query.filter(Employee.is_active==True, Employee.branch_id.in_(bs)).order_by(Employee.full_name).all() if bs else []
@@ -2190,24 +2190,28 @@ def assistant():
     # Flatten for the existing template while retaining grouping metadata.
     assistant_option_groups=assistant_options
     assistant_options=[item for group in assistant_option_groups for item in group['items']]
-    return render_template('assistant.html',result=result,prompt=prompt,assistant_options=assistant_options,assistant_option_groups=assistant_option_groups)
+    embed=request.args.get('embed')=='1'
+    template='assistant_embed.html' if embed else 'assistant.html'
+    return render_template(template,result=result,prompt=prompt,assistant_options=assistant_options,assistant_option_groups=assistant_option_groups,embed=embed)
 
 
 @app.post('/assistant/confirm')
 @req
 def assistant_confirm():
+    embed=request.form.get('embed')=='1'
+    back='/assistant?embed=1' if embed else '/assistant'
     a=session.pop('assistant_pending',None)
-    if not a: flash('لا توجد حركة معلقة للتأكيد.'); return redirect('/assistant')
+    if not a: flash('لا توجد حركة معلقة للتأكيد.'); return redirect(back)
     if not can('manage_movements'): abort(403)
     e=db.session.get(Employee,a.get('employee_id')); dest=db.session.get(Branch,a.get('destination_branch_id')) if a.get('destination_branch_id') else None
-    if not e or not e.is_active or not branch_ok(e.branch_id): flash('الموظف خارج نطاق صلاحياتك.'); return redirect('/assistant')
+    if not e or not e.is_active or not branch_ok(e.branch_id): flash('الموظف خارج نطاق صلاحياتك.'); return redirect(back)
     err=validate_movement_fields(a.get('movement_type'),a.get('leave_type'),dest.id if dest else None,a.get('from_date'),a.get('to_date'),a.get('permission_date'))
-    if err: flash(err); return redirect('/assistant')
-    if a.get('movement_type')=='انتداب' and (not dest or not branch_ok(dest.id)): flash('فرع الانتداب غير مسموح.'); return redirect('/assistant')
+    if err: flash(err); return redirect(back)
+    if a.get('movement_type')=='انتداب' and (not dest or not branch_ok(dest.id)): flash('فرع الانتداب غير مسموح.'); return redirect(back)
     overlap=movement_overlaps(e.id,a['movement_type'],a.get('from_date'),a.get('to_date'),a.get('permission_date'))
-    if overlap: flash(overlap); return redirect('/assistant')
+    if overlap: flash(overlap); return redirect(back)
     m=Movement(employee_id=e.id,movement_type=a['movement_type'],leave_type=a.get('leave_type'),destination_branch_id=dest.id if dest else None,from_date=parse_date(a.get('from_date')),to_date=parse_date(a.get('to_date')),permission_date=parse_date(a.get('permission_date')),notes=None,created_by=me().id,status='مدخلة',assignment_state='ساري',approver_id=None)
-    db.session.add(m); db.session.flush(); record_movement_history(m,None,'مدخلة','AI_ASSISTANT_ADD','تسجيل الحركة من المساعد الذكي — لا تحتاج لاعتماد'); log('AI_ASSISTANT_ADD','Movement',m.id,f'{m.movement_type} — {e.full_name}'); db.session.commit(); flash('تم تسجيل الحركة بنجاح من خلال المساعد الذكي.'); return redirect('/assistant')
+    db.session.add(m); db.session.flush(); record_movement_history(m,None,'مدخلة','AI_ASSISTANT_ADD','تسجيل الحركة من المساعد الذكي — لا تحتاج لاعتماد'); log('AI_ASSISTANT_ADD','Movement',m.id,f'{m.movement_type} — {e.full_name}'); db.session.commit(); flash('تم تسجيل الحركة بنجاح من خلال المساعد الذكي.'); return redirect(back)
 
 @app.route('/movements',methods=['GET','POST'])
 @req

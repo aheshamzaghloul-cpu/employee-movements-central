@@ -240,7 +240,7 @@ document.addEventListener('DOMContentLoaded', function(){
 (function(){
  const modal=document.getElementById('assistantModal'), fab=document.getElementById('assistantFab'), win=document.getElementById('assistantWindow'), bar=document.getElementById('assistantDragBar'), close=document.getElementById('assistantClose'), min=document.getElementById('assistantMinimize'), frame=document.getElementById('assistantFrame');
  if(!modal||!fab||!win||!bar)return;
- function open(){modal.hidden=false;modal.setAttribute('aria-hidden','false');win.classList.remove('is-minimized'); if(frame && !frame.src) frame.src='/assistant';}
+ function open(){modal.hidden=false;modal.setAttribute('aria-hidden','false');win.classList.remove('is-minimized'); if(frame && (!frame.getAttribute('src') || frame.getAttribute('src')==='/assistant')) frame.src='/assistant?embed=1';}
  function hide(){modal.hidden=true;modal.setAttribute('aria-hidden','true');}
  fab.addEventListener('click',open); close?.addEventListener('click',hide); modal.addEventListener('click',e=>{if(e.target===modal)hide()}); min?.addEventListener('click',()=>win.classList.toggle('is-minimized')); document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)hide()});
  let drag=false,ox=0,oy=0;

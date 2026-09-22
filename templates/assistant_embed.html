@@ -1,0 +1,43 @@
+<section class="assistant-page assistant-modern-page assistant-embed-page">
+  <div class="assistant-chat-head">
+    <div class="assistant-icon">✦</div>
+    <div><h1>المساعد الذكي</h1><p>اختر ما تريد أو اكتب طلبك، وسأجمع المطلوب خطوة بخطوة وفق صلاحيات دورك.</p></div>
+  </div>
+  <div class="assistant-role-note">الدور الحالي: <b>{{ roles|join(' | ') }}</b> — الخيارات الظاهرة هنا مرتبطة بالصلاحيات الحالية.</div>
+  <div class="assistant-capability-note">يعرض لك المساعد هنا كل ما يستطيع دورك الحالي <b>الاستعلام عنه أو تنفيذه</b>. لا تظهر الخيارات غير المسموح بها لصلاحياتك.</div>
+  {% for group in assistant_option_groups %}
+  <div class="assistant-capability-group">
+    <div class="assistant-group-title">{{group.group}}</div>
+    <div class="assistant-option-grid">
+      {% for item in group.items %}
+      {% if item.url %}
+      <a class="assistant-option" href="{{item.url}}"><span>{{item.icon}}</span><b>{{item.label}}</b><small>{{'تنفيذ' if item.kind=='action' else ('استعلام' if item.kind=='query' else 'تقرير')}}</small></a>
+      {% else %}
+      <button type="button" class="assistant-option" data-prompt="{{item.prompt}}"><span>{{item.icon}}</span><b>{{item.label}}</b><small>{{'تنفيذ' if item.kind=='action' else 'استعلام'}}</small></button>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+  <form method="post" action="/assistant?embed=1" class="assistant-form assistant-chat-form">
+    <input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="embed" value="1">
+    <textarea name="prompt" rows="3" placeholder="مثال: أريد تسجيل إجازة للموظف أحمد من 2026-09-20 إلى 2026-09-22">{{prompt}}</textarea>
+    <div class="assistant-input-row"><span>✦ اكتب طلبك بطريقتك الطبيعية</span><button type="submit">إرسال الطلب</button></div>
+  </form>
+  {% if result %}
+  <div class="assistant-result assistant-chat-result">
+    <div class="assistant-result-title"><span>✦</span><b>{{result.title}}</b></div>
+    {% if result.error %}<div class="alert">{{result.error}}</div>{% endif %}
+    {% if result.answer %}<div class="assistant-answer">{{result.answer|replace('\n','<br>')|safe}}</div>{% endif %}
+    {% if result.preview %}<div class="assistant-preview"><b>{{result.preview}}</b><form method="post" action="/assistant/confirm"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="embed" value="1"><button type="submit">تأكيد وتنفيذ</button><a class="secondary btn" href="/assistant?embed=1">إلغاء</a></form></div>{% endif %}
+    {% if result.choices %}<div class="assistant-choice-list">{% for x in result.choices %}<button type="button" class="assistant-choice" data-prompt="{{ 'ما حالة الموظف ' ~ x.full_name if x.full_name else 'ما حالة فرع ' ~ x.name }}">{{x.full_name if x.full_name else x.name}}</button>{% endfor %}</div>{% endif %}
+    {% if result.topic_items %}<div class="assistant-choice-list assistant-topic-choices">{% for x in result.topic_items %}<button type="button" class="assistant-choice assistant-topic-choice" data-prompt="{{x.prompt}}"><span>{{x.icon}}</span><b>{{x.label}}</b></button>{% endfor %}</div>{% endif %}
+  </div>
+  {% endif %}
+</section>
+<script>
+(function(){
+ const form=document.querySelector('.assistant-chat-form'), ta=form?.querySelector('textarea');
+ document.querySelectorAll('.assistant-option,.assistant-choice').forEach(b=>b.addEventListener('click',()=>{if(!ta||!form)return;ta.value=b.dataset.prompt||'';ta.focus();}));
+})();
+</script>

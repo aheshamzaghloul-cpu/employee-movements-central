@@ -7,7 +7,7 @@ from sqlalchemy import UniqueConstraint
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app=Flask(__name__)
-APP_VERSION='v34.58-PREFLIGHT-CLEAN'
+APP_VERSION='v34.60-SOFT-DELETE-EMPLOYEE'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg://',1)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or 'dev-only-change-me',SQLALCHEMY_DATABASE_URI=DATABASE_URL,SQLALCHEMY_TRACK_MODIFICATIONS=False,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','0')=='1',MAX_CONTENT_LENGTH=2*1024*1024)
@@ -106,7 +106,7 @@ class ApprovalDelegation(db.Model):
     delegate=db.relationship('User',foreign_keys=[delegate_id])
     governorate=db.relationship('Governorate')
 class Employee(db.Model):
-    id=db.Column(db.Integer,primary_key=True); employee_code=db.Column(db.String(100),unique=True,nullable=True); user_id=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL'),unique=True,nullable=True); email=db.Column(db.String(254),unique=True,nullable=True); full_name=db.Column(db.String(250),nullable=False); branch_id=db.Column(db.Integer,db.ForeignKey('branch.id',ondelete='RESTRICT'),nullable=False); job_title=db.Column(db.String(200)); job_code=db.Column(db.String(100)); hire_date=db.Column(db.Date); company_phone=db.Column(db.String(80)); personal_phone=db.Column(db.String(80)); is_active=db.Column(db.Boolean,default=True,nullable=False); branch=db.relationship('Branch')
+    id=db.Column(db.Integer,primary_key=True); employee_code=db.Column(db.String(100),unique=True,nullable=True); user_id=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL'),unique=True,nullable=True); email=db.Column(db.String(254),unique=True,nullable=True); full_name=db.Column(db.String(250),nullable=False); branch_id=db.Column(db.Integer,db.ForeignKey('branch.id',ondelete='RESTRICT'),nullable=False); job_title=db.Column(db.String(200)); job_code=db.Column(db.String(100)); hire_date=db.Column(db.Date); company_phone=db.Column(db.String(80)); personal_phone=db.Column(db.String(80)); is_active=db.Column(db.Boolean,default=True,nullable=False); deleted_at=db.Column(db.DateTime); deleted_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); branch=db.relationship('Branch')
 class Movement(db.Model):
     id=db.Column(db.Integer,primary_key=True); employee_id=db.Column(db.Integer,db.ForeignKey('employee.id',ondelete='RESTRICT'),nullable=False); movement_type=db.Column(db.String(30),nullable=False); leave_type=db.Column(db.String(100)); destination_branch_id=db.Column(db.Integer,db.ForeignKey('branch.id',ondelete='RESTRICT')); from_date=db.Column(db.Date); to_date=db.Column(db.Date); permission_date=db.Column(db.Date); status=db.Column(db.String(30),default='مسودة',nullable=False); notes=db.Column(db.Text); rejection_reason=db.Column(db.Text); is_active=db.Column(db.Boolean,default=True,nullable=False); deleted_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); deleted_at=db.Column(db.DateTime); created_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='RESTRICT'),nullable=False); created_at=db.Column(db.DateTime,default=datetime.utcnow); modified_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); modified_at=db.Column(db.DateTime); reviewed_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); reviewed_at=db.Column(db.DateTime); approved_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); approved_at=db.Column(db.DateTime); approver_id=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); employee=db.relationship('Employee'); approver=db.relationship('User',foreign_keys=[approver_id]); destination=db.relationship('Branch',foreign_keys=[destination_branch_id]); assignment_state=db.Column(db.String(30),default='ساري',nullable=False); closed_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); closed_at=db.Column(db.DateTime); closure_reason=db.Column(db.Text); last_assignment_notice_at=db.Column(db.DateTime)
 class MovementHistory(db.Model):
@@ -1371,9 +1371,19 @@ def employees():
         if not branch_obj or branch_obj.governorate_id!=submitted_gid: flash('يجب اختيار محافظة وفرع صحيحين.')
         elif not all([name,email,job_title,job_code,hire_date,company_phone,personal_phone]): flash('جميع بيانات الموظف مطلوبة.')
         elif not valid_email(email): flash('البريد الإلكتروني مطلوب ويجب أن يكون بصيغة صحيحة.')
-        elif Employee.query.filter_by(email=email).first(): flash('البريد الإلكتروني مستخدم بالفعل لموظف آخر.')
         elif not parse_date(hire_date): flash('تاريخ التعيين مطلوب وبصيغة صحيحة.')
         else:
+            existing=Employee.query.filter_by(email=email).first()
+            if existing:
+                if existing.is_active:
+                    flash('البريد الإلكتروني مستخدم بالفعل لموظف آخر.')
+                    return redirect(url_for('employees'))
+                # الموظف غير ظاهر في القائمة لأنه معطّل. لا ننشئ سجلًا ثانيًا؛ نستعيد نفس السجل ونحافظ على تاريخه وحركاته.
+                existing.full_name=name; existing.email=email; existing.branch_id=bid; existing.job_title=job_title; existing.job_code=job_code
+                existing.hire_date=parse_date(hire_date); existing.company_phone=company_phone; existing.personal_phone=personal_phone; existing.is_active=True; existing.deleted_at=None; existing.deleted_by=None
+                log('RESTORE','Employee',existing.id,existing.full_name); db.session.commit()
+                flash('تمت استعادة الموظف السابق وتحديث بياناته، مع الاحتفاظ بكل تاريخه وحركاته.')
+                return redirect(url_for('card',i=existing.id))
             e=Employee(employee_code=None,email=email,full_name=name,branch_id=bid,job_title=job_title,job_code=job_code,hire_date=parse_date(hire_date),company_phone=company_phone,personal_phone=personal_phone); db.session.add(e); db.session.commit(); log('ADD','Employee',e.id,e.full_name); db.session.commit(); flash('تمت إضافة الموظف بنجاح. يمكنك الآن تسجيل أول حركة له.'); return redirect(url_for('card',i=e.id))
     branches=Branch.query.filter(Branch.id.in_(bs),Branch.is_active==True).order_by(Branch.name).all() if bs else []
     q=request.args.get('q','').strip()
@@ -1409,7 +1419,7 @@ def employee_edit_data():
 @req
 def employee_edit(i):
     e=db.session.get(Employee,i)
-    if not can_manage_employee(e) or not can('manage_employees'): abort(403)
+    if not e or e.deleted_at is not None or not can_manage_employee(e) or not can('manage_employees'): abort(403)
     if request.method=='POST':
         bid=int(request.form['branch_id'])
         if not branch_ok(bid): abort(403)
@@ -1511,15 +1521,60 @@ def employee_convert_role(i):
 def et(i):
     e=db.session.get(Employee,i)
     if not can_manage_employee(e) or not can('manage_employees'): abort(403)
-    e.is_active=not e.is_active; log('TOGGLE','Employee',i); db.session.commit(); return redirect('/employees')
+    if e.deleted_at is not None:
+        flash('الموظف محذوف. استخدم صفحة الموظفين المحذوفين لاستعادته.')
+    else:
+        e.is_active=not e.is_active; log('TOGGLE','Employee',i)
+        db.session.commit()
+    return redirect('/employees')
 @app.post('/employees/<int:i>/delete')
 @req
 def ed(i):
     e=db.session.get(Employee,i)
     if not can_manage_employee(e) or not can('manage_employees'): abort(403)
-    if Movement.query.filter_by(employee_id=i).count(): flash('لا يمكن حذف موظف له حركات تاريخية؛ استخدم التعطيل.')
-    else: db.session.delete(e); log('DELETE','Employee',i); db.session.commit(); flash('تم حذف الموظف.')
-    return redirect('/employees')
+    if not e: abort(404)
+    # حذف منطقي: لا نحذف سجل الموظف أو حركاته، بل نضعه في حالة (محذوف).
+    # نلتقط التكليف التنظيمي قبل تعطيل الموظف حتى يمكن تحرير فروع مسؤوليته.
+    assignment=organizational_entry_for_employee(e)
+    e.is_active=False
+    e.deleted_at=datetime.utcnow()
+    e.deleted_by=me().id if me() else None
+    if assignment:
+        assignment.is_active=False
+    # دعم السجلات القديمة التي كان فيها المدخل الأول حسابًا: إزالة دوره التنظيمي فقط،
+    # مع إبقاء حساب المستخدم وأي أدوار أخرى محفوظة.
+    if e.user_id:
+        linked_user=db.session.get(User,e.user_id)
+        if linked_user:
+            UserRole.query.filter_by(user_id=linked_user.id,role='المدخل الأول').delete()
+            UserBranch.query.filter_by(user_id=linked_user.id).delete()
+            SupervisorEntry.query.filter_by(entry_id=linked_user.id).delete()
+    log('DELETE','Employee',i,f'حذف منطقي للموظف: {e.full_name}')
+    db.session.commit()
+    flash('تم حذف الموظف منطقيًا. بقي سجله وحركاته محفوظة وتم وضع علامة «محذوف».')
+    return redirect(url_for('employees'))
+
+@app.get('/employees/deleted')
+@req
+def deleted_employees():
+    if not can('manage_employees'): abort(403)
+    bs=bids()
+    rows=(Employee.query.filter(Employee.deleted_at.isnot(None),Employee.branch_id.in_(bs)).order_by(Employee.deleted_at.desc(),Employee.full_name).all() if bs else [])
+    return render_template('employee_deleted.html',rows=rows)
+
+@app.post('/employees/<int:i>/restore')
+@req
+def employee_restore(i):
+    e=db.session.get(Employee,i)
+    if not e or e.deleted_at is None: abort(404)
+    if not can_manage_employee(e) or not can('manage_employees'): abort(403)
+    e.is_active=True
+    e.deleted_at=None
+    e.deleted_by=None
+    log('RESTORE','Employee',i,f'استعادة الموظف: {e.full_name}')
+    db.session.commit()
+    flash('تمت استعادة الموظف مع الاحتفاظ بسجله وحركاته.')
+    return redirect(url_for('deleted_employees'))
 @app.get('/employee/<int:i>')
 @req
 def card(i):
@@ -2134,6 +2189,10 @@ def ensure_v25_schema():
         db.session.execute(text('ALTER TABLE employee ADD COLUMN user_id INTEGER'))
     if 'email' not in ecols_existing:
         db.session.execute(text('ALTER TABLE employee ADD COLUMN email VARCHAR(254)'))
+    if 'deleted_at' not in ecols_existing:
+        db.session.execute(text('ALTER TABLE employee ADD COLUMN deleted_at TIMESTAMP'))
+    if 'deleted_by' not in ecols_existing:
+        db.session.execute(text('ALTER TABLE employee ADD COLUMN deleted_by INTEGER'))
     mcols={c['name'] for c in insp.get_columns('movement')}
     if 'approver_id' not in mcols:
         db.session.execute(text('ALTER TABLE movement ADD COLUMN approver_id INTEGER'))

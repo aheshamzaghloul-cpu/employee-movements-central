@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}الموظفون المحذوفون{% endblock %}
+{% block content %}
+<div class="toolbar">
+  <div><h1>الموظفون المحذوفون</h1><p class="subtitle">السجلات محذوفة منطقيًا فقط؛ بيانات الموظف وحركاته محفوظة بالكامل.</p></div>
+  <div class="actions"><a class="btn secondary" href="/employees">عودة للموظفين</a></div>
+</div>
+<div class="notice"><b>مهم:</b> الحذف هنا لا يمسح السجل من قاعدة البيانات، وإنما يضع الموظف في حالة <b>محذوف</b>. ويمكن استعادته لاحقًا.</div>
+<div class="box tablewrap">
+  <table>
+    <thead><tr><th>الموظف</th><th>البريد الإلكتروني</th><th>الكود الوظيفي</th><th>الفرع</th><th>تاريخ الحذف</th><th>الحالة</th><th>إجراء</th></tr></thead>
+    <tbody>
+    {% for e in rows %}
+      <tr>
+        <td><a href="/employee/{{e.id}}"><b>{{e.full_name}}</b></a></td>
+        <td>{{e.email or '—'}}</td>
+        <td>{{e.job_code or '—'}}</td>
+        <td>{{e.branch.name}}</td>
+        <td>{{e.deleted_at.strftime('%Y-%m-%d %H:%M') if e.deleted_at else '—'}}</td>
+        <td><span class="employee-deleted-badge">محذوف</span></td>
+        <td>
+          <a class="btn secondary mini" href="/employee/{{e.id}}">السجل</a>
+          <form class="inline" method="post" action="/employees/{{e.id}}/restore">
+            <input type="hidden" name="_csrf" value="{{csrf}}">
+            <button class="green mini" data-confirm="هل تريد استعادة الموظف؟">استعادة</button>
+          </form>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7" class="empty">لا توجد سجلات موظفين محذوفة.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

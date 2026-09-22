@@ -988,3 +988,5 @@ main:not(.login){padding-left:0!important;padding-right:0!important}
 .movement-list-box{margin-top:18px}.movement-list-box td small{display:block;color:#6b7280;margin-top:3px}.movement-list-box .table-link{font-weight:800}
 @media(max-width:1100px){.current-status-list{grid-template-columns:1fr}.current-status-card{grid-template-columns:1fr 1fr}.current-status-detail{grid-column:1/2}.current-status-remaining{grid-column:2/3;grid-row:2}.current-status-alert{position:static;justify-self:start;grid-column:1/-1}}
 @media(max-width:650px){.current-status-card{grid-template-columns:1fr}.current-status-detail,.current-status-remaining{grid-column:auto;grid-row:auto;text-align:right}.current-status-remaining{text-align:right}.current-status-alert{grid-column:auto}}
+
+.employee-deleted-badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#fde7e7;color:#a12b35;border:1px solid #efb7bb;font-size:12px;font-weight:800;vertical-align:middle}.notice{padding:12px 14px;border-radius:12px;margin-bottom:14px}

@@ -3,9 +3,9 @@
 {% block content %}
 <div class="toolbar">
   <div class="employee-head">
-    <div><h1>{{e.full_name}}</h1><p class="subtitle">الكود الوظيفي: <b>{{e.job_code or "—"}}</b> — {{e.branch.governorate.name}} — {{e.branch.name}}</p></div>
+    <div><h1>{{e.full_name}} {% if e.deleted_at %}<span class="employee-deleted-badge">محذوف</span>{% endif %}</h1><p class="subtitle">الكود الوظيفي: <b>{{e.job_code or "—"}}</b> — {{e.branch.governorate.name}} — {{e.branch.name}}</p></div>
   </div>
-  <div class="actions">{% if can_manage_employee(e) and can('manage_movements') %}<a class="btn teal" href="/movements?employee_id={{e.id}}">+ تسجيل حركة للموظف</a>{% endif %}{% if can_manage_employee(e) and can('manage_employees') %}<a class="btn secondary" href="/employees/{{e.id}}/edit">تعديل البيانات</a>{% endif %}<a class="btn secondary" href="/employees">عودة للموظفين</a></div>
+  <div class="actions">{% if not e.deleted_at and can_manage_employee(e) and can('manage_movements') %}<a class="btn teal" href="/movements?employee_id={{e.id}}">+ تسجيل حركة للموظف</a>{% endif %}{% if not e.deleted_at and can_manage_employee(e) and can('manage_employees') %}<a class="btn secondary" href="/employees/{{e.id}}/edit">تعديل البيانات</a>{% endif %}<a class="btn secondary" href="/employees">عودة للموظفين</a></div>
 </div>
 
 <div class="box employee-profile">
@@ -36,7 +36,7 @@
 <div class="box tablewrap employee-history">
   <div class="section-title">
     <div><h3>سجل حركات الموظف</h3><div class="hint">الأحدث أولًا — اختر نوع الحركة لتصفية السجل.</div></div>
-    {% if can_manage_employee(e) and can('manage_movements') %}<a class="btn teal mini" href="/movements?employee_id={{e.id}}">+ حركة جديدة</a>{% endif %}
+    {% if not e.deleted_at and can_manage_employee(e) and can('manage_movements') %}<a class="btn teal mini" href="/movements?employee_id={{e.id}}">+ حركة جديدة</a>{% endif %}
   </div>
   <div class="history-tools">
     <div class="history-filters" role="group" aria-label="تصفية الحركات">

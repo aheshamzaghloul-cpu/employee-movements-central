@@ -4,7 +4,7 @@
 <div class="toolbar"><div><h1>الموظفون</h1><p class="subtitle">إدارة سجل الموظف وبياناته الأساسية وبطاقته وحركاته من مكان منظم.</p></div></div>
 <div class="section-tabs">
   <a class="section-tab active" href="/employees">قائمة الموظفين</a>
-  {% if can('manage_employees') %}<a class="section-tab" href="/employees/edit-data">تعديل البيانات</a>{% endif %}
+  {% if can('manage_employees') %}<a class="section-tab" href="/employees/edit-data">تعديل البيانات</a><a class="section-tab" href="/employees/deleted">الموظفون المحذوفون</a>{% endif %}
 </div>
 <div class="box">
   <div class="section-title"><h3>إضافة موظف جديد</h3></div>

@@ -90,7 +90,7 @@
 
     <div class="entry-directory-list" id="entry-directory-list">
       {% for row in entry_rows %}
-        <details class="entry-card" data-entry-id="{{row.employee.id}}" data-entry-employee-ids="{% for bg in row.branches %}{% for emp in bg.employees %}{{emp.id}}{% if not loop.last or not loop.parent.last %},{% endif %}{% endfor %}{% endfor %}">
+        <details class="entry-card" data-entry-id="{{row.employee.id}}" data-entry-employee-ids="{% for bg in row.branches %}{% for emp in bg.employees %}{{emp.id}},{% endfor %}{% endfor %}">
           <summary>
             <span class="entry-avatar">👤</span>
             <span class="entry-main"><strong>{{row.employee.full_name}}</strong><small>{{row.employee.job_title or 'مدخل أول تنظيمي'}}{% if row.supervisor %} · المشرف: {{row.supervisor.full_name}}{% endif %}</small></span>

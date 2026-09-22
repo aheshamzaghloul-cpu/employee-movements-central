@@ -53,17 +53,6 @@
       <div class="entry-directory-badge"><b>{{ entry_rows|length }}</b><span>مدخل أول</span></div>
     </div>
 
-    <div class="entry-role-chain-add">
-      <div><b>＋ إضافة دور مدخل أول</b><small>تتم الإضافة من السلسلة نفسها، والدور تنظيمي فقط.</small></div>
-      <form method="post" action="/entry-role/add" class="inline-entry-role-form">
-        <input type="hidden" name="_csrf" value="{{csrf}}">
-        <select name="employee_id" required><option value="">اختر الموظف</option>{% for e in available_entry_employees %}<option value="{{e.id}}">{{e.full_name}} — {{e.branch.name if e.branch else ''}}</option>{% endfor %}</select>
-        {% if is_admin %}<select name="supervisor_id" required><option value="">المشرف المسؤول</option>{% for s in entry_supervisors %}<option value="{{s.id}}">{{s.full_name}}</option>{% endfor %}</select>{% endif %}
-        <select name="branch_id" multiple required title="يمكن اختيار أكثر من فرع"><option value="" disabled>اختر فروع المسؤولية</option>{% for b in available_entry_branches %}<option value="{{b.id}}">{{b.name}}{% if b.code %} — {{b.code}}{% endif %}</option>{% endfor %}</select>
-        <button class="btn mini">إضافة المدخل والفروع</button>
-      </form>
-    </div>
-
     <div class="entry-directory-list">
       {% for row in entry_rows %}
         <details class="entry-card">
@@ -118,6 +107,17 @@
       {% else %}
         <div class="entry-empty entry-empty-large"><strong>لا يوجد مدخلون أوائل حتى الآن</strong><span>هذه الخاصية موجودة هنا دائمًا، ويمكن إضافة الدور مباشرة من زر «إضافة دور مدخل أول».</span></div>
       {% endfor %}
+    </div>
+
+    <div class="entry-role-chain-add entry-role-chain-add-separate">
+      <div><span class="home-kicker">السلسلة الوظيفية</span><b>＋ إضافة دور مدخل أول</b><small>دور تنظيمي فقط: اختر الموظف وفروع مسؤوليته، دون إنشاء حساب دخول.</small></div>
+      <form method="post" action="/entry-role/add" class="inline-entry-role-form">
+        <input type="hidden" name="_csrf" value="{{csrf}}">
+        <select name="employee_id" required><option value="">اختر الموظف</option>{% for e in available_entry_employees %}<option value="{{e.id}}">{{e.full_name}} — {{e.branch.name if e.branch else ''}}</option>{% endfor %}</select>
+        {% if is_admin %}<select name="supervisor_id" required><option value="">المشرف المسؤول</option>{% for s in entry_supervisors %}<option value="{{s.id}}">{{s.full_name}}</option>{% endfor %}</select>{% endif %}
+        <select name="branch_id" multiple required title="يمكن اختيار أكثر من فرع"><option value="" disabled>اختر فروع المسؤولية</option>{% for b in available_entry_branches %}<option value="{{b.id}}">{{b.name}}{% if b.code %} — {{b.code}}{% endif %}</option>{% endfor %}</select>
+        <button class="btn mini">إضافة المدخل والفروع</button>
+      </form>
     </div>
   </section>
   {% endif %}

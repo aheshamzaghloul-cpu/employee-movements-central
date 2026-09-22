@@ -30,10 +30,10 @@
     <label>الفرع<select name="branch_id" id="employee_branch_filter"><option value="">كل الفروع</option>{% for b in bs %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}" {% if branch_filter|string==b.id|string %}selected{% endif %}>{{b.name}}</option>{% endfor %}</select></label>
     <button class="secondary">بحث</button><a class="btn gray" href="/employees">مسح البحث</a>
   </form>
-  <table id="employees-table"><thead><tr><th>الموظف</th><th>البريد الإلكتروني</th><th>الكود الوظيفي</th><th>الفرع</th><th>الوظيفة</th><th>إجراءات</th></tr></thead>
+  <table id="employees-table"><thead><tr><th>الموظف</th><th>البريد الإلكتروني</th><th>الكود الوظيفي</th><th>المحافظة</th><th>الفرع</th><th>المدخل الأول المسؤول</th><th>الوظيفة</th><th>إجراءات</th></tr></thead>
   <tbody>{% for e in rows %}<tr>
-    <td><a href="/employee/{{e.id}}"><b>{{e.full_name}}</b></a></td><td>{{e.email or "—"}}</td><td>{{e.job_code}}</td><td>{{e.branch.name}}</td><td>{{e.job_title}}</td>
+    <td><a href="/employee/{{e.id}}"><b>{{e.full_name}}</b></a></td><td>{{e.email or "—"}}</td><td>{{e.job_code}}</td><td>{{e.branch.governorate.name if e.branch and e.branch.governorate else "—"}}</td><td>{{e.branch.name if e.branch else "—"}}</td><td>{% if entry_map.get(e.id) %}<b>{{entry_map.get(e.id)}}</b>{% else %}<span class="hint">غير مسند</span>{% endif %}</td><td>{{e.job_title}}</td>
     <td><a class="btn secondary mini" href="/employee/{{e.id}}">بطاقة الموظف</a> <form class="inline" method="post" action="/employees/{{e.id}}/toggle"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="gray mini">{% if e.is_active %}تعطيل{% else %}تفعيل{% endif %}</button></form> <form class="inline" method="post" action="/employees/{{e.id}}/delete"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="red mini" data-confirm="هل تريد حذف الموظف؟">حذف</button></form></td>
-  </tr>{% else %}<tr><td colspan="6" class="empty">لا توجد نتائج مطابقة.</td></tr>{% endfor %}</tbody></table>
+  </tr>{% else %}<tr><td colspan="8" class="empty">لا توجد نتائج مطابقة.</td></tr>{% endfor %}</tbody></table>
 </div>
 {% endblock %}

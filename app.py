@@ -7,7 +7,7 @@ from sqlalchemy import UniqueConstraint
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app=Flask(__name__)
-APP_VERSION = 'v34.64'
+APP_VERSION = 'v34.66'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg://',1)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or 'dev-only-change-me',SQLALCHEMY_DATABASE_URI=DATABASE_URL,SQLALCHEMY_TRACK_MODIFICATIONS=False,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','0')=='1',MAX_CONTENT_LENGTH=2*1024*1024)
@@ -1206,7 +1206,8 @@ def users():
     # الحساب الوهمي لكل دور محفوظ ككيان RoleAccount مستقل؛ نعرضه للإدارة
     # حتى يكون واضحًا أن كل دور إضافي له حسابه الداخلي المستقل بنفس بيانات الدخول.
     role_accounts_by_user={u.id: RoleAccount.query.filter_by(user_id=u.id).order_by(RoleAccount.role.asc()).all() for u in visible}
-    return render_template('users.html',rows=visible,gs=gs,bs=bs,role_default_permissions=role_default_permissions,role_accounts_by_user=role_accounts_by_user)
+    supervisor_choices=[x for x in User.query.filter_by(is_active=True).order_by(User.full_name).all() if 'مشرف محافظة' in actual_roles(x)]
+    return render_template('users.html',rows=visible,gs=gs,bs=bs,role_default_permissions=role_default_permissions,role_accounts_by_user=role_accounts_by_user,supervisor_choices=supervisor_choices)
 @app.route('/users/<int:i>/edit',methods=['GET','POST'])
 @req
 def user_edit(i):
@@ -1463,24 +1464,41 @@ def employees():
                 flash('تمت استعادة الموظف السابق وتحديث بياناته، مع الاحتفاظ بكل تاريخه وحركاته.')
                 return redirect(url_for('card',i=existing.id))
             e=Employee(employee_code=None,email=email,full_name=name,branch_id=bid,job_title=job_title,job_code=job_code,hire_date=parse_date(hire_date),company_phone=company_phone,personal_phone=personal_phone); db.session.add(e); db.session.commit(); log('ADD','Employee',e.id,e.full_name); db.session.commit(); flash('تمت إضافة الموظف بنجاح. يمكنك الآن تسجيل أول حركة له.'); return redirect(url_for('card',i=e.id))
-    branches=Branch.query.filter(Branch.id.in_(bs),Branch.is_active==True).order_by(Branch.name).all() if bs else []
+    # في شاشة الموظفين، المشرف يستطيع اختيار أي محافظة للبحث والاستعراض.
+    # هذا لا يمنحه صلاحيات تعديل/حذف خارج نطاقه؛ عمليات التعديل والحذف تظل محكومة بدوال الصلاحيات.
+    supervisor_search_all = 'مشرف محافظة' in roles()
+    search_branch_ids = [b.id for b in Branch.query.filter(Branch.is_active==True).all()] if supervisor_search_all else bs
+    branches=Branch.query.filter(Branch.id.in_(search_branch_ids),Branch.is_active==True).order_by(Branch.name).all() if search_branch_ids else []
     q=request.args.get('q','').strip()
     branch_filter=request.args.get('branch_id','').strip()
-    query=Employee.query.filter(Employee.is_active==True,Employee.branch_id.in_(bs)) if bs else Employee.query.filter(False)
+    query=Employee.query.filter(Employee.is_active==True,Employee.branch_id.in_(search_branch_ids)) if search_branch_ids else Employee.query.filter(False)
     if q:
         like=f'%{q}%'; query=query.filter(db.or_(Employee.full_name.ilike(like),Employee.job_code.ilike(like),Employee.job_title.ilike(like)))
     if branch_filter.isdigit() and int(branch_filter) in bs: query=query.filter(Employee.branch_id==int(branch_filter))
     rows=query.order_by(Employee.full_name).all()
     gov_filter=request.args.get('governorate_id','').strip()
-    govs=Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True).order_by(Governorate.name).all() if gids() else []
-    if gov_filter.isdigit() and int(gov_filter) in gids():
-        branches=Branch.query.filter(Branch.governorate_id==int(gov_filter),Branch.is_active==True,Branch.id.in_(bs)).order_by(Branch.name).all()
+    govs=Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all() if supervisor_search_all else (Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True).order_by(Governorate.name).all() if gids() else [])
+    allowed_search_gov_ids={g.id for g in govs}
+    if gov_filter.isdigit() and int(gov_filter) in allowed_search_gov_ids:
+        branches=Branch.query.filter(Branch.governorate_id==int(gov_filter),Branch.is_active==True,Branch.id.in_(search_branch_ids)).order_by(Branch.name).all()
         if not (branch_filter.isdigit() and int(branch_filter) in [b.id for b in branches]): branch_filter=''
         query=Employee.query.filter(Employee.is_active==True,Employee.branch_id.in_([b.id for b in branches]))
         if q:
             like=f'%{q}%'; query=query.filter(db.or_(Employee.full_name.ilike(like),Employee.job_code.ilike(like),Employee.job_title.ilike(like)))
         rows=query.order_by(Employee.full_name).all()
-    return render_template('employees.html',rows=rows,bs=branches,q=q,branch_filter=branch_filter,govs=govs,gov_filter=gov_filter)
+    # المدخل الأول المسؤول عن كل موظف: يُحسب من فروع المسؤولية التنظيمية،
+    # مع الاحتفاظ بسجل موظف واحد وعدم إنشاء سجل إضافي للمدخل.
+    entry_map={}
+    if rows:
+        row_ids={e.id for e in rows}
+        assignments=EntryAssignment.query.filter(EntryAssignment.employee_id.in_(row_ids),EntryAssignment.is_active==True).all()
+        for a in assignments:
+            entry_map[a.employee_id]=a.employee.full_name if a.employee else ''
+
+    # عرض جميع المحافظات في قائمة البحث للحسابات ذات النطاق الشامل،
+    # بينما تبقى نتائج الموظفين نفسها محكومة بصلاحيات/nطاق الحساب.
+    filter_govs = Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all() if (supervisor_search_all or 'مسؤول التطبيق' in roles() or 'Manager Application Support' in roles()) else govs
+    return render_template('employees.html',rows=rows,bs=branches,q=q,govs=filter_govs,gov_filter=gov_filter,entry_map=entry_map)
 @app.get('/employees/edit-data')
 @req
 def employee_edit_data():

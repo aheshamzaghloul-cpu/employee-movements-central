@@ -1046,3 +1046,13 @@ main{width:100%;max-width:none;margin:0;padding:0}
 main>.box,main>.toolbar,main>.section-tabs,main>.admin-control-center,main>.admin-shortcuts,main>.structure-grid,main>.quick-panels,main>.home-search,main>.home-top-row,main>.home-main-grid,main>.home-three-panels{width:100%;max-width:none}
 .tablewrap{width:100%}
 @media(max-width:700px){.wrap{padding:8px}main{width:100%}}
+
+/* v34.66: فروع المدخل الأول تظهر أفقيًا للحفاظ على مساحة الرؤية */
+.home-entry-directory .entry-branch-grid{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))!important;align-items:start}
+.home-entry-directory .branch-card{min-width:0}
+@media(max-width:900px){.home-entry-directory .entry-branch-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:600px){.home-entry-directory .entry-branch-grid{grid-template-columns:1fr!important}}
+
+/* v34.66: جدول الموظفين يستغل العرض ويُظهر المحافظة والمدخل الأول بوضوح */
+#employees-table th,#employees-table td{vertical-align:middle}
+#employees-table td:nth-child(4),#employees-table td:nth-child(6){white-space:nowrap}

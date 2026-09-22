@@ -7,7 +7,7 @@ from sqlalchemy import UniqueConstraint
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app=Flask(__name__)
-APP_VERSION='v34.85'
+APP_VERSION='v34.88'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg://',1)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or 'dev-only-change-me',SQLALCHEMY_DATABASE_URI=DATABASE_URL,SQLALCHEMY_TRACK_MODIFICATIONS=False,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','0')=='1',MAX_CONTENT_LENGTH=2*1024*1024)
@@ -1869,7 +1869,79 @@ def assistant_parse_date(text):
 
 def assistant_parse(text):
     t=assistant_normalize(text)
+    # فهم لغوي مرن: نطبع الصيغ الشائعة ونفسر المقصود حتى لو لم يستخدم المستخدم
+    # نفس تسمية الزر داخل التطبيق.
     low=t.lower()
+    compact=re.sub(r'[\s_\-]+','',low)
+    def has_any(*words):
+        return any(w in t or w in low for w in words)
+    # عبارات موضوعية مباشرة: أي صياغة تدل على الإجازة/الانتداب/الإذن/المدخل الأول.
+    leave_words=('إجازة','اجازة','اجازات','الإجازات','الاجازات','عطلة','عطلات')
+    assign_words=('انتداب','انتدابات','مأمورية','مأموريات')
+    perm_words=('إذن','اذن','أذونات','اذونات')
+    entry_words=('مدخل أول','مدخل الاول','مدخل الأول','المدخل الأول','المدخل الاول','مدخلين أوائل','المدخلين الأوائل')
+    action_words=('سجل','تسجيل','سجّل','ادخل','إدخال','أدخل','اضف','أضف','إضافة','اعمل','عمل','نفذ','تنفيذ','عين','تعيين')
+    query_words=('حالة','اعرض','عرض','استعلم','استعلام','اسم','من هو','مين','موظفين','الموظفون','الموظفين','بيانات','سجل')
+    # استعلام ذكي عن المدخل الأول المسؤول عن فرع محدد.
+    if has_any(*entry_words) and has_any('فرع','الفرع') and has_any('اسم','من هو','مين','مسؤول','مسئول','يتبع'):
+        bm=re.search(r'(?:فرع|الفرع)\s+([^؟?،,؛\n]+)',t)
+        name=bm.group(1).strip() if bm else ''
+        br,matches=assistant_find_branch(name)
+        return {'intent':'branch_entry','branch_id':br.id if br else None,'branch_name':name,'candidate_ids':[b.id for b in matches[:10]]}
+    # إذا ذكر المستخدم موظفي فرع/العاملين بفرع، فهو استعلام عن موظفي الفرع حتى لو لم يقل
+    # حرفيًا "حالة الفرع".
+    if (has_any('موظفي','الموظفين','الموظفون','العاملين','العاملون','موظفين') and has_any('فرع','الفرع')):
+        bm=re.search(r'(?:فرع|الفرع)\s+([^؟?،,؛\n]+)',t)
+        name=bm.group(1).strip() if bm else ''
+        br,matches=assistant_find_branch(name)
+        return {'intent':'branch_status','branch_id':br.id if br else None,'branch_name':name,'candidate_ids':[b.id for b in matches[:10]]}
+    # صياغات مثل "إدخال إجازة" و"إضافة إجازة" و"اعمل إجازة" تعني تسجيل إجازة.
+    if has_any(*leave_words) and has_any(*action_words):
+        mt='إجازة'
+    elif has_any(*assign_words) and has_any(*action_words):
+        mt='انتداب'
+    elif has_any(*perm_words) and has_any(*action_words):
+        mt='إذن'
+    else:
+        mt=None
+    if mt:
+        em=re.search(r'(?:للموظف|لـ|ل |الموظف|موظف)\s*([^،,؛\n]+?)(?=\s+(?:من|بتاريخ|في|إجازة|اجازة|انتداب|إذن|اذن)|$)',t,re.I)
+        name=em.group(1).strip() if em else ''
+        emp,matches=assistant_find_employee(name)
+        dates=re.findall(r'20\d{2}[-/]\d{1,2}[-/]\d{1,2}',t)
+        fd=assistant_parse_date(dates[0]) if dates else None
+        td=assistant_parse_date(dates[1]) if len(dates)>1 else fd
+        pd=assistant_parse_date(dates[0]) if dates else None
+        leave_type=None
+        if mt=='إجازة':
+            for x in active_leave_types():
+                if x in t: leave_type=x; break
+            if not leave_type and has_any('سنوي','سنوية'): leave_type='سنوية'
+        dest=None
+        if mt=='انتداب':
+            dm=re.search(r'(?:إلى|الى|لـ|لفرع|إلى فرع|الى فرع)\s+(?:فرع\s+)?([^،,؛\n]+?)(?=\s+(?:من|بتاريخ)|$)',t,re.I)
+            if dm: dest,_=assistant_find_branch(dm.group(1).strip())
+        return {'intent':'register_movement','movement_type':mt,'employee_id':emp.id if emp else None,'employee_name':name,'candidate_ids':[e.id for e in matches[:10]],'leave_type':leave_type,'destination_branch_id':dest.id if dest else None,'destination_name':dest.name if dest else '','from_date':fd,'to_date':td,'permission_date':pd if mt=='إذن' else None}
+    # كلمة الموضوع وحدها أو مع صياغة غير مكتملة تعرض خيارات الموضوع.
+    if has_any(*entry_words) and not has_any('فرع','الفرع'):
+        return {'intent':'topic_options','topic':'entry'}
+    if has_any(*leave_words) and not mt:
+        return {'intent':'topic_options','topic':'leave'}
+    if has_any(*assign_words) and not mt:
+        return {'intent':'topic_options','topic':'assignment'}
+    if has_any(*perm_words) and not mt:
+        return {'intent':'topic_options','topic':'permission'}
+    # v34.89 — الكلمات المفتاحية تفتح مسار الموضوع بدل اعتبارها طلبًا نهائيًا.
+    # مثال: "إجازة" يعرض كل ما يمكن فعله/الاستعلام عنه بخصوص الإجازات،
+    # و"مدخل أول" يعرض الإجراءات والاستعلامات الخاصة بالمدخل الأول، وفق الصلاحيات.
+    if low.strip() in ('اجازة','إجازة','الإجازة','الاجازات','الإجازات'):
+        return {'intent':'topic_options','topic':'leave'}
+    if low.strip() in ('انتداب','الانتداب','مأمورية','المأمورية'):
+        return {'intent':'topic_options','topic':'assignment'}
+    if low.strip() in ('اذن','إذن','الأذن','الاذونات','الأذونات'):
+        return {'intent':'topic_options','topic':'permission'}
+    if low.strip() in ('مدخل اول','مدخل أول','المدخل الاول','المدخل الأول','مدخل أولاً','المدخل الاول'):
+        return {'intent':'topic_options','topic':'entry'}
     if any(x in t for x in ['سجل حركة','سجل له','سجل للموظف','تسجيل إجازة','تسجيل انتداب','تسجيل اذن','تسجيل إذن','اضف إجازة','أضف إجازة','اضف انتداب','أضف انتداب','اضف اذن','أضف إذن']):
         mt='إجازة' if 'إجازة' in t or 'اجازة' in t else ('انتداب' if 'انتداب' in t or 'مأمورية' in t else 'إذن')
         if mt=='إجازة': mt='إجازة'
@@ -1912,6 +1984,68 @@ def assistant_parse(text):
         emp,matches=assistant_find_employee(name)
         return {'intent':'employee_status','employee_id':emp.id if emp else None,'employee_name':name,'candidate_ids':[e.id for e in matches[:10]]}
     return {'intent':'help'}
+
+def assistant_topic_options(topic):
+    """Return contextual next-step choices for a keyword/topic, filtered by role permissions."""
+    if topic=='leave':
+        items=[
+            {'label':'تسجيل إجازة','prompt':'تسجيل إجازة','icon':'🌿','kind':'action'},
+            {'label':'تقرير الإجازات','prompt':'أريد تقرير الإجازات','icon':'📊','kind':'report'},
+            {'label':'حالة إجازة موظف','prompt':'ما حالة إجازة الموظف ','icon':'👤','kind':'query'},
+            {'label':'سجل إجازات موظف','prompt':'اعرض سجل حركات الموظف ','icon':'📋','kind':'query'},
+        ]
+        if not can('manage_movements'): items=[x for x in items if x['kind']!='action']
+        if not can('view_reports'): items=[x for x in items if x['label'] not in ('تقرير الإجازات',)]
+        return {'title':'خيارات الإجازات','answer':'اختر ما تريد بخصوص الإجازات، أو اكتب طلبك مباشرة.','topic_items':items}
+    if topic=='assignment':
+        items=[
+            {'label':'تسجيل انتداب','prompt':'تسجيل انتداب','icon':'↔️','kind':'action'},
+            {'label':'تقرير الانتدابات','prompt':'أريد تقرير الانتدابات','icon':'📊','kind':'report'},
+            {'label':'حالة انتداب موظف','prompt':'اعرض حالة انتداب الموظف ','icon':'👤','kind':'query'},
+            {'label':'سجل انتدابات موظف','prompt':'اعرض سجل حركات الموظف ','icon':'📋','kind':'query'},
+            {'label':'طباعة المأموريات','prompt':'أريد طباعة المأموريات','icon':'🖨️','kind':'report'},
+        ]
+        if not can('manage_movements'): items=[x for x in items if x['kind']!='action']
+        if not can('view_reports'): items=[x for x in items if x['kind']!='report']
+        return {'title':'خيارات الانتداب','answer':'اختر الإجراء أو الاستعلام المطلوب بخصوص الانتدابات.','topic_items':items}
+    if topic=='permission':
+        items=[
+            {'label':'تسجيل إذن','prompt':'تسجيل إذن','icon':'🕒','kind':'action'},
+            {'label':'تقرير الأذونات','prompt':'أريد تقرير الأذونات','icon':'📊','kind':'report'},
+            {'label':'سجل أذونات موظف','prompt':'اعرض سجل حركات الموظف ','icon':'📋','kind':'query'},
+        ]
+        if not can('manage_movements'): items=[x for x in items if x['kind']!='action']
+        if not can('view_reports'): items=[x for x in items if x['kind']!='report']
+        return {'title':'خيارات الأذونات','answer':'اختر ما تريد بخصوص الأذونات، أو اكتب طلبك مباشرة.','topic_items':items}
+    if topic=='entry':
+        items=[]
+        if can('manage_structure'):
+            items += [
+                {'label':'تعيين مدخل أول','prompt':'أريد تعيين مدخل أول','icon':'👥','kind':'action'},
+                {'label':'إزالة دور مدخل أول','prompt':'أريد إزالة دور مدخل أول','icon':'↩️','kind':'action'},
+                {'label':'إدارة المدخلين الأوائل','prompt':'أريد إدارة المدخلين الأوائل','icon':'⚙️','kind':'action'},
+                {'label':'فروع مسؤولية مدخل أول','prompt':'اعرض فروع مسؤولية مدخل أول','icon':'🏬','kind':'query'},
+                {'label':'موظفو مدخل أول','prompt':'اعرض موظفي مدخل أول','icon':'👤','kind':'query'},
+            ]
+        if not items:
+            items=[{'label':'عرض المدخل الأول','prompt':'اعرض بيانات المدخل الأول','icon':'👥','kind':'query'}]
+        return {'title':'خيارات المدخل الأول','answer':'هذه الإجراءات والاستعلامات المتاحة لك بخصوص المدخل الأول.','topic_items':items}
+    return {'title':'المساعد الذكي','answer':'اكتب الموضوع الذي تريد المساعدة فيه.'}
+
+def assistant_render_branch_entry(a):
+    br=db.session.get(Branch,a.get('branch_id')) if a.get('branch_id') else None
+    if not br:
+        matches=[db.session.get(Branch,i) for i in a.get('candidate_ids',[]) if db.session.get(Branch,i)]
+        if len(matches)==1: br=matches[0]
+        elif matches:
+            return {'title':'تحديد الفرع','error':'وجدت أكثر من فرع مطابق. اختر الفرع المقصود.','choices':matches}
+        else:
+            return {'title':'تحديد الفرع','error':'لم أجد فرعًا مطابقًا. اكتب اسم الفرع بصورة أوضح.'}
+    link=EntryAssignmentBranch.query.join(EntryAssignment).filter(EntryAssignmentBranch.branch_id==br.id,EntryAssignment.is_active==True).first()
+    if not link or not link.assignment or not link.assignment.employee:
+        return {'title':'مدخل أول الفرع','answer':f'الفرع: {br.name} — لا يوجد مدخل أول معين حاليًا لهذا الفرع.'}
+    e=link.assignment.employee
+    return {'title':'مدخل أول الفرع','answer':f'الفرع: {br.name}\nالمدخل الأول: {e.full_name}\nالمشرف: {link.assignment.supervisor.full_name if link.assignment.supervisor else "غير محدد"}'}
 
 def assistant_status_for_employee(e):
     today=date.today()
@@ -1965,7 +2099,9 @@ def assistant():
             result={'title':'المساعد الذكي','error':'اكتب طلبك أولًا.'}
         else:
             a=assistant_parse(prompt)
-            if a.get('intent')=='register_movement':
+            if a.get('intent')=='topic_options':
+                result=assistant_topic_options(a.get('topic'))
+            elif a.get('intent')=='register_movement':
                 if not can('manage_movements'):
                     result={'title':'تسجيل حركة','error':'لا تملك صلاحية تسجيل الحركات.'}
                 elif not a.get('employee_id'):
@@ -1983,8 +2119,79 @@ def assistant():
                         period=(f" من {a.get('from_date')} إلى {a.get('to_date')}" if a.get('from_date') else (f" بتاريخ {a.get('permission_date')}" if a.get('permission_date') else ''))
                         result={'title':'تأكيد تسجيل الحركة','preview':f"{a['movement_type']} للموظف {e.full_name}{dest_text}{period}"}
             else:
-                result=assistant_render_read(a)
-    return render_template('assistant.html',result=result,prompt=prompt)
+                if a.get('intent')=='branch_entry':
+                    result=assistant_render_branch_entry(a)
+                else:
+                    result=assistant_render_read(a)
+    # v34.88 — قائمة قدرات المساعد ديناميكية حسب صلاحيات الدور الحالي.
+    # تعرض الاستعلامات والتنفيذات الممكنة، ولا تظهر وظائف لا يملك المستخدم صلاحيتها.
+    assistant_options=[
+        {'group':'استعلامات الموظفين','items':[
+            {'label':'حالة موظف','prompt':'ما حالة الموظف ؟','icon':'👤','kind':'query'},
+            {'label':'سجل حركات موظف','prompt':'اعرض سجل حركات الموظف ؟','icon':'📋','kind':'query'},
+            {'label':'بيانات موظف','prompt':'اعرض بيانات الموظف ؟','icon':'🪪','kind':'query'},
+        ]},
+        {'group':'استعلامات الفروع والحركات','items':[
+            {'label':'حالة فرع','prompt':'ما حالة موظفي فرع ؟','icon':'🏢','kind':'query'},
+            {'label':'حالة الموظفين الآن','prompt':'اعرض حالة الموظفين الآن','icon':'📊','kind':'query'},
+            {'label':'الحركات المنتهية قريبًا','prompt':'اعرض الحركات التي تنتهي قريبًا','icon':'⏳','kind':'query'},
+        ]},
+    ]
+    if can('manage_movements'):
+        assistant_options.append({'group':'تسجيل الحركات','items':[
+            {'label':'إجازة','prompt':'تسجيل إجازة للموظف ','icon':'🌿','kind':'action'},
+            {'label':'انتداب','prompt':'تسجيل انتداب للموظف ','icon':'↔️','kind':'action'},
+            {'label':'إذن','prompt':'تسجيل إذن للموظف ','icon':'🕒','kind':'action'},
+        ]})
+    if can('manage_employees'):
+        assistant_options.append({'group':'إدارة الموظفين','items':[
+            {'label':'إضافة موظف','prompt':'أريد إضافة موظف','icon':'➕','kind':'action','url':'/employees'},
+            {'label':'تعديل موظف','prompt':'أريد تعديل بيانات موظف','icon':'✏️','kind':'action','url':'/employees/edit-data'},
+            {'label':'حذف موظف','prompt':'أريد حذف موظف','icon':'🗑️','kind':'action','url':'/employees'},
+            {'label':'الموظفون المحذوفون','prompt':'اعرض الموظفين المحذوفين','icon':'♻️','kind':'query','url':'/employees/deleted'},
+        ]})
+    if can('manage_structure'):
+        assistant_options.append({'group':'الإدارة التنظيمية','items':[
+            {'label':'المحافظات','prompt':'أريد إدارة المحافظات','icon':'🗺️','kind':'action','url':'/governorates'},
+            {'label':'الفروع','prompt':'أريد إدارة الفروع','icon':'🏬','kind':'action','url':'/branches'},
+            {'label':'المدخل الأول','prompt':'أريد إدارة المدخلين الأوائل','icon':'👥','kind':'action','url':'/structure'},
+            {'label':'الاستبدال','prompt':'أريد تنفيذ الاستبدال','icon':'🔁','kind':'action','url':'/replacement'},
+        ]})
+    if can('manage_users'):
+        assistant_options.append({'group':'المستخدمون والصلاحيات','items':[
+            {'label':'المستخدمون','prompt':'أريد إدارة المستخدمين','icon':'👤','kind':'action','url':'/users'},
+            {'label':'الأدوار والصلاحيات','prompt':'أريد إدارة الأدوار والصلاحيات','icon':'🔐','kind':'action','url':'/users'},
+            {'label':'تفويض الاعتماد','prompt':'أريد إدارة تفويضات الاعتماد','icon':'🤝','kind':'action','url':'/delegations'},
+        ]})
+    if can('review_movements'):
+        assistant_options.append({'group':'المراجعة والاعتماد','items':[
+            {'label':'مراجعة الحركات','prompt':'أريد مراجعة واعتماد الحركات','icon':'✅','kind':'action','url':'/review'},
+        ]})
+    if can('cancel_approval'):
+        assistant_options.append({'group':'الاعتماد','items':[
+            {'label':'إلغاء اعتماد','prompt':'أريد إلغاء اعتماد حركة','icon':'↩️','kind':'action','url':'/review'},
+        ]})
+    if can('delete_movements'):
+        assistant_options.append({'group':'حذف الحركات','items':[
+            {'label':'حذف حركة','prompt':'أريد حذف حركة','icon':'🗑️','kind':'action','url':'/movements'},
+        ]})
+    if can('view_reports'):
+        assistant_options.append({'group':'التقارير والطباعة','items':[
+            {'label':'تقرير الإجازات','prompt':'أريد تقرير الإجازات','icon':'🌿','kind':'report','url':'/reports/leaves'},
+            {'label':'تقرير الانتدابات','prompt':'أريد تقرير الانتدابات','icon':'↔️','kind':'report','url':'/reports/assignments'},
+            {'label':'تقرير الأذونات','prompt':'أريد تقرير الأذونات','icon':'🕒','kind':'report','url':'/reports/permissions'},
+            {'label':'طباعة المأموريات','prompt':'أريد طباعة المأموريات','icon':'🖨️','kind':'report','url':'/reports/assignments/print-missions'},
+        ]})
+    if can('view_audit'):
+        assistant_options.append({'group':'المتابعة','items':[
+            {'label':'سجل العمليات','prompt':'أريد سجل العمليات','icon':'🧾','kind':'query','url':'/audit'},
+            {'label':'القوائم الأساسية','prompt':'أريد إدارة القوائم الأساسية','icon':'⚙️','kind':'action','url':'/lookups'},
+        ]})
+    # Flatten for the existing template while retaining grouping metadata.
+    assistant_option_groups=assistant_options
+    assistant_options=[item for group in assistant_option_groups for item in group['items']]
+    return render_template('assistant.html',result=result,prompt=prompt,assistant_options=assistant_options,assistant_option_groups=assistant_option_groups)
+
 
 @app.post('/assistant/confirm')
 @req

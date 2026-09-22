@@ -29,8 +29,8 @@
       <a class="current-status-card {% if row.movement.movement_type=='انتداب' %}is-assignment{% else %}is-leave{% endif %}" href="/employee/{{row.employee.id}}">
         <div class="current-status-main"><strong>{{row.employee.full_name}}</strong><small>{{row.employee.branch.name if row.employee.branch else '—'}}</small></div>
         <div class="current-status-badge">{{row.state}}</div>
-        <div class="current-status-detail"><b>{{row.place}}</b><span>{{row.detail}}</span></div>
-        <div class="current-status-remaining"><b>{{row.remaining}}</b><span>{% if row.remaining==0 %}ينتهي اليوم{% elif row.remaining==1 %}متبقي يوم{% else %}أيام متبقية{% endif %}</span></div>
+        <div class="current-status-detail"><b>{{row.place}}</b><div class="status-dates"><span><em>من</em><strong>{{row.from_date.strftime('%d/%m/%Y')}}</strong></span><span><em>إلى</em><strong>{{row.to_date.strftime('%d/%m/%Y')}}</strong></span></div></div>
+        <div class="current-status-remaining"><b>{{row.remaining}}</b><span>{% if row.remaining==0 %}ينتهي اليوم{% elif row.remaining==1 %}متبقي يوم واحد{% else %}أيام متبقية{% endif %}</span></div>
         {% if row.ending_notice %}<div class="current-status-alert">ينتهي قريبًا</div>{% endif %}
       </a>
       {% endfor %}

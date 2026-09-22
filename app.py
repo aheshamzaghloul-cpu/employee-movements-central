@@ -478,16 +478,17 @@ def current_employee_status_rows(branch_ids, today):
             state='انتداب ساري'
             place=current.destination.name if current.destination else 'جهة الانتداب غير محددة'
             until=current.to_date
-            detail='من {} إلى {}'.format(current.from_date,current.to_date)
+            detail='من {} إلى {}'.format(current.from_date.strftime('%d/%m/%Y'),current.to_date.strftime('%d/%m/%Y'))
         else:
             state='إجازة مستمرة'
             place=current.leave_type or 'إجازة'
             until=current.to_date
-            detail='من {} إلى {}'.format(current.from_date,current.to_date)
+            detail='من {} إلى {}'.format(current.from_date.strftime('%d/%m/%Y'),current.to_date.strftime('%d/%m/%Y'))
         remaining=(until-today).days if until else 0
         rows.append({'employee':e,'state':state,'place':place,'until':until,'detail':detail,
                      'remaining':remaining,'movement':current,
-                     'ending_notice':bool(until and until <= today + timedelta(days=1))})
+                     'ending_notice':bool(until and until <= today + timedelta(days=1)),
+                     'from_date':current.from_date,'to_date':current.to_date})
     rows.sort(key=lambda r: (r['until'] or date.max, r['employee'].full_name))
     return rows
 

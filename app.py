@@ -7,7 +7,7 @@ from sqlalchemy import UniqueConstraint
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app=Flask(__name__)
-APP_VERSION='v34.53-FIXES-CURRENT-STATUS'
+APP_VERSION='v34.58-PREFLIGHT-CLEAN'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg://',1)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or 'dev-only-change-me',SQLALCHEMY_DATABASE_URI=DATABASE_URL,SQLALCHEMY_TRACK_MODIFICATIONS=False,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','0')=='1',MAX_CONTENT_LENGTH=2*1024*1024)
@@ -304,7 +304,7 @@ def inject_context():
     active_role=session.get('active_role') if u else None
     if active_role not in real_roles:
         active_role=None
-    return {'me':u,'roles':roles(),'real_roles':real_roles,'active_role':active_role,'csrf':csrf_token(),'user_roles':user_roles,'user_permissions':user_permissions,'can':can,'PERMISSIONS':PERMISSIONS,'user_gov_ids':user_gov_ids,'user_branch_ids':user_branch_ids,'assignment_state':assignment_state,'assignment_supervisor':assignment_supervisor,'supervisor_for_entry':supervisor_for_entry,'entries_for_supervisor':entries_for_supervisor,'branch_entry':branch_entry,'auto_approver_for_employee':auto_approver_for_employee,'can_manage_employee':can_manage_employee,'ASSIGNMENT_STATES':ASSIGNMENT_STATES,'ASSIGNMENT_ALERT_DAYS':ASSIGNMENT_ALERT_DAYS}
+    return {'me':u,'roles':roles(),'real_roles':real_roles,'active_role':active_role,'csrf':csrf_token(),'user_roles':user_roles,'user_permissions':user_permissions,'can':can,'has_role':has_role,'PERMISSIONS':PERMISSIONS,'user_gov_ids':user_gov_ids,'user_branch_ids':user_branch_ids,'assignment_state':assignment_state,'assignment_supervisor':assignment_supervisor,'supervisor_for_entry':supervisor_for_entry,'entries_for_supervisor':entries_for_supervisor,'branch_entry':branch_entry,'auto_approver_for_employee':auto_approver_for_employee,'can_manage_employee':can_manage_employee,'ASSIGNMENT_STATES':ASSIGNMENT_STATES,'ASSIGNMENT_ALERT_DAYS':ASSIGNMENT_ALERT_DAYS}
 
 @app.after_request
 def security_headers(resp):
@@ -530,6 +530,24 @@ def home():
             groups=[{'branch':b,'employees':Employee.query.filter(Employee.branch_id==b.id,Employee.is_active==True).order_by(Employee.full_name).all()} for b in scoped]
             entry_rows=[{'assignment':None,'employee':Employee.query.filter_by(user_id=u.id).first(),'branches':groups,'governorates':[],'supervisor':supervisor_for_entry(u)}]
 
+    # بيانات إضافة المدخل الأول التنظيمي في الصفحة الرئيسية يجب أن تُبنى داخل
+    # نفس نطاق المستخدم؛ لا تعتمد على متغيرات غير مُمررة للقالب.
+    available_entry_employees=[]
+    entry_supervisors=[]
+    if 'مسؤول التطبيق' in effective or 'مشرف محافظة' in effective:
+        allowed_branch_set=set(bs)
+        if allowed_branch_set:
+            candidates=Employee.query.filter(
+                Employee.is_active==True,
+                Employee.branch_id.in_(allowed_branch_set)
+            ).order_by(Employee.full_name.asc()).all()
+            available_entry_employees=[e for e in candidates if not entry_role_exists(e)]
+        if 'مسؤول التطبيق' in effective:
+            entry_supervisors=[u for u in User.query.filter_by(is_active=True).order_by(User.full_name.asc()).all()
+                               if 'مشرف محافظة' in actual_roles(u)]
+        else:
+            entry_supervisors=[me()]
+
     if bs:
         # الحركات أصبحت معلومات تشغيلية مباشرة وليست دورة اعتماد.
         if has_role('مشرف محافظة','مسؤول التطبيق','المدخل الأول'):
@@ -537,7 +555,6 @@ def home():
             # ending_notice is calculated while building the current-status rows.
         # تبقى بيانات الاعتماد القديمة قابلة للعرض في السجلات القديمة، لكن لا تُستخدم
         # لتحديد حالة الموظف الحالية.
-        base=Movement.query.join(Employee).filter(Employee.branch_id.in_(bs),Movement.is_active==True)
         ending=[]
 
     return render_template(
@@ -551,6 +568,8 @@ def home():
         ending=ending,
         approved_count=approved_count,
         current_status_rows=current_status_rows,
+        available_entry_employees=available_entry_employees,
+        entry_supervisors=entry_supervisors,
         today=today,
         tomorrow=tomorrow,
         is_admin=has_role('مسؤول التطبيق')
@@ -1336,7 +1355,7 @@ def entry_management(i):
             if linked: linked.user_id=None
             log('ROLE_CHANGE','User',i,'إزالة دور المدخل الأول'); db.session.commit(); flash('تمت إزالة دور المدخل الأول مع الاحتفاظ بسجل الموظف وحركاته.')
             return redirect('/')
-    return render_template('entry_management.html',u=u,branches=available,current_ids=current_ids,linked_emp=Employee.query.filter_by(user_id=u.id).first(),supervisors=[s for s in User.query.all() if s.is_active and 'مشرف محافظة' in actual_roles(s)])
+    return render_template('entry_management.html',u=u,branches=available,current_ids=current_ids,linked_emp=Employee.query.filter_by(user_id=u.id).first(),supervisors=[s for s in User.query.all() if s.is_active and 'مشرف محافظة' in actual_roles(s)],is_admin=('مسؤول التطبيق' in roles()))
 
 @app.route('/employees',methods=['GET','POST'])
 @req
@@ -1418,73 +1437,74 @@ def employee_edit(i):
 def employee_convert_role(i):
     e=db.session.get(Employee,i)
     if not e or not e.is_active: abort(404)
-    linked=User.query.get(e.user_id) if e.user_id else None
-    linked_roles=actual_roles(linked) if linked else set()
-    is_entry='المدخل الأول' in linked_roles
+    assignment=organizational_entry_for_employee(e)
+    is_entry=bool(assignment)
     if request.method=='POST':
         action=request.form.get('action')
         if action=='to_entry':
-            username=request.form.get('username','').strip()
-            password=request.form.get('password','')
-            if not username or not valid_password(password):
-                flash('اسم المستخدم وكلمة المرور مطلوبان، وكلمة المرور يجب أن تكون 8 أحرف على الأقل وتحتوي على حروف وأرقام.')
-                return redirect(url_for('employee_convert_role',i=i))
-            existing=User.query.filter_by(username=username).first()
-            if existing and (not linked or existing.id!=linked.id):
-                flash('اسم المستخدم مستخدم بالفعل.')
-                return redirect(url_for('employee_convert_role',i=i))
             branch_ids={int(x) for x in request.form.getlist('branch_id') if x.isdigit()}
-            branch_ids &= {b.id for b in Branch.query.filter_by(is_active=True).all()}
-            appointment_branch=e.branch
+            allowed_branch_ids={b.id for b in Branch.query.filter_by(is_active=True).all()}
+            branch_ids &= allowed_branch_ids
             if not branch_ids:
                 flash('يجب اختيار فرع واحد على الأقل ضمن فروع مسؤولية المدخل الأول.')
                 return redirect(url_for('employee_convert_role',i=i))
             sup_id=request.form.get('supervisor_id','').strip()
             sup=db.session.get(User,int(sup_id)) if sup_id.isdigit() else None
-            gov_ids={db.session.get(Branch,bid).governorate_id for bid in branch_ids if db.session.get(Branch,bid)}
+            gov_ids={b.governorate_id for b in Branch.query.filter(Branch.id.in_(branch_ids),Branch.is_active==True).all()}
             if not sup or 'مشرف محافظة' not in actual_roles(sup) or not sup.is_active or not (gov_ids & user_gov_ids(sup)):
                 flash('يجب اختيار مشرف محافظة صحيح لفروع المسؤولية.')
                 return redirect(url_for('employee_convert_role',i=i))
-            if linked:
-                u=linked
-                u.username=username
-                u.password_hash=generate_password_hash(password)
-                u.must_change_password=True
-                u.is_active=True
+            # الدور هنا تنظيمي فقط: لا ننشئ اسم مستخدم أو كلمة مرور جديدة.
+            if assignment:
+                assignment.supervisor_id=sup.id
+                assignment.is_active=True
+                EntryAssignmentBranch.query.filter_by(entry_assignment_id=assignment.id).delete()
             else:
-                u=User(username=username,full_name=e.full_name,email=e.email,job_title=e.job_title,job_code=e.job_code,password_hash=generate_password_hash(password),is_active=True,must_change_password=True)
-                db.session.add(u); db.session.flush()
-                e.user_id=u.id
-            u.full_name=e.full_name; u.email=e.email; u.job_title=e.job_title; u.job_code=e.job_code
-            if 'المدخل الأول' not in actual_roles(u): db.session.add(UserRole(user_id=u.id,role='المدخل الأول'))
-            for perm in ROLE_DEFAULT_PERMISSIONS['المدخل الأول']:
-                if not UserPermission.query.filter_by(user_id=u.id,permission=perm).first(): db.session.add(UserPermission(user_id=u.id,permission=perm))
-            UserBranch.query.filter_by(user_id=u.id).delete()
-            for bid in branch_ids: db.session.add(UserBranch(user_id=u.id,branch_id=bid))
-            SupervisorEntry.query.filter_by(entry_id=u.id).delete()
-            db.session.add(SupervisorEntry(supervisor_id=sup.id,entry_id=u.id))
-            log('ROLE_CHANGE','Employee',e.id,'تحويل الموظف إلى مدخل أول')
-            db.session.commit(); flash('تم تحويل الموظف إلى مدخل أول مع الاحتفاظ بسجل الموظف وفرع التعيين والحركات السابقة.')
+                assignment=EntryAssignment(employee_id=e.id,supervisor_id=sup.id,is_active=True)
+                db.session.add(assignment)
+                db.session.flush()
+            for bid in sorted(branch_ids):
+                db.session.add(EntryAssignmentBranch(entry_assignment_id=assignment.id,branch_id=bid))
+            # توافق مع البيانات القديمة: إذا كان للموظف حساب دخول قديم يحمل دور المدخل الأول،
+            # أزل الدور القديم فقط ولا تحذف الحساب إذا كان له أدوار أخرى.
+            if e.user_id:
+                old_user=db.session.get(User,e.user_id)
+                if old_user and 'المدخل الأول' in actual_roles(old_user):
+                    UserRole.query.filter_by(user_id=old_user.id,role='المدخل الأول').delete()
+                    UserBranch.query.filter_by(user_id=old_user.id).delete()
+                    SupervisorEntry.query.filter_by(entry_id=old_user.id).delete()
+                    if not actual_roles(old_user):
+                        old_user.is_active=False
+                    sync_role_accounts(old_user)
+            log('ROLE_CHANGE','Employee',e.id,'تحويل الموظف إلى مدخل أول تنظيمي بدون حساب دخول')
+            db.session.commit()
+            flash('تم تحويل الموظف إلى مدخل أول تنظيمي مع الاحتفاظ بسجل الموظف وفرع التعيين والحركات السابقة.')
             return redirect(url_for('employee_edit',i=e.id))
         if action=='to_employee':
-            if not linked or 'المدخل الأول' not in linked_roles:
+            if not assignment:
                 flash('الموظف ليس مدخلًا أول.')
                 return redirect(url_for('employee_convert_role',i=i))
-            remaining=linked_roles-{'المدخل الأول'}
-            UserRole.query.filter_by(user_id=linked.id,role='المدخل الأول').delete()
-            UserBranch.query.filter_by(user_id=linked.id).delete()
-            SupervisorEntry.query.filter_by(entry_id=linked.id).delete()
-            if not remaining:
-                linked.is_active=False
-            log('ROLE_CHANGE','Employee',e.id,'إرجاع المدخل الأول إلى موظف عادي')
-            db.session.commit(); flash('تم إرجاع المدخل الأول إلى موظف عادي مع الاحتفاظ بكل بياناته وحركاته. لم تُحذف الفروع أو الموظفون التابعون له.')
+            EntryAssignmentBranch.query.filter_by(entry_assignment_id=assignment.id).delete()
+            db.session.delete(assignment)
+            # تنظيف أي ارتباطات قديمة مرتبطة بحساب سابق لهذا الموظف دون حذف الموظف أو تاريخه.
+            if e.user_id:
+                old_user=db.session.get(User,e.user_id)
+                if old_user and 'المدخل الأول' in actual_roles(old_user):
+                    UserRole.query.filter_by(user_id=old_user.id,role='المدخل الأول').delete()
+                    UserBranch.query.filter_by(user_id=old_user.id).delete()
+                    SupervisorEntry.query.filter_by(entry_id=old_user.id).delete()
+                    if not actual_roles(old_user):
+                        old_user.is_active=False
+                    sync_role_accounts(old_user)
+            log('ROLE_CHANGE','Employee',e.id,'إرجاع المدخل الأول التنظيمي إلى موظف عادي')
+            db.session.commit()
+            flash('تم إرجاع الموظف إلى موظف عادي مع الاحتفاظ بكل بياناته وحركاته. لم تُحذف الفروع أو الموظفون التابعون له.')
             return redirect(url_for('employee_edit',i=e.id))
-    govs=Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all()
     branches=Branch.query.filter_by(is_active=True).order_by(Branch.name).all()
     supervisors=[u for u in User.query.filter_by(is_active=True).order_by(User.full_name).all() if 'مشرف محافظة' in actual_roles(u)]
-    current_branch_ids=user_branch_ids(linked) if linked and is_entry else set()
-    current_sup=supervisor_for_entry(linked) if linked and is_entry else None
-    return render_template('employee_role_convert.html',e=e,linked=linked,linked_roles=linked_roles,is_entry=is_entry,govs=govs,branches=branches,supervisors=supervisors,current_branch_ids=current_branch_ids,current_sup=current_sup)
+    current_branch_ids={x.branch_id for x in EntryAssignmentBranch.query.filter_by(entry_assignment_id=assignment.id).all()} if assignment else set()
+    current_sup=assignment.supervisor if assignment else None
+    return render_template('employee_role_convert.html',e=e,is_entry=is_entry,branches=branches,supervisors=supervisors,current_branch_ids=current_branch_ids,current_sup=current_sup)
 
 @app.post('/employees/<int:i>/toggle')
 @req

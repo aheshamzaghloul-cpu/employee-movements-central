@@ -82,7 +82,6 @@
     <label>المحافظة<select name="governorate_id" onchange="this.form.submit()"><option value="">اختر المحافظة أولًا</option>{% for g in govs_all %}<option value="{{g.id}}" {% if selected_governorate == g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>
   </form>
 </div>
-{% endif %}
 
 <section class="admin-entry-role-card" id="entry-role-chain">
   <div><span class="eyebrow">السلسلة الوظيفية</span><h3>إضافة دور «المدخل الأول»</h3><p>المدخل الأول هنا دور تنظيمي فقط لترتيب الموظفين في مجموعات. لا يتم إنشاء حساب أو اسم مستخدم له.</p></div>

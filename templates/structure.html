@@ -2,7 +2,7 @@
 {% block title %}الهيكل الإداري{% endblock %}
 {% block content %}
 <div class="toolbar">
-  <div><h1>الإدارة</h1>{% if is_supervisor %}<div class="section-caption"><b>إدارة المحافظات المسندة إليك</b><span>تظهر هنا فقط المحافظات والصلاحيات المرتبطة بحسابك.</span></div>{% elif is_entry %}<div class="section-caption"><b>إدارة فروعك</b><span>تظهر هنا فقط الفروع والموظفون الذين تتولى إدارتهم.</span></div>{% endif %}</div>
+  <div><h1>الإدارة</h1>{% if is_supervisor %}<div class="section-caption"><b>إدارة المحافظة المسندة إليك</b><span>{% if govs_all %}محافظتك المسجلة: <strong>{{ govs_all|map(attribute='name')|join(' — ') }}</strong> — تظهر هنا فقط المحافظة والصلاحيات المرتبطة بحسابك.{% else %}لا توجد محافظة مسجلة لهذا المشرف حتى الآن.{% endif %}</span></div>{% elif is_entry %}<div class="section-caption"><b>إدارة فروعك</b><span>تظهر هنا فقط الفروع والموظفون الذين تتولى إدارتهم.</span></div>{% endif %}</div>
 </div>
 
 {% if is_admin %}
@@ -77,10 +77,14 @@
 
 <div class="admin-replacement-link no-print"><a class="admin-card-action" href="/replacement">🔁 الاستبدال — نقل مسؤولية المشرف أو المدخل الأول</a></div>
 <div class="admin-structure-picker no-print" id="my-governorates">
-  <div class="section-caption"><b>{% if is_entry %}فروعك وموظفوها{% elif is_supervisor %}هيكل محافظاتك{% else %}الهيكل الإداري{% endif %}</b><span>اختر المحافظة للوصول إلى الهيكل والتعديل والإدارة.</span></div>
+  <div class="section-caption"><b>{% if is_entry %}فروعك وموظفوها{% elif is_supervisor %}محافظتك المسجلة: {{ govs_all|map(attribute='name')|join(' — ') if govs_all else 'غير مسجلة' }}{% else %}الهيكل الإداري{% endif %}</b><span>{% if is_supervisor and govs_all %}تم فتح المحافظة المسندة إليك تلقائيًا للوصول المباشر إلى الهيكل والتعديل والإدارة.{% else %}اختر المحافظة للوصول إلى الهيكل والتعديل والإدارة.{% endif %}</span></div>
+  {% if is_supervisor and govs_all|length == 1 %}
+  <div class="admin-gov-fixed"><span>المحافظة المسجلة</span><strong>{{ govs_all[0].name }}</strong><small>تم فتح هيكلها تلقائيًا حسب نطاق المشرف.</small></div>
+  {% else %}
   <form method="get" class="grid admin-gov-form">
     <label>المحافظة<select name="governorate_id" onchange="this.form.submit()"><option value="">اختر المحافظة أولًا</option>{% for g in govs_all %}<option value="{{g.id}}" {% if selected_governorate == g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>
   </form>
+  {% endif %}
 </div>
 
 <section class="admin-entry-role-card" id="entry-role-chain">

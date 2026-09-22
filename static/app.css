@@ -1021,3 +1021,28 @@ main:not(.login){padding-left:0!important;padding-right:0!important}
   .home-top-search-form{grid-template-columns:1fr!important}
   .home-top-search-form button{width:100%!important}
 }
+
+
+/* v34.63 — البحث ضمن الشريط الرئيسي وإلغاء المساحة المنفصلة للبحث */
+.main-nav{flex-wrap:nowrap!important;overflow:visible!important}
+.top-nav-search{margin-right:auto;display:flex!important;align-items:center;gap:6px;background:#f7fbfd;border:1px solid #d3e3ec;border-radius:12px;padding:4px 6px 4px 4px;min-height:46px;box-sizing:border-box}
+.top-nav-search span{font-size:18px;padding:0 3px}
+.top-nav-search input{width:240px;min-width:170px;border:0!important;outline:0!important;background:transparent!important;font-size:15px!important;font-weight:600;padding:9px 8px!important}
+.top-nav-search button{border:0;border-radius:9px;background:#24577d;color:#fff;font-weight:800;padding:9px 14px;cursor:pointer;min-height:38px}
+.top-nav-search button:hover{filter:brightness(.96)}
+.home-top-search{display:none!important}
+.home-three-panels{margin-top:0!important}
+.home-dashboard-head{margin-bottom:8px!important}
+.admin-gov-fixed{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 16px;border:1px solid #cfe1ec;border-radius:12px;background:#f7fbfd}
+.admin-gov-fixed span{color:#718493;font-size:13px;font-weight:700}
+.admin-gov-fixed strong{font-size:18px;color:#24577d}
+.admin-gov-fixed small{color:#718493;font-size:12px}
+@media(max-width:1100px){.top-nav-search input{width:170px}.main-nav a{padding:0 14px!important}}
+@media(max-width:820px){.main-nav{flex-wrap:wrap!important}.top-nav-search{width:100%;order:20;margin-right:0}.top-nav-search input{flex:1;width:auto}}
+
+/* v34.64 — full-width workspace for all application pages */
+.wrap{max-width:none;width:100%;margin:0;padding:12px 16px}
+main{width:100%;max-width:none;margin:0;padding:0}
+main>.box,main>.toolbar,main>.section-tabs,main>.admin-control-center,main>.admin-shortcuts,main>.structure-grid,main>.quick-panels,main>.home-search,main>.home-top-row,main>.home-main-grid,main>.home-three-panels{width:100%;max-width:none}
+.tablewrap{width:100%}
+@media(max-width:700px){.wrap{padding:8px}main{width:100%}}

@@ -7,7 +7,7 @@ from sqlalchemy import UniqueConstraint
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app=Flask(__name__)
-APP_VERSION='v34.62-MANAGER-APPLICATION-SUPPORT'
+APP_VERSION = 'v34.64'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg://',1)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or 'dev-only-change-me',SQLALCHEMY_DATABASE_URI=DATABASE_URL,SQLALCHEMY_TRACK_MODIFICATIONS=False,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','0')=='1',MAX_CONTENT_LENGTH=2*1024*1024)
@@ -678,6 +678,10 @@ def structure():
         allowed_govs=Governorate.query.filter(Governorate.id.in_(supervisor_gids),Governorate.is_active==True).order_by(Governorate.name).all() if supervisor_gids else []
         if selected_gov.isdigit() and any(g.id==int(selected_gov) for g in allowed_govs):
             govs=[db.session.get(Governorate,int(selected_gov))]
+        elif len(allowed_govs)==1:
+            # فتح المحافظة المسجلة للمشرف تلقائيًا إذا كانت له محافظة واحدة.
+            govs=[allowed_govs[0]]
+            selected_gov=str(allowed_govs[0].id)
         else:
             govs=[]
             selected_gov=''

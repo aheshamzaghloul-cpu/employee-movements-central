@@ -1150,3 +1150,11 @@ main>.box,main>.toolbar,main>.section-tabs,main>.admin-control-center,main>.admi
 .home-movement-search-row input{margin:0;flex:1;min-width:0}
 .home-movement-employee-search>small{width:100%;color:var(--muted);font-size:11px;margin-right:120px}
 @media(max-width:700px){.home-movement-search-row{min-width:100%;flex-direction:column;align-items:stretch}.home-movement-search-row .btn{width:100%}.home-movement-employee-search>small{margin-right:0}}
+
+/* v34.79 — نطاق الصفحة الرئيسية في سطر أفقي لاستغلال المساحة */
+.home-dashboard-head{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:28px!important;margin-bottom:8px!important;width:100%!important}
+.home-dashboard-head>div:first-child{display:flex!important;align-items:baseline!important;gap:14px!important;flex-wrap:wrap!important;min-width:0!important}
+.home-dashboard-head .home-kicker{margin:0!important;white-space:nowrap!important}
+.home-dashboard-head .home-title{white-space:nowrap!important}
+.home-dashboard-head .home-scope{margin:0!important;white-space:nowrap!important;font-size:14px!important;font-weight:700!important;color:#526b7c!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:min(55vw,900px)!important}
+@media(max-width:850px){.home-dashboard-head{align-items:flex-start!important;flex-direction:column!important;gap:4px!important}.home-dashboard-head>div:first-child{align-items:center!important}.home-dashboard-head .home-scope{max-width:100%!important;white-space:normal!important}}

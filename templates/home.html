@@ -1,6 +1,9 @@
 {% extends 'base.html' %}
 {% block title %}الرئيسية — نظام إدارة حركات الموظفين{% endblock %}
 {% block content %}
+<style id="home-manager-search-style">
+.manager-scope-bar{margin:0 0 16px;padding:12px 16px;border:1px solid #dbe3ee;border-radius:14px;background:#f7f9fc}.manager-scope-form{display:flex;align-items:end;gap:14px;flex-wrap:wrap}.manager-scope-form label{min-width:280px}.manager-scope-form select{display:block;width:100%;margin-top:5px}.manager-scope-form span{font-size:13px;color:#64748b}.movement-quick-filter-form{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:10px;align-items:end}.movement-quick-filter-form label{display:flex;flex-direction:column;gap:5px}.movement-quick-filter-form select{width:100%}.movement-quick-filter-form small{grid-column:1/-1}@media(max-width:900px){.movement-quick-filter-form{grid-template-columns:1fr 1fr}.movement-quick-filter-form button{grid-column:1/-1}}
+</style>
 <div class="home-dashboard-head">
   <div>
     <div class="home-kicker">لوحة التحكم</div>
@@ -9,11 +12,25 @@
   </div>
 </div>
 
+{% if is_manager_support %}
+<div class="manager-scope-bar no-print">
+  <form method="get" action="/" class="manager-scope-form">
+    <label>المحافظة المطلوبة للعمل
+      <select name="manager_governorate_id" required onchange="this.form.submit()">
+        <option value="">اختر المحافظة أولًا</option>
+        {% for g in manager_governorates %}<option value="{{g.id}}" {% if selected_manager_gov == g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}
+      </select>
+    </label>
+    <span>Manager Application Support — يعرض نفس وظائف مشرف المحافظة بعد اختيار المحافظة.</span>
+  </form>
+</div>
+{% endif %}
+
 <!-- الصفحة الرئيسية: ثلاث لوحات متساوية فقط -->
 <div class="home-three-panels" id="dashboard-workspace">
 
   <!-- 1) حالة الموظفين الآن -->
-  {% if 'مشرف محافظة' in roles or 'مسؤول التطبيق' in roles %}
+  {% if 'مشرف محافظة' in roles or 'مسؤول التطبيق' in roles or is_manager_support %}
   <section class="home-panel dashboard-widget home-current-status" data-widget-id="employee-current-status">
     <div class="home-section-head">
       <div>
@@ -61,7 +78,7 @@
   {% endif %}
 
   <!-- 2) المدخلون الأوائل: بند تنظيمي دائم حتى عند عدم وجود مدخلين -->
-  {% if 'مشرف محافظة' in roles or 'مسؤول التطبيق' in roles %}
+  {% if 'مشرف محافظة' in roles or 'مسؤول التطبيق' in roles or is_manager_support %}
   <section class="home-panel home-entry-directory dashboard-widget" id="entry-directory" data-widget-id="entry-directory">
     <div class="entry-directory-head">
       <div>
@@ -159,13 +176,27 @@
       <span class="home-group-icon">🔄</span>
       <div><h3>حركات الموظفين</h3><small>التسجيل والمتابعة والتقارير في واجهة واحدة</small></div>
     </div>
-    <form class="home-movement-employee-search" method="get" action="/employees">
-      <label for="home-movement-employee-q">بحث سريع عن موظف</label>
-      <div class="home-movement-search-row">
-        <input id="home-movement-employee-q" name="q" type="search" placeholder="اكتب اسم الموظف أو الكود الوظيفي" autocomplete="off">
-        <button class="btn" type="submit">🔎 بحث عن الموظف</button>
-      </div>
-      <small>يفتح نتائج الموظفين مباشرة مع إمكانية عرض بيانات الحركة الخاصة بالموظف.</small>
+    <form class="home-movement-employee-search movement-quick-filter-form" method="get" action="/employees">
+      <label>المحافظة
+        <select id="movement-search-gov" name="governorate_id" required>
+          <option value="">اختر المحافظة</option>
+          {% for g in movement_search_governorates %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}
+        </select>
+      </label>
+      <label>الفرع
+        <select id="movement-search-branch" name="branch_id" disabled>
+          <option value="">اختر الفرع</option>
+          {% for b in movement_search_branches %}<option value="{{b.id}}" data-gov="{{b.governorate_id}}">{{b.name}}</option>{% endfor %}
+        </select>
+      </label>
+      <label>اسم الموظف
+        <select id="movement-search-employee" name="employee_id" disabled>
+          <option value="">اختر الموظف</option>
+          {% for e in movement_search_employees %}<option value="{{e.id}}" data-branch="{{e.branch_id}}" data-gov="{{e.branch.governorate_id if e.branch else ''}}">{{e.full_name}}</option>{% endfor %}
+        </select>
+      </label>
+      <button class="btn" type="submit">🔎 بحث عن الموظف</button>
+      <small>اختر المحافظة ثم الفرع ثم اسم الموظف من القوائم المنسدلة.</small>
     </form>
 
     <div class="movement-action-grid">
@@ -216,6 +247,22 @@
     });
   }
   entryFilter?.addEventListener('change',filterEntries);
+
+  const mg=document.getElementById('movement-search-gov');
+  const mb=document.getElementById('movement-search-branch');
+  const me=document.getElementById('movement-search-employee');
+  function refreshMovementSearch(){
+    if(!mg||!mb||!me) return;
+    const gid=mg.value;
+    mb.disabled=!gid;
+    mb.value=''; me.value=''; me.disabled=true;
+    mb.querySelectorAll('option[data-gov]').forEach(o=>o.hidden=o.dataset.gov!==gid);
+  }
+  mg?.addEventListener('change',refreshMovementSearch);
+  mb?.addEventListener('change',()=>{
+    const gid=mg.value, bid=mb.value; me.disabled=!bid; me.value='';
+    me.querySelectorAll('option[data-branch]').forEach(o=>o.hidden=(o.dataset.gov!==gid || o.dataset.branch!==bid));
+  });
 })();
 </script>
 {% endblock %}

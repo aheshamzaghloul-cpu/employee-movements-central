@@ -375,13 +375,22 @@ def gids():
     u=me()
     if not u: return []
     rs=roles(u)
-    if 'مسؤول التطبيق' in rs or 'Manager Application Support' in rs: return [g.id for g in Governorate.query.filter_by(is_active=True)]
+    if 'مسؤول التطبيق' in rs: return [g.id for g in Governorate.query.filter_by(is_active=True)]
+    if 'Manager Application Support' in rs:
+        selected=session.get('manager_governorate_id')
+        if selected:
+            g=Governorate.query.filter_by(id=int(selected),is_active=True).first()
+            return [g.id] if g else []
+        return []
     return [x.governorate_id for x in UserGovernorate.query.filter_by(user_id=u.id).join(Governorate).filter(Governorate.is_active==True)]
 def bids():
     u=me()
     if not u: return []
     rs=roles(u)
-    if 'مسؤول التطبيق' in rs or 'Manager Application Support' in rs: return [b.id for b in Branch.query.filter_by(is_active=True)]
+    if 'مسؤول التطبيق' in rs: return [b.id for b in Branch.query.filter_by(is_active=True)]
+    if 'Manager Application Support' in rs:
+        gids_now=gids()
+        return [b.id for b in Branch.query.filter(Branch.governorate_id.in_(gids_now),Branch.is_active==True)] if gids_now else []
     if 'مشرف محافظة' in rs: return [b.id for b in Branch.query.filter(Branch.governorate_id.in_(gids()),Branch.is_active==True)]
     return [x.branch_id for x in UserBranch.query.filter_by(user_id=u.id).join(Branch).filter(Branch.is_active==True)]
 def branch_ok(i):
@@ -495,7 +504,23 @@ def current_employee_status_rows(branch_ids, today):
 @app.get('/')
 @req
 def home():
-    bs=set(bids())
+    current_user=me()
+    effective=roles(current_user)
+    is_manager_support='Manager Application Support' in effective
+    manager_gov_param=request.args.get('manager_governorate_id','').strip()
+    if is_manager_support:
+        if manager_gov_param.isdigit() and Governorate.query.filter_by(id=int(manager_gov_param),is_active=True).first():
+            session['manager_governorate_id']=int(manager_gov_param)
+        elif 'manager_governorate_id' not in session:
+            session['manager_governorate_id']=None
+        selected_manager_gov=session.get('manager_governorate_id')
+        if selected_manager_gov:
+            bs={b.id for b in Branch.query.filter_by(governorate_id=int(selected_manager_gov),is_active=True).all()}
+        else:
+            bs=set()
+    else:
+        selected_manager_gov=None
+        bs=set(bids())
     today=date.today()
     tomorrow=today + timedelta(days=1)
     pending=[]
@@ -509,9 +534,12 @@ def home():
 
     # المدخل الأول هنا بند تنظيمي فقط: لا يحتاج حساب دخول.
     entry_rows=[]
-    effective=roles()
-    if 'مشرف محافظة' in effective or 'مسؤول التطبيق' in effective:
-        supervisors = [me()] if ('مشرف محافظة' in effective and 'مسؤول التطبيق' not in effective) else [u for u in User.query.filter_by(is_active=True).order_by(User.full_name).all() if 'مشرف محافظة' in actual_roles(u)]
+    if 'مشرف محافظة' in effective or 'مسؤول التطبيق' in effective or is_manager_support:
+        if is_manager_support:
+            supervisors = [u for u in User.query.filter_by(is_active=True).order_by(User.full_name).all()
+                           if 'مشرف محافظة' in actual_roles(u) and any(x.governorate_id in ({int(selected_manager_gov)} if selected_manager_gov else set()) for x in UserGovernorate.query.filter_by(user_id=u.id).all())]
+        else:
+            supervisors = [me()] if ('مشرف محافظة' in effective and 'مسؤول التطبيق' not in effective) else [u for u in User.query.filter_by(is_active=True).order_by(User.full_name).all() if 'مشرف محافظة' in actual_roles(u)]
         seen=set()
         for sup in supervisors:
             for a,scoped_all in organizational_entries_for_supervisor(sup):
@@ -548,7 +576,7 @@ def home():
     available_entry_employees=[]
     entry_supervisors=[]
     available_entry_branches=[]
-    if 'مسؤول التطبيق' in effective or 'مشرف محافظة' in effective:
+    if 'مسؤول التطبيق' in effective or 'مشرف محافظة' in effective or is_manager_support:
         allowed_branch_set=set(bs)
         if allowed_branch_set:
             candidates=Employee.query.filter(
@@ -563,6 +591,8 @@ def home():
         if 'مسؤول التطبيق' in effective:
             entry_supervisors=[u for u in User.query.filter_by(is_active=True).order_by(User.full_name.asc()).all()
                                if 'مشرف محافظة' in actual_roles(u)]
+        elif is_manager_support:
+            entry_supervisors=supervisors
         else:
             entry_supervisors=[me()]
 
@@ -591,7 +621,13 @@ def home():
         entry_supervisors=entry_supervisors,
         today=today,
         tomorrow=tomorrow,
-        is_admin=has_role('مسؤول التطبيق')
+        is_admin=has_role('مسؤول التطبيق'),
+        is_manager_support=is_manager_support,
+        manager_governorates=Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all() if is_manager_support else [],
+        selected_manager_gov=selected_manager_gov,
+        movement_search_governorates=Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all() if (is_manager_support or 'مشرف محافظة' in effective or 'مسؤول التطبيق' in effective) else visible_govs,
+        movement_search_branches=Branch.query.filter_by(is_active=True).order_by(Branch.name.asc()).all(),
+        movement_search_employees=Employee.query.filter_by(is_active=True).order_by(Employee.full_name.asc()).all()
     )
 
 @app.get('/api/entry-ids/<int:gid>')
@@ -657,8 +693,9 @@ def structure():
     effective=roles(current)
     is_admin = 'مسؤول التطبيق' in effective
     is_supervisor = 'مشرف محافظة' in effective
+    is_manager_support = 'Manager Application Support' in effective
     is_entry = 'المدخل الأول' in effective
-    if not is_admin and not is_supervisor:
+    if not is_admin and not is_supervisor and not is_manager_support:
         abort(403)
     if is_supervisor and not is_admin:
         session['active_role']='مشرف محافظة'
@@ -672,6 +709,13 @@ def structure():
         else:
             # لا نبني شجرة المحافظات كاملة قبل الاختيار؛ هذا يمنع أخطاء البيانات
             # في أي فرع غير مختار ويجعل صفحة الإدارة أخف وأوضح.
+            govs=[]
+            selected_gov=''
+    elif is_manager_support:
+        allowed_govs=Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all()
+        if selected_gov.isdigit() and any(g.id==int(selected_gov) for g in allowed_govs):
+            govs=[db.session.get(Governorate,int(selected_gov))]
+        else:
             govs=[]
             selected_gov=''
     elif is_supervisor:
@@ -700,13 +744,17 @@ def structure():
         suids=[x.user_id for x in UserGovernorate.query.filter_by(governorate_id=g.id).all()]
         for u in User.query.filter(User.id.in_(suids),User.is_active==True).order_by(User.full_name).all() if suids else []:
             if 'مشرف محافظة' not in actual_roles(u): continue
-            if is_supervisor and u.id != current.id: continue
+            if is_supervisor and not is_manager_support and u.id != current.id: continue
             supervisors.append(u)
         entries=[]
         # التنظيم الجديد: المدخل الأول موظف/تصنيف إداري فقط، بلا حساب دخول.
         org_entries=[]
         if is_admin:
             org_entries=[(a,[b for b in Branch.query.join(EntryAssignmentBranch,EntryAssignmentBranch.branch_id==Branch.id).filter(EntryAssignmentBranch.entry_assignment_id==a.id,Branch.is_active==True).all()],a.supervisor) for a in EntryAssignment.query.filter_by(is_active=True).all() if a.employee and a.employee.is_active]
+        elif is_manager_support:
+            org_entries=[]
+            for su in supervisors:
+                org_entries.extend([(a,bs2,a.supervisor) for a,bs2 in organizational_entries_for_supervisor(su,g.id)])
         elif is_supervisor:
             org_entries=[(a,bs2,a.supervisor) for a,bs2 in organizational_entries_for_supervisor(current,g.id)]
         for a,scoped,sup in org_entries:
@@ -720,6 +768,10 @@ def structure():
         candidate_entries = []
         if is_admin:
             candidate_entries = User.query.filter_by(is_active=True).order_by(User.full_name).all()
+        elif is_manager_support:
+            candidate_entries=[]
+            for su in supervisors:
+                candidate_entries.extend(entries_for_supervisor(su, g.id))
         elif is_supervisor:
             candidate_entries = entries_for_supervisor(current, g.id)
         else:
@@ -741,7 +793,7 @@ def structure():
             if not hasattr(b,'employee_items'):
                 b.employee_items=Employee.query.filter_by(branch_id=b.id,is_active=True).order_by(Employee.full_name).all()
         tree.append((g,bs,supervisors,entries,counts))
-    govs_all=Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all() if is_admin else govs
+    govs_all=Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all() if (is_admin or is_manager_support) else govs
     admin_stats = None
     if is_admin:
         admin_stats = {
@@ -754,7 +806,7 @@ def structure():
             'movements': Movement.query.filter_by(is_active=True).count(),
         }
     available_entry_employees=[]
-    if is_admin or is_supervisor:
+    if is_admin or is_supervisor or is_manager_support:
         allowed_branch_set=set(bids())
         available_entry_employees=Employee.query.filter(Employee.is_active==True,Employee.branch_id.in_(allowed_branch_set)).order_by(Employee.full_name).all() if allowed_branch_set else []
         available_entry_employees=[e for e in available_entry_employees if not entry_role_exists(e)]
@@ -764,6 +816,7 @@ def structure():
         tree=tree,
         is_admin=is_admin,
         is_supervisor=is_supervisor,
+        is_manager_support=is_manager_support,
         is_entry=is_entry,
         govs_all=govs_all,
         selected_governorate=selected_gov,
@@ -775,11 +828,11 @@ def structure():
 @app.post('/entry-role/<int:employee_id>/branches')
 @req
 def update_organizational_entry_branches(employee_id):
-    if not has_role('مسؤول التطبيق','مشرف محافظة'): abort(403)
+    if not has_role('مسؤول التطبيق','مشرف محافظة','Manager Application Support'): abort(403)
     e=db.session.get(Employee,employee_id)
     a=EntryAssignment.query.filter_by(employee_id=employee_id,is_active=True).first() if e else None
     if not e or not a or not e.is_active: abort(404)
-    if 'مسؤول التطبيق' not in roles() and a.supervisor_id != me().id: abort(403)
+    if 'مسؤول التطبيق' not in roles() and 'Manager Application Support' not in roles() and a.supervisor_id != me().id: abort(403)
     allowed=set(bids())
     chosen={int(x) for x in request.form.getlist('branch_id') if x.isdigit()} & allowed
     if not chosen:
@@ -803,7 +856,7 @@ def update_organizational_entry_branches(employee_id):
 @app.post('/entry-role/<int:employee_id>/replace')
 @req
 def replace_organizational_entry_from_home(employee_id):
-    if not has_role('مسؤول التطبيق','مشرف محافظة'): abort(403)
+    if not has_role('مسؤول التطبيق','مشرف محافظة','Manager Application Support'): abort(403)
     old=db.session.get(Employee,employee_id)
     a=EntryAssignment.query.filter_by(employee_id=employee_id,is_active=True).first() if old else None
     new_id=request.form.get('new_entry_employee_id','').strip()
@@ -811,7 +864,7 @@ def replace_organizational_entry_from_home(employee_id):
     if not old or not a or not old.is_active:
         flash('الموظف المحدد ليس مدخلًا أول تنظيميًا حاليًا.')
         return redirect('/#entry-directory')
-    if 'مسؤول التطبيق' not in roles() and a.supervisor_id != me().id: abort(403)
+    if 'مسؤول التطبيق' not in roles() and 'Manager Application Support' not in roles() and a.supervisor_id != me().id: abort(403)
     if not new or not new.is_active or new.id==old.id or not branch_ok(new.branch_id):
         flash('اختر موظفًا بديلًا نشطًا داخل نطاقك.')
         return redirect('/#entry-directory')
@@ -928,7 +981,7 @@ def replacement():
 @app.post('/entry-role/add')
 @req
 def add_organizational_entry_role():
-    if not has_role('مسؤول التطبيق','مشرف محافظة'): abort(403)
+    if not has_role('مسؤول التطبيق','مشرف محافظة','Manager Application Support'): abort(403)
     eid=request.form.get('employee_id','').strip()
     if not eid.isdigit():
         flash('اختر موظفًا مسجلًا أولًا.'); return redirect('/#entry-directory')
@@ -938,18 +991,26 @@ def add_organizational_entry_role():
     existing_entry=EntryAssignment.query.filter_by(employee_id=e.id).first()
     if existing_entry and existing_entry.is_active:
         flash('هذا الموظف لديه بالفعل دور المدخل الأول التنظيمي.'); return redirect('/#entry-directory')
-    if 'مسؤول التطبيق' in roles():
+    if 'مسؤول التطبيق' in roles() or 'Manager Application Support' in roles():
         sup_id=request.form.get('supervisor_id','').strip()
         sup=db.session.get(User,int(sup_id)) if sup_id.isdigit() else None
         if not sup or 'مشرف محافظة' not in actual_roles(sup) or not sup.is_active:
             flash('اختر المشرف المسؤول.'); return redirect('/#entry-directory')
+        if 'Manager Application Support' in roles():
+            selected=session.get('manager_governorate_id')
+            if not selected or int(selected) not in user_gov_ids(sup):
+                abort(403)
     else:
         sup=me()
         if e.branch.governorate_id not in user_gov_ids(sup): abort(403)
     branch_ids={int(x) for x in request.form.getlist('branch_id') if x.isdigit()}
-    allowed=set(bids()) if 'مسؤول التطبيق' not in roles() else {b.id for b in Branch.query.filter_by(is_active=True).all()}
-    if 'مسؤول التطبيق' in roles():
-        allowed_govs=user_gov_ids(sup)
+    allowed=set(bids()) if 'مسؤول التطبيق' not in roles() and 'Manager Application Support' not in roles() else {b.id for b in Branch.query.filter_by(is_active=True).all()}
+    if 'مسؤول التطبيق' in roles() or 'Manager Application Support' in roles():
+        if 'Manager Application Support' in roles():
+            selected=session.get('manager_governorate_id')
+            allowed_govs={int(selected)} if selected else set()
+        else:
+            allowed_govs=user_gov_ids(sup)
         allowed={b.id for b in Branch.query.filter(Branch.id.in_(allowed),Branch.governorate_id.in_(allowed_govs),Branch.is_active==True).all()}
     branch_ids &= allowed
     if not branch_ids:
@@ -1467,10 +1528,11 @@ def employees():
             e=Employee(employee_code=None,email=email,full_name=name,branch_id=bid,job_title=job_title,job_code=job_code,hire_date=parse_date(hire_date),company_phone=company_phone,personal_phone=personal_phone); db.session.add(e); db.session.commit(); log('ADD','Employee',e.id,e.full_name); db.session.commit(); flash('تمت إضافة الموظف بنجاح. يمكنك الآن تسجيل أول حركة له.'); return redirect(url_for('card',i=e.id))
     # في شاشة الموظفين، المشرف يستطيع اختيار أي محافظة للبحث والاستعراض.
     # هذا لا يمنحه صلاحيات تعديل/حذف خارج نطاقه؛ عمليات التعديل والحذف تظل محكومة بدوال الصلاحيات.
-    supervisor_search_all = 'مشرف محافظة' in roles()
+    supervisor_search_all = 'مشرف محافظة' in roles() or 'Manager Application Support' in roles()
     search_branch_ids = [b.id for b in Branch.query.filter(Branch.is_active==True).all()] if supervisor_search_all else bs
     branches=Branch.query.filter(Branch.id.in_(search_branch_ids),Branch.is_active==True).order_by(Branch.name).all() if search_branch_ids else []
     q=request.args.get('q','').strip()
+    employee_filter=request.args.get('employee_id','').strip()
     branch_filter=request.args.get('branch_id','').strip()
     query=Employee.query.filter(Employee.is_active==True,Employee.branch_id.in_(search_branch_ids)) if search_branch_ids else Employee.query.filter(False)
     if q:
@@ -1488,6 +1550,12 @@ def employees():
         if q:
             like=f'%{q}%'; query=query.filter(db.or_(Employee.full_name.ilike(like),Employee.job_code.ilike(like),Employee.job_title.ilike(like)))
         rows=query.order_by(Employee.full_name).all()
+    if employee_filter.isdigit():
+        eid=int(employee_filter)
+        rows=[e for e in rows if e.id==eid]
+    if employee_filter.isdigit():
+        eid=int(employee_filter)
+        rows=[e for e in rows if e.id==eid]
     # المدخل الأول المسؤول عن كل موظف: يُحسب من فروع المسؤولية التنظيمية،
     # مع الاحتفاظ بسجل موظف واحد وعدم إنشاء سجل إضافي للمدخل.
     entry_map={}

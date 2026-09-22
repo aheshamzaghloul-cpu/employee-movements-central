@@ -73,16 +73,11 @@
     </div>
 
     <div class="entry-directory-filters no-print">
-      <label>البحث باسم المدخل الأول أو اسم الموظف
+      <label>البحث باسم المدخل الأول
         <select id="entry-directory-filter">
-          <option value="">كل المدخلين والموظفين</option>
+          <option value="">كل المدخلين الأوائل</option>
           {% for row in entry_rows %}
-            <option value="entry-{{row.employee.id}}">مدخل أول: {{row.employee.full_name}}</option>
-            {% for bg in row.branches %}
-              {% for emp in bg.employees %}
-                <option value="employee-{{emp.id}}-entry-{{row.employee.id}}">موظف: {{emp.full_name}} — المدخل: {{row.employee.full_name}}</option>
-              {% endfor %}
-            {% endfor %}
+            <option value="entry-{{row.employee.id}}">{{row.employee.full_name}}</option>
           {% endfor %}
         </select>
       </label>
@@ -164,6 +159,15 @@
       <span class="home-group-icon">🔄</span>
       <div><h3>حركات الموظفين</h3><small>التسجيل والمتابعة والتقارير في واجهة واحدة</small></div>
     </div>
+    <form class="home-movement-employee-search" method="get" action="/employees">
+      <label for="home-movement-employee-q">بحث سريع عن موظف</label>
+      <div class="home-movement-search-row">
+        <input id="home-movement-employee-q" name="q" type="search" placeholder="اكتب اسم الموظف أو الكود الوظيفي" autocomplete="off">
+        <button class="btn" type="submit">🔎 بحث عن الموظف</button>
+      </div>
+      <small>يفتح نتائج الموظفين مباشرة مع إمكانية عرض بيانات الحركة الخاصة بالموظف.</small>
+    </form>
+
     <div class="movement-action-grid">
       {% if can('manage_movements') %}
       <a class="movement-action accent" href="/movements"><span>➕</span><b>تسجيل إجازة - انتداب - إذن</b><small>تسجيل حركة الموظف مباشرة دون اعتماد</small></a>
@@ -208,10 +212,6 @@
     entryList.querySelectorAll('.entry-card').forEach(card=>{
       let ok=!value;
       if(value.startsWith('entry-')) ok=card.dataset.entryId===value.slice(6);
-      else if(value.startsWith('employee-')) {
-        const parts=value.split('-entry-'); const ids=(card.dataset.entryEmployeeIds||'').split(',').filter(Boolean);
-        ok=card.dataset.entryId===parts[1] || ids.includes(parts[0]);
-      }
       card.style.display=ok?'block':'none';
     });
   }

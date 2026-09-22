@@ -1141,3 +1141,12 @@ main>.box,main>.toolbar,main>.section-tabs,main>.admin-control-center,main>.admi
 .current-status-filters select,.entry-directory-filters select{height:38px;border:1px solid #cbdde7;border-radius:9px;background:#fff;color:#23465c;padding:0 10px;font-family:inherit;font-size:12px;font-weight:700;min-width:210px}
 .status-filter-empty{margin-top:10px;padding:16px;text-align:center;border:1px dashed #cbdde7;border-radius:12px;color:#6c8190;background:#fbfdfe;font-size:12px;font-weight:700}
 @media(max-width:700px){.current-status-filters,.entry-directory-filters{display:grid;grid-template-columns:1fr}.current-status-filters label,.entry-directory-filters label,.current-status-filters select,.entry-directory-filters select{min-width:0;width:100%}}
+
+
+/* v34.77 — البحث السريع عن الموظف داخل حركات الموظفين */
+.home-movement-employee-search{margin:0 0 14px;padding:12px 14px;border:1px solid #d7e3ea;border-radius:14px;background:var(--surface2);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.home-movement-employee-search>label{margin:0;white-space:nowrap;font-weight:800;color:var(--primary)}
+.home-movement-search-row{display:flex;gap:8px;align-items:center;flex:1;min-width:280px}
+.home-movement-search-row input{margin:0;flex:1;min-width:0}
+.home-movement-employee-search>small{width:100%;color:var(--muted);font-size:11px;margin-right:120px}
+@media(max-width:700px){.home-movement-search-row{min-width:100%;flex-direction:column;align-items:stretch}.home-movement-search-row .btn{width:100%}.home-movement-employee-search>small{margin-right:0}}

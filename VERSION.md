@@ -1,4 +1,2 @@
-# v35.03
-
-- Delegation is strictly supervisor-to-supervisor.
-- Manager Application Support gets the application-admin-style administration dashboard, excluding application-admin-only account/permission functions.
+# v35.06
+المساعد المحادثي الحر: فهم دلالي للعربية عبر OpenAI Responses API مع مسار احتياطي محلي، والتحقق من الصلاحيات والتنفيذ داخل النظام.

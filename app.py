@@ -7,7 +7,7 @@ from sqlalchemy import UniqueConstraint
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app=Flask(__name__)
-APP_VERSION='v35.05'
+APP_VERSION='v35.06'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg://',1)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or 'dev-only-change-me',SQLALCHEMY_DATABASE_URI=DATABASE_URL,SQLALCHEMY_TRACK_MODIFICATIONS=False,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','0')=='1',MAX_CONTENT_LENGTH=2*1024*1024)
@@ -1901,6 +1901,53 @@ def assistant_parse_date(text):
     if not m: return None
     return f'{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}'
 
+def assistant_llm_parse(text, chat=None):
+    """Semantic Arabic intent/field extraction via OpenAI Responses API."""
+    api_key=os.getenv('OPENAI_API_KEY','').strip()
+    if not api_key:
+        return None
+    model=os.getenv('OPENAI_MODEL','gpt-5.6-luna').strip() or 'gpt-5.6-luna'
+    history=[]
+    for m in (chat or [])[-10:]:
+        if m.get('role') in ('user','assistant') and m.get('text'):
+            history.append({'role':m['role'],'content':m['text'][:2000]})
+    history.append({'role':'user','content':text[:4000]})
+    schema={
+      'type':'object','additionalProperties':False,
+      'properties':{
+        'intent':{'type':'string','enum':['employee_add','employee_status','employee_info','employee_movements','branch_status','branch_info','branch_entry','register_movement','topic_options','navigate','help']},
+        'topic':{'type':['string','null'],'enum':['leave','assignment','permission','entry','employee','branch','reports','admin','users','delegation','replacement','audit',None]},
+        'employee_name':{'type':['string','null']},
+        'branch_name':{'type':['string','null']},
+        'movement_type':{'type':['string','null'],'enum':['إجازة','انتداب','إذن',None]},
+        'leave_type':{'type':['string','null']},
+        'destination_name':{'type':['string','null']},
+        'from_date':{'type':['string','null']},
+        'to_date':{'type':['string','null']},
+        'permission_date':{'type':['string','null']},
+        'navigate_url':{'type':['string','null']},
+        'reply':{'type':['string','null']}
+      },
+      'required':['intent','topic','employee_name','branch_name','movement_type','leave_type','destination_name','from_date','to_date','permission_date','navigate_url','reply']
+    }
+    system="""أنت محلل نية لمساعد إداري عربي داخل نظام إدارة حركات الموظفين. افهم العربية الفصحى والعامية والأخطاء الإملائية والصياغات غير المباشرة، ولا تعتمد على تطابق كلمات محددة. افهم سياق الرسائل السابقة. مهمتك استخراج المقصود والحقول فقط، وليس تنفيذ أي شيء. لا تخترع أسماء أو تواريخ غير مذكورة. إذا قال المستخدم "من بكرة" أو "غدا" لا تحسب التاريخ؛ اترك التاريخ فارغًا. استخدم intent المناسب: employee_add لإضافة موظف، employee_status للحالة، employee_info للبيانات، employee_movements لسجل الحركات، branch_status لحالة/موظفي الفرع، branch_info لكل بيانات الفرع، branch_entry لمعرفة المدخل الأول المسؤول، register_movement لتسجيل إجازة/انتداب/إذن، topic_options عندما يذكر موضوعًا عامًا ويريد المساعدة فيه، navigate عندما يريد فتح وظيفة/تقرير/إدارة موجودة، help عندما لا يمكن تحديد المقصود. إذا كان الطلب متعلقًا بتقرير أو الإدارة أو المستخدمين أو التفويض أو الاستبدال أو سجل العمليات فاستعمل navigate وضع الرابط المعروف إن كان واضحًا. لا تقل إنك لا تفهم بسبب اختلاف الصياغة؛ استنتج النية من المعنى والسياق."""
+    payload={'model':model,'input':[{'role':'system','content':system}]+history,
+             'text':{'format':{'type':'json_schema','name':'assistant_intent','strict':True,'schema':schema}},
+             'max_output_tokens':700}
+    req=urllib.request.Request('https://api.openai.com/v1/responses',data=json.dumps(payload,ensure_ascii=False).encode('utf-8'),headers={'Authorization':'Bearer '+api_key,'Content-Type':'application/json'},method='POST')
+    try:
+        with urllib.request.urlopen(req,timeout=25) as r:
+            data=json.loads(r.read().decode('utf-8'))
+        chunks=[]
+        for item in data.get('output',[]):
+            for c in item.get('content',[]) if isinstance(item,dict) else []:
+                if c.get('type')=='output_text' and c.get('text'):
+                    chunks.append(c['text'])
+        raw=''.join(chunks).strip()
+        return json.loads(raw) if raw else None
+    except Exception:
+        return None
+
 def assistant_parse(text):
     t=assistant_normalize(text)
     # فهم لغوي مرن: نطبع الصيغ الشائعة ونفسر المقصود حتى لو لم يستخدم المستخدم
@@ -2122,7 +2169,7 @@ def assistant_render_read(a):
         if not e or not e.is_active or not branch_ok(e.branch_id):
             return {'title':'نتيجة البحث','error':'لم أجد موظفًا واحدًا مطابقًا.','choices':[db.session.get(Employee,i) for i in a.get('candidate_ids',[]) if db.session.get(Employee,i)]}
         cur=current_assignment_for_employee(e.id); display_branch=cur.destination if cur and cur.destination else e.branch; state=assistant_status_for_employee(e); return {'title':'حالة الموظف','answer':f'الموظف: {e.full_name}\nالفرع الحالي: {display_branch.name if display_branch else "—"}\nفرع التعيين: {e.branch.name if e.branch else "—"}\nالمحافظة: {display_branch.governorate.name if display_branch and display_branch.governorate else "—"}\nالحالة الآن: {state}'}
-    if intent=='branch_status':
+    if intent in ('branch_status','branch_info'):
         b=db.session.get(Branch,a.get('branch_id')) if a.get('branch_id') else None
         if not b or not branch_ok(b.id):
             return {'title':'نتيجة البحث','error':'لم أجد فرعًا واحدًا مطابقًا.','choices':[db.session.get(Branch,i) for i in a.get('candidate_ids',[]) if db.session.get(Branch,i)]}
@@ -2162,6 +2209,17 @@ def assistant_render_read(a):
             ('\n\nالحركات النشطة الآن:\n' + '\n'.join(active_movements) if active_movements else '')
         )
         return {'title':f'بيانات فرع {b.name}','answer':answer}
+    if intent=='employee_info':
+        e=db.session.get(Employee,a.get('employee_id')) if a.get('employee_id') else None
+        if not e or not e.is_active or not branch_ok(e.branch_id):
+            return {'title':'نتيجة البحث','error':'لم أجد موظفًا واحدًا مطابقًا.','choices':[db.session.get(Employee,i) for i in a.get('candidate_ids',[]) if db.session.get(Employee,i)]}
+        cur=current_assignment_for_employee(e.id); cb=cur.destination if cur and cur.destination else e.branch
+        last=Movement.query.filter_by(employee_id=e.id,is_active=True).order_by(Movement.id.desc()).limit(3).all()
+        lines=[f'الموظف: {e.full_name}',f'الكود: {e.employee_code or "غير محدد"}',f'الوظيفة: {e.job_title or "غير محددة"}',f'البريد الإلكتروني: {e.email or "غير محدد"}',f'فرع التعيين: {e.branch.name if e.branch else "غير محدد"}',f'الفرع الحالي: {cb.name if cb else "غير محدد"}',f'تاريخ التعيين: {e.hire_date or "غير محدد"}']
+        if last:
+            lines.append('آخر الحركات:')
+            lines += [f'{m.movement_type} — {m.leave_type or (m.destination.name if m.destination else "") or ""} — {m.from_date or m.permission_date or ""} إلى {m.to_date or "مفتوح/غير محدد"}' for m in last]
+        return {'title':f'بيانات الموظف — {e.full_name}','answer':'\n'.join(lines)}
     if intent=='employee_movements':
         e=db.session.get(Employee,a.get('employee_id')) if a.get('employee_id') else None
         if not e or not branch_ok(e.branch_id):
@@ -2190,7 +2248,7 @@ def assistant():
         if not prompt:
             result={'title':'المساعد الذكي','error':'اكتب طلبك أولًا.'}
         else:
-            a=assistant_parse(prompt)
+            a=assistant_llm_parse(prompt, chat) or assistant_parse(prompt)
             if a.get('intent')=='topic_options':
                 result=assistant_topic_options(a.get('topic'))
             elif a.get('intent')=='employee_topic':
@@ -2200,6 +2258,17 @@ def assistant():
                     result={'title':'إضافة موظف جديد','error':'لا تملك صلاحية إضافة موظف جديد.'}
                 else:
                     result={'title':'إضافة موظف جديد','answer':'بالتأكيد. يمكنك إضافة موظف جديد. سأفتح لك شاشة الإضافة مباشرة لتسجيل البيانات المطلوبة: المحافظة، الفرع، الاسم، البريد الإلكتروني، الوظيفة، الكود الوظيفي، تاريخ التعيين، هاتف الشركة والهاتف الشخصي.','actions':[{'label':'بدء إضافة موظف جديد','url':'/employees'}]}
+            elif a.get('intent')=='navigate':
+                nav=a.get('navigate_url') or ''
+                topic_map={'reports':'/reports/leaves','admin':'/structure','users':'/users','delegation':'/delegations','replacement':'/replacement','audit':'/audit'}
+                if not nav: nav=topic_map.get(a.get('topic'),'')
+                allowed={'/employees':'manage_employees','/employees/edit-data':'manage_employees','/employees/deleted':'manage_employees','/structure':'manage_structure','/governorates':'manage_structure','/branches':'manage_structure','/replacement':'manage_structure','/users':'manage_users','/delegations':'manage_users','/review':'review_movements','/movements':'manage_movements','/audit':'view_audit','/lookups':'view_audit','/reports/leaves':'view_reports','/reports/assignments':'view_reports','/reports/permissions':'view_reports','/reports/assignments/print-missions':'view_reports'}
+                if nav not in allowed:
+                    result={'title':'المساعد الذكي','answer':a.get('reply') or 'وضح لي الوظيفة أو التقرير الذي تريده.'}
+                elif not can(allowed[nav]):
+                    result={'title':'الصلاحيات','error':'هذا الإجراء غير متاح ضمن صلاحيات دورك الحالي.'}
+                else:
+                    result={'title':'المساعد الذكي','answer':a.get('reply') or 'سأفتح لك الوظيفة المطلوبة.','actions':[{'label':'فتح','url':nav}]}
             elif a.get('intent')=='register_movement':
                 if not can('manage_movements'):
                     result={'title':'تسجيل حركة','error':'لا تملك صلاحية تسجيل الحركات.'}
@@ -2207,16 +2276,35 @@ def assistant():
                     result={'title':'تحديد الموظف','error':'لم أستطع تحديد موظف واحد. اكتب الاسم بشكل أوضح.','choices':[db.session.get(Employee,i) for i in a.get('candidate_ids',[]) if db.session.get(Employee,i)]}
                 else:
                     e=db.session.get(Employee,a['employee_id']); dest=db.session.get(Branch,a.get('destination_branch_id')) if a.get('destination_branch_id') else None
-                    err=validate_movement_fields(a.get('movement_type'),a.get('leave_type'),dest.id if dest else None,a.get('from_date'),a.get('to_date'),a.get('permission_date'))
-                    if err: result={'title':'مراجعة الحركة','error':err}
-                    elif not e or not branch_ok(e.branch_id): result={'title':'تسجيل حركة','error':'الموظف خارج نطاق صلاحياتك.'}
-                    elif a.get('movement_type')=='انتداب' and (not dest or not branch_ok(dest.id)): result={'title':'تسجيل انتداب','error':'فرع الانتداب غير موجود أو خارج نطاق صلاحياتك.'}
-                    elif movement_overlaps(e.id,a['movement_type'],a.get('from_date'),a.get('to_date'),a.get('permission_date')): result={'title':'تعارض في الحركة','error':movement_overlaps(e.id,a['movement_type'],a.get('from_date'),a.get('to_date'),a.get('permission_date'))}
-                    else:
-                        session['assistant_pending']=a
-                        dest_text=f' إلى {dest.governorate.name} — {dest.name}' if dest else ''
-                        period=(f" من {a.get('from_date')} — انتداب مفتوح" if a.get('movement_type')=='انتداب' and not a.get('to_date') and a.get('from_date') else (f" من {a.get('from_date')} إلى {a.get('to_date')}" if a.get('from_date') else (f" بتاريخ {a.get('permission_date')}" if a.get('permission_date') else '')))
-                        result={'title':'تأكيد تسجيل الحركة','preview':f"{a['movement_type']} للموظف {e.full_name}{dest_text}{period}"}
+                    mt=a.get('movement_type')
+                    if mt=='إجازة' and not a.get('leave_type'):
+                        result={'title':'نوع الإجازة','answer':'ما نوع الإجازة التي تريد تسجيلها؟'}
+                    elif mt in ('إجازة','انتداب') and not a.get('from_date'):
+                        result={'title':'تاريخ البداية','answer':'ما تاريخ بداية الحركة؟'}
+                    elif mt=='إجازة' and not a.get('to_date'):
+                        result={'title':'تاريخ النهاية','answer':'ما تاريخ نهاية الإجازة؟'}
+                    elif mt=='إذن' and not a.get('permission_date'):
+                        result={'title':'تاريخ الإذن','answer':'ما تاريخ الإذن؟'}
+                    elif mt=='انتداب' and not a.get('destination_name') and not a.get('destination_branch_id'):
+                        result={'title':'فرع الانتداب','answer':'إلى أي فرع سيكون الانتداب؟'}
+                    elif mt=='انتداب' and a.get('destination_name') and not a.get('destination_branch_id'):
+                        dest,matches_dest=assistant_find_branch(a.get('destination_name'))
+                        if not dest:
+                            result={'title':'تحديد فرع الانتداب','error':'لم أجد فرعًا مطابقًا.','choices':matches_dest[:10]}
+                        else:
+                            a['destination_branch_id']=dest.id
+                    if result is None:
+                        dest=db.session.get(Branch,a.get('destination_branch_id')) if a.get('destination_branch_id') else dest
+                        err=validate_movement_fields(a.get('movement_type'),a.get('leave_type'),dest.id if dest else None,a.get('from_date'),a.get('to_date'),a.get('permission_date'))
+                        if err: result={'title':'مراجعة الحركة','error':err}
+                        elif not e or not branch_ok(e.branch_id): result={'title':'تسجيل حركة','error':'الموظف خارج نطاق صلاحياتك.'}
+                        elif a.get('movement_type')=='انتداب' and (not dest or not branch_ok(dest.id)): result={'title':'تسجيل انتداب','error':'فرع الانتداب غير موجود أو خارج نطاق صلاحياتك.'}
+                        elif movement_overlaps(e.id,a['movement_type'],a.get('from_date'),a.get('to_date'),a.get('permission_date')): result={'title':'تعارض في الحركة','error':movement_overlaps(e.id,a['movement_type'],a.get('from_date'),a.get('to_date'),a.get('permission_date'))}
+                        else:
+                            session['assistant_pending']=a
+                            dest_text=f' إلى {dest.governorate.name} — {dest.name}' if dest else ''
+                            period=(f" من {a.get('from_date')} — انتداب مفتوح" if a.get('movement_type')=='انتداب' and not a.get('to_date') and a.get('from_date') else (f" من {a.get('from_date')} إلى {a.get('to_date')}" if a.get('from_date') else (f" بتاريخ {a.get('permission_date')}" if a.get('permission_date') else '')))
+                            result={'title':'تأكيد تسجيل الحركة','preview':f"{a['movement_type']} للموظف {e.full_name}{dest_text}{period}"}
             else:
                 if a.get('intent')=='branch_entry':
                     result=assistant_render_branch_entry(a)

@@ -1354,3 +1354,33 @@ html:has(.assistant-embed-body), body.assistant-embed-body{width:100%;height:100
   .report-filter-card,.report-summary-card,.reports-group-card,.smart-movement-box,
   .structure-card,.supervisor-clean-card,.supervisor-full-page-card,.box){transition:none}
 }
+
+/* v35.05.2 — تكبير وتوازن النص داخل لوحة إدارة المشرف */
+.supervisor-admin-dashboard .admin-dashboard-hero h2{font-size:32px;line-height:1.35}
+.supervisor-admin-dashboard .admin-dashboard-hero p{font-size:17px;line-height:2}
+.supervisor-admin-dashboard .admin-overview-card{min-height:148px;padding:22px 24px}
+.supervisor-admin-dashboard .admin-overview-card b{font-size:34px}
+.supervisor-admin-dashboard .admin-overview-card span{font-size:19px;margin-top:11px}
+.supervisor-admin-dashboard .admin-overview-card small{font-size:13px;line-height:1.8;margin-top:6px}
+.supervisor-admin-dashboard .admin-section-card{padding:24px}
+.supervisor-admin-dashboard .admin-section-head{gap:15px;margin-bottom:19px}
+.supervisor-admin-dashboard .admin-section-head>span{width:52px;height:52px;font-size:26px;border-radius:13px}
+.supervisor-admin-dashboard .admin-section-head h3{font-size:23px;line-height:1.45}
+.supervisor-admin-dashboard .admin-section-head small{font-size:13px;line-height:1.8}
+.supervisor-admin-dashboard .admin-action-grid{gap:14px}
+.supervisor-admin-dashboard .admin-action-grid a{min-height:112px;padding:18px 20px;border-radius:15px}
+.supervisor-admin-dashboard .admin-action-grid b{font-size:17px;line-height:1.55}
+.supervisor-admin-dashboard .admin-action-grid small{font-size:13px;line-height:1.75;margin-top:6px}
+.supervisor-admin-dashboard .admin-governance-note{font-size:16px;line-height:1.8;padding:16px 19px}
+.supervisor-admin-dashboard .admin-governance-note small{font-size:13px}
+@media(max-width:900px){
+  .supervisor-admin-dashboard .admin-dashboard-hero h2{font-size:28px}
+  .supervisor-admin-dashboard .admin-dashboard-hero p{font-size:15px}
+  .supervisor-admin-dashboard .admin-section-head h3{font-size:21px}
+}
+@media(max-width:560px){
+  .supervisor-admin-dashboard .admin-overview-card{min-height:125px}
+  .supervisor-admin-dashboard .admin-overview-card span{font-size:17px}
+  .supervisor-admin-dashboard .admin-action-grid b{font-size:16px}
+  .supervisor-admin-dashboard .admin-action-grid small{font-size:12px}
+}

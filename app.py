@@ -7,7 +7,7 @@ from sqlalchemy import UniqueConstraint
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app=Flask(__name__)
-APP_VERSION='v34.99'
+APP_VERSION='v35.05'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg://',1)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or 'dev-only-change-me',SQLALCHEMY_DATABASE_URI=DATABASE_URL,SQLALCHEMY_TRACK_MODIFICATIONS=False,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','0')=='1',MAX_CONTENT_LENGTH=2*1024*1024)
@@ -166,11 +166,42 @@ def user_roles(u): return roles(u)
 def assignment_state(m):
     if not m or m.movement_type!='انتداب': return None
     if m.assignment_state=='مغلق': return 'مغلق'
-    if not m.to_date: return 'ساري'
+    if not m.to_date: return 'انتداب مفتوح'
     today=date.today()
     if m.to_date < today: return 'انتهت المدة'
     if m.to_date <= today + timedelta(days=ASSIGNMENT_ALERT_DAYS): return 'قرب الانتهاء'
     return 'ساري'
+
+def current_assignment_for_employee(employee_id, on_date=None):
+    on_date = on_date or date.today()
+    moves=(Movement.query.filter_by(employee_id=employee_id,is_active=True,movement_type='انتداب')
+           .filter(Movement.assignment_state!='مغلق')
+           .order_by(Movement.from_date.desc().nullslast(), Movement.id.desc()).all())
+    for m in moves:
+        if not m.from_date or m.from_date > on_date:
+            continue
+        if m.to_date is None or on_date <= m.to_date:
+            return m
+    return None
+
+def effective_branch_id_for_employee(employee_id, on_date=None):
+    m=current_assignment_for_employee(employee_id,on_date)
+    return m.destination_branch_id if m and m.destination_branch_id else None
+
+def employee_is_effectively_in_branch(employee, branch_id, on_date=None):
+    assigned=effective_branch_id_for_employee(employee.id,on_date)
+    return assigned == branch_id if assigned else employee.branch_id == branch_id
+
+def employees_effectively_in_branches(branch_ids, on_date=None):
+    ids=set(branch_ids or [])
+    if not ids:
+        return []
+    today=on_date or date.today()
+    out=[]
+    for e in Employee.query.filter(Employee.is_active==True).order_by(Employee.full_name.asc()).all():
+        if e.branch_id in ids or effective_branch_id_for_employee(e.id,today) in ids:
+            out.append(e)
+    return out
 
 def supervisor_for_entry(u=None):
     u=u or me()
@@ -305,7 +336,7 @@ def inject_context():
     active_role=session.get('active_role') if u else None
     if active_role not in real_roles:
         active_role=None
-    return {'me':u,'roles':roles(),'real_roles':real_roles,'active_role':active_role,'csrf':csrf_token(),'user_roles':user_roles,'user_permissions':user_permissions,'can':can,'has_role':has_role,'PERMISSIONS':PERMISSIONS,'user_gov_ids':user_gov_ids,'user_branch_ids':user_branch_ids,'assignment_state':assignment_state,'assignment_supervisor':assignment_supervisor,'supervisor_for_entry':supervisor_for_entry,'entries_for_supervisor':entries_for_supervisor,'branch_entry':branch_entry,'auto_approver_for_employee':auto_approver_for_employee,'can_manage_employee':can_manage_employee,'ASSIGNMENT_STATES':ASSIGNMENT_STATES,'ASSIGNMENT_ALERT_DAYS':ASSIGNMENT_ALERT_DAYS}
+    return {'me':u,'roles':roles(),'real_roles':real_roles,'active_role':active_role,'csrf':csrf_token(),'user_roles':user_roles,'user_permissions':user_permissions,'can':can,'has_role':has_role,'PERMISSIONS':PERMISSIONS,'user_gov_ids':user_gov_ids,'user_branch_ids':user_branch_ids,'assignment_state':assignment_state,'current_assignment_for_employee':current_assignment_for_employee,'assignment_supervisor':assignment_supervisor,'supervisor_for_entry':supervisor_for_entry,'entries_for_supervisor':entries_for_supervisor,'branch_entry':branch_entry,'auto_approver_for_employee':auto_approver_for_employee,'can_manage_employee':can_manage_employee,'ASSIGNMENT_STATES':ASSIGNMENT_STATES,'ASSIGNMENT_ALERT_DAYS':ASSIGNMENT_ALERT_DAYS}
 
 @app.after_request
 def security_headers(resp):
@@ -347,9 +378,12 @@ def movement_overlaps(employee_id, mt, fd, td, pd, exclude_id=None):
         if mt=='إذن':
             if day and x.movement_type=='إذن' and x.permission_date==day: return 'يوجد إذن آخر للموظف في نفس التاريخ.'
             if day and x.from_date and x.to_date and x.from_date<=day<=x.to_date: return 'تاريخ الإذن يتعارض مع حركة أخرى للموظف.'
-        elif start and end:
-            if x.from_date and x.to_date and start<=x.to_date and end>=x.from_date: return 'فترة الحركة تتعارض مع حركة أخرى للموظف.'
-            if x.movement_type=='إذن' and x.permission_date and start<=x.permission_date<=end: return 'فترة الحركة تتعارض مع إذن للموظف.'
+        elif start:
+            if x.movement_type=='انتداب' and x.assignment_state!='مغلق' and x.from_date and x.to_date is None:
+                if end is None or end >= x.from_date:
+                    return 'يوجد انتداب مفتوح للموظف؛ أغلقه أو عدّل مدته قبل تسجيل حركة متعارضة.'
+            if x.from_date and x.to_date and (end is None or start<=x.to_date) and (end is None or end>=x.from_date): return 'فترة الحركة تتعارض مع حركة أخرى للموظف.'
+            if x.movement_type=='إذن' and x.permission_date and ((end is None and x.permission_date>=start) or (end is not None and start<=x.permission_date<=end)): return 'فترة الحركة تتعارض مع إذن للموظف.'
     return None
 
 def validate_movement_fields(mt, leave_type, dest, fd, td, pd):
@@ -359,7 +393,7 @@ def validate_movement_fields(mt, leave_type, dest, fd, td, pd):
         if not fd or not td: return 'حدد تاريخ البداية والنهاية.'
     elif mt=='انتداب':
         if not dest or not branch_ok(dest): return 'فرع الانتداب غير مسموح.'
-        if not fd or not td: return 'حدد تاريخ البداية والنهاية.'
+        if not fd: return 'حدد تاريخ بداية الانتداب.'
     elif mt=='إذن':
         if not pd: return 'حدد تاريخ الإذن.'
     if fd and td and fd>td: return 'من لا يجوز أن يكون بعد إلى.'
@@ -466,39 +500,36 @@ def change_password():
         else: u.password_hash=generate_password_hash(new); u.must_change_password=False; sync_role_accounts(u); log('PASSWORD_CHANGE','User',u.id); db.session.commit(); flash('تم تغيير كلمة المرور بنجاح.'); return redirect('/')
     return render_template('change_password.html')
 def current_employee_status_rows(branch_ids, today):
-    """Return only employees with a currently active leave or assignment."""
+    """Return employees currently located in the selected branches, including open assignments."""
     if not branch_ids:
         return []
-    employees=(Employee.query.filter(Employee.branch_id.in_(branch_ids),Employee.is_active==True)
-               .order_by(Employee.full_name.asc()).all())
+    employees=employees_effectively_in_branches(branch_ids,today)
     rows=[]
     for e in employees:
         moves=(Movement.query.filter_by(employee_id=e.id,is_active=True)
                .order_by(Movement.created_at.desc(),Movement.id.desc()).all())
         current=None
         for m in moves:
-            if m.movement_type in ('إجازة','انتداب') and m.from_date and m.to_date and m.from_date <= today <= m.to_date:
-                current=m
-                break
-        # الصفحة «حالة الموظفين الآن» تعرض فقط الإجازات والانتدابات السارية.
-        if not current:
-            continue
-        if current.movement_type=='انتداب':
-            state='انتداب ساري'
+            if m.movement_type=='انتداب' and m.assignment_state!='مغلق' and m.from_date and m.from_date<=today and (m.to_date is None or today<=m.to_date):
+                current=m; break
+            if m.movement_type=='إجازة' and m.from_date and m.to_date and m.from_date<=today<=m.to_date:
+                current=m; break
+        if current and current.movement_type=='انتداب':
+            state='انتداب مفتوح' if current.to_date is None else 'انتداب ساري'
             place=current.destination.name if current.destination else 'جهة الانتداب غير محددة'
             until=current.to_date
+            detail=('من {} — مفتوح'.format(current.from_date.strftime('%d/%m/%Y')) if not current.to_date else 'من {} إلى {}'.format(current.from_date.strftime('%d/%m/%Y'),current.to_date.strftime('%d/%m/%Y')))
+            display_branch=current.destination
+        elif current and current.movement_type=='إجازة':
+            state='إجازة مستمرة'; place=current.leave_type or 'إجازة'; until=current.to_date
             detail='من {} إلى {}'.format(current.from_date.strftime('%d/%m/%Y'),current.to_date.strftime('%d/%m/%Y'))
+            display_branch=e.branch
         else:
-            state='إجازة مستمرة'
-            place=current.leave_type or 'إجازة'
-            until=current.to_date
-            detail='من {} إلى {}'.format(current.from_date.strftime('%d/%m/%Y'),current.to_date.strftime('%d/%m/%Y'))
-        remaining=(until-today).days if until else 0
-        rows.append({'employee':e,'state':state,'place':place,'until':until,'detail':detail,
-                     'remaining':remaining,'movement':current,
-                     'ending_notice':bool(until and until <= today + timedelta(days=1)),
-                     'from_date':current.from_date,'to_date':current.to_date})
-    rows.sort(key=lambda r: (r['until'] or date.max, r['employee'].full_name))
+            state='على رأس العمل'; place=e.branch.name if e.branch else '—'; until=None; detail=''; display_branch=e.branch
+        remaining=(until-today).days if until else None
+        rows.append({'employee':e,'state':state,'place':place,'until':until,'detail':detail,'remaining':remaining,'movement':current,
+                     'ending_notice':bool(until and until <= today + timedelta(days=1)),'from_date':current.from_date if current else None,'to_date':current.to_date if current else None,'display_branch':display_branch})
+    rows.sort(key=lambda r:(r['until'] or date.max,r['employee'].full_name))
     return rows
 
 @app.get('/')
@@ -811,7 +842,7 @@ def structure():
         tree.append((g,bs,supervisors,entries,counts))
     govs_all=Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all() if (is_admin or is_manager_support) else govs
     admin_stats = None
-    if is_admin:
+    if is_admin or is_manager_support:
         admin_stats = {
             'governorates': Governorate.query.filter_by(is_active=True).count(),
             'branches': Branch.query.filter_by(is_active=True).count(),
@@ -833,6 +864,7 @@ def structure():
         is_admin=is_admin,
         is_supervisor=is_supervisor,
         is_manager_support=is_manager_support,
+        admin_view=(is_admin or is_manager_support),
         is_entry=is_entry,
         govs_all=govs_all,
         selected_governorate=selected_gov,
@@ -1557,7 +1589,9 @@ def employees():
         like=f'%{q}%'; query=query.filter(db.or_(Employee.full_name.ilike(like),Employee.job_code.ilike(like),Employee.job_title.ilike(like)))
     if branch_filter.isdigit() and int(branch_filter) in allowed_search_branch_ids:
         query=query.filter(Employee.branch_id==int(branch_filter))
-    rows=query.order_by(Employee.full_name).all()
+    rows=[e for e in query.order_by(Employee.full_name).all() if (e.branch_id in allowed_search_branch_ids or effective_branch_id_for_employee(e.id) in allowed_search_branch_ids)]
+    if branch_filter.isdigit() and int(branch_filter) in allowed_search_branch_ids:
+        rows=[e for e in rows if employee_is_effectively_in_branch(e,int(branch_filter))]
     govs=Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all() if supervisor_search_all else (Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True).order_by(Governorate.name).all() if gids() else [])
     allowed_search_gov_ids={g.id for g in govs}
     if gov_filter.isdigit() and int(gov_filter) in allowed_search_gov_ids:
@@ -1566,7 +1600,7 @@ def employees():
         query=Employee.query.filter(Employee.is_active==True,Employee.branch_id.in_([b.id for b in branches]))
         if q:
             like=f'%{q}%'; query=query.filter(db.or_(Employee.full_name.ilike(like),Employee.job_code.ilike(like),Employee.job_title.ilike(like)))
-        rows=query.order_by(Employee.full_name).all()
+        rows=[e for e in query.order_by(Employee.full_name).all() if employee_is_effectively_in_branch(e,int(branches[0].id))] if len(branches)==1 else [e for e in query.order_by(Employee.full_name).all() if any(employee_is_effectively_in_branch(e,b.id) for b in branches)]
     if employee_filter.isdigit():
         eid=int(employee_filter)
         rows=[e for e in rows if e.id==eid]
@@ -2078,7 +2112,7 @@ def assistant_status_for_employee(e):
     if not active: return 'على رأس العمل'
     m=active[0]
     if m.movement_type=='إجازة': return f'إجازة — {m.leave_type or ""} — حتى {m.to_date}'
-    if m.movement_type=='انتداب': return f'انتداب — {m.destination.name if m.destination else "غير محدد"} — حتى {m.to_date}'
+    if m.movement_type=='انتداب': return f'انتداب مفتوح — {m.destination.name if m.destination else "غير محدد"}' if m.to_date is None else f'انتداب — {m.destination.name if m.destination else "غير محدد"} — حتى {m.to_date}'
     return 'إذن اليوم'
 
 def assistant_render_read(a):
@@ -2087,14 +2121,47 @@ def assistant_render_read(a):
         e=db.session.get(Employee,a.get('employee_id')) if a.get('employee_id') else None
         if not e or not e.is_active or not branch_ok(e.branch_id):
             return {'title':'نتيجة البحث','error':'لم أجد موظفًا واحدًا مطابقًا.','choices':[db.session.get(Employee,i) for i in a.get('candidate_ids',[]) if db.session.get(Employee,i)]}
-        return {'title':'حالة الموظف','answer':f'الموظف: {e.full_name}\nالفرع: {e.branch.name}\nالمحافظة: {e.branch.governorate.name}\nالحالة الآن: {assistant_status_for_employee(e)}'}
+        cur=current_assignment_for_employee(e.id); display_branch=cur.destination if cur and cur.destination else e.branch; state=assistant_status_for_employee(e); return {'title':'حالة الموظف','answer':f'الموظف: {e.full_name}\nالفرع الحالي: {display_branch.name if display_branch else "—"}\nفرع التعيين: {e.branch.name if e.branch else "—"}\nالمحافظة: {display_branch.governorate.name if display_branch and display_branch.governorate else "—"}\nالحالة الآن: {state}'}
     if intent=='branch_status':
         b=db.session.get(Branch,a.get('branch_id')) if a.get('branch_id') else None
         if not b or not branch_ok(b.id):
             return {'title':'نتيجة البحث','error':'لم أجد فرعًا واحدًا مطابقًا.','choices':[db.session.get(Branch,i) for i in a.get('candidate_ids',[]) if db.session.get(Branch,i)]}
-        employees=Employee.query.filter_by(branch_id=b.id,is_active=True).order_by(Employee.full_name).all()
+        employees=employees_effectively_in_branches([b.id])
+        entry_links=EntryAssignmentBranch.query.join(EntryAssignment).filter(EntryAssignmentBranch.branch_id==b.id,EntryAssignment.is_active==True).all()
+        entry_names=[]
+        supervisors=[]
+        for link in entry_links:
+            if link.assignment and link.assignment.employee and link.assignment.employee.is_active:
+                entry_names.append(link.assignment.employee.full_name)
+            if link.assignment and link.assignment.supervisor and link.assignment.supervisor.is_active:
+                supervisors.append(link.assignment.supervisor.full_name)
+        active_movements=[]
+        for e in employees:
+            active=Movement.query.filter_by(employee_id=e.id,is_active=True).filter(
+                ((Movement.movement_type.in_(['إجازة','انتداب'])) & (Movement.from_date<=date.today()) & (Movement.to_date>=date.today())) |
+                ((Movement.movement_type=='إذن') & (Movement.permission_date==date.today()))
+            ).order_by(Movement.id.desc()).first()
+            if active:
+                detail=active.leave_type or (active.destination.name if active.destination else '') or ''
+                period=active.permission_date or (f'{active.from_date} — انتداب مفتوح' if active.movement_type=='انتداب' and active.to_date is None and active.from_date else (f'{active.from_date} إلى {active.to_date}' if active.from_date or active.to_date else ''))
+                active_movements.append(f'{e.full_name} — {active.movement_type} — {detail} — {period}')
+        on_duty=sum(1 for e in employees if assistant_status_for_employee(e)=='على رأس العمل')
+        leave_count=sum(1 for e in employees if 'إجازة' in assistant_status_for_employee(e))
+        assignment_count=sum(1 for e in employees if 'انتداب' in assistant_status_for_employee(e))
+        permission_count=sum(1 for e in employees if assistant_status_for_employee(e)=='إذن اليوم')
         lines=[f'{e.full_name} — {assistant_status_for_employee(e)}' for e in employees]
-        return {'title':f'حالة موظفي فرع {b.name}','answer':f'المحافظة: {b.governorate.name}\nعدد الموظفين: {len(employees)}\n'+'\n'.join(lines)}
+        answer=(
+            f'اسم الفرع: {b.name}\n'
+            f'كود الفرع: {b.code or "غير محدد"}\n'
+            f'المحافظة: {b.governorate.name}\n'
+            f'عدد الموظفين النشطين: {len(employees)}\n'
+            f'على رأس العمل: {on_duty} | إجازة: {leave_count} | انتداب: {assignment_count} | إذن اليوم: {permission_count}\n'
+            f'المدخل الأول المسؤول: {", ".join(dict.fromkeys(entry_names)) if entry_names else "غير محدد"}\n'
+            f'المشرف: {", ".join(dict.fromkeys(supervisors)) if supervisors else "غير محدد"}\n\n'
+            'موظفو الفرع وحالتهم الآن:\n' + ('\n'.join(lines) if lines else 'لا يوجد موظفون نشطون.') +
+            ('\n\nالحركات النشطة الآن:\n' + '\n'.join(active_movements) if active_movements else '')
+        )
+        return {'title':f'بيانات فرع {b.name}','answer':answer}
     if intent=='employee_movements':
         e=db.session.get(Employee,a.get('employee_id')) if a.get('employee_id') else None
         if not e or not branch_ok(e.branch_id):
@@ -2148,7 +2215,7 @@ def assistant():
                     else:
                         session['assistant_pending']=a
                         dest_text=f' إلى {dest.governorate.name} — {dest.name}' if dest else ''
-                        period=(f" من {a.get('from_date')} إلى {a.get('to_date')}" if a.get('from_date') else (f" بتاريخ {a.get('permission_date')}" if a.get('permission_date') else ''))
+                        period=(f" من {a.get('from_date')} — انتداب مفتوح" if a.get('movement_type')=='انتداب' and not a.get('to_date') and a.get('from_date') else (f" من {a.get('from_date')} إلى {a.get('to_date')}" if a.get('from_date') else (f" بتاريخ {a.get('permission_date')}" if a.get('permission_date') else '')))
                         result={'title':'تأكيد تسجيل الحركة','preview':f"{a['movement_type']} للموظف {e.full_name}{dest_text}{period}"}
             else:
                 if a.get('intent')=='branch_entry':
@@ -2262,7 +2329,7 @@ def assistant_confirm():
 def movements():
     bs=bids()
     if request.method=='POST' and (not can_manage_movement() or not can('manage_movements')): abort(403)
-    emps=Employee.query.filter(Employee.is_active==True,Employee.branch_id.in_(bs)).order_by(Employee.full_name).all() if bs else []
+    emps=employees_effectively_in_branches(bs) if bs else []
     if request.method=='POST':
         f=request.form; eid=int(f.get('employee_id','0')) if f.get('employee_id','').isdigit() else 0; e=db.session.get(Employee,eid)
         if not e or not branch_ok(e.branch_id): abort(403)
@@ -2271,7 +2338,7 @@ def movements():
         if err: flash(err); return redirect('/movements')
         overlap=movement_overlaps(e.id,mt,fd,td,pd)
         if overlap: flash(overlap); return redirect('/movements')
-        m=Movement(employee_id=e.id,movement_type=mt,leave_type=f.get('leave_type') or None,destination_branch_id=dest,from_date=parse_date(fd),to_date=parse_date(td),permission_date=parse_date(pd),notes=None,created_by=me().id,status=status,assignment_state='ساري',approver_id=None); db.session.add(m); db.session.commit(); record_movement_history(m,None,status,'ADD','تسجيل الحركة — لا تحتاج لاعتماد'); log('ADD','Movement',m.id,status); db.session.commit(); flash('تم تسجيل الحركة وأصبحت ظاهرة مباشرة في متابعة الموظفين.')
+        m=Movement(employee_id=e.id,movement_type=mt,leave_type=f.get('leave_type') or None,destination_branch_id=dest,from_date=parse_date(fd),to_date=parse_date(td),permission_date=parse_date(pd),notes=None,created_by=me().id,status=status,assignment_state=('ساري' if mt=='انتداب' else 'ساري'),approver_id=None); db.session.add(m); db.session.commit(); record_movement_history(m,None,status,'ADD','تسجيل الحركة — لا تحتاج لاعتماد'); log('ADD','Movement',m.id,status); db.session.commit(); flash('تم تسجيل الحركة وأصبحت ظاهرة مباشرة في متابعة الموظفين.')
     rows=Movement.query.join(Employee).filter(Employee.branch_id.in_(bs),Movement.is_active==True).order_by(Movement.created_at.desc()).all() if bs else []
     selected_employee_id=request.args.get('employee_id', type=int)
     return render_template('movements.html',rows=rows,emps=emps,bs=Branch.query.filter(Branch.id.in_(bs),Branch.is_active==True).all() if bs else [],leave_types=active_leave_types(),movement_types=active_movement_types(),statuses=STATUSES,selected_employee_id=selected_employee_id,approvers={e.id:approvers_for_employee(e) for e in emps})
@@ -2350,6 +2417,24 @@ def movement_cancel_approval(i):
     old_status=m.status; m.status='تحت المراجعة'; m.rejection_reason=None; m.modified_by=me().id; m.modified_at=datetime.utcnow(); m.reviewed_by=None; m.reviewed_at=None; m.approved_by=None; m.approved_at=None
     record_movement_history(m,old_status,'تحت المراجعة','CANCEL_APPROVAL',reason); log('CANCEL_APPROVAL','Movement',i,reason); db.session.commit()
     flash('تم إلغاء الاعتماد وإعادة الحركة للمراجعة.')
+    return redirect('/movements')
+
+@app.post('/movements/<int:i>/close-assignment')
+@req
+def close_assignment(i):
+    m=db.session.get(Movement,i)
+    if not m or m.movement_type!='انتداب' or not m.is_active or not branch_ok(m.employee.branch_id): abort(403)
+    if not can('manage_movements') or not can_manage_movement(m): abort(403)
+    if m.assignment_state=='مغلق':
+        flash('الانتداب مغلق بالفعل.')
+        return redirect('/movements')
+    close_date=parse_date(request.form.get('close_date') or '') or date.today()
+    if m.from_date and close_date < m.from_date:
+        flash('تاريخ الإغلاق لا يجوز أن يسبق بداية الانتداب.')
+        return redirect('/movements')
+    m.assignment_state='مغلق'; m.to_date=close_date; m.closed_by=me().id; m.closed_at=datetime.utcnow(); m.closure_reason=(request.form.get('reason') or 'إغلاق الانتداب وعودة الموظف لفرعه الأصلي').strip(); m.modified_by=me().id; m.modified_at=datetime.utcnow()
+    record_movement_history(m,m.status,m.status,'CLOSE_ASSIGNMENT',m.closure_reason); log('CLOSE_ASSIGNMENT','Movement',m.id,m.closure_reason); db.session.commit()
+    flash('تم إنهاء الانتداب، وعاد الموظف لفرعه الأصلي.')
     return redirect('/movements')
 
 @app.get('/movements/<int:i>/assignment-form')
@@ -2466,6 +2551,10 @@ def delegation_add():
     if 'مسؤول التطبيق' not in roles(u): sup=u
     if not sup or not delegate or not gov or not starts or not ends or starts>ends:
         flash('جميع بيانات التفويض مطلوبة، ويجب أن تكون بداية التفويض قبل أو مساوية لنهايته.'); return redirect('/delegations')
+    # التفويض الإداري يتم حصراً بين مشرفي المحافظات: مشرف أصلي ← مشرف بديل.
+    # مسؤول التطبيق يدير العملية تقنياً فقط ولا يكون طرفاً في التفويض.
+    if 'مشرف محافظة' not in roles(sup) or 'مشرف محافظة' not in roles(delegate):
+        flash('التفويض يكون بين مشرف محافظة ومشرف محافظة فقط.'); return redirect('/delegations')
     if not delegation_allowed_for_user(sup,gid):
         flash('المشرف أو المحافظة لا يتطابقان مع التبعية.'); return redirect('/delegations')
     if delegate.id==sup.id:

@@ -8,7 +8,8 @@
 <label data-movement="إجازة" hidden>نوع الإجازة<select name="leave_type" id="leave_type"><option value="">اختر نوع الإجازة</option>{% for x in leave_types %}<option value="{{x}}">{{x}}</option>{% endfor %}</select></label>
 <label data-movement="انتداب" hidden>الفرع المنتدب إليه<select name="destination_branch_id" id="destination_branch_id"><option value="">اختر الفرع</option>{% for b in bs %}<option value="{{b.id}}">{{b.name}}</option>{% endfor %}</select></label>
 <label data-movement="إجازة" data-movement2="انتداب" hidden>من تاريخ<input type="date" name="from_date" id="from_date"></label>
-<label data-movement="إجازة" data-movement2="انتداب" hidden>إلى تاريخ<input type="date" name="to_date" id="to_date"></label>
+<label data-movement="انتداب" hidden id="open_assignment_wrap"><span><input type="checkbox" name="open_assignment" id="open_assignment" value="1"> انتداب مفتوح — بدون تاريخ نهاية</span></label>
+<label data-movement="إجازة" data-movement2="انتداب" hidden id="to_date_wrap">إلى تاريخ<input type="date" name="to_date" id="to_date"></label>
 <label data-movement="إذن" hidden>تاريخ الإذن<input type="date" name="permission_date" id="permission_date"></label>
 
 </div>
@@ -26,13 +27,19 @@
         <td><a class="table-link" href="/employee/{{m.employee.id}}">{{m.employee.full_name}}</a><small>{{m.employee.branch.name if m.employee.branch else '—'}}</small></td>
         <td><span class="badge">{{m.movement_type}}</span></td>
         <td>{% if m.movement_type=='إجازة' %}{{m.leave_type or 'إجازة'}}{% elif m.movement_type=='انتداب' %}{{m.destination.name if m.destination else '—'}}{% else %}إذن{% endif %}</td>
-        <td>{% if m.movement_type=='إذن' %}{{m.permission_date or '—'}}{% else %}{{m.from_date or '—'}} ← {{m.to_date or '—'}}{% endif %}</td>
-        <td>{{m.status}}</td>
-        <td><a class="btn mini" href="/movements/{{m.id}}/edit">تعديل الحركة</a></td>
+        <td>{% if m.movement_type=='إذن' %}{{m.permission_date or '—'}}{% else %}{{m.from_date or '—'}} ← {% if m.movement_type=='انتداب' and m.to_date is none %}<b>مفتوح</b>{% else %}{{m.to_date or '—'}}{% endif %}{% endif %}</td>
+        <td>{{m.status}}{% if m.movement_type=='انتداب' %} — <b>{{assignment_state(m)}}</b>{% endif %}</td>
+        <td><a class="btn mini" href="/movements/{{m.id}}/edit">تعديل الحركة</a>{% if m.movement_type=='انتداب' and m.assignment_state!='مغلق' and m.to_date is none %}<form method="post" action="/movements/{{m.id}}/close-assignment" style="display:inline-flex;gap:5px;margin-inline-start:5px"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="btn mini secondary" type="submit">إنهاء الانتداب</button></form>{% endif %}</td>
       </tr>
     {% else %}<tr><td colspan="6" class="empty">لا توجد حركات مسجلة.</td></tr>{% endfor %}
     </tbody>
   </table></div>
 </div>
 
-{% endblock %}
+<script>
+(function(){
+ const cb=document.getElementById('open_assignment'), to=document.getElementById('to_date'), wrap=document.getElementById('to_date_wrap'), openWrap=document.getElementById('open_assignment_wrap'), type=document.getElementById('movement_type');
+ function sync(){ const isAssign=type?.value==='انتداب', open=!!cb?.checked && isAssign; if(openWrap) openWrap.style.display=isAssign?'':'none'; if(wrap) wrap.style.display=(isAssign||type?.value==='إجازة')?'':'none'; if(to){to.required=type?.value==='إجازة'||(isAssign&&!open); if(open) to.value='';} }
+ cb?.addEventListener('change',sync); type?.addEventListener('change',sync); sync();
+})();
+</script>{% endblock %}

@@ -2,7 +2,7 @@
 {% block title %}الهيكل الإداري{% endblock %}
 {% block content %}
 <div class="toolbar supervisor-toolbar">
-  <div><h1>الإدارة</h1>{% if is_supervisor %}<div class="section-caption"><b>لوحة إدارة المشرف</b><span>{% if govs_all %}نطاق الإدارة مقصور على: <strong>{{ govs_all|map(attribute='name')|join(' — ') }}</strong>. لا تظهر محافظات أخرى في خيارات الإدارة أو الإسناد.{% else %}لا توجد محافظة مسجلة لهذا المشرف حتى الآن.{% endif %}</span></div>{% elif is_entry %}<div class="section-caption"><b>إدارة فروعك</b><span>تظهر هنا فقط الفروع والموظفون الذين تتولى إدارتهم.</span></div>{% endif %}</div>
+  <div><h1>الإدارة</h1>{% if is_manager_support %}<div class="section-caption"><b>مركز الإدارة</b><span>نفس واجهة إدارة التطبيق، مع إخفاء وظائف الحسابات والصلاحيات الخاصة بمسؤول التطبيق.</span></div>{% elif is_supervisor %}<div class="section-caption"><b>لوحة إدارة المشرف</b><span>{% if govs_all %}نطاق الإدارة مقصور على: <strong>{{ govs_all|map(attribute='name')|join(' — ') }}</strong>. لا تظهر محافظات أخرى في خيارات الإدارة أو الإسناد.{% else %}لا توجد محافظة مسجلة لهذا المشرف حتى الآن.{% endif %}</span></div>{% elif is_entry %}<div class="section-caption"><b>إدارة فروعك</b><span>تظهر هنا فقط الفروع والموظفون الذين تتولى إدارتهم.</span></div>{% endif %}</div>
 </div>
 {% if is_supervisor and not is_admin and govs_all|length > 1 %}
 <form method="get" class="supervisor-admin-scope-select no-print">
@@ -14,22 +14,22 @@
   </label>
 </form>
 {% endif %}
-{% if is_admin %}
-<section class="admin-dashboard-v2">
+{% if admin_view %}
+<section class="admin-dashboard-v2{% if is_supervisor and not is_admin %} supervisor-admin-dashboard{% endif %}">
   <div class="admin-dashboard-hero">
     <div>
-      <span class="eyebrow">مسؤول التطبيق</span>
+      <span class="eyebrow">{% if is_manager_support %}Manager Application Support{% else %}مسؤول التطبيق{% endif %}</span>
       <h2>مركز إدارة التطبيق</h2>
-      <p>جميع أدوات إدارة النظام في مكان واحد، مرتبة حسب المهمة مع وصول مباشر لكل وظيفة.</p>
+      <p>{% if is_manager_support %}واجهة الإدارة التشغيلية الكاملة ضمن صلاحيات الدور، مع استبعاد وظائف مسؤول التطبيق الخاصة بالحسابات والصلاحيات العامة.{% else %}جميع أدوات إدارة النظام في مكان واحد، مرتبة حسب المهمة مع وصول مباشر لكل وظيفة.{% endif %}</p>
     </div>
-    <div class="admin-full-badge">صلاحية كاملة</div>
+    <div class="admin-full-badge">{% if is_manager_support %}صلاحيات الدور{% else %}صلاحية كاملة{% endif %}</div>
   </div>
 
   <div class="admin-overview-grid">
     <a href="/governorates" class="admin-overview-card gov"><b>{{admin_stats.governorates}}</b><span>المحافظات</span><small>إضافة وتعديل وحذف المحافظات</small></a>
     <a href="/branches" class="admin-overview-card branch"><b>{{admin_stats.branches}}</b><span>الفروع</span><small>إدارة الفروع وربطها بالمحافظات</small></a>
     <a href="/employees" class="admin-overview-card emp"><b>{{admin_stats.employees}}</b><span>الموظفون</span><small>بيانات الموظفين والأدوار التنظيمية</small></a>
-    <a href="/users" class="admin-overview-card users"><b>{{admin_stats.users}}</b><span>الحسابات</span><small>المستخدمون والأدوار والصلاحيات</small></a>
+    {% if is_admin or can('manage_users') %}<a href="/users" class="admin-overview-card users"><b>{{admin_stats.users}}</b><span>الحسابات</span><small>المستخدمون والأدوار والصلاحيات</small></a>{% endif %}
     <a href="#entry-role-chain" class="admin-overview-card entry"><b>{{admin_stats.entries}}</b><span>المدخلون الأوائل</span><small>السلسلة التنظيمية للموظفين</small></a>
     <a href="/movements" class="admin-overview-card movement"><b>{{admin_stats.movements}}</b><span>الحركات</span><small>الإجازات والانتدابات والأذونات</small></a>
   </div>
@@ -38,20 +38,19 @@
     <section class="admin-section-card">
       <div class="admin-section-head"><span>🏢</span><div><h3>الهيكل الإداري</h3><small>إدارة البناء الإداري للتطبيق من الأعلى إلى الأسفل.</small></div></div>
       <div class="admin-action-grid">
-        <a href="/governorates"><b>المحافظات</b><small>إضافة وتعديل وحذف المحافظات.</small></a>
-        <a href="/branches"><b>الفروع</b><small>إدارة الفروع وربطها بالمحافظات.</small></a>
+        {% if is_admin or can('manage_structure') %}<a href="/governorates"><b>المحافظات</b><small>إضافة وتعديل وحذف المحافظات.</small></a>
+        <a href="/branches"><b>الفروع</b><small>إدارة الفروع وربطها بالمحافظات.</small></a>{% endif %}
         <a href="#my-governorates"><b>هيكل المحافظة</b><small>اختر المحافظة ثم راجع المشرفين والمدخلين والفروع والموظفين.</small></a>
         <a href="#entry-role-chain"><b>السلسلة الوظيفية</b><small>إضافة وتنظيم دور المدخل الأول دون إنشاء حساب.</small></a>
       </div>
     </section>
 
     <section class="admin-section-card">
-      <div class="admin-section-head"><span>🔐</span><div><h3>المستخدمون والصلاحيات</h3><small>إدارة الحسابات والأدوار والنطاقات بدون تداخل.</small></div></div>
+      <div class="admin-section-head"><span>🔐</span><div><h3>المستخدمون والصلاحيات</h3><small>الوظائف التي يسمح بها الدور الحالي فقط.</small></div></div>
       <div class="admin-action-grid">
-        <a href="/users"><b>المستخدمون والصلاحيات</b><small>إنشاء وتعديل وتعطيل الحسابات وإسناد الأدوار.</small></a>
-        <a href="/users"><b>الأدوار المتعددة</b><small>إدارة أدوار الشخص وحسابات الأدوار الوهمية.</small></a>
-        <a href="/delegations"><b>التفويضات</b><small>إدارة التفويضات ومتابعة حالتها.</small></a>
-        <a href="/audit"><b>سجل العمليات</b><small>مراجعة العمليات الإدارية المسجلة على النظام.</small></a>
+        {% if can('manage_users') %}<a href="/users"><b>المستخدمون والصلاحيات</b><small>إنشاء وتعديل وتعطيل الحسابات وإسناد الأدوار.</small></a><a href="/users"><b>الأدوار المتعددة</b><small>إدارة أدوار الشخص وحسابات الأدوار الوهمية.</small></a>{% endif %}
+        <a href="/delegations"><b>تفويضات المشرفين</b><small>تفويض مشرف محافظة إلى مشرف محافظة بديل.</small></a>
+        {% if is_admin %}<a href="/audit"><b>سجل العمليات</b><small>مراجعة العمليات الإدارية المسجلة على النظام.</small></a>{% endif %}
       </div>
     </section>
 
@@ -67,9 +66,9 @@
     <section class="admin-section-card">
       <div class="admin-section-head"><span>⚙️</span><div><h3>إعدادات النظام والتقارير</h3><small>الأدوات العامة التي يحتاجها مسؤول التطبيق.</small></div></div>
       <div class="admin-action-grid">
-        <a href="/lookups"><b>القوائم الأساسية</b><small>أنواع الحركات والإجازات والقيم المساعدة.</small></a>
+        {% if is_admin %}<a href="/lookups"><b>القوائم الأساسية</b><small>أنواع الحركات والإجازات والقيم المساعدة.</small></a>{% endif %}
         <a href="/reports/assignments/print-missions"><b>طباعة المأموريات</b><small>النماذج الرسمية للمأموريات والانتدابات.</small></a>
-        <a href="/change-password"><b>حساب مسؤول التطبيق</b><small>إدارة كلمة مرور الحساب الشخصي.</small></a>
+        <a href="/change-password"><b>حسابي</b><small>إدارة كلمة مرور الحساب الشخصي.</small></a>
       </div>
     </section>
   </div>

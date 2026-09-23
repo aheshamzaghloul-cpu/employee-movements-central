@@ -1275,3 +1275,82 @@ body:has(.assistant-host){background:var(--surface,#2b3d49);overflow:hidden}
 @media(max-width:700px){.assistant-host,.assistant-embed-main{height:100vh;min-height:100vh}}
 
 html:has(.assistant-embed-body), body.assistant-embed-body{width:100%;height:100%;min-height:100%;margin:0;overflow:hidden}body.assistant-embed-body .wrap.assistant-host{width:100%;max-width:none;height:100vh;min-height:100vh;margin:0;padding:0}body.assistant-embed-body .assistant-embed-main{position:fixed;inset:0;width:100vw!important;height:100vh!important;min-height:100vh!important;max-width:none!important;margin:0!important;padding:0!important}body.assistant-embed-body .assistant-embed-main .assistant-chat-shell{width:100vw!important;height:100vh!important;min-height:100vh!important}body.assistant-embed-body .assistant-chat-body{flex:1 1 auto;min-height:0}
+
+
+/* v35.01 — larger assistant message input and clearer typing area */
+.assistant-chat-input{padding:16px 18px;gap:12px}
+.assistant-chat-input textarea{min-height:72px;max-height:190px;padding:14px 17px;font-size:18px;font-weight:600;line-height:1.85;border-width:1.5px;border-radius:19px}
+.assistant-chat-input textarea::placeholder{font-size:16px;font-weight:500}
+.assistant-chat-input>button{width:60px;height:60px;min-width:60px;border-radius:18px;font-size:25px}
+@media(max-width:700px){.assistant-chat-input{padding:12px}.assistant-chat-input textarea{min-height:64px;font-size:17px;padding:12px 14px}.assistant-chat-input textarea::placeholder{font-size:15px}.assistant-chat-input>button{width:56px;height:56px;min-width:56px}}
+
+/* v35.05 — لوحة إدارة المشرف تستغل عرض الصفحة وتكبر المحتوى داخل اللوحات */
+.supervisor-admin-dashboard{width:100%;max-width:none;margin:0 0 18px}
+.supervisor-admin-dashboard .admin-dashboard-hero{padding:24px 28px;margin-bottom:16px}
+.supervisor-admin-dashboard .admin-dashboard-hero h2{font-size:30px}
+.supervisor-admin-dashboard .admin-dashboard-hero p{font-size:15px;line-height:1.9}
+.supervisor-admin-dashboard .admin-full-badge{font-size:14px;padding:11px 17px}
+.supervisor-admin-dashboard .admin-overview-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:18px}
+.supervisor-admin-dashboard .admin-overview-card{min-height:132px;padding:18px 20px;border-radius:17px}
+.supervisor-admin-dashboard .admin-overview-card b{font-size:31px}
+.supervisor-admin-dashboard .admin-overview-card span{font-size:16px;margin-top:9px}
+.supervisor-admin-dashboard .admin-overview-card small{font-size:12px;line-height:1.65}
+.supervisor-admin-dashboard .admin-sections-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.supervisor-admin-dashboard .admin-section-card{padding:20px;border-radius:18px;min-height:100%}
+.supervisor-admin-dashboard .admin-section-head{gap:13px;margin-bottom:16px}
+.supervisor-admin-dashboard .admin-section-head>span{width:46px;height:46px;font-size:23px}
+.supervisor-admin-dashboard .admin-section-head h3{font-size:20px}
+.supervisor-admin-dashboard .admin-section-head small{font-size:12px;line-height:1.7}
+.supervisor-admin-dashboard .admin-action-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.supervisor-admin-dashboard .admin-action-grid a{min-height:96px;padding:14px 16px;border-radius:14px}
+.supervisor-admin-dashboard .admin-action-grid b{font-size:14px}
+.supervisor-admin-dashboard .admin-action-grid small{font-size:11px;line-height:1.65}
+.supervisor-admin-dashboard .admin-governance-note{font-size:14px;padding:14px 17px;margin-top:18px}
+@media(max-width:900px){.supervisor-admin-dashboard .admin-overview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.supervisor-admin-dashboard .admin-sections-grid{grid-template-columns:1fr}}
+@media(max-width:560px){.supervisor-admin-dashboard .admin-overview-grid,.supervisor-admin-dashboard .admin-action-grid{grid-template-columns:1fr}.supervisor-admin-dashboard .admin-dashboard-hero{padding:18px}.supervisor-admin-dashboard .admin-dashboard-hero h2{font-size:24px}}
+
+/* v35.05 — إبراز المربعات والبطاقات عند الوقوف عليها */
+:where(
+  .admin-card-action,.admin-entry-role-card,.admin-overview-card,.admin-section-card,
+  .admin-shortcut-card,.approval-box,.branch-card,.current-status-card,.employee-card,
+  .employee-result-card,.entry-card,.entry-manage-card,.free-card,.free-card-workspace,
+  .hierarchy-link-box,.home-movements-panel,.home-panel,.last-card,.login-card,
+  .mission-group-card,.movement-employee-result-card,.movement-list-box,.replace-card,
+  .report-filter-card,.report-summary-card,.reports-group-card,.smart-movement-box,
+  .structure-card,.supervisor-clean-card,.supervisor-full-page-card,.box
+){
+  transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  transform-origin:center center;
+}
+:where(
+  .admin-card-action,.admin-entry-role-card,.admin-overview-card,.admin-section-card,
+  .admin-shortcut-card,.approval-box,.branch-card,.current-status-card,.employee-card,
+  .employee-result-card,.entry-card,.entry-manage-card,.free-card,.free-card-workspace,
+  .hierarchy-link-box,.home-movements-panel,.home-panel,.last-card,.login-card,
+  .mission-group-card,.movement-employee-result-card,.movement-list-box,.replace-card,
+  .report-filter-card,.report-summary-card,.reports-group-card,.smart-movement-box,
+  .structure-card,.supervisor-clean-card,.supervisor-full-page-card,.box
+):hover{
+  transform:scale(1.018) translateY(-2px);
+  box-shadow:0 12px 30px rgba(20,65,78,.16);
+  position:relative;
+  z-index:3;
+}
+/* العناصر القابلة للنقر تحصل على إبراز أوضح */
+:where(
+  .admin-card-action,.admin-shortcut-card,.branch-card,.employee-card,
+  .employee-result-card,.entry-card,.entry-manage-card,.home-panel,
+  .last-card,.mission-group-card,.replace-card,.report-summary-card,
+  .reports-group-card,.structure-card
+):hover{
+  border-color:#79b7c0;
+}
+@media (prefers-reduced-motion: reduce){
+  :where(.admin-card-action,.admin-entry-role-card,.admin-overview-card,.admin-section-card,
+  .admin-shortcut-card,.approval-box,.branch-card,.current-status-card,.employee-card,
+  .employee-result-card,.entry-card,.entry-manage-card,.free-card,.free-card-workspace,
+  .hierarchy-link-box,.home-movements-panel,.home-panel,.last-card,.login-card,
+  .mission-group-card,.movement-employee-result-card,.movement-list-box,.replace-card,
+  .report-filter-card,.report-summary-card,.reports-group-card,.smart-movement-box,
+  .structure-card,.supervisor-clean-card,.supervisor-full-page-card,.box){transition:none}
+}

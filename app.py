@@ -192,6 +192,11 @@ def employee_is_effectively_in_branch(employee, branch_id, on_date=None):
     assigned=effective_branch_id_for_employee(employee.id,on_date)
     return assigned == branch_id if assigned else employee.branch_id == branch_id
 
+def employee_scope_ok(employee, on_date=None):
+    if not employee or not employee.is_active: return False
+    today=on_date or date.today()
+    return branch_ok(employee.branch_id) or (effective_branch_id_for_employee(employee.id,today) in set(bids()))
+
 def employees_effectively_in_branches(branch_ids, on_date=None):
     ids=set(branch_ids or [])
     if not ids:
@@ -529,7 +534,13 @@ def current_employee_status_rows(branch_ids, today):
         remaining=(until-today).days if until else None
         rows.append({'employee':e,'state':state,'place':place,'until':until,'detail':detail,'remaining':remaining,'movement':current,
                      'ending_notice':bool(until and until <= today + timedelta(days=1)),'from_date':current.from_date if current else None,'to_date':current.to_date if current else None,'display_branch':display_branch})
-    rows.sort(key=lambda r:(r['until'] or date.max,r['employee'].full_name))
+    # ترتيب المتابعة: الإجازات أولًا، ثم الانتدابات المحددة، ثم الانتدابات المفتوحة.
+    def status_rank(r):
+        if r['movement'] and r['movement'].movement_type=='إجازة': return 0
+        if r['movement'] and r['movement'].movement_type=='انتداب' and r['to_date'] is not None: return 1
+        if r['movement'] and r['movement'].movement_type=='انتداب' and r['to_date'] is None: return 2
+        return 3
+    rows.sort(key=lambda r:(status_rank(r), r['until'] or date.max, r['employee'].full_name))
     return rows
 
 @app.get('/')
@@ -554,18 +565,45 @@ def home():
         bs=set(bids())
     today=date.today()
     tomorrow=today + timedelta(days=1)
-    # بحث الموظف من لوحة «حركات الموظفين» يعرض بطاقة الموظف مباشرة داخل الصفحة الرئيسية.
+    # بحث حركات الموظفين من الصفحة الرئيسية: بالفرع أو بالاسم أو بهما معًا.
+    movement_governorate_id=request.args.get('movement_governorate_id','').strip()
+    movement_branch_id=request.args.get('movement_branch_id','').strip()
+    movement_name_query=(request.args.get('movement_name') or '').strip()
     movement_employee_id=request.args.get('employee_id','').strip()
     movement_employee=None
+    movement_employee_matches=[]
     movement_employee_moves=[]
     movement_employee_last={}
+    search_gov_id=int(movement_governorate_id) if movement_governorate_id.isdigit() else None
+    allowed_gov_ids=set(gids())
+    if search_gov_id and search_gov_id not in allowed_gov_ids: search_gov_id=None
+    search_branch_id=int(movement_branch_id) if movement_branch_id.isdigit() else None
+    if search_gov_id and search_branch_id:
+        sb=db.session.get(Branch,search_branch_id)
+        if not sb or sb.governorate_id!=search_gov_id or not branch_ok(search_branch_id): search_branch_id=None
+    elif not search_gov_id:
+        search_branch_id=None
+    # البحث في الفرع الحالي الفعلي للموظف، بما في ذلك الانتداب المفتوح.
+    if search_gov_id:
+        gov_branch_ids={b.id for b in Branch.query.filter_by(governorate_id=search_gov_id,is_active=True).all() if branch_ok(b.id)}
+        if search_branch_id: gov_branch_ids={search_branch_id}
+        candidates=employees_effectively_in_branches(gov_branch_ids,today)
+        if movement_name_query:
+            nq=movement_name_query.lower()
+            candidates=[e for e in candidates if nq in (e.full_name or '').lower()]
+        movement_employee_matches=sorted(candidates,key=lambda e:e.full_name)[:100]
     if movement_employee_id.isdigit():
         candidate=db.session.get(Employee,int(movement_employee_id))
-        if candidate and candidate.is_active and branch_ok(candidate.branch_id):
-            movement_employee=candidate
-            movement_employee_moves=(Movement.query.filter_by(employee_id=candidate.id,is_active=True)
-                                     .order_by(Movement.from_date.desc().nullslast(),Movement.permission_date.desc().nullslast(),Movement.id.desc()).all())
-            movement_employee_last={k:next((m for m in movement_employee_moves if m.movement_type==k),None) for k in MOVEMENT_TYPES}
+        if candidate and employee_scope_ok(candidate,today) and search_gov_id:
+            eff_branch=effective_branch_id_for_employee(candidate.id,today) or candidate.branch_id
+            if eff_branch in ({search_branch_id} if search_branch_id else {b.id for b in Branch.query.filter_by(governorate_id=search_gov_id,is_active=True).all()}):
+                movement_employee=candidate
+    elif len(movement_employee_matches)==1:
+        movement_employee=movement_employee_matches[0]
+    if movement_employee:
+        movement_employee_moves=(Movement.query.filter_by(employee_id=movement_employee.id,is_active=True)
+                                 .order_by(Movement.from_date.desc().nullslast(),Movement.permission_date.desc().nullslast(),Movement.id.desc()).all())
+        movement_employee_last={k:next((m for m in movement_employee_moves if m.movement_type==k),None) for k in MOVEMENT_TYPES}
     pending=[]
     ending=[]
     approved_count=0
@@ -668,12 +706,16 @@ def home():
         is_manager_support=is_manager_support,
         manager_governorates=Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all() if is_manager_support else [],
         selected_manager_gov=selected_manager_gov,
-        movement_search_governorates=Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all() if (is_manager_support or 'مشرف محافظة' in effective or 'مسؤول التطبيق' in effective) else visible_govs,
-        movement_search_branches=Branch.query.filter_by(is_active=True).order_by(Branch.name.asc()).all(),
+        movement_search_governorates=Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True).order_by(Governorate.name.asc()).all() if gids() else [],
+        movement_search_branches=(Branch.query.filter_by(governorate_id=search_gov_id,is_active=True).order_by(Branch.name.asc()).all() if search_gov_id else []),
         movement_search_employees=Employee.query.filter_by(is_active=True).order_by(Employee.full_name.asc()).all(),
         movement_employee=movement_employee,
         movement_employee_moves=movement_employee_moves,
         movement_employee_last=movement_employee_last,
+        movement_employee_matches=movement_employee_matches,
+        movement_governorate_id=movement_governorate_id,
+        movement_branch_id=movement_branch_id,
+        movement_name_query=movement_name_query,
         movement_employee_id=(int(movement_employee_id) if movement_employee_id.isdigit() else None)
     )
 
@@ -1797,8 +1839,8 @@ def employee_restore(i):
 @req
 def card(i):
     e=db.session.get(Employee,i)
-    if not e or not branch_ok(e.branch_id): abort(403)
-    ms=Movement.query.filter_by(employee_id=i,is_active=True).order_by(Movement.from_date.desc().nullslast(),Movement.permission_date.desc().nullslast(),Movement.id.desc()).all(); last={k:next((m for m in ms if m.movement_type==k),None) for k in MOVEMENT_TYPES}; return render_template('employee.html',e=e,ms=ms,last=last)
+    if not e or not employee_scope_ok(e): abort(403)
+    ms=Movement.query.filter_by(employee_id=i,is_active=True).order_by(Movement.from_date.desc().nullslast(),Movement.permission_date.desc().nullslast(),Movement.id.desc()).all(); last={k:next((m for m in ms if m.movement_type==k),None) for k in MOVEMENT_TYPES}; current_assignment=current_assignment_for_employee(e.id); current_branch=(current_assignment.destination if current_assignment and current_assignment.destination else e.branch); return render_template('employee.html',e=e,ms=ms,last=last,current_assignment=current_assignment,current_branch=current_branch)
 
 @app.get('/review')
 @req
@@ -1918,19 +1960,36 @@ def assistant_llm_parse(text, chat=None):
         'intent':{'type':'string','enum':['employee_add','employee_status','employee_info','employee_movements','branch_status','branch_info','branch_entry','governorate_employees','employee_topic','register_movement','topic_options','navigate','help']},
         'topic':{'type':['string','null'],'enum':['leave','assignment','permission','entry','employee','branch','reports','admin','users','delegation','replacement','audit',None]},
         'employee_name':{'type':['string','null']},
+        'employee_id':{'type':['integer','null']},
         'branch_name':{'type':['string','null']},
+        'branch_id':{'type':['integer','null']},
+        'governorate_id':{'type':['integer','null']},
+        'governorate_name':{'type':['string','null']},
+        'candidate_ids':{'type':'array','items':{'type':'integer'}},
         'movement_type':{'type':['string','null'],'enum':['إجازة','انتداب','إذن',None]},
         'leave_type':{'type':['string','null']},
         'destination_name':{'type':['string','null']},
         'from_date':{'type':['string','null']},
         'to_date':{'type':['string','null']},
         'permission_date':{'type':['string','null']},
+        'open_assignment':{'type':'boolean'},
         'navigate_url':{'type':['string','null']},
         'reply':{'type':['string','null']}
       },
-      'required':['intent','topic','employee_name','branch_name','movement_type','leave_type','destination_name','from_date','to_date','permission_date','navigate_url','reply']
+      'required':['intent','topic','employee_name','employee_id','branch_name','branch_id','governorate_id','governorate_name','candidate_ids','movement_type','leave_type','destination_name','from_date','to_date','permission_date','open_assignment','navigate_url','reply']
     }
-    system="""أنت محلل نية لمساعد إداري عربي داخل نظام إدارة حركات الموظفين. افهم العربية الفصحى والعامية والأخطاء الإملائية والصياغات غير المباشرة، ولا تعتمد على تطابق كلمات محددة. افهم سياق الرسائل السابقة. مهمتك استخراج المقصود والحقول فقط، وليس تنفيذ أي شيء. لا تخترع أسماء أو تواريخ غير مذكورة. إذا قال المستخدم "من بكرة" أو "غدا" لا تحسب التاريخ؛ اترك التاريخ فارغًا. استخدم intent المناسب: employee_add لإضافة موظف، employee_status للحالة، employee_info للبيانات، employee_movements لسجل الحركات، branch_status لحالة/موظفي الفرع، branch_info لكل بيانات الفرع، branch_entry لمعرفة المدخل الأول المسؤول، register_movement لتسجيل إجازة/انتداب/إذن، topic_options عندما يذكر موضوعًا عامًا ويريد المساعدة فيه، navigate عندما يريد فتح وظيفة/تقرير/إدارة موجودة، help عندما لا يمكن تحديد المقصود. إذا كان الطلب متعلقًا بتقرير أو الإدارة أو المستخدمين أو التفويض أو الاستبدال أو سجل العمليات فاستعمل navigate وضع الرابط المعروف إن كان واضحًا. لا تقل إنك لا تفهم بسبب اختلاف الصياغة؛ استنتج النية من المعنى والسياق."""
+    govs=Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all()
+    branches=Branch.query.filter_by(is_active=True).order_by(Branch.name.asc()).all()
+    role_text='، '.join(roles(me()))
+    gov_catalog=' | '.join(f'{g.id}:{g.name}' for g in govs)
+    branch_catalog=' | '.join(f'{b.id}:{b.name} (محافظة {b.governorate.name if b.governorate else ""})' for b in branches[:500])
+    system=f"""أنت العقل الحواري لمساعد إداري داخل نظام إدارة حركات الموظفين. لا تعتمد على كلمات أو جمل محفوظة ولا تقارن النص بقائمة أوامر. افهم المعنى والسياق والهدف حتى لو كانت الصياغة عامية أو مختصرة أو بها أخطاء. أنت لا تنفذ بنفسك؛ تستخرج المقصود والكيانات، ثم ينفذ التطبيق بعد التحقق من الصلاحيات والبيانات.
+
+الدور الحالي للمستخدم: {role_text}.
+المحافظات المتاحة في التطبيق: {gov_catalog}
+الفروع المتاحة: {branch_catalog}
+
+يمكنك فهم أي سؤال عن بيانات الموظفين، الفروع، المحافظات، المدخلين الأوائل، الحركات، الإجازات، الانتدابات، الانتدابات المفتوحة، الأذونات، التقارير، المستخدمين، الصلاحيات، التفويض، الاستبدال، سجل العمليات، أو أي وظيفة موجودة في النظام. إذا كان الطلب عامًا، استنتج أفضل موضوع وقدّم ردًا/خيارات مناسبة. إذا كان ناقصًا، اطلب المعلومة الناقصة بدل قول 'لم أفهم'. لا تخترع أسماء أو أرقامًا أو تواريخ. إذا كانت هناك عدة احتمالات، أعد candidate_ids إن أمكن أو اتركها فارغة ليحل التطبيق الالتباس. لا تحصر نفسك في أمثلة أو صيغ أزرار التطبيق. استخدم intent المناسب من المخطط فقط كتصنيف تقني، وليس كقائمة كلمات مسموحة."""
     payload={'model':model,'input':[{'role':'system','content':system}]+history,
              'text':{'format':{'type':'json_schema','name':'assistant_intent','strict':True,'schema':schema}},
              'max_output_tokens':700}
@@ -2166,7 +2225,7 @@ def assistant_render_branch_entry(a):
 def assistant_status_for_employee(e):
     today=date.today()
     active=Movement.query.filter_by(employee_id=e.id,is_active=True).filter(
-        ((Movement.movement_type.in_(['إجازة','انتداب'])) & (Movement.from_date<=today) & (Movement.to_date>=today)) |
+        (((Movement.movement_type=='إجازة') & (Movement.from_date<=today) & (Movement.to_date>=today)) | ((Movement.movement_type=='انتداب') & (Movement.assignment_state!='مغلق') & (Movement.from_date<=today) & ((Movement.to_date==None) | (Movement.to_date>=today)))) |
         ((Movement.movement_type=='إذن') & (Movement.permission_date==today))
     ).order_by(Movement.id.desc()).all()
     if not active: return 'على رأس العمل'
@@ -2211,8 +2270,9 @@ def assistant_render_read(a):
         active_movements=[]
         for e in employees:
             active=Movement.query.filter_by(employee_id=e.id,is_active=True).filter(
-                ((Movement.movement_type.in_(['إجازة','انتداب'])) & (Movement.from_date<=date.today()) & (Movement.to_date>=date.today())) |
-                ((Movement.movement_type=='إذن') & (Movement.permission_date==date.today()))
+                (((Movement.movement_type=='إجازة') & (Movement.from_date<=date.today()) & (Movement.to_date>=date.today())) |
+                 ((Movement.movement_type=='انتداب') & (Movement.assignment_state!='مغلق') & (Movement.from_date<=date.today()) & ((Movement.to_date==None) | (Movement.to_date>=date.today()))) |
+                 ((Movement.movement_type=='إذن') & (Movement.permission_date==date.today())))
             ).order_by(Movement.id.desc()).first()
             if active:
                 detail=active.leave_type or (active.destination.name if active.destination else '') or ''
@@ -2276,10 +2336,22 @@ def assistant():
         else:
             local_a=assistant_parse(prompt)
             llm_a=assistant_llm_parse(prompt, chat)
-            # إذا أعاد النموذج نية عامة/غير مفيدة، نستخدم المحلل المحلي للطلبات الواضحة.
-            # هذا يحافظ على الفهم الدلالي ويمنع سقوط عبارات قصيرة مثل "إجازة" في help.
-            if llm_a and llm_a.get('intent') not in ('help', None):
+            # النموذج اللغوي هو طبقة الفهم الأساسية. لا نرفض الطلب لأن صيغته لا تطابق كلمة محفوظة.
+            # المحلل المحلي لا يُستخدم إلا كمسار احتياطي عند غياب/فشل الـAPI.
+            if llm_a:
                 a=llm_a
+                # حل أسماء/كيانات المستخدم على الخادم بعد الفهم الدلالي، دون فرض كلمات محددة.
+                if not a.get('employee_id') and a.get('employee_name'):
+                    ee,mm=assistant_find_employee(a.get('employee_name'))
+                    if ee: a['employee_id']=ee.id
+                    elif mm: a['candidate_ids']=[e.id for e in mm[:10]]
+                if not a.get('branch_id') and a.get('branch_name'):
+                    bb,mm=assistant_find_branch(a.get('branch_name'))
+                    if bb: a['branch_id']=bb.id
+                    elif mm: a['candidate_ids']=[b.id for b in mm[:10]]
+                if not a.get('governorate_id') and a.get('governorate_name'):
+                    gg=[g for g in Governorate.query.filter_by(is_active=True).all() if a.get('governorate_name','').strip().lower() in (g.name or '').lower()]
+                    if len(gg)==1: a['governorate_id']=gg[0].id
             else:
                 a=local_a
             if a.get('intent')=='topic_options':
@@ -2314,6 +2386,8 @@ def assistant():
                         result={'title':'نوع الإجازة','answer':'ما نوع الإجازة التي تريد تسجيلها؟'}
                     elif mt in ('إجازة','انتداب') and not a.get('from_date'):
                         result={'title':'تاريخ البداية','answer':'ما تاريخ بداية الحركة؟'}
+                    elif mt=='انتداب' and not a.get('open_assignment') and not a.get('to_date'):
+                        result={'title':'تاريخ نهاية الانتداب','answer':'هل الانتداب مفتوح بدون تاريخ نهاية، أم له تاريخ نهاية؟'}
                     elif mt=='إجازة' and not a.get('to_date'):
                         result={'title':'تاريخ النهاية','answer':'ما تاريخ نهاية الإجازة؟'}
                     elif mt=='إذن' and not a.get('permission_date'):
@@ -2328,11 +2402,11 @@ def assistant():
                             a['destination_branch_id']=dest.id
                     if result is None:
                         dest=db.session.get(Branch,a.get('destination_branch_id')) if a.get('destination_branch_id') else dest
-                        err=validate_movement_fields(a.get('movement_type'),a.get('leave_type'),dest.id if dest else None,a.get('from_date'),a.get('to_date'),a.get('permission_date'))
+                        err=validate_movement_fields(a.get('movement_type'),a.get('leave_type'),dest.id if dest else None,a.get('from_date'),None if a.get('open_assignment') else a.get('to_date'),a.get('permission_date'))
                         if err: result={'title':'مراجعة الحركة','error':err}
                         elif not e or not branch_ok(e.branch_id): result={'title':'تسجيل حركة','error':'الموظف خارج نطاق صلاحياتك.'}
                         elif a.get('movement_type')=='انتداب' and (not dest or not branch_ok(dest.id)): result={'title':'تسجيل انتداب','error':'فرع الانتداب غير موجود أو خارج نطاق صلاحياتك.'}
-                        elif movement_overlaps(e.id,a['movement_type'],a.get('from_date'),a.get('to_date'),a.get('permission_date')): result={'title':'تعارض في الحركة','error':movement_overlaps(e.id,a['movement_type'],a.get('from_date'),a.get('to_date'),a.get('permission_date'))}
+                        elif movement_overlaps(e.id,a['movement_type'],a.get('from_date'),None if a.get('open_assignment') else a.get('to_date'),a.get('permission_date')): result={'title':'تعارض في الحركة','error':movement_overlaps(e.id,a['movement_type'],a.get('from_date'),None if a.get('open_assignment') else a.get('to_date'),a.get('permission_date'))}
                         else:
                             session['assistant_pending']=a
                             dest_text=f' إلى {dest.governorate.name} — {dest.name}' if dest else ''
@@ -2437,10 +2511,10 @@ def assistant_confirm():
     if not can('manage_movements'): abort(403)
     e=db.session.get(Employee,a.get('employee_id')); dest=db.session.get(Branch,a.get('destination_branch_id')) if a.get('destination_branch_id') else None
     if not e or not e.is_active or not branch_ok(e.branch_id): flash('الموظف خارج نطاق صلاحياتك.'); return redirect(back)
-    err=validate_movement_fields(a.get('movement_type'),a.get('leave_type'),dest.id if dest else None,a.get('from_date'),a.get('to_date'),a.get('permission_date'))
+    err=validate_movement_fields(a.get('movement_type'),a.get('leave_type'),dest.id if dest else None,a.get('from_date'),None if a.get('open_assignment') else a.get('to_date'),a.get('permission_date'))
     if err: flash(err); return redirect(back)
     if a.get('movement_type')=='انتداب' and (not dest or not branch_ok(dest.id)): flash('فرع الانتداب غير مسموح.'); return redirect(back)
-    overlap=movement_overlaps(e.id,a['movement_type'],a.get('from_date'),a.get('to_date'),a.get('permission_date'))
+    overlap=movement_overlaps(e.id,a['movement_type'],a.get('from_date'),None if a.get('open_assignment') else a.get('to_date'),a.get('permission_date'))
     if overlap: flash(overlap); return redirect(back)
     m=Movement(employee_id=e.id,movement_type=a['movement_type'],leave_type=a.get('leave_type'),destination_branch_id=dest.id if dest else None,from_date=parse_date(a.get('from_date')),to_date=parse_date(a.get('to_date')),permission_date=parse_date(a.get('permission_date')),notes=None,created_by=me().id,status='مدخلة',assignment_state='ساري',approver_id=None)
     db.session.add(m); db.session.flush(); record_movement_history(m,None,'مدخلة','AI_ASSISTANT_ADD','تسجيل الحركة من المساعد الذكي — لا تحتاج لاعتماد'); log('AI_ASSISTANT_ADD','Movement',m.id,f'{m.movement_type} — {e.full_name}'); db.session.commit(); flash('تم تسجيل الحركة بنجاح من خلال المساعد الذكي.'); return redirect(back)
@@ -2455,6 +2529,7 @@ def movements():
         f=request.form; eid=int(f.get('employee_id','0')) if f.get('employee_id','').isdigit() else 0; e=db.session.get(Employee,eid)
         if not e or not branch_ok(e.branch_id): abort(403)
         mt=f.get('movement_type'); fd=f.get('from_date'); td=f.get('to_date'); pd=f.get('permission_date'); dest=int(f['destination_branch_id']) if f.get('destination_branch_id','').isdigit() else None; status='مدخلة'; approver_id=None
+        if mt=='انتداب' and f.get('open_assignment')=='1': td=None
         err=validate_movement_fields(mt,f.get('leave_type') or None,dest,fd,td,pd)
         if err: flash(err); return redirect('/movements')
         overlap=movement_overlaps(e.id,mt,fd,td,pd)
@@ -2477,12 +2552,14 @@ def movement_edit(i):
         f=request.form
         mt=f.get('movement_type'); dest=int(f['destination_branch_id']) if f.get('destination_branch_id','').isdigit() else None
         approver_id=None
-        err=validate_movement_fields(mt,f.get('leave_type') or None,dest,f.get('from_date'),f.get('to_date'),f.get('permission_date'))
+        fd=f.get('from_date'); td=f.get('to_date'); pd=f.get('permission_date')
+        if mt=='انتداب' and f.get('open_assignment')=='1': td=None
+        err=validate_movement_fields(mt,f.get('leave_type') or None,dest,fd,td,pd)
         if err: flash(err); return redirect(url_for('movement_edit',i=i))
-        overlap=movement_overlaps(m.employee_id,mt,f.get('from_date'),f.get('to_date'),f.get('permission_date'),i)
+        overlap=movement_overlaps(m.employee_id,mt,fd,td,pd,i)
         if overlap: flash(overlap); return redirect(url_for('movement_edit',i=i))
         old_status=m.status
-        m.movement_type=mt; m.leave_type=f.get('leave_type') or None; m.destination_branch_id=dest; m.from_date=parse_date(f.get('from_date')); m.to_date=parse_date(f.get('to_date')); m.permission_date=parse_date(f.get('permission_date')); m.approver_id=None; m.notes=None; m.modified_by=me().id; m.modified_at=datetime.utcnow(); m.status='مدخلة'; m.rejection_reason=None; record_movement_history(m,old_status,'مدخلة','EDIT','تعديل بيانات الحركة — لا تحتاج لاعتماد'); log('EDIT','Movement',i,'تعديل الحركة'); db.session.commit(); flash('تم تعديل الحركة وحفظها مباشرة.'); return redirect('/movements')
+        m.movement_type=mt; m.leave_type=f.get('leave_type') or None; m.destination_branch_id=dest; m.from_date=parse_date(fd); m.to_date=parse_date(td); m.permission_date=parse_date(pd); m.assignment_state=('ساري' if mt=='انتداب' else 'ساري'); m.approver_id=None; m.notes=None; m.modified_by=me().id; m.modified_at=datetime.utcnow(); m.status='مدخلة'; m.rejection_reason=None; record_movement_history(m,old_status,'مدخلة','EDIT','تعديل بيانات الحركة — لا تحتاج لاعتماد'); log('EDIT','Movement',i,'تعديل الحركة'); db.session.commit(); flash('تم تعديل الحركة وحفظها مباشرة.'); return redirect('/movements')
     return render_template('movement_edit.html',m=m,emps=Employee.query.filter(Employee.branch_id.in_(bids()),Employee.is_active==True).order_by(Employee.full_name).all(),bs=Branch.query.filter(Branch.id.in_(bids()),Branch.is_active==True).all(),leave_types=active_leave_types(),movement_types=active_movement_types(),approvers=approvers_for_employee(m.employee))
 @app.post('/movements/<int:i>/submit')
 @req

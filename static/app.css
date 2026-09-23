@@ -1384,3 +1384,29 @@ html:has(.assistant-embed-body), body.assistant-embed-body{width:100%;height:100
   .supervisor-admin-dashboard .admin-action-grid b{font-size:16px}
   .supervisor-admin-dashboard .admin-action-grid small{font-size:12px}
 }
+/* v35.08 — current employee status visual hierarchy */
+.current-status-card.is-leave{border-color:#f0c98b;background:linear-gradient(135deg,#fffaf0,#fff)}
+.current-status-card.is-assignment{border-color:#a8d0ea;background:linear-gradient(135deg,#f5fbff,#fff)}
+.current-status-card.is-open-assignment{border:2px solid #8f7be8;background:linear-gradient(135deg,#f8f5ff,#fff);box-shadow:0 8px 22px rgba(111,88,190,.14)}
+.current-status-card.is-open-assignment .current-status-badge{background:#eee9ff;color:#6548b4;font-size:13px}
+.current-status-card.is-leave .current-status-badge{font-size:13px}
+.current-status-card.is-assignment .current-status-badge{font-size:13px}
+.movement-search-results{margin:14px 0;padding:14px;border:1px solid #dce7ee;border-radius:14px;background:#fbfdff}.movement-search-results-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.movement-search-results-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.movement-search-result{display:flex;flex-direction:column;gap:3px;padding:12px;border:1px solid #e2e8ee;border-radius:12px;background:#fff;text-decoration:none;color:inherit;transition:.16s}.movement-search-result:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(15,23,42,.09)}.movement-search-result span,.movement-search-result small{color:#687386;font-size:12px}@media(max-width:900px){.movement-search-results-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:600px){.movement-search-results-grid{grid-template-columns:1fr}}
+
+/* v35.10 — مساعد ذكي بخط كبير وواضح */
+.assistant-chat-shell,
+.assistant-chat-shell *{font-family:'Cairo',sans-serif}
+.assistant-chat-topbar b{font-size:19px;font-weight:800}
+.assistant-chat-topbar small{font-size:13px}
+.chat-bubble{font-size:18px!important;font-weight:600;line-height:2!important;padding:14px 17px!important;letter-spacing:.05px}
+.chat-title{font-size:18px!important;font-weight:800!important;margin-bottom:6px!important}
+.chat-suggestions button,.chat-topic-grid button{font-size:16px!important;font-weight:700;padding:10px 14px!important;border-radius:13px}
+.assistant-preview{font-size:17px!important;line-height:2!important}
+.assistant-preview button{font-size:16px!important;font-weight:700}
+.chat-avatar{width:40px;height:40px;min-width:40px;font-size:17px}
+.assistant-chat-body{gap:17px}
+@media(max-width:700px){
+  .chat-bubble{font-size:17px!important;line-height:1.95!important}
+  .chat-title{font-size:17px!important}
+  .chat-suggestions button,.chat-topic-grid button{font-size:15px!important}
+}

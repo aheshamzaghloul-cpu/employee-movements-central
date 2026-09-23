@@ -2,7 +2,7 @@
 {% block title %}الرئيسية — نظام إدارة حركات الموظفين{% endblock %}
 {% block content %}
 <style id="home-manager-search-style">
-.manager-scope-bar{margin:0 0 16px;padding:12px 16px;border:1px solid #dbe3ee;border-radius:14px;background:#f7f9fc}.manager-scope-form{display:flex;align-items:end;gap:14px;flex-wrap:wrap}.manager-scope-form label{min-width:280px}.manager-scope-form select{display:block;width:100%;margin-top:5px}.manager-scope-form span{font-size:13px;color:#64748b}.movement-quick-filter-form{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:10px;align-items:end}.movement-quick-filter-form label{display:flex;flex-direction:column;gap:5px}.movement-quick-filter-form select{width:100%}.movement-quick-filter-form small{grid-column:1/-1}.movement-employee-result{margin-top:14px}.movement-employee-result-card{border:1px solid #d9e2ec;border-radius:16px;background:#fff;box-shadow:0 8px 24px rgba(15,23,42,.07);padding:18px}.movement-employee-result-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}.movement-employee-result-person{display:flex;align-items:center;gap:12px}.movement-employee-result-avatar{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;background:#eef4ff;font-size:23px;font-weight:800}.movement-employee-result-person h3{margin:0 0 4px}.movement-employee-result-person p{margin:0;color:#64748b}.movement-employee-result-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}.movement-employee-result-grid>div{padding:10px 12px;background:#f7f9fc;border-radius:10px}.movement-employee-result-grid small{display:block;color:#64748b;margin-bottom:3px}.movement-employee-last{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}.movement-employee-last>div{border:1px solid #e5eaf0;border-radius:10px;padding:11px}.movement-employee-last h4{margin:0 0 7px}.movement-employee-last .hint{font-size:13px}@media(max-width:900px){.movement-employee-result-grid,.movement-employee-last{grid-template-columns:1fr 1fr}}@media(max-width:600px){.movement-employee-result-grid,.movement-employee-last{grid-template-columns:1fr}}@media(max-width:900px){.movement-quick-filter-form{grid-template-columns:1fr 1fr}.movement-quick-filter-form button{grid-column:1/-1}}
+.manager-scope-bar{margin:0 0 16px;padding:12px 16px;border:1px solid #dbe3ee;border-radius:14px;background:#f7f9fc}.manager-scope-form{display:flex;align-items:end;gap:14px;flex-wrap:wrap}.manager-scope-form label{min-width:280px}.manager-scope-form select{display:block;width:100%;margin-top:5px}.manager-scope-form span{font-size:13px;color:#64748b}.movement-quick-filter-form{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:10px;align-items:end}.movement-quick-filter-form label{display:flex;flex-direction:column;gap:5px}.movement-quick-filter-form select{width:100%}.movement-quick-filter-form small{grid-column:1/-1}.movement-employee-result{margin-top:14px}.movement-employee-result-card{border:1px solid #d9e2ec;border-radius:16px;background:#fff;box-shadow:0 8px 24px rgba(15,23,42,.07);padding:18px}.movement-employee-result-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}.movement-employee-result-person{display:flex;align-items:center;gap:12px}.movement-employee-result-avatar{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;background:#eef4ff;font-size:23px;font-weight:800}.movement-employee-result-person h3{margin:0 0 4px}.movement-employee-result-person p{margin:0;color:#64748b}.movement-employee-result-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}.movement-employee-result-grid>div{padding:10px 12px;background:#f7f9fc;border-radius:10px}.movement-employee-result-grid small{display:block;color:#64748b;margin-bottom:3px}.movement-employee-last{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}.movement-employee-last>div{border:1px solid #e5eaf0;border-radius:10px;padding:11px}.movement-employee-last h4{margin:0 0 7px}.movement-employee-last .hint{font-size:13px}@media(max-width:900px){.movement-employee-result-grid,.movement-employee-last{grid-template-columns:1fr 1fr}}@media(max-width:600px){.movement-employee-result-grid,.movement-employee-last{grid-template-columns:1fr}}@media(max-width:1100px){.movement-quick-filter-form{grid-template-columns:1fr 1fr}.movement-quick-filter-form button{grid-column:1/-1}}
 </style>
 <div class="home-dashboard-head">
   <div>
@@ -36,7 +36,7 @@
       <div>
         <span class="home-kicker">متابعة مباشرة</span>
         <h2>حالة الموظفين الآن</h2>
-        <p class="home-current-note">يعرض فقط الموظفين الذين لديهم إجازة مستمرة أو انتداب ساري اليوم.</p>
+        <p class="home-current-note">تظهر الإجازات أولًا، ثم الانتدابات المحددة، ثم الانتدابات المفتوحة بعلامات وألوان مميزة.</p>
       </div>
       <span class="home-current-count" id="current-status-count">{{current_status_rows|length}} موظف</span>
     </div>
@@ -45,7 +45,7 @@
       <label>البحث بالفرع
         <select id="current-status-branch-filter">
           <option value="">كل الفروع</option>
-          {% for branch in current_status_rows|map(attribute='employee')|map(attribute='branch')|select|unique(attribute='id')|sort(attribute='name') %}
+          {% for branch in current_status_rows|map(attribute='display_branch')|select|unique(attribute='id')|sort(attribute='name') %}
             <option value="{{branch.id}}">{{branch.name}}</option>
           {% endfor %}
         </select>
@@ -61,11 +61,11 @@
     </div>
     <div class="current-status-list" id="current-status-list">
       {% for row in current_status_rows %}
-      <a class="current-status-card {% if row.movement.movement_type=='انتداب' %}is-assignment{% else %}is-leave{% endif %}" data-status-employee="{{row.employee.id}}" data-status-branch="{{row.employee.branch.id if row.employee.branch else ''}}" href="/employee/{{row.employee.id}}">
+      <a class="current-status-card {% if row.movement.movement_type=='انتداب' %}is-assignment{% if row.to_date is none %} is-open-assignment{% endif %}{% else %}is-leave{% endif %}" data-status-employee="{{row.employee.id}}" data-status-branch="{{row.display_branch.id if row.display_branch else ''}}" href="/employee/{{row.employee.id}}">
         <div class="current-status-main"><strong>{{row.employee.full_name}}</strong><small>{{row.display_branch.name if row.display_branch else (row.employee.branch.name if row.employee.branch else '—')}}</small></div>
-        <div class="current-status-badge">{{row.state}}</div>
+        <div class="current-status-badge">{% if row.movement and row.movement.movement_type=='انتداب' and row.to_date is none %}🟣 انتداب مفتوح{% else %}{{row.state}}{% endif %}</div>
         <div class="current-status-detail"><b>{{row.place}}</b><div class="status-dates"><span><em>من</em><strong>{{row.from_date.strftime('%d/%m/%Y') if row.from_date else '—'}}</strong></span><span><em>إلى</em><strong>{{row.to_date.strftime('%d/%m/%Y') if row.to_date else 'مفتوح'}}</strong></span></div></div>
-        <div class="current-status-remaining"><b>{{row.remaining}}</b><span>{% if row.remaining==0 %}ينتهي اليوم{% elif row.remaining==1 %}متبقي يوم واحد{% else %}أيام متبقية{% endif %}</span></div>
+        <div class="current-status-remaining">{% if row.to_date is none %}<b>∞</b><span>بدون نهاية</span>{% else %}<b>{{row.remaining}}</b><span>{% if row.remaining==0 %}ينتهي اليوم{% elif row.remaining==1 %}متبقي يوم واحد{% else %}أيام متبقية{% endif %}</span>{% endif %}</div>
         {% if row.ending_notice %}<div class="current-status-alert">ينتهي قريبًا</div>{% endif %}
       </a>
       {% endfor %}
@@ -177,56 +177,47 @@
       <div><h3>حركات الموظفين</h3><small>التسجيل والمتابعة والتقارير في واجهة واحدة</small></div>
     </div>
     <form class="home-movement-employee-search movement-quick-filter-form" method="get" action="/">
-      <label>المحافظة
-        <select id="movement-search-gov" name="governorate_id" required>
-          <option value="">اختر المحافظة</option>
-          {% for g in movement_search_governorates %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}
+      <label>المحافظة <span class="required">*</span>
+        <select id="movement-search-governorate" name="movement_governorate_id" required onchange="this.form.submit()">
+          <option value="">اختر المحافظة أولًا</option>
+          {% for g in movement_search_governorates %}<option value="{{g.id}}" {% if movement_governorate_id|int == g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}
         </select>
       </label>
       <label>الفرع
-        <select id="movement-search-branch" name="branch_id" disabled>
-          <option value="">اختر الفرع</option>
-          {% for b in movement_search_branches %}<option value="{{b.id}}" data-gov="{{b.governorate_id}}">{{b.name}}</option>{% endfor %}
+        <select id="movement-search-branch" name="movement_branch_id">
+          <option value="">كل الفروع</option>
+          {% for b in movement_search_branches if b.id in (user_branch_ids or []) or is_admin or is_manager_support %}<option value="{{b.id}}" {% if movement_branch_id|int == b.id %}selected{% endif %}>{{b.name}}{% if b.code %} — {{b.code}}{% endif %}</option>{% endfor %}
         </select>
       </label>
       <label>اسم الموظف
-        <select id="movement-search-employee" name="employee_id" disabled>
-          <option value="">اختر الموظف</option>
-          {% for e in movement_search_employees %}<option value="{{e.id}}" data-branch="{{e.branch_id}}" data-gov="{{e.branch.governorate_id if e.branch else ''}}">{{e.full_name}}</option>{% endfor %}
-        </select>
+        <input id="movement-search-name" name="movement_name" value="{{movement_name_query}}" type="search" placeholder="اكتب جزءًا من الاسم..." autocomplete="off">
       </label>
-      <button class="btn" type="submit">🔎 عرض بطاقة الموظف</button>
-      <small>اختر المحافظة ثم الفرع ثم اسم الموظف؛ ستظهر بطاقة الموظف مباشرة هنا.</small>
+      <button class="btn" type="submit">🔎 بحث</button>
+      {% if movement_governorate_id or movement_branch_id or movement_name_query %}<a class="btn secondary" href="/">مسح البحث</a>{% endif %}
+      <small>اختر المحافظة أولًا، ثم ابحث بالفرع أو بالاسم أو بهما معًا.</small>
     </form>
+
+    {% if movement_governorate_id and movement_employee_matches and not movement_employee %}
+    <div class="movement-search-results">
+      <div class="movement-search-results-head"><b>نتائج البحث</b><span>{{movement_employee_matches|length}} موظف</span></div>
+      <div class="movement-search-results-grid">
+      {% for e in movement_employee_matches %}
+        <a class="movement-search-result" href="/?movement_governorate_id={{movement_governorate_id}}&{% if movement_branch_id %}movement_branch_id={{movement_branch_id}}&{% endif %}employee_id={{e.id}}"><strong>{{e.full_name}}</strong><span>{{e.job_title or 'موظف'}}{% if e.job_code %} · {{e.job_code}}{% endif %}</span><small>{{e.branch.name if e.branch else '—'}}</small></a>
+      {% endfor %}
+      </div>
+    </div>
+    {% elif movement_governorate_id and (movement_branch_id or movement_name_query) and not movement_employee %}
+      <div class="status-empty"><strong>لا توجد نتائج مطابقة.</strong><span>جرّب اسمًا آخر أو اختر فرعًا مختلفًا.</span></div>
+    {% endif %}
 
     {% if movement_employee %}
     <div class="movement-employee-result">
       <article class="movement-employee-result-card">
-        <div class="movement-employee-result-head">
-          <div class="movement-employee-result-person">
-            <div class="movement-employee-result-avatar">{{(movement_employee.full_name or 'م')[:1]}}</div>
-            <div><h3>{{movement_employee.full_name}}</h3><p>{{movement_employee.job_title or 'موظف'}} · {{movement_employee.job_code or 'بدون كود'}}</p></div>
-          </div>
-          <div class="actions no-print">
-            <a class="btn secondary" href="/employee/{{movement_employee.id}}">فتح البطاقة الكاملة</a>
-            {% if can('manage_movements') and can_manage_employee(movement_employee) %}<a class="btn teal" href="/movements?employee_id={{movement_employee.id}}">تسجيل حركة</a>{% endif %}
-          </div>
-        </div>
-        <div class="movement-employee-result-grid">
-          <div><small>المحافظة</small><b>{{movement_employee.branch.governorate.name if movement_employee.branch and movement_employee.branch.governorate else '—'}}</b></div>
-          <div><small>فرع التعيين</small><b>{{movement_employee.branch.name if movement_employee.branch else '—'}}</b></div>
-          <div><small>البريد الإلكتروني</small><b>{{movement_employee.email or '—'}}</b></div>
-          <div><small>تاريخ التعيين</small><b>{{movement_employee.hire_date or '—'}}</b></div>
-        </div>
-        <div class="movement-employee-last">
-          {% for k,t in [('إجازة','آخر إجازة'),('انتداب','آخر انتداب'),('إذن','آخر إذن')] %}
-          <div><h4>{{t}}</h4>{% set m=movement_employee_last[k] %}{% if m %}<div class="hint">{% if k=='إذن' %}{{m.permission_date or '—'}}{% else %}{{m.from_date or '—'}} → {{m.to_date or '—'}}{% endif %}</div>{% if m.leave_type %}<div class="hint">{{m.leave_type}}</div>{% elif m.destination %}<div class="hint">إلى {{m.destination.name}}</div>{% endif %}<span class="tag">{{m.status}}</span>{% else %}<div class="hint">لا توجد بيانات</div>{% endif %}</div>
-          {% endfor %}
-        </div>
+        <div class="movement-employee-result-head"><div class="movement-employee-result-person"><div class="movement-employee-result-avatar">{{(movement_employee.full_name or 'م')[:1]}}</div><div><h3>{{movement_employee.full_name}}</h3><p>{{movement_employee.job_title or 'موظف'}} · {{movement_employee.job_code or 'بدون كود'}}</p></div></div><div class="actions no-print"><a class="btn secondary" href="/employee/{{movement_employee.id}}">فتح البطاقة الكاملة</a>{% if can('manage_movements') and can_manage_employee(movement_employee) %}<a class="btn teal" href="/movements?employee_id={{movement_employee.id}}">تسجيل حركة</a>{% endif %}</div></div>
+        <div class="movement-employee-result-grid"><div><small>فرع التعيين</small><b>{{movement_employee.branch.name if movement_employee.branch else '—'}}</b></div><div><small>الفرع الحالي</small><b>{% set cam=current_assignment_for_employee(movement_employee.id) %}{{(cam.destination.name if cam and cam.destination else movement_employee.branch.name if movement_employee.branch else '—')}}{% if cam and cam.to_date is none %} — <span class="badge">انتداب مفتوح</span>{% endif %}</b></div><div><small>البريد الإلكتروني</small><b>{{movement_employee.email or '—'}}</b></div><div><small>تاريخ التعيين</small><b>{{movement_employee.hire_date or '—'}}</b></div></div>
+        <div class="movement-employee-last">{% for k,t in [('إجازة','آخر إجازة'),('انتداب','آخر انتداب'),('إذن','آخر إذن')] %}<div><h4>{{t}}</h4>{% set m=movement_employee_last[k] %}{% if m %}<div class="hint">{% if k=='إذن' %}{{m.permission_date or '—'}}{% else %}{{m.from_date or '—'}} → {{m.to_date or 'مفتوح'}}{% endif %}</div>{% if m.leave_type %}<div class="hint">{{m.leave_type}}</div>{% elif m.destination %}<div class="hint">إلى {{m.destination.name}}</div>{% endif %}<span class="tag">{{m.status}}</span>{% else %}<div class="hint">لا توجد بيانات</div>{% endif %}</div>{% endfor %}</div>
       </article>
     </div>
-    {% elif movement_employee_id %}
-      <div class="status-empty"><strong>لم يتم العثور على موظف ضمن نطاقك.</strong><span>تأكد من اختيار المحافظة والفرع ثم اسم الموظف.</span></div>
     {% endif %}
 
     <div class="movement-action-grid">
@@ -264,7 +255,6 @@
     if(statusEmpty) statusEmpty.hidden=visible!==0;
   }
   branch?.addEventListener('change',filterStatus); employee?.addEventListener('change',filterStatus);
-
   const entryFilter=document.getElementById('entry-directory-filter');
   const entryList=document.getElementById('entry-directory-list');
   function filterEntries(){
@@ -277,23 +267,6 @@
     });
   }
   entryFilter?.addEventListener('change',filterEntries);
-
-  const mg=document.getElementById('movement-search-gov');
-  const mb=document.getElementById('movement-search-branch');
-  const me=document.getElementById('movement-search-employee');
-  function refreshMovementSearch(){
-    if(!mg||!mb||!me) return;
-    const gid=mg.value;
-    mb.disabled=!gid;
-    mb.value=''; me.value=''; me.disabled=true;
-    mb.querySelectorAll('option[data-gov]').forEach(o=>o.hidden=o.dataset.gov!==gid);
-  }
-  mg?.addEventListener('change',refreshMovementSearch);
-  mb?.addEventListener('change',()=>{
-    const gid=mg.value, bid=mb.value; me.disabled=!bid; me.value='';
-    me.querySelectorAll('option[data-branch]').forEach(o=>o.hidden=(o.dataset.gov!==gid || o.dataset.branch!==bid));
-  });
-  me?.addEventListener('change',()=>{ if(me.value) me.form.submit(); });
 })();
 </script>
 {% endblock %}

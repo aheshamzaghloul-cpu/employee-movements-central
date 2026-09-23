@@ -1915,7 +1915,7 @@ def assistant_llm_parse(text, chat=None):
     schema={
       'type':'object','additionalProperties':False,
       'properties':{
-        'intent':{'type':'string','enum':['employee_add','employee_status','employee_info','employee_movements','branch_status','branch_info','branch_entry','register_movement','topic_options','navigate','help']},
+        'intent':{'type':'string','enum':['employee_add','employee_status','employee_info','employee_movements','branch_status','branch_info','branch_entry','governorate_employees','employee_topic','register_movement','topic_options','navigate','help']},
         'topic':{'type':['string','null'],'enum':['leave','assignment','permission','entry','employee','branch','reports','admin','users','delegation','replacement','audit',None]},
         'employee_name':{'type':['string','null']},
         'branch_name':{'type':['string','null']},
@@ -1965,6 +1965,19 @@ def assistant_parse(text):
     query_words=('حالة','اعرض','عرض','استعلم','استعلام','اسم','من هو','مين','موظفين','الموظفون','الموظفين','بيانات','سجل')
     employee_words=('موظف','الموظف','الموظفين','الموظفون','موظفة','موظفات')
     employee_add_words=('جديد','جديدة','إضافة','اضافة','أضف','اضف','إدخال','ادخال','تعيين')
+    # استعلامات عامة بصياغة طبيعية: "اسماء موظفين"، "الموظفين في جهينه".
+    if has_any('موظفين','الموظفين','الموظفون','اسماء موظفين','أسماء موظفين','اسماء الموظفين','أسماء الموظفين'):
+        pm=re.search(r'(?:في|فى|بـ|ب|داخل)\s+(?:فرع\s+)?([^؟?،,؛\n]+)', t, re.I)
+        if pm:
+            place=pm.group(1).strip()
+            br,bmatches=assistant_find_branch(place)
+            if br:
+                return {'intent':'branch_status','branch_id':br.id,'branch_name':br.name,'candidate_ids':[b.id for b in bmatches[:10]]}
+            govs=[g for g in Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all() if place.lower() in (g.name or '').lower()]
+            if len(govs)==1:
+                return {'intent':'governorate_employees','governorate_id':govs[0].id,'governorate_name':govs[0].name}
+        return {'intent':'employee_topic'}
+
     # طلبات مثل: موظف جديد / إضافة موظف / أريد إدخال موظف جديد
     # تُفهم كطلب إدارة موظف، وليس كاستعلام عن موظف موجود.
     if has_any(*employee_words) and has_any(*employee_add_words) and can('manage_employees'):
@@ -2164,6 +2177,19 @@ def assistant_status_for_employee(e):
 
 def assistant_render_read(a):
     intent=a.get('intent')
+    if intent=='governorate_employees':
+        gid=a.get('governorate_id')
+        gov=db.session.get(Governorate,gid) if gid else None
+        allowed_gids=set(gids())
+        if not gov or not gov.is_active or (allowed_gids and gov.id not in allowed_gids):
+            return {'title':'موظفو المحافظة','error':'لا توجد محافظة مطابقة أو ليست ضمن نطاق صلاحياتك.'}
+        branches=Branch.query.filter_by(governorate_id=gov.id,is_active=True).order_by(Branch.name).all()
+        branches=[b for b in branches if branch_ok(b.id)]
+        employees=Employee.query.filter(Employee.is_active==True, Employee.branch_id.in_([b.id for b in branches])).order_by(Employee.full_name).all() if branches else []
+        if not employees:
+            return {'title':f'أسماء الموظفين في {gov.name}','answer':f'لا يوجد موظفون نشطون مسجلون حاليًا في محافظة {gov.name}.'}
+        lines=[f'{i}. {e.full_name} — {e.branch.name if e.branch else "غير محدد"}' for i,e in enumerate(employees,1)]
+        return {'title':f'أسماء الموظفين في {gov.name}','answer':f'عدد الموظفين النشطين: {len(employees)}\n\n'+'\n'.join(lines)}
     if intent=='employee_status':
         e=db.session.get(Employee,a.get('employee_id')) if a.get('employee_id') else None
         if not e or not e.is_active or not branch_ok(e.branch_id):
@@ -2248,7 +2274,14 @@ def assistant():
         if not prompt:
             result={'title':'المساعد الذكي','error':'اكتب طلبك أولًا.'}
         else:
-            a=assistant_llm_parse(prompt, chat) or assistant_parse(prompt)
+            local_a=assistant_parse(prompt)
+            llm_a=assistant_llm_parse(prompt, chat)
+            # إذا أعاد النموذج نية عامة/غير مفيدة، نستخدم المحلل المحلي للطلبات الواضحة.
+            # هذا يحافظ على الفهم الدلالي ويمنع سقوط عبارات قصيرة مثل "إجازة" في help.
+            if llm_a and llm_a.get('intent') not in ('help', None):
+                a=llm_a
+            else:
+                a=local_a
             if a.get('intent')=='topic_options':
                 result=assistant_topic_options(a.get('topic'))
             elif a.get('intent')=='employee_topic':

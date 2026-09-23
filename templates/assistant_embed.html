@@ -7,9 +7,6 @@
     <form method="post" action="/assistant/clear"><input type="hidden" name="_csrf" value="{{csrf}}"><button title="مسح المحادثة">مسح</button></form>
   </div>
   <div class="assistant-chat-body" id="assistantChatBody">
-    {% if not chat %}
-    <div class="chat-msg assistant-msg"><div class="chat-avatar">✦</div><div class="chat-bubble"><b>مرحبًا، أنا المساعد الذكي.</b><p>اكتب ما تريد بطريقتك الطبيعية، حتى لو لم تستخدم نفس أسماء البنود داخل التطبيق.</p><div class="chat-suggestions"><button type="button" data-prompt="إجازة">إجازة</button><button type="button" data-prompt="انتداب">انتداب</button><button type="button" data-prompt="إذن">إذن</button><button type="button" data-prompt="مدخل أول">مدخل أول</button><button type="button" data-prompt="الموظفين في فرع ">موظفو فرع</button></div></div></div>
-    {% endif %}
     {% for msg in chat %}
       {% if msg.role=='user' %}
       <div class="chat-msg user-msg"><div class="chat-bubble">{{msg.text}}</div><div class="chat-avatar user-avatar">أنت</div></div>
@@ -18,14 +15,14 @@
       {% endif %}
     {% endfor %}
     {% if result and (not chat or prompt) %}
-    <div class="chat-msg assistant-msg current-response"><div class="chat-avatar">✦</div><div class="chat-bubble"><small class="chat-title">{{result.title}}</small>{% if result.error %}<div class="chat-error">{{result.error}}</div>{% endif %}{% if result.answer %}<div>{{result.answer|replace('\n','<br>')|safe}}</div>{% endif %}{% if result.preview %}<div class="assistant-preview"><b>{{result.preview}}</b><form method="post" action="/assistant/confirm"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="embed" value="1"><button type="submit">تأكيد وتنفيذ</button><button type="submit" name="cancel" value="1" class="secondary">إلغاء</button></form></div>{% endif %}{% if result.choices %}<div class="chat-suggestions">{% for x in result.choices %}<button type="button" data-prompt="{{ 'ما حالة الموظف ' ~ x.full_name if x.full_name else 'ما حالة فرع ' ~ x.name }}">{{x.full_name if x.full_name else x.name}}</button>{% endfor %}</div>{% endif %}{% if result.topic_items %}<div class="chat-topic-grid">{% for x in result.topic_items %}<button type="button" data-prompt="{{x.prompt}}"><span>{{x.icon}}</span>{{x.label}}</button>{% endfor %}</div>{% endif %}</div></div>
+    <div class="chat-msg assistant-msg current-response"><div class="chat-avatar">✦</div><div class="chat-bubble"><small class="chat-title">{{result.title}}</small>{% if result.error %}<div class="chat-error">{{result.error}}</div>{% endif %}{% if result.answer %}<div>{{result.answer|replace('\n','<br>')|safe}}</div>{% endif %}{% if result.preview %}<div class="assistant-preview"><b>{{result.preview}}</b><form method="post" action="/assistant/confirm"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="embed" value="1"><button type="submit">تأكيد وتنفيذ</button><button type="submit" name="cancel" value="1" class="secondary">إلغاء</button></form></div>{% endif %}{% if result.choices %}<div class="chat-suggestions">{% for x in result.choices %}<button type="button" data-prompt="{{ 'ما حالة الموظف ' ~ x.full_name if x.full_name else 'ما حالة فرع ' ~ x.name }}">{{x.full_name if x.full_name else x.name}}</button>{% endfor %}</div>{% endif %}{% if result.topic_items %}<div class="chat-topic-grid">{% for x in result.topic_items %}<button type="button" data-prompt="{{x.prompt}}"><span>{{x.icon}}</span>{{x.label}}</button>{% endfor %}</div>{% endif %}{% if result.actions %}<div class="chat-topic-grid assistant-actions">{% for x in result.actions %}<button type="button" data-assistant-url="{{x.url}}"><span>➜</span>{{x.label}}</button>{% endfor %}</div>{% endif %}</div></div>
     {% endif %}
   </div>
   <form method="post" action="/assistant?embed=1" class="assistant-chat-input"><input type="hidden" name="_csrf" value="{{csrf}}"><textarea name="prompt" rows="1" placeholder="اكتب طلبك هنا... مثال: أريد إدخال إجازة لأحمد">{{'' if result else prompt}}</textarea><button type="submit" title="إرسال">➤</button></form>
 </section>
 <script>
 (function(){const body=document.getElementById('assistantChatBody'), form=document.querySelector('.assistant-chat-input'), ta=form?.querySelector('textarea');
-function bind(){document.querySelectorAll('[data-prompt]').forEach(b=>b.onclick=()=>{if(ta){ta.value=b.dataset.prompt||'';ta.focus();}})} bind(); if(body) body.scrollTop=body.scrollHeight;
+function bind(){document.querySelectorAll('[data-prompt]').forEach(b=>b.onclick=()=>{if(ta){ta.value=b.dataset.prompt||'';ta.focus();}});document.querySelectorAll('[data-assistant-url]').forEach(b=>b.onclick=()=>{const u=b.dataset.assistantUrl||'/';try{if(window.parent&&window.parent!==window){window.parent.location.href=u;}else{window.location.href=u;}}catch(e){window.location.href=u;}})} bind(); if(body) body.scrollTop=body.scrollHeight;
 if(ta) ta.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();form.submit();}});
 })();
 </script>

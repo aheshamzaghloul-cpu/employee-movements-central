@@ -7,7 +7,7 @@ from sqlalchemy import UniqueConstraint
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app=Flask(__name__)
-APP_VERSION='v34.95'
+APP_VERSION='v34.98'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg://',1)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or 'dev-only-change-me',SQLALCHEMY_DATABASE_URI=DATABASE_URL,SQLALCHEMY_TRACK_MODIFICATIONS=False,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','0')=='1',MAX_CONTENT_LENGTH=2*1024*1024)
@@ -1882,6 +1882,16 @@ def assistant_parse(text):
     entry_words=('مدخل أول','مدخل الاول','مدخل الأول','المدخل الأول','المدخل الاول','مدخلين أوائل','المدخلين الأوائل')
     action_words=('سجل','تسجيل','سجّل','ادخل','إدخال','أدخل','اضف','أضف','إضافة','اعمل','عمل','نفذ','تنفيذ','عين','تعيين')
     query_words=('حالة','اعرض','عرض','استعلم','استعلام','اسم','من هو','مين','موظفين','الموظفون','الموظفين','بيانات','سجل')
+    employee_words=('موظف','الموظف','الموظفين','الموظفون','موظفة','موظفات')
+    employee_add_words=('جديد','جديدة','إضافة','اضافة','أضف','اضف','إدخال','ادخال','تعيين')
+    # طلبات مثل: موظف جديد / إضافة موظف / أريد إدخال موظف جديد
+    # تُفهم كطلب إدارة موظف، وليس كاستعلام عن موظف موجود.
+    if has_any(*employee_words) and has_any(*employee_add_words) and can('manage_employees'):
+        return {'intent':'employee_add'}
+    if has_any(*employee_words) and has_any('جديد','جديدة') and not has_any('حالة','سجل','بيانات','فرع'):
+        if can('manage_employees'):
+            return {'intent':'employee_add'}
+        return {'intent':'employee_topic'}
     # استعلام ذكي عن المدخل الأول المسؤول عن فرع محدد.
     if has_any(*entry_words) and has_any('فرع','الفرع') and has_any('اسم','من هو','مين','مسؤول','مسئول','يتبع'):
         bm=re.search(r'(?:فرع|الفرع)\s+([^؟?،,؛\n]+)',t)
@@ -1942,6 +1952,8 @@ def assistant_parse(text):
         return {'intent':'topic_options','topic':'permission'}
     if low.strip() in ('مدخل اول','مدخل أول','المدخل الاول','المدخل الأول','مدخل أولاً','المدخل الاول'):
         return {'intent':'topic_options','topic':'entry'}
+    if low.strip() in ('موظف','الموظف','موظفين','الموظفين','الموظفون','موظفة','موظفات'):
+        return {'intent':'topic_options','topic':'employee'}
     if any(x in t for x in ['سجل حركة','سجل له','سجل للموظف','تسجيل إجازة','تسجيل انتداب','تسجيل اذن','تسجيل إذن','اضف إجازة','أضف إجازة','اضف انتداب','أضف انتداب','اضف اذن','أضف إذن']):
         mt='إجازة' if 'إجازة' in t or 'اجازة' in t else ('انتداب' if 'انتداب' in t or 'مأمورية' in t else 'إذن')
         if mt=='إجازة': mt='إجازة'
@@ -2017,6 +2029,16 @@ def assistant_topic_options(topic):
         if not can('manage_movements'): items=[x for x in items if x['kind']!='action']
         if not can('view_reports'): items=[x for x in items if x['kind']!='report']
         return {'title':'خيارات الأذونات','answer':'اختر ما تريد بخصوص الأذونات، أو اكتب طلبك مباشرة.','topic_items':items}
+    if topic=='employee':
+        items=[
+            {'label':'إضافة موظف جديد','prompt':'إضافة موظف جديد','icon':'➕','kind':'action','url':'/employees'},
+            {'label':'تعديل بيانات موظف','prompt':'تعديل بيانات موظف','icon':'✏️','kind':'action','url':'/employees/edit-data'},
+            {'label':'البحث عن موظف','prompt':'ابحث عن موظف','icon':'🔎','kind':'query','url':'/employees'},
+            {'label':'الموظفون المحذوفون','prompt':'اعرض الموظفين المحذوفين','icon':'♻️','kind':'query','url':'/employees/deleted'},
+        ]
+        if not can('manage_employees'):
+            items=[x for x in items if x['kind']=='query']
+        return {'title':'خيارات الموظفين','answer':'ما الذي تريد فعله بخصوص الموظفين؟','topic_items':items}
     if topic=='entry':
         items=[]
         if can('manage_structure'):
@@ -2104,6 +2126,13 @@ def assistant():
             a=assistant_parse(prompt)
             if a.get('intent')=='topic_options':
                 result=assistant_topic_options(a.get('topic'))
+            elif a.get('intent')=='employee_topic':
+                result=assistant_topic_options('employee')
+            elif a.get('intent')=='employee_add':
+                if not can('manage_employees'):
+                    result={'title':'إضافة موظف جديد','error':'لا تملك صلاحية إضافة موظف جديد.'}
+                else:
+                    result={'title':'إضافة موظف جديد','answer':'بالتأكيد. يمكنك إضافة موظف جديد. سأفتح لك شاشة الإضافة مباشرة لتسجيل البيانات المطلوبة: المحافظة، الفرع، الاسم، البريد الإلكتروني، الوظيفة، الكود الوظيفي، تاريخ التعيين، هاتف الشركة والهاتف الشخصي.','actions':[{'label':'بدء إضافة موظف جديد','url':'/employees'}]}
             elif a.get('intent')=='register_movement':
                 if not can('manage_movements'):
                     result={'title':'تسجيل حركة','error':'لا تملك صلاحية تسجيل الحركات.'}

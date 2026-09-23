@@ -1911,16 +1911,38 @@ def assistant_scope_employee_query():
     bs=bids()
     return Employee.query.filter(Employee.is_active==True, Employee.branch_id.in_(bs)).order_by(Employee.full_name).all() if bs else []
 
+def assistant_search_normalize(text):
+    """تطبيع النص العربي للبحث والفهم فقط دون تغيير القيمة الأصلية المخزنة."""
+    import unicodedata
+    text = unicodedata.normalize('NFKC', str(text or ''))
+    # إزالة التشكيل والتطويل وعلامات الوقف الزائدة.
+    text = re.sub(r'[\u064B-\u065F\u0670\u0640]', '', text)
+    # توحيد صور الهمزة والألف، والألف المقصورة/الياء، والتاء المربوطة/الهاء
+    # حتى تنجح المطابقة المرنة مثل: إجازة/اجازه، منى/مني، هدى/هدي.
+    text = text.translate(str.maketrans({
+        'أ':'ا', 'إ':'ا', 'آ':'ا', 'ٱ':'ا',
+        'ى':'ي', 'ئ':'ي', 'ؤ':'و',
+        'ة':'ه',
+    }))
+    text = re.sub(r'[\s\u200f\u200e]+', ' ', text).strip().lower()
+    return text
+
+def assistant_normalize(text):
+    """تطبيع عام للنص، مع الاحتفاظ بالقيمة الأصلية لعرضها كما هي."""
+    trans=str.maketrans('٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹','01234567890123456789')
+    return (text or '').translate(trans).strip()
+
 def assistant_find_employee(value):
     value=(value or '').strip()
     if not value: return None, []
     rows=assistant_scope_employee_query()
-    exact=[e for e in rows if e.full_name.strip().lower()==value.lower() or (e.job_code and e.job_code.strip().lower()==value.lower())]
+    nv=assistant_search_normalize(value)
+    exact=[e for e in rows if assistant_search_normalize(e.full_name)==nv or (e.job_code and assistant_search_normalize(e.job_code)==nv)]
     if len(exact)==1: return exact[0], exact
-    parts=[x for x in re.split(r'\s+',value.lower()) if len(x)>=2]
-    matches=[e for e in rows if value.lower() in (e.full_name or '').lower() or (e.job_code and value.lower() in e.job_code.lower())]
+    parts=[x for x in re.split(r'\s+',nv) if len(x)>=2]
+    matches=[e for e in rows if nv in assistant_search_normalize(e.full_name) or (e.job_code and nv in assistant_search_normalize(e.job_code))]
     if not matches and parts:
-        matches=[e for e in rows if all(part in (e.full_name or '').lower() for part in parts)]
+        matches=[e for e in rows if all(part in assistant_search_normalize(e.full_name) for part in parts)]
     return (matches[0] if len(matches)==1 else None), matches
 
 def assistant_find_branch(value, governorate_id=None):
@@ -1929,14 +1951,11 @@ def assistant_find_branch(value, governorate_id=None):
     if governorate_id: q=q.filter(Branch.governorate_id==governorate_id)
     allowed=set(bids())
     rows=q.filter(Branch.id.in_(allowed)).order_by(Branch.name).all() if allowed else []
-    exact=[b for b in rows if b.name.strip().lower()==value.lower() or (b.code and b.code.strip().lower()==value.lower())]
+    nv=assistant_search_normalize(value)
+    exact=[b for b in rows if assistant_search_normalize(b.name)==nv or (b.code and assistant_search_normalize(b.code)==nv)]
     if len(exact)==1: return exact[0], exact
-    matches=[b for b in rows if value.lower() in (b.name or '').lower() or (b.code and value.lower() in b.code.lower())]
+    matches=[b for b in rows if nv in assistant_search_normalize(b.name) or (b.code and nv in assistant_search_normalize(b.code))]
     return (matches[0] if len(matches)==1 else None), matches
-
-def assistant_normalize(text):
-    trans=str.maketrans('٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹','01234567890123456789')
-    return (text or '').translate(trans).strip()
 
 def assistant_parse_date(text):
     m=re.search(r'(20\d{2})[-/](\d{1,2})[-/](\d{1,2})', text or '')
@@ -2032,7 +2051,7 @@ def assistant_parse(text):
             br,bmatches=assistant_find_branch(place)
             if br:
                 return {'intent':'branch_status','branch_id':br.id,'branch_name':br.name,'candidate_ids':[b.id for b in bmatches[:10]]}
-            govs=[g for g in Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all() if place.lower() in (g.name or '').lower()]
+            govs=[g for g in Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all() if assistant_search_normalize(place) in assistant_search_normalize(g.name)]
             if len(govs)==1:
                 return {'intent':'governorate_employees','governorate_id':govs[0].id,'governorate_name':govs[0].name}
         return {'intent':'employee_topic'}
@@ -2160,7 +2179,7 @@ def assistant_parse(text):
         return {'intent':'branch_status','branch_id':br.id if br else None,
                 'branch_name':t,'candidate_ids':[b.id for b in bmatches[:10]]}
     gov_matches=[g for g in Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all()
-                 if t.lower() in (g.name or '').lower()]
+                 if assistant_search_normalize(t) in assistant_search_normalize(g.name)]
     if gov_matches:
         if len(gov_matches)==1:
             return {'intent':'governorate_employees','governorate_id':gov_matches[0].id,

@@ -1989,7 +1989,7 @@ def assistant_llm_parse(text, chat=None):
 المحافظات المتاحة في التطبيق: {gov_catalog}
 الفروع المتاحة: {branch_catalog}
 
-يمكنك فهم أي سؤال عن بيانات الموظفين، الفروع، المحافظات، المدخلين الأوائل، الحركات، الإجازات، الانتدابات، الانتدابات المفتوحة، الأذونات، التقارير، المستخدمين، الصلاحيات، التفويض، الاستبدال، سجل العمليات، أو أي وظيفة موجودة في النظام. إذا كان الطلب عامًا، استنتج أفضل موضوع وقدّم ردًا/خيارات مناسبة. إذا كان ناقصًا، اطلب المعلومة الناقصة بدل قول 'لم أفهم'. لا تخترع أسماء أو أرقامًا أو تواريخ. إذا كانت هناك عدة احتمالات، أعد candidate_ids إن أمكن أو اتركها فارغة ليحل التطبيق الالتباس. لا تحصر نفسك في أمثلة أو صيغ أزرار التطبيق. استخدم intent المناسب من المخطط فقط كتصنيف تقني، وليس كقائمة كلمات مسموحة."""
+يمكنك فهم أي سؤال عن بيانات الموظفين، الفروع، المحافظات، المدخلين الأوائل، الحركات، الإجازات، الانتدابات، الانتدابات المفتوحة، الأذونات، التقارير، المستخدمين، الصلاحيات، التفويض، الاستبدال، سجل العمليات، أو أي وظيفة موجودة في النظام. إذا كان الطلب عامًا أو كان مجرد كلمة/اسم/موضوع، لا تعتبره help: استنتج الموضوع الأنسب من المعنى والسياق وأعد topic_options أو intent مناسبًا. إذا قال المستخدم موضوعًا بعد أن كان الحديث عن موظف أو فرع، اربطه بالكيان الأخير في سياق المحادثة ما لم يوجد تعارض. مثال: بعد عرض بيانات موظف ثم قال المستخدم 'إجازة' أو 'تسجيل إجازة'، افهم أنه يريد إجراءً متعلقًا بهذا الموظف واسأل فقط عن البيانات الناقصة. لا تستخدم help إلا إذا تعذر حتى تحديد موضوع عام أو كيان يمكن البناء عليه. إذا كان ناقصًا، اطلب المعلومة الناقصة بدل قول 'لم أفهم'. لا تخترع أسماء أو أرقامًا أو تواريخ. إذا كانت هناك عدة احتمالات، أعد candidate_ids إن أمكن أو اتركها فارغة ليحل التطبيق الالتباس. لا تحصر نفسك في أمثلة أو صيغ أزرار التطبيق. استخدم intent المناسب من المخطط فقط كتصنيف تقني، وليس كقائمة كلمات مسموحة."""
     payload={'model':model,'input':[{'role':'system','content':system}]+history,
              'text':{'format':{'type':'json_schema','name':'assistant_intent','strict':True,'schema':schema}},
              'max_output_tokens':700}
@@ -2346,7 +2346,7 @@ def assistant_render_read(a):
             ans=f'سجل حركات {e.full_name}:\n'+'\n'.join(lines)
         return {'title':'سجل حركات الموظف','answer':ans}
     # لا تعرض أمثلة محفوظة عند تعذر التصنيف؛ اترك المساعد يطلب التوضيح بصورة طبيعية.
-    return {'title':'المساعد الذكي','answer':'أحتاج فقط إلى توضيح بسيط لأفهم ما تريد، مثل اسم الموظف أو الفرع أو الإجراء المقصود.'}
+    return {'title':'المساعد الذكي','answer':'ما زلت أحتاج إلى تحديد المقصود من طلبك.'}
 
 @app.route('/assistant', methods=['GET','POST'])
 @req
@@ -2355,13 +2355,14 @@ def assistant():
     chat=session.get('assistant_chat', [])
     if request.method=='POST':
         prompt=(request.form.get('prompt') or '').strip()
+        prior_chat=list(chat)
         if prompt:
             chat.append({'role':'user','text':prompt})
         if not prompt:
             result={'title':'المساعد الذكي','error':'اكتب طلبك أولًا.'}
         else:
             local_a=assistant_parse(prompt)
-            llm_a=assistant_llm_parse(prompt, chat)
+            llm_a=assistant_llm_parse(prompt, prior_chat)
             # النموذج اللغوي هو طبقة الفهم الأساسية. لا نرفض الطلب لأن صيغته لا تطابق كلمة محفوظة.
             # المحلل المحلي لا يُستخدم إلا كمسار احتياطي عند غياب/فشل الـAPI.
             if llm_a:
@@ -2386,6 +2387,13 @@ def assistant():
                     if len(gg)==1: a['governorate_id']=gg[0].id
             else:
                 a=local_a
+            # سياق الموظف الأخير: إذا ذكر المستخدم إجراءً جديدًا مباشرة بعد عرض موظف،
+            # نستخدم الموظف الأخير تلقائيًا ما لم يحدد موظفًا آخر.
+            if not a.get('employee_id') and session.get('assistant_context_employee_id'):
+                if a.get('intent')=='register_movement' or a.get('topic') in ('leave','assignment','permission'):
+                    ce=db.session.get(Employee, session.get('assistant_context_employee_id'))
+                    if ce and ce.is_active and branch_ok(ce.branch_id):
+                        a['employee_id']=ce.id
             if a.get('intent')=='topic_options':
                 result=assistant_topic_options(a.get('topic'))
                 # لا تستخدم رسالة خيارات عامة إذا أعاد النموذج ردًا طبيعيًا أكثر تحديدًا.
@@ -2413,7 +2421,7 @@ def assistant():
             elif a.get('intent')=='help':
                 # help هنا يعني أن النموذج لم يجد عملية آمنة محددة؛ استخدم رده الطبيعي إن وُجد،
                 # ولا تعُد إلى قائمة أمثلة محفوظة.
-                result={'title':'المساعد الذكي','answer':a.get('reply') or 'وضح لي الجزء الذي تريد معرفته أو تنفيذه، وسأتابع معك خطوة بخطوة.'}
+                result={'title':'المساعد الذكي','answer':a.get('reply') or 'ما الذي تريد معرفته أو تنفيذه بخصوص البيانات الظاهرة أمامنا؟'}
             elif a.get('intent')=='register_movement':
                 if not can('manage_movements'):
                     result={'title':'تسجيل حركة','error':'لا تملك صلاحية تسجيل الحركات.'}
@@ -2457,6 +2465,8 @@ def assistant():
                     result=assistant_render_branch_entry(a)
                 else:
                     result=assistant_render_read(a)
+                if a.get('employee_id') and db.session.get(Employee,a.get('employee_id')):
+                    session['assistant_context_employee_id']=a.get('employee_id')
     if request.method=='POST' and prompt and result:
         assistant_text = result.get('answer') or result.get('error') or result.get('preview') or result.get('title') or 'تمت معالجة طلبك.'
         chat.append({'role':'assistant','text':assistant_text,'title':result.get('title','المساعد الذكي')})

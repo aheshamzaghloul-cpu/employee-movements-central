@@ -2148,6 +2148,31 @@ def assistant_parse(text):
         name=em.group(1).strip() if em else t.replace('ما حالة','').replace('حالة الموظف','').strip(' ؟?')
         emp,matches=assistant_find_employee(name)
         return {'intent':'employee_status','employee_id':emp.id if emp else None,'employee_name':name,'candidate_ids':[e.id for e in matches[:10]]}
+
+    # الإدخال الحر: لا نفترض أن المستخدم كتب "سؤالاً". أي نص قد يكون اسم موظف،
+    # اسم فرع، اسم محافظة، أو موضوعاً مختصراً. نبحث في بيانات النظام أولاً.
+    emp, ematches = assistant_find_employee(t)
+    if emp or ematches:
+        return {'intent':'employee_info','employee_id':emp.id if emp else None,
+                'employee_name':t,'candidate_ids':[e.id for e in ematches[:10]]}
+    br, bmatches = assistant_find_branch(t)
+    if br or bmatches:
+        return {'intent':'branch_status','branch_id':br.id if br else None,
+                'branch_name':t,'candidate_ids':[b.id for b in bmatches[:10]]}
+    gov_matches=[g for g in Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all()
+                 if t.lower() in (g.name or '').lower()]
+    if gov_matches:
+        if len(gov_matches)==1:
+            return {'intent':'governorate_employees','governorate_id':gov_matches[0].id,
+                    'governorate_name':gov_matches[0].name}
+        return {'intent':'employee_topic','candidate_ids':[g.id for g in gov_matches[:10]]}
+
+    # موضوع مختصر بدون فعل: نعرض ما يمكن عمله في هذا الموضوع، لا رسالة مساعدة عامة.
+    if has_any(*leave_words): return {'intent':'topic_options','topic':'leave'}
+    if has_any(*assign_words): return {'intent':'topic_options','topic':'assignment'}
+    if has_any(*perm_words): return {'intent':'topic_options','topic':'permission'}
+    if has_any(*entry_words): return {'intent':'topic_options','topic':'entry'}
+    if has_any('موظف','موظفين','موظفون','اسماء','أسماء'): return {'intent':'employee_topic'}
     return {'intent':'help'}
 
 def assistant_topic_options(topic):
@@ -2341,6 +2366,12 @@ def assistant():
             # المحلل المحلي لا يُستخدم إلا كمسار احتياطي عند غياب/فشل الـAPI.
             if llm_a:
                 a=llm_a
+                # إذا أعاد النموذج تصنيفاً عاماً جداً (help) بينما يستطيع التطبيق
+                # التعرف على النص مباشرة من بياناته، نستخدم التعرف المحلي الدقيق بدلاً
+                # من مطالبة المستخدم بإعادة صياغة كلامه. هذا ليس قاموس كلمات؛ بل بحث فعلي
+                # في كيانات قاعدة البيانات.
+                if a.get('intent')=='help' and local_a.get('intent') not in ('help',):
+                    a=local_a
                 # حل أسماء/كيانات المستخدم على الخادم بعد الفهم الدلالي، دون فرض كلمات محددة.
                 if not a.get('employee_id') and a.get('employee_name'):
                     ee,mm=assistant_find_employee(a.get('employee_name'))

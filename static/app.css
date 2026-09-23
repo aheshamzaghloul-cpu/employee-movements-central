@@ -1410,3 +1410,55 @@ html:has(.assistant-embed-body), body.assistant-embed-body{width:100%;height:100
   .chat-title{font-size:17px!important}
   .chat-suggestions button,.chat-topic-grid button{font-size:15px!important}
 }
+
+/* v35.13 — extra clear assistant response typography */
+.assistant-chat-shell .chat-bubble{
+  font-size:20px!important;
+  font-weight:700!important;
+  line-height:2.05!important;
+  color:#102d35!important;
+  text-shadow:none!important;
+}
+.assistant-chat-shell .chat-bubble p{
+  color:#102d35!important;
+  font-size:20px!important;
+  line-height:2.05!important;
+  font-weight:700!important;
+}
+.assistant-chat-shell .chat-title{
+  font-size:19px!important;
+  font-weight:800!important;
+  color:#124f5e!important;
+}
+.assistant-chat-shell .user-msg .chat-bubble,
+.assistant-chat-shell .user-msg .chat-bubble p,
+.assistant-chat-shell .user-msg .chat-title{
+  color:#fff!important;
+}
+.assistant-chat-shell .chat-error{
+  color:#8d2020!important;
+  font-size:19px!important;
+  font-weight:800!important;
+}
+.assistant-chat-shell .assistant-preview{
+  font-size:19px!important;
+  line-height:2!important;
+  font-weight:700!important;
+  color:#17363e!important;
+}
+.assistant-chat-shell .assistant-preview button{
+  font-size:17px!important;
+  font-weight:800!important;
+}
+.assistant-chat-shell .chat-suggestions button,
+.assistant-chat-shell .chat-topic-grid button{
+  font-size:17px!important;
+  font-weight:800!important;
+  color:#123f4a!important;
+}
+@media(max-width:700px){
+  .assistant-chat-shell .chat-bubble,
+  .assistant-chat-shell .chat-bubble p{font-size:18px!important;line-height:1.95!important}
+  .assistant-chat-shell .chat-title{font-size:18px!important}
+  .assistant-chat-shell .assistant-preview{font-size:18px!important}
+}

@@ -1477,3 +1477,27 @@ main.login .login-hero p{font-size:clamp(15px,1.3vw,18px)}
   main.login .login-shell{min-height:0;max-height:none}
   main.login .login-card{height:auto}
 }
+
+/* v35.20: structured horizontal branch response in the assistant */
+.branch-data-layout{display:grid;gap:14px;width:100%;direction:rtl}
+.branch-data-section{background:#fff;border:1px solid #d9e7ea;border-radius:16px;padding:13px;box-shadow:0 4px 14px rgba(18,62,74,.05)}
+.branch-section-title{font-weight:800;font-size:16px;color:#173f4b;margin-bottom:10px}
+.branch-data-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.branch-data-card{min-width:0;padding:10px 11px;border:1px solid #dce9ec;border-radius:12px;background:#f7fbfc;display:flex;flex-direction:column;gap:4px}
+.branch-data-card b{font-size:12px;color:#68818a;font-weight:700}
+.branch-data-card strong{font-size:15px;color:#173f4b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.branch-management-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.branch-management-item{padding:10px 12px;border-radius:12px;background:#f7fbfc;border:1px solid #dce9ec;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.branch-management-item span{color:#68818a;font-size:12px;font-weight:700}
+.branch-management-item b{font-size:14px;color:#173f4b}
+.branch-employee-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.branch-employee-card,.branch-inbound-card{padding:11px 12px;border:1px solid #dce9ec;border-radius:13px;background:#fbfdfd}
+.branch-inbound-section{border-color:#b9dce1;background:#f5fbfc}
+.branch-inbound-card{background:#eef9fa;border-color:#9ecfd6}
+.branch-employee-name{font-size:15px;font-weight:800;color:#173f4b;margin-bottom:5px}
+.branch-employee-meta,.branch-inbound-meta{display:flex;flex-wrap:wrap;gap:7px;font-size:12px;color:#58717a}
+.branch-employee-meta span:first-child,.branch-inbound-meta span:first-child{font-weight:800;color:#246b7b}
+.branch-inbound-origin{margin-top:5px;font-size:12px;color:#68818a}
+.branch-empty{padding:10px;border-radius:11px;background:#f7fafb;color:#6b8087;text-align:center}
+@media(max-width:900px){.branch-data-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.branch-employee-grid{grid-template-columns:1fr}}
+@media(max-width:560px){.branch-data-grid,.branch-management-row{grid-template-columns:1fr}.branch-data-card strong{white-space:normal}}

@@ -7,7 +7,7 @@ from sqlalchemy import UniqueConstraint
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app=Flask(__name__)
-APP_VERSION='v35.06'
+APP_VERSION='v35.20'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg://',1)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or 'dev-only-change-me',SQLALCHEMY_DATABASE_URI=DATABASE_URL,SQLALCHEMY_TRACK_MODIFICATIONS=False,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','0')=='1',MAX_CONTENT_LENGTH=2*1024*1024)
@@ -2319,32 +2319,71 @@ def assistant_render_read(a):
                 entry_names.append(link.assignment.employee.full_name)
             if link.assignment and link.assignment.supervisor and link.assignment.supervisor.is_active:
                 supervisors.append(link.assignment.supervisor.full_name)
-        active_movements=[]
+
+        # الموظفون المنتدبون فعليًا إلى هذا الفرع: فرع التعيين مختلف،
+        # والانتداب الحالي يجعل الفرع الحالي هو هذا الفرع.
+        inbound=[]
         for e in employees:
-            active=Movement.query.filter_by(employee_id=e.id,is_active=True).filter(
-                (((Movement.movement_type=='إجازة') & (Movement.from_date<=date.today()) & (Movement.to_date>=date.today())) |
-                 ((Movement.movement_type=='انتداب') & (Movement.assignment_state!='مغلق') & (Movement.from_date<=date.today()) & ((Movement.to_date==None) | (Movement.to_date>=date.today()))) |
-                 ((Movement.movement_type=='إذن') & (Movement.permission_date==date.today())))
-            ).order_by(Movement.id.desc()).first()
-            if active:
-                detail=active.leave_type or (active.destination.name if active.destination else '') or ''
-                period=active.permission_date or (f'{active.from_date} — انتداب مفتوح' if active.movement_type=='انتداب' and active.to_date is None and active.from_date else (f'{active.from_date} إلى {active.to_date}' if active.from_date or active.to_date else ''))
-                active_movements.append(f'{e.full_name} — {active.movement_type} — {detail} — {period}')
+            cur=current_assignment_for_employee(e.id)
+            if cur and cur.destination_branch_id==b.id and e.branch_id!=b.id:
+                inbound.append((e,cur))
+
         on_duty=sum(1 for e in employees if assistant_status_for_employee(e)=='على رأس العمل')
         leave_count=sum(1 for e in employees if 'إجازة' in assistant_status_for_employee(e))
         assignment_count=sum(1 for e in employees if 'انتداب' in assistant_status_for_employee(e))
         permission_count=sum(1 for e in employees if assistant_status_for_employee(e)=='إذن اليوم')
-        lines=[f'{e.full_name} — {assistant_status_for_employee(e)}' for e in employees]
+
+        def esc(v):
+            from markupsafe import escape
+            return str(escape(v if v is not None else ''))
+        cards=[
+            f'<div class="branch-data-card"><b>اسم الفرع</b><strong>{esc(b.name)}</strong></div>',
+            f'<div class="branch-data-card"><b>كود الفرع</b><strong>{esc(b.code or "غير محدد")}</strong></div>',
+            f'<div class="branch-data-card"><b>المحافظة</b><strong>{esc(b.governorate.name)}</strong></div>',
+            f'<div class="branch-data-card"><b>الموظفون حاليًا</b><strong>{len(employees)}</strong></div>',
+            f'<div class="branch-data-card"><b>على رأس العمل</b><strong>{on_duty}</strong></div>',
+            f'<div class="branch-data-card"><b>إجازة</b><strong>{leave_count}</strong></div>',
+            f'<div class="branch-data-card"><b>انتداب</b><strong>{assignment_count}</strong></div>',
+            f'<div class="branch-data-card"><b>إذن اليوم</b><strong>{permission_count}</strong></div>'
+        ]
+        management=(
+            f'<div class="branch-management-row">'
+            f'<div class="branch-management-item"><span>المدخل الأول المسؤول</span><b>{esc(", ".join(dict.fromkeys(entry_names)) if entry_names else "غير محدد")}</b></div>'
+            f'<div class="branch-management-item"><span>المشرف</span><b>{esc(", ".join(dict.fromkeys(supervisors)) if supervisors else "غير محدد")}</b></div>'
+            f'</div>'
+        )
+
+        current_cards=[]
+        for e in employees:
+            cur=current_assignment_for_employee(e.id)
+            status=assistant_status_for_employee(e)
+            current_cards.append(
+                f'<div class="branch-employee-card">'
+                f'<div class="branch-employee-name">{esc(e.full_name)}</div>'
+                f'<div class="branch-employee-meta"><span>{esc(status)}</span><span>فرع التعيين: {esc(e.branch.name if e.branch else "غير محدد")}</span></div>'
+                f'</div>'
+            )
+        employees_html=''.join(current_cards) if current_cards else '<div class="branch-empty">لا يوجد موظفون حاليًا في هذا الفرع.</div>'
+
+        inbound_cards=[]
+        for e,m in inbound:
+            period=('مفتوح' if m.to_date is None else f'حتى {m.to_date}')
+            inbound_cards.append(
+                f'<div class="branch-inbound-card">'
+                f'<div class="branch-employee-name">{esc(e.full_name)}</div>'
+                f'<div class="branch-inbound-meta"><span>انتداب إلى {esc(b.name)}</span><span>من {esc(m.from_date or "غير محدد")}</span><span>{esc(period)}</span></div>'
+                f'<div class="branch-inbound-origin">فرع التعيين: {esc(e.branch.name if e.branch else "غير محدد")}</div>'
+                f'</div>'
+            )
+        inbound_html=''.join(inbound_cards) if inbound_cards else '<div class="branch-empty">لا يوجد موظفون منتدبون حاليًا إلى هذا الفرع.</div>'
+
         answer=(
-            f'اسم الفرع: {b.name}\n'
-            f'كود الفرع: {b.code or "غير محدد"}\n'
-            f'المحافظة: {b.governorate.name}\n'
-            f'عدد الموظفين النشطين: {len(employees)}\n'
-            f'على رأس العمل: {on_duty} | إجازة: {leave_count} | انتداب: {assignment_count} | إذن اليوم: {permission_count}\n'
-            f'المدخل الأول المسؤول: {", ".join(dict.fromkeys(entry_names)) if entry_names else "غير محدد"}\n'
-            f'المشرف: {", ".join(dict.fromkeys(supervisors)) if supervisors else "غير محدد"}\n\n'
-            'موظفو الفرع وحالتهم الآن:\n' + ('\n'.join(lines) if lines else 'لا يوجد موظفون نشطون.') +
-            ('\n\nالحركات النشطة الآن:\n' + '\n'.join(active_movements) if active_movements else '')
+            '<div class="branch-data-layout">'
+            '<div class="branch-data-section"><div class="branch-section-title">بيانات الفرع</div><div class="branch-data-grid">'+''.join(cards)+'</div></div>'
+            '<div class="branch-data-section">'+management+'</div>'
+            '<div class="branch-data-section"><div class="branch-section-title">الموظفون الموجودون في الفرع الآن</div><div class="branch-employee-grid">'+employees_html+'</div></div>'
+            '<div class="branch-data-section branch-inbound-section"><div class="branch-section-title">المنتدبون إلى الفرع الآن</div><div class="branch-employee-grid">'+inbound_html+'</div></div>'
+            '</div>'
         )
         return {'title':f'بيانات فرع {b.name}','answer':answer}
     if intent=='employee_info':

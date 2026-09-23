@@ -38,7 +38,7 @@
         <h2>حالة الموظفين الآن</h2>
         <p class="home-current-note">تظهر الإجازات أولًا، ثم الانتدابات المحددة، ثم الانتدابات المفتوحة بعلامات وألوان مميزة.</p>
       </div>
-      <span class="home-current-count" id="current-status-count">{{current_status_rows|length}} موظف</span>
+      <div class="panel-head-actions"><span class="home-current-count" id="current-status-count">{{current_status_rows|length}} موظف</span><button type="button" class="panel-expand-btn" data-expand-widget="employee-current-status">⛶ ملء الصفحة</button></div>
     </div>
     {% if current_status_rows %}
     <div class="current-status-filters no-print">
@@ -86,7 +86,7 @@
         <h2>المدخلون الأوائل</h2>
         <p>سلسلة تنظيمية فقط: المدخل الأول ← فروع مسؤوليته ← موظفو كل فرع. لا يحتاج هذا الدور إلى حساب دخول.</p>
       </div>
-      <div class="entry-directory-badge"><b>{{ entry_rows|length }}</b><span>مدخل أول</span></div>
+      <div class="panel-head-actions"><div class="entry-directory-badge"><b>{{ entry_rows|length }}</b><span>مدخل أول</span></div><button type="button" class="panel-expand-btn" data-expand-widget="entry-directory">⛶ ملء الصفحة</button></div>
     </div>
 
     <div class="entry-directory-filters no-print">
@@ -175,6 +175,7 @@
     <div class="home-group-head">
       <span class="home-group-icon">🔄</span>
       <div><h3>حركات الموظفين</h3><small>التسجيل والمتابعة والتقارير في واجهة واحدة</small></div>
+      <button type="button" class="panel-expand-btn" data-expand-widget="group-movements">⛶ ملء الصفحة</button>
     </div>
     <form class="home-movement-employee-search movement-quick-filter-form" method="get" action="/">
       <label>المحافظة <span class="required">*</span>
@@ -239,6 +240,40 @@
 </div>
 <script>
 (function(){
+  const workspace=document.getElementById('dashboard-workspace');
+  const panels=[...workspace?.querySelectorAll(':scope > .dashboard-widget')||[]];
+  const panelNames={
+    'employee-current-status':'حالة الموظفين الآن',
+    'entry-directory':'المدخلون الأوائل',
+    'group-movements':'حركات الموظفين'
+  };
+  function restorePanels(){
+    if(!workspace) return;
+    workspace.classList.remove('panel-focus-mode');
+    panels.forEach(p=>{p.classList.remove('panel-focused','panel-hidden-mini'); p.removeAttribute('aria-hidden');});
+    workspace.querySelectorAll('.panel-mini-switcher').forEach(x=>x.remove());
+    document.body.classList.remove('home-panel-focus');
+  }
+  function focusPanel(id){
+    if(!workspace) return;
+    const target=panels.find(p=>p.dataset.widgetId===id);
+    if(!target) return;
+    workspace.classList.add('panel-focus-mode');
+    document.body.classList.add('home-panel-focus');
+    panels.forEach(p=>{p.classList.toggle('panel-focused',p===target); p.classList.toggle('panel-hidden-mini',p!==target); p.setAttribute('aria-hidden',p===target?'false':'true');});
+    workspace.querySelectorAll('.panel-mini-switcher').forEach(x=>x.remove());
+    const nav=document.createElement('div'); nav.className='panel-mini-switcher';
+    panels.filter(p=>p!==target).forEach(p=>{
+      const b=document.createElement('button'); b.type='button'; b.className='panel-mini-btn';
+      b.textContent=(p.dataset.widgetId==='employee-current-status'?'👥 ':p.dataset.widgetId==='entry-directory'?'👤 ':'🔄 ')+panelNames[p.dataset.widgetId];
+      b.addEventListener('click',()=>focusPanel(p.dataset.widgetId)); nav.appendChild(b);
+    });
+    const back=document.createElement('button'); back.type='button'; back.className='panel-back-btn'; back.textContent='↩ العودة للوضع الأساسي'; back.addEventListener('click',restorePanels); nav.appendChild(back);
+    target.prepend(nav);
+    target.querySelector('.panel-focus-close')?.remove();
+    const close=document.createElement('button'); close.type='button'; close.className='panel-focus-close'; close.textContent='↩ العودة'; close.title='العودة للوضع الأساسي'; close.addEventListener('click',restorePanels); target.prepend(close);
+  }
+  workspace?.querySelectorAll('[data-expand-widget]').forEach(b=>b.addEventListener('click',()=>focusPanel(b.dataset.expandWidget)));
   const branch=document.getElementById('current-status-branch-filter');
   const employee=document.getElementById('current-status-employee-filter');
   const statusList=document.getElementById('current-status-list');

@@ -1478,6 +1478,14 @@ main.login .login-hero p{font-size:clamp(15px,1.3vw,18px)}
   main.login .login-card{height:auto}
 }
 
+/* v35.21 — assistant window: smooth resize + responsive readable typography */
+.assistant-window{width:clamp(380px,52vw,820px);height:clamp(520px,76vh,860px);min-width:380px;min-height:520px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);resize:none;overflow:hidden;position:relative}
+.assistant-resize-handle{position:absolute;left:0;bottom:0;width:34px;height:34px;z-index:20;cursor:nwse-resize;touch-action:none;background:linear-gradient(135deg,transparent 0 38%,rgba(255,255,255,.24) 39% 46%,transparent 47% 58%,rgba(255,255,255,.24) 59% 66%,transparent 67%)}
+.assistant-window.is-resizing{user-select:none}.assistant-window.is-resizing iframe{pointer-events:none}.assistant-window.is-minimized{height:74px!important;min-height:74px!important}.assistant-window.is-minimized .assistant-resize-handle,.assistant-window.is-minimized iframe{display:none}
+.assistant-chat-shell{--assistant-font:clamp(16px,1.9vw,20px);--assistant-small:clamp(13px,1.35vw,17px)}
+.assistant-chat-shell .chat-bubble{font-size:var(--assistant-font)!important;line-height:1.78!important;font-weight:700!important;padding:12px 15px!important;color:#102d35!important}.assistant-chat-shell .chat-bubble p{font-size:var(--assistant-font)!important;line-height:1.78!important}.assistant-chat-shell .chat-title{font-size:var(--assistant-small)!important;margin-bottom:4px!important}.assistant-chat-shell .chat-error{font-size:var(--assistant-small)!important;line-height:1.75!important}.assistant-chat-shell .assistant-preview{font-size:var(--assistant-small)!important;line-height:1.8!important}.assistant-chat-shell .chat-suggestions button,.assistant-chat-shell .chat-topic-grid button{font-size:var(--assistant-small)!important;padding:8px 11px!important}.assistant-chat-shell .assistant-chat-topbar b{font-size:clamp(16px,1.7vw,19px)}.assistant-chat-shell .assistant-chat-topbar small{font-size:clamp(11px,1.1vw,13px)}.assistant-chat-shell .chat-avatar{width:38px;height:38px;min-width:38px;font-size:16px}.assistant-chat-shell .assistant-chat-body{padding:16px 15px 12px;gap:11px}.assistant-chat-shell .assistant-chat-input textarea{font-size:clamp(15px,1.65vw,18px);min-height:58px;max-height:150px;padding:10px 13px}.assistant-chat-shell .assistant-chat-input>button{width:54px;height:54px;min-width:54px;font-size:22px}
+@media(max-width:700px){.assistant-window{width:calc(100vw - 12px);height:calc(100vh - 12px);min-width:0;min-height:0;max-width:none;max-height:none}.assistant-resize-handle{width:42px;height:42px}.assistant-chat-shell{--assistant-font:clamp(15px,4.2vw,18px);--assistant-small:clamp(12px,3.5vw,15px)}.assistant-chat-shell .assistant-chat-body{padding:13px 10px 10px;gap:9px}}
+
 /* v35.20: structured horizontal branch response in the assistant */
 .branch-data-layout{display:grid;gap:14px;width:100%;direction:rtl}
 .branch-data-section{background:#fff;border:1px solid #d9e7ea;border-radius:16px;padding:13px;box-shadow:0 4px 14px rgba(18,62,74,.05)}
@@ -1501,3 +1509,26 @@ main.login .login-hero p{font-size:clamp(15px,1.3vw,18px)}
 .branch-empty{padding:10px;border-radius:11px;background:#f7fafb;color:#6b8087;text-align:center}
 @media(max-width:900px){.branch-data-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.branch-employee-grid{grid-template-columns:1fr}}
 @media(max-width:560px){.branch-data-grid,.branch-management-row{grid-template-columns:1fr}.branch-data-card strong{white-space:normal}}
+
+/* v35.22: focus mode for the three home panels */
+.panel-head-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.panel-expand-btn,.panel-back-btn,.panel-mini-btn{border:1px solid #b9c9d8;background:#fff;color:#234e6b;border-radius:10px;min-height:42px;padding:9px 16px;font-size:14px;font-weight:800;line-height:1.2;cursor:pointer;box-shadow:0 2px 7px rgba(25,72,105,.08);transition:.16s ease;white-space:nowrap}
+.panel-expand-btn:hover,.panel-back-btn:hover,.panel-mini-btn:hover{background:#eef6fb;border-color:#7da8c3;transform:translateY(-1px)}
+.home-group-head{position:relative;display:flex;align-items:center;gap:10px}
+.home-group-head .panel-expand-btn{margin-inline-start:auto}
+.panel-focus-mode{position:relative!important;display:block!important;min-height:0!important;width:100%!important;overflow:visible!important}
+.panel-focus-mode > .dashboard-widget{display:none!important}
+.panel-focus-mode > .dashboard-widget.panel-focused{display:block!important;position:relative!important;inset:auto!important;width:100%!important;height:auto!important;min-height:calc(100vh - 170px)!important;max-height:none!important;margin:0!important;overflow:auto!important;border-radius:18px!important;box-sizing:border-box!important;padding:20px!important;z-index:20!important;animation:panelFocusIn .18s ease-out}
+.panel-focus-mode > .dashboard-widget.panel-hidden-mini{display:none!important}
+.panel-focus-close{position:absolute;top:12px;left:12px;z-index:80;border:1px solid #b9c9d8;background:#fff;color:#234e6b;border-radius:10px;min-height:42px;padding:9px 16px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(25,72,105,.10)}
+.panel-mini-switcher{position:sticky;top:0;z-index:70;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:0 0 14px;margin:0 0 12px;background:linear-gradient(#fff 78%,transparent);direction:rtl}
+.panel-mini-btn{background:#f7fbfd;min-width:145px}
+.panel-back-btn{margin-inline-start:auto;background:#eef6fb}
+.home-panel-focus .home-three-panels{padding-bottom:20px}
+.home-panel-focus .panel-focused .panel-expand-btn{display:none}
+@keyframes panelFocusIn{from{opacity:.65;transform:scale(.992)}to{opacity:1;transform:scale(1)}}
+@media(max-width:700px){.panel-head-actions{justify-content:flex-start}.panel-expand-btn,.panel-back-btn,.panel-mini-btn{min-height:44px;padding:9px 14px;font-size:14px}.panel-mini-switcher{position:sticky;top:0}.panel-focus-mode > .dashboard-widget.panel-focused{min-height:calc(100vh - 120px)!important;padding:14px!important}}
+/* Clear status colors beside employee state */
+.current-status-card.is-leave .current-status-badge{background:#eee8ff;color:#6b3fa0;border:1px solid #d8c8f5}
+.current-status-card.is-assignment .current-status-badge{background:#fff1df;color:#9a5b00;border:1px solid #f2d2a5}
+.current-status-card.is-open-assignment .current-status-badge{background:#e9f2ff;color:#1769aa;border:1px solid #bfd5f0}

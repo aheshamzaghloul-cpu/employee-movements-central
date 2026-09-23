@@ -2320,7 +2320,8 @@ def assistant_render_read(a):
                 lines.append(f'{m.movement_type} — {detail} — {period} — {m.status}')
             ans=f'سجل حركات {e.full_name}:\n'+'\n'.join(lines)
         return {'title':'سجل حركات الموظف','answer':ans}
-    return {'title':'المساعد الذكي','answer':'يمكنك أن تسأل مثلًا: ما حالة الموظف أحمد؟ أو ما حالة موظفي فرع المدينة؟ أو اعرض سجل حركات أحمد. ويمكنك طلب تسجيل إجازة أو انتداب أو إذن، وسيطلب منك تأكيد الحفظ.'}
+    # لا تعرض أمثلة محفوظة عند تعذر التصنيف؛ اترك المساعد يطلب التوضيح بصورة طبيعية.
+    return {'title':'المساعد الذكي','answer':'أحتاج فقط إلى توضيح بسيط لأفهم ما تريد، مثل اسم الموظف أو الفرع أو الإجراء المقصود.'}
 
 @app.route('/assistant', methods=['GET','POST'])
 @req
@@ -2356,7 +2357,11 @@ def assistant():
                 a=local_a
             if a.get('intent')=='topic_options':
                 result=assistant_topic_options(a.get('topic'))
+                # لا تستخدم رسالة خيارات عامة إذا أعاد النموذج ردًا طبيعيًا أكثر تحديدًا.
+                if a.get('reply') and not result.get('answer'):
+                    result['answer']=a.get('reply')
             elif a.get('intent')=='employee_topic':
+                # موضوع عام مثل اسم موظف/الموظفين: اعرض ما فهمه النظام فقط، دون أمثلة ثابتة.
                 result=assistant_topic_options('employee')
             elif a.get('intent')=='employee_add':
                 if not can('manage_employees'):
@@ -2374,6 +2379,10 @@ def assistant():
                     result={'title':'الصلاحيات','error':'هذا الإجراء غير متاح ضمن صلاحيات دورك الحالي.'}
                 else:
                     result={'title':'المساعد الذكي','answer':a.get('reply') or 'سأفتح لك الوظيفة المطلوبة.','actions':[{'label':'فتح','url':nav}]}
+            elif a.get('intent')=='help':
+                # help هنا يعني أن النموذج لم يجد عملية آمنة محددة؛ استخدم رده الطبيعي إن وُجد،
+                # ولا تعُد إلى قائمة أمثلة محفوظة.
+                result={'title':'المساعد الذكي','answer':a.get('reply') or 'وضح لي الجزء الذي تريد معرفته أو تنفيذه، وسأتابع معك خطوة بخطوة.'}
             elif a.get('intent')=='register_movement':
                 if not can('manage_movements'):
                     result={'title':'تسجيل حركة','error':'لا تملك صلاحية تسجيل الحركات.'}

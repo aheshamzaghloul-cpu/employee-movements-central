@@ -742,7 +742,7 @@ def home():
         is_manager_support=is_manager_support,
         manager_governorates=Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all() if is_manager_support else [],
         selected_manager_gov=selected_manager_gov,
-        movement_search_governorates=Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True).order_by(Governorate.name.asc()).all() if gids() else [],
+        movement_search_governorates=Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all(),
         movement_search_branches=(Branch.query.filter_by(governorate_id=search_gov_id,is_active=True).order_by(Branch.name.asc()).all() if search_gov_id else []),
         movement_search_employees=Employee.query.filter_by(is_active=True).order_by(Employee.full_name.asc()).all(),
         movement_employee=movement_employee,
@@ -2029,9 +2029,10 @@ def assistant_llm_parse(text, chat=None):
         'permission_date':{'type':['string','null']},
         'open_assignment':{'type':'boolean'},
         'navigate_url':{'type':['string','null']},
-        'reply':{'type':['string','null']}
+        'reply':{'type':['string','null']},
+        'employee_field':{'type':['string','null'],'enum':['status','job_title','job_code','employee_code','branch','governorate','hire_date','company_phone','personal_phone','last_leave','last_assignment','last_permission','movements','basic',None]}
       },
-      'required':['intent','topic','employee_name','employee_id','branch_name','branch_id','governorate_id','governorate_name','candidate_ids','movement_type','leave_type','destination_name','from_date','to_date','permission_date','open_assignment','navigate_url','reply']
+      'required':['intent','topic','employee_name','employee_id','branch_name','branch_id','governorate_id','governorate_name','candidate_ids','movement_type','leave_type','destination_name','from_date','to_date','permission_date','open_assignment','navigate_url','reply','employee_field']
     }
     govs=Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all()
     branches=Branch.query.filter_by(is_active=True).order_by(Branch.name.asc()).all()
@@ -2061,6 +2062,31 @@ def assistant_llm_parse(text, chat=None):
         return json.loads(raw) if raw else None
     except Exception:
         return None
+
+def assistant_employee_field(text):
+    n=assistant_search_normalize(text)
+    if any(x in n for x in ('الحاله','حالته','حالته الان','حاله الموظف','متواجد','موجود','في اجازه','منتدب')): return 'status'
+    if any(x in n for x in ('الوظيفه','وظيفته','المسمى الوظيفي','المسمى الوظيفى')): return 'job_title'
+    if any(x in n for x in ('الكود الوظيفي','الكود الوظيفى','كود الموظف')): return 'job_code'
+    if any(x in n for x in ('كود شئون العاملين','كود شؤون العاملين','كود شئون')): return 'employee_code'
+    if any(x in n for x in ('فرع التعيين','فرعه','فرع الموظف','الفرع الحالي','فين فرعه','اين فرعه','اين يعمل','بيشتغل فين')): return 'branch'
+    if any(x in n for x in ('المحافظه','محافظته','تابع لاي محافظه','تابع لاى محافظه')): return 'governorate'
+    if any(x in n for x in ('تاريخ التعيين','اتعين امتى','تاريخ تعيينه')): return 'hire_date'
+    if any(x in n for x in ('هاتف الشركه','تليفون الشركه','هاتف العمل','رقم العمل')): return 'company_phone'
+    if any(x in n for x in ('الهاتف الشخصي','تليفونه الشخصي','رقم موبايله','رقم هاتفه')): return 'personal_phone'
+    if any(x in n for x in ('اخر اجازه','اخر اجازة','آخر اجازه','آخر إجازة','اجازته الاخيره','اجازته')): return 'last_leave'
+    if any(x in n for x in ('اخر انتداب','آخر انتداب','انتدابه الاخير','اخر ماموريه','آخر مأمورية')): return 'last_assignment'
+    if any(x in n for x in ('اخر اذن','آخر إذن','اذنه الاخير')): return 'last_permission'
+    if any(x in n for x in ('حركاته','سجل حركاته','سجل حركات','تاريخ حركاته','كل حركاته')): return 'movements'
+    if any(x in n for x in ('بياناته','بيانات الموظف','بطاقته','بطاقة الموظف','معلوماته','بيانات')): return 'basic'
+    return None
+
+def assistant_employee_from_mixed_phrase(text):
+    cleaned=assistant_normalize(text)
+    patterns=(r'\b(?:ما|ماذا|هل|عايز|اريد|أريد|اعرض|عرض|بيانات|بياناته|بطاقة|بطاقته|حالة|حالته|الموظف|موظف|الموظفة|موظفة)\b',r'\b(?:إجازة|اجازة|الإجازة|الاجازه|انتداب|الانتداب|مأمورية|مأموريه|إذن|اذن|الأذن|الاذن)\b',r'\b(?:آخر|اخر|الاخير|الأخير|تفاصيل|تفصيل|سجل|حركات|حركه|حركة)\b',r'\b(?:في|فى|عن|من|لـ|ل|به|له)\b')
+    for pat in patterns: cleaned=re.sub(pat,' ',cleaned,flags=re.I)
+    cleaned=re.sub(r'[؟?،,؛;:]+',' ',cleaned); cleaned=re.sub(r'\s+',' ',cleaned).strip()
+    return assistant_find_employee(cleaned) if cleaned else (None,[])
 
 def assistant_parse(text):
     t=assistant_normalize(text)
@@ -2145,6 +2171,13 @@ def assistant_parse(text):
             dm=re.search(r'(?:إلى|الى|لـ|لفرع|إلى فرع|الى فرع)\s+(?:فرع\s+)?([^،,؛\n]+?)(?=\s+(?:من|بتاريخ)|$)',t,re.I)
             if dm: dest,_=assistant_find_branch(dm.group(1).strip())
         return {'intent':'register_movement','movement_type':mt,'employee_id':emp.id if emp else None,'employee_name':name,'candidate_ids':[e.id for e in matches[:10]],'leave_type':leave_type,'destination_branch_id':dest.id if dest else None,'destination_name':dest.name if dest else '','from_date':fd,'to_date':td,'permission_date':pd if mt=='إذن' else None}
+    mixed_emp,mixed_matches=assistant_employee_from_mixed_phrase(t)
+    if mixed_emp or mixed_matches:
+        field=assistant_employee_field(t)
+        if field=='status':
+            return {'intent':'employee_status','employee_id':mixed_emp.id if mixed_emp else None,'employee_name':t,'candidate_ids':[e.id for e in mixed_matches[:10]],'employee_field':field}
+        return {'intent':'employee_info','employee_id':mixed_emp.id if mixed_emp else None,'employee_name':t,'candidate_ids':[e.id for e in mixed_matches[:10]],'employee_field':field or 'basic'}
+
     # كلمة الموضوع وحدها أو مع صياغة غير مكتملة تعرض خيارات الموضوع.
     if has_any(*entry_words) and not has_any('فرع','الفرع'):
         return {'intent':'topic_options','topic':'entry'}
@@ -2217,7 +2250,7 @@ def assistant_parse(text):
     emp, ematches = assistant_find_employee(t)
     if emp or ematches:
         return {'intent':'employee_info','employee_id':emp.id if emp else None,
-                'employee_name':t,'candidate_ids':[e.id for e in ematches[:10]]}
+                'employee_name':t,'candidate_ids':[e.id for e in ematches[:10]],'employee_field':assistant_employee_field(t) or 'basic'}
     br, bmatches = assistant_find_branch(t)
     if br or bmatches:
         return {'intent':'branch_status','branch_id':br.id if br else None,
@@ -2316,7 +2349,7 @@ def assistant_status_for_employee(e):
         (((Movement.movement_type=='إجازة') & (Movement.from_date<=today) & (Movement.to_date>=today)) | ((Movement.movement_type=='انتداب') & (Movement.assignment_state!='مغلق') & (Movement.from_date<=today) & ((Movement.to_date==None) | (Movement.to_date>=today)))) |
         ((Movement.movement_type=='إذن') & (Movement.permission_date==today))
     ).order_by(Movement.id.desc()).all()
-    if not active: return 'على رأس العمل'
+    if not active: return 'متواجد في الفرع'
     m=active[0]
     if m.movement_type=='إجازة': return f'إجازة — {m.leave_type or ""} — حتى {m.to_date}'
     if m.movement_type=='انتداب': return f'انتداب مفتوح — {m.destination.name if m.destination else "غير محدد"}' if m.to_date is None else f'انتداب — {m.destination.name if m.destination else "غير محدد"} — حتى {m.to_date}'
@@ -2427,12 +2460,37 @@ def assistant_render_read(a):
         if not e or not e.is_active or not branch_ok(e.branch_id):
             return {'title':'نتيجة البحث','error':'لم أجد موظفًا واحدًا مطابقًا.','choices':[db.session.get(Employee,i) for i in a.get('candidate_ids',[]) if db.session.get(Employee,i)]}
         cur=current_assignment_for_employee(e.id); cb=cur.destination if cur and cur.destination else e.branch
-        last=Movement.query.filter_by(employee_id=e.id,is_active=True).order_by(Movement.id.desc()).limit(3).all()
-        lines=[f'الموظف: {e.full_name}',f'الكود: {e.employee_code or "غير محدد"}',f'الوظيفة: {e.job_title or "غير محددة"}',f'البريد الإلكتروني: {e.email or "غير محدد"}',f'فرع التعيين: {e.branch.name if e.branch else "غير محدد"}',f'الفرع الحالي: {cb.name if cb else "غير محدد"}',f'تاريخ التعيين: {e.hire_date or "غير محدد"}']
-        if last:
-            lines.append('آخر الحركات:')
-            lines += [f'{m.movement_type} — {m.leave_type or (m.destination.name if m.destination else "") or ""} — {m.from_date or m.permission_date or ""} إلى {m.to_date or "مفتوح/غير محدد"}' for m in last]
-        return {'title':f'بيانات الموظف — {e.full_name}','answer':'\n'.join(lines)}
+        ms=Movement.query.filter_by(employee_id=e.id,is_active=True).order_by(Movement.id.desc()).all()
+        def latest(kind): return next((m for m in ms if m.movement_type==kind),None)
+        leave=latest('إجازة'); assignment=latest('انتداب'); permission=latest('إذن')
+        field=a.get('employee_field') or 'basic'
+        def movement_text(m):
+            if not m: return 'لا توجد بيانات'
+            if m.movement_type=='إذن': return str(m.permission_date or 'لا توجد بيانات')
+            detail=m.leave_type or (m.destination.name if m.destination else '') or ''
+            if m.movement_type=='إجازة': return f'{detail} — من {m.from_date or "—"} إلى {m.to_date or "—"}'
+            return f'{detail} — من {m.from_date or "—"} إلى {m.to_date or "مفتوح"}'
+        if field=='job_title': return {'title':f'وظيفة {e.full_name}','answer':f'{e.full_name} — الوظيفة: {e.job_title or "لا توجد بيانات"}'}
+        if field=='job_code': return {'title':f'الكود الوظيفي — {e.full_name}','answer':f'{e.full_name} — الكود الوظيفي: {e.job_code or "لا توجد بيانات"}'}
+        if field=='employee_code': return {'title':f'كود شئون العاملين — {e.full_name}','answer':f'{e.full_name} — كود شئون العاملين: {e.employee_code or "لا توجد بيانات"}'}
+        if field=='branch': return {'title':f'فرع {e.full_name}','answer':f'{e.full_name} — فرع التعيين: {e.branch.name if e.branch else "لا توجد بيانات"} — الفرع الحالي: {cb.name if cb else "لا توجد بيانات"}'}
+        if field=='governorate': return {'title':f'محافظة {e.full_name}','answer':f'{e.full_name} — المحافظة الحالية: {cb.governorate.name if cb and cb.governorate else "لا توجد بيانات"}'}
+        if field=='hire_date': return {'title':f'تاريخ تعيين {e.full_name}','answer':f'{e.full_name} — تاريخ التعيين: {e.hire_date or "لا توجد بيانات"}'}
+        if field=='company_phone': return {'title':f'هاتف العمل — {e.full_name}','answer':f'{e.full_name} — هاتف الشركة: {e.company_phone or "لا توجد بيانات"}'}
+        if field=='personal_phone': return {'title':f'الهاتف الشخصي — {e.full_name}','answer':f'{e.full_name} — الهاتف الشخصي: {e.personal_phone or "لا توجد بيانات"}'}
+        if field=='last_leave': return {'title':f'آخر إجازة — {e.full_name}','answer':f'{e.full_name} — آخر إجازة: {movement_text(leave)}'}
+        if field=='last_assignment': return {'title':f'آخر انتداب — {e.full_name}','answer':f'{e.full_name} — آخر انتداب: {movement_text(assignment)}'}
+        if field=='last_permission': return {'title':f'آخر إذن — {e.full_name}','answer':f'{e.full_name} — آخر إذن: {movement_text(permission)}'}
+        if field=='movements':
+            return {'title':f'حركات {e.full_name}','answer':'\n'.join([f'{m.movement_type} — {movement_text(m)} — {m.status}' for m in ms[:20]]) if ms else f'{e.full_name}: لا توجد حركات مسجلة.'}
+        lines=[f'الموظف: {e.full_name}',f'الحالة الآن: {assistant_status_for_employee(e)}',f'الكود الوظيفي: {e.job_code or "لا توجد بيانات"}',f'كود شئون العاملين: {e.employee_code or "لا توجد بيانات"}',f'الوظيفة: {e.job_title or "لا توجد بيانات"}',f'المحافظة: {cb.governorate.name if cb and cb.governorate else "لا توجد بيانات"}',f'فرع التعيين: {e.branch.name if e.branch else "لا توجد بيانات"}',f'الفرع الحالي: {cb.name if cb else "لا توجد بيانات"}',f'تاريخ التعيين: {e.hire_date or "لا توجد بيانات"}',f'آخر إجازة: {movement_text(leave)}',f'آخر انتداب: {movement_text(assignment)}',f'آخر إذن: {movement_text(permission)}']
+        return {'title':f'بطاقة الموظف — {e.full_name}','answer':'\n'.join(lines),'actions':[
+            {'label':'الوظيفة','url':'#','prompt':f'ما وظيفة {e.full_name}؟'},
+            {'label':'آخر إجازة','url':'#','prompt':f'ما آخر إجازة لـ {e.full_name}؟'},
+            {'label':'آخر انتداب','url':'#','prompt':f'ما آخر انتداب لـ {e.full_name}؟'},
+            {'label':'آخر إذن','url':'#','prompt':f'ما آخر إذن لـ {e.full_name}؟'},
+            {'label':'سجل الحركات','url':'#','prompt':f'اعرض سجل حركات {e.full_name}'}
+        ]}
     if intent=='employee_movements':
         e=db.session.get(Employee,a.get('employee_id')) if a.get('employee_id') else None
         if not e or not branch_ok(e.branch_id):
@@ -2473,7 +2531,9 @@ def assistant():
                 # التعرف على النص مباشرة من بياناته، نستخدم التعرف المحلي الدقيق بدلاً
                 # من مطالبة المستخدم بإعادة صياغة كلامه. هذا ليس قاموس كلمات؛ بل بحث فعلي
                 # في كيانات قاعدة البيانات.
-                if a.get('intent')=='help' and local_a.get('intent') not in ('help',):
+                if (a.get('intent') in ('help','topic_options','employee_topic') and local_a.get('intent') in ('employee_info','employee_status','employee_movements')):
+                    a=local_a
+                elif a.get('intent')=='help' and local_a.get('intent') not in ('help',):
                     a=local_a
                 # حل أسماء/كيانات المستخدم على الخادم بعد الفهم الدلالي، دون فرض كلمات محددة.
                 if not a.get('employee_id') and a.get('employee_name'):
@@ -2489,6 +2549,15 @@ def assistant():
                     if len(gg)==1: a['governorate_id']=gg[0].id
             else:
                 a=local_a
+            field=assistant_employee_field(prompt)
+            if field:
+                a['employee_field']=field
+            if not a.get('employee_id') and session.get('assistant_context_employee_id') and field:
+                ce=db.session.get(Employee,session.get('assistant_context_employee_id'))
+                if ce and ce.is_active and branch_ok(ce.branch_id):
+                    a['employee_id']=ce.id
+                    if a.get('intent') in ('help','topic_options','employee_topic'):
+                        a['intent']='employee_status' if field=='status' else ('employee_movements' if field=='movements' else 'employee_info')
             # سياق الموظف الأخير: إذا ذكر المستخدم إجراءً جديدًا مباشرة بعد عرض موظف،
             # نستخدم الموظف الأخير تلقائيًا ما لم يحدد موظفًا آخر.
             if not a.get('employee_id') and session.get('assistant_context_employee_id'):
@@ -2687,11 +2756,13 @@ def movement_employees_api():
     if not gid.isdigit():
         return {'results': [], 'branches': []}
     gid=int(gid)
-    allowed_gids=set(gids())
-    if gid not in allowed_gids:
+    # بحث بطاقة الموظف من الصفحة الرئيسية: اختيار المحافظة متاح لكل المستخدمين.
+    # لا نحصر قائمة المحافظات/الفروع هنا في محافظة المشرف؛ هذا البحث العام مستقل
+    # عن نطاق الإدارة المختار في بقية الصفحة.
+    if not db.session.get(Governorate, gid) or not db.session.get(Governorate, gid).is_active:
         return {'results': [], 'branches': []}
     branch_rows=(Branch.query.filter(Branch.governorate_id==gid, Branch.is_active==True)
-                 .filter(Branch.id.in_(bids())).order_by(Branch.name.asc()).all())
+                 .order_by(Branch.name.asc()).all())
     branch_ids=[b.id for b in branch_rows]
     if bid.isdigit():
         bid_int=int(bid)

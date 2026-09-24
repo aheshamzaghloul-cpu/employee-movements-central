@@ -285,20 +285,35 @@ document.addEventListener('DOMContentLoaded', function(){
   });
 })();
 
-// v34.87 — فتح المساعد الذكي كنافذة محادثة عائمة قابلة للتحريك
+// v35.32 — المساعد: تغيير حجم حر بدون زر + حدود الشاشة
 (function(){
  const modal=document.getElementById('assistantModal'), fab=document.getElementById('assistantFab'), win=document.getElementById('assistantWindow'), bar=document.getElementById('assistantDragBar'), close=document.getElementById('assistantClose'), min=document.getElementById('assistantMinimize'), frame=document.getElementById('assistantFrame');
  if(!modal||!fab||!win||!bar)return;
- function open(){modal.hidden=false;modal.setAttribute('aria-hidden','false');win.classList.remove('is-minimized'); if(frame && (!frame.getAttribute('src') || frame.getAttribute('src')==='/assistant')) frame.src='/assistant?embed=1';}
- function hide(){modal.hidden=true;modal.setAttribute('aria-hidden','true');}
- fab.addEventListener('click',open); close?.addEventListener('click',hide); modal.addEventListener('click',e=>{if(e.target===modal)hide()}); min?.addEventListener('click',()=>win.classList.toggle('is-minimized')); document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)hide()});
+ function keepInViewport(){
+   if(window.innerWidth<=700){win.style.width='';win.style.height='';win.style.left='';win.style.top='';win.style.right='';win.style.bottom='';return;}
+   const r=win.getBoundingClientRect(), pad=8;
+   const maxW=window.innerWidth-pad*2, maxH=window.innerHeight-pad*2;
+   if(win.offsetWidth>maxW) win.style.width=maxW+'px';
+   if(win.offsetHeight>maxH) win.style.height=maxH+'px';
+   const rr=win.getBoundingClientRect();
+   if(rr.left<pad) win.style.left=pad+'px';
+   if(rr.top<pad) win.style.top=pad+'px';
+   if(rr.right>window.innerWidth-pad) win.style.left=Math.max(pad,window.innerWidth-win.offsetWidth-pad)+'px';
+   if(rr.bottom>window.innerHeight-pad) win.style.top=Math.max(pad,window.innerHeight-win.offsetHeight-pad)+'px';
+   win.style.right='auto'; win.style.bottom='auto';
+ }
+ function open(){modal.hidden=false;modal.style.display='block';modal.setAttribute('aria-hidden','false');fab.hidden=true;win.classList.remove('is-minimized');keepInViewport();if(frame&&!frame.getAttribute('src'))frame.src='/assistant?embed=1';}
+ function hide(){win.classList.remove('is-minimized');modal.hidden=true;modal.style.display='none';modal.setAttribute('aria-hidden','true');fab.hidden=false;}
+ fab.addEventListener('click',open);close?.addEventListener('click',hide);modal.addEventListener('click',e=>{if(e.target===modal)hide()});min?.addEventListener('click',()=>win.classList.toggle('is-minimized'));document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)hide()});
  let drag=false,ox=0,oy=0;
- bar.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;drag=true;bar.setPointerCapture?.(e.pointerId);const r=win.getBoundingClientRect();ox=e.clientX-r.left;oy=e.clientY-r.top;win.style.right='auto';win.style.bottom='auto';});
+ bar.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;drag=true;bar.setPointerCapture?.(e.pointerId);const r=win.getBoundingClientRect();ox=e.clientX-r.left;oy=e.clientY-r.top;win.style.right='auto';win.style.bottom='auto';e.preventDefault();e.stopPropagation()});
  bar.addEventListener('pointermove',e=>{if(!drag)return;const x=Math.max(8,Math.min(window.innerWidth-win.offsetWidth-8,e.clientX-ox));const y=Math.max(8,Math.min(window.innerHeight-win.offsetHeight-8,e.clientY-oy));win.style.left=x+'px';win.style.top=y+'px';});
- bar.addEventListener('pointerup',()=>drag=false); bar.addEventListener('pointercancel',()=>drag=false);
- const rh=document.getElementById('assistantResizeHandle'); let resizing=false,rsx=0,rsy=0,rsw=0,rsh=0;
- rh?.addEventListener('pointerdown',e=>{if(window.innerWidth<=700)return;resizing=true;rsx=e.clientX;rsy=e.clientY;rsw=win.offsetWidth;rsh=win.offsetHeight;win.classList.add('is-resizing');rh.setPointerCapture?.(e.pointerId);e.preventDefault();e.stopPropagation()});
- rh?.addEventListener('pointermove',e=>{if(!resizing)return;const minW=380,minH=520,maxW=Math.max(minW,window.innerWidth-24),maxH=Math.max(minH,window.innerHeight-24);const w=Math.max(minW,Math.min(maxW,rsw+(rsx-e.clientX))),h=Math.max(minH,Math.min(maxH,rsh+(rsy-e.clientY)));const r=win.getBoundingClientRect();win.style.width=w+'px';win.style.height=h+'px';const left=Math.max(8,Math.min(window.innerWidth-w-8,r.left+(rsw-w)));const top=Math.max(8,Math.min(window.innerHeight-h-8,r.top+(rsh-h)));win.style.left=left+'px';win.style.top=top+'px';win.style.right='auto';win.style.bottom='auto'});
- function endResize(){if(!resizing)return;resizing=false;win.classList.remove('is-resizing')} rh?.addEventListener('pointerup',endResize);rh?.addEventListener('pointercancel',endResize);
- window.addEventListener('resize',()=>{if(window.innerWidth<=700){win.style.width='';win.style.height='';win.style.left='';win.style.top='';win.style.right='';win.style.bottom=''}});
+ bar.addEventListener('pointerup',()=>drag=false);bar.addEventListener('pointercancel',()=>drag=false);
+ // Free resize: drag the visible corner grip; no "fill page" button is needed.
+ const rh=document.getElementById('assistantResizeHandle');let resizing=false,rsx=0,rsy=0,rsw=0,rsh=0,rsLeft=0,rsTop=0,raf=0;
+ rh?.addEventListener('pointerdown',e=>{if(window.innerWidth<=700||win.classList.contains('is-minimized'))return;resizing=true;rsx=e.clientX;rsy=e.clientY;rsw=win.offsetWidth;rsh=win.offsetHeight;const r=win.getBoundingClientRect();rsLeft=r.left;rsTop=r.top;win.classList.add('is-resizing');rh.setPointerCapture?.(e.pointerId);e.preventDefault();e.stopPropagation()});
+ rh?.addEventListener('pointermove',e=>{if(!resizing)return;if(raf)cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>{const minW=380,minH=500,pad=8,maxW=Math.max(minW,window.innerWidth-pad*2),maxH=Math.max(minH,window.innerHeight-pad*2);const w=Math.max(minW,Math.min(maxW,rsw+(rsx-e.clientX))),h=Math.max(minH,Math.min(maxH,rsh+(rsy-e.clientY)));win.style.width=w+'px';win.style.height=h+'px';win.style.left=Math.max(pad,Math.min(window.innerWidth-w-pad,rsLeft+(rsw-w)))+'px';win.style.top=Math.max(pad,Math.min(window.innerHeight-h-pad,rsTop+(rsh-h)))+'px';win.style.right='auto';win.style.bottom='auto';});});
+ function endResize(){if(!resizing)return;resizing=false;win.classList.remove('is-resizing');keepInViewport();}
+ rh?.addEventListener('pointerup',endResize);rh?.addEventListener('pointercancel',endResize);
+ window.addEventListener('resize',keepInViewport);
 })();

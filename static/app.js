@@ -302,9 +302,28 @@ document.addEventListener('DOMContentLoaded', function(){
    if(rr.bottom>window.innerHeight-pad) win.style.top=Math.max(pad,window.innerHeight-win.offsetHeight-pad)+'px';
    win.style.right='auto'; win.style.bottom='auto';
  }
- function open(){modal.hidden=false;modal.style.display='block';modal.setAttribute('aria-hidden','false');fab.hidden=true;win.classList.remove('is-minimized');keepInViewport();if(frame&&!frame.getAttribute('src'))frame.src='/assistant?embed=1';}
- function hide(){win.classList.remove('is-minimized');modal.hidden=true;modal.style.display='none';modal.setAttribute('aria-hidden','true');fab.hidden=false;}
- fab.addEventListener('click',open);close?.addEventListener('click',hide);modal.addEventListener('click',e=>{if(e.target===modal)hide()});min?.addEventListener('click',()=>win.classList.toggle('is-minimized'));document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)hide()});
+ function open(){
+   modal.hidden=false; modal.style.display='block'; modal.setAttribute('aria-hidden','false');
+   modal.classList.add('is-open'); fab.hidden=true;
+   win.classList.remove('is-minimized'); keepInViewport();
+   if(frame&&!frame.getAttribute('src'))frame.src='/assistant?embed=1';
+ }
+ function hide(){
+   win.classList.remove('is-minimized'); modal.classList.remove('is-open');
+   modal.hidden=true; modal.style.display='none'; modal.setAttribute('aria-hidden','true');
+   fab.hidden=false;
+ }
+ fab.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();open();});
+ close?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();hide();});
+ // Clicking anywhere outside the assistant closes it, while the page remains fully usable.
+ document.addEventListener('pointerdown',e=>{
+   if(modal.hidden || !modal.classList.contains('is-open')) return;
+   if(e.target===fab || fab.contains(e.target)) return;
+   if(win.contains(e.target)) return;
+   hide();
+ }, true);
+ min?.addEventListener('click',()=>win.classList.toggle('is-minimized'));
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)hide();});
  let drag=false,ox=0,oy=0;
  bar.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;drag=true;bar.setPointerCapture?.(e.pointerId);const r=win.getBoundingClientRect();ox=e.clientX-r.left;oy=e.clientY-r.top;win.style.right='auto';win.style.bottom='auto';e.preventDefault();e.stopPropagation()});
  bar.addEventListener('pointermove',e=>{if(!drag)return;const x=Math.max(8,Math.min(window.innerWidth-win.offsetWidth-8,e.clientX-ox));const y=Math.max(8,Math.min(window.innerHeight-win.offsetHeight-8,e.clientY-oy));win.style.left=x+'px';win.style.top=y+'px';});

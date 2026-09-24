@@ -1207,7 +1207,7 @@ main>.box,main>.toolbar,main>.section-tabs,main>.admin-control-center,main>.admi
 .assistant-fab{position:fixed;right:24px;bottom:24px;z-index:1100;display:flex;align-items:center;gap:9px;padding:10px 16px 10px 11px;border:1px solid rgba(255,255,255,.72);border-radius:20px;background:linear-gradient(135deg,#236f82,#164f62);color:#fff;cursor:pointer;font:inherit;font-weight:800;box-shadow:0 16px 38px rgba(12,55,69,.28);transition:.18s ease}
 .assistant-fab:hover{transform:translateY(-3px) scale(1.01);box-shadow:0 20px 44px rgba(12,55,69,.34)}
 .assistant-fab .fab-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:12px;background:rgba(255,255,255,.9);color:#236f82;font-size:19px}
-.assistant-modal{position:fixed;inset:0;z-index:1090;background:rgba(8,30,38,.18);backdrop-filter:blur(2px)}
+.assistant-modal{position:fixed;inset:0;z-index:1090;background:transparent;backdrop-filter:none;pointer-events:none}.assistant-modal.is-open{pointer-events:none}.assistant-window{pointer-events:auto}
 .assistant-window{position:fixed;top:8vh;right:5vw;width:min(680px,90vw);height:min(760px,84vh);min-width:340px;min-height:420px;overflow:hidden;border:1px solid rgba(255,255,255,.8);border-radius:24px;background:var(--surface,#fff);box-shadow:0 30px 90px rgba(0,0,0,.28);display:flex;flex-direction:column}
 .assistant-window-bar{height:66px;flex:0 0 66px;display:flex;align-items:center;justify-content:space-between;padding:0 14px 0 18px;background:linear-gradient(135deg,#174f61,#287f91);color:#fff;cursor:grab;user-select:none}
 .assistant-window-bar:active{cursor:grabbing}
@@ -1770,3 +1770,10 @@ main.login .login-hero p{font-size:clamp(15px,1.3vw,18px)}
 .assistant-resize-handle{width:46px!important;height:46px!important;left:0;bottom:0;z-index:1000!important;opacity:1!important;cursor:nwse-resize!important;touch-action:none!important;border-radius:0 12px 0 0;background:linear-gradient(135deg,transparent 0 34%,#2d788c 35% 41%,transparent 42% 53%,#2d788c 54% 60%,transparent 61%)!important;}
 .assistant-window.is-resizing{outline:2px solid rgba(45,120,140,.22);transition:none!important;}
 @media(max-width:700px){.assistant-window{resize:none;max-width:none;max-height:none}.assistant-resize-handle{display:none!important}}
+
+
+/* v35.33 — assistant reopen fix + no page dimming */
+.assistant-modal,.assistant-modal.is-open{background:transparent!important;backdrop-filter:none!important;pointer-events:none!important;}
+.assistant-modal .assistant-window{pointer-events:auto!important;}
+.assistant-fab{z-index:1200!important;}
+.assistant-modal[hidden]{display:none!important;}

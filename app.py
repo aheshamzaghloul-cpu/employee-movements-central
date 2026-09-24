@@ -7,7 +7,7 @@ from sqlalchemy import UniqueConstraint
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app=Flask(__name__)
-APP_VERSION='v35.20'
+APP_VERSION='v35.24'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg://',1)
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or 'dev-only-change-me',SQLALCHEMY_DATABASE_URI=DATABASE_URL,SQLALCHEMY_TRACK_MODIFICATIONS=False,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','0')=='1',MAX_CONTENT_LENGTH=2*1024*1024)
@@ -176,7 +176,7 @@ def current_assignment_for_employee(employee_id, on_date=None):
     on_date = on_date or date.today()
     moves=(Movement.query.filter_by(employee_id=employee_id,is_active=True,movement_type='انتداب')
            .filter(Movement.assignment_state!='مغلق')
-           .order_by(Movement.from_date.desc().nullslast(), Movement.id.desc()).all())
+           .order_by(Movement.id.desc()).all())
     for m in moves:
         if not m.from_date or m.from_date > on_date:
             continue
@@ -198,15 +198,40 @@ def employee_scope_ok(employee, on_date=None):
     return branch_ok(employee.branch_id) or (effective_branch_id_for_employee(employee.id,today) in set(bids()))
 
 def employees_effectively_in_branches(branch_ids, on_date=None):
-    ids=set(branch_ids or [])
+    """Return employees physically in the requested branches without an N+1 query.
+
+    The old implementation executed a movement query for every active employee.
+    On the home-page employee search this could become very expensive and, on a
+    busy database, surface as a generic Internal Server Error/worker timeout.
+    Build the set of employees with a current open assignment in one query, then
+    fetch the employees once.
+    """
+    ids={int(x) for x in (branch_ids or set()) if x is not None}
     if not ids:
         return []
     today=on_date or date.today()
-    out=[]
-    for e in Employee.query.filter(Employee.is_active==True).order_by(Employee.full_name.asc()).all():
-        if e.branch_id in ids or effective_branch_id_for_employee(e.id,today) in ids:
-            out.append(e)
-    return out
+
+    assigned_employee_ids={
+        row[0] for row in (
+            db.session.query(Movement.employee_id)
+            .filter(
+                Movement.is_active==True,
+                Movement.movement_type=='انتداب',
+                Movement.assignment_state!='مغلق',
+                Movement.from_date!=None,
+                Movement.from_date<=today,
+                db.or_(Movement.to_date==None, Movement.to_date>=today),
+                Movement.destination_branch_id.in_(ids)
+            )
+            .all()
+        )
+    }
+
+    q=Employee.query.filter(
+        Employee.is_active==True,
+        db.or_(Employee.branch_id.in_(ids), Employee.id.in_(assigned_employee_ids))
+    ).order_by(Employee.full_name.asc())
+    return q.all()
 
 def supervisor_for_entry(u=None):
     u=u or me()
@@ -602,7 +627,7 @@ def home():
         movement_employee=movement_employee_matches[0]
     if movement_employee:
         movement_employee_moves=(Movement.query.filter_by(employee_id=movement_employee.id,is_active=True)
-                                 .order_by(Movement.from_date.desc().nullslast(),Movement.permission_date.desc().nullslast(),Movement.id.desc()).all())
+                                 .order_by(Movement.id.desc()).all())
         movement_employee_last={k:next((m for m in movement_employee_moves if m.movement_type==k),None) for k in MOVEMENT_TYPES}
     pending=[]
     ending=[]
@@ -2635,12 +2660,60 @@ def assistant_confirm():
     m=Movement(employee_id=e.id,movement_type=a['movement_type'],leave_type=a.get('leave_type'),destination_branch_id=dest.id if dest else None,from_date=parse_date(a.get('from_date')),to_date=parse_date(a.get('to_date')),permission_date=parse_date(a.get('permission_date')),notes=None,created_by=me().id,status='مدخلة',assignment_state='ساري',approver_id=None)
     db.session.add(m); db.session.flush(); record_movement_history(m,None,'مدخلة','AI_ASSISTANT_ADD','تسجيل الحركة من المساعد الذكي — لا تحتاج لاعتماد'); log('AI_ASSISTANT_ADD','Movement',m.id,f'{m.movement_type} — {e.full_name}'); db.session.commit(); flash('تم تسجيل الحركة بنجاح من خلال المساعد الذكي.'); return redirect(back)
 
+@app.get('/api/movement-employees')
+@req
+def movement_employees_api():
+    """Return movement employee suggestions after governorate selection.
+
+    The governorate is mandatory for the lookup. A branch filters the list;
+    otherwise q searches by employee name or job code. Results are deliberately
+    small so the autocomplete stays fast and does not trigger the old server
+    error caused by loading a large employee list at once.
+    """
+    gid=request.args.get('governorate_id','').strip()
+    bid=request.args.get('branch_id','').strip()
+    q=request.args.get('q','').strip()
+    if not gid.isdigit():
+        return {'results': [], 'branches': []}
+    gid=int(gid)
+    allowed_gids=set(gids())
+    if gid not in allowed_gids:
+        return {'results': [], 'branches': []}
+    branch_rows=(Branch.query.filter(Branch.governorate_id==gid, Branch.is_active==True)
+                 .filter(Branch.id.in_(bids())).order_by(Branch.name.asc()).all())
+    branch_ids=[b.id for b in branch_rows]
+    if bid.isdigit():
+        bid_int=int(bid)
+        if bid_int not in branch_ids:
+            return {'results': [], 'branches': [{'id':b.id,'name':b.name} for b in branch_rows]}
+        branch_ids=[bid_int]
+    if q and len(q)<1:
+        q=''
+    if not q and not bid.isdigit():
+        return {'results': [], 'branches': [{'id':b.id,'name':b.name} for b in branch_rows]}
+
+    filters=[Employee.is_active==True, Employee.branch_id.in_(branch_ids)]
+    if q:
+        like=f'%{q}%'
+        filters.append(db.or_(Employee.full_name.ilike(like), Employee.job_code.ilike(like)))
+    rows=(Employee.query.filter(*filters).order_by(Employee.full_name.asc()).limit(20).all())
+    return {
+        'results':[{'id':e.id,'name':e.full_name,'code':e.job_code or '',
+                    'branch':e.branch.name if e.branch else ''} for e in rows],
+        'branches':[{'id':b.id,'name':b.name} for b in branch_rows]
+    }
+
 @app.route('/movements',methods=['GET','POST'])
 @req
 def movements():
     bs=bids()
     if request.method=='POST' and (not can_manage_movement() or not can('manage_movements')): abort(403)
-    emps=employees_effectively_in_branches(bs) if bs else []
+    emps=[]  # loaded on demand after governorate/branch selection
+    allowed_gids=set(gids())
+    govs=(Governorate.query.filter(Governorate.id.in_(allowed_gids),Governorate.is_active==True)
+          .order_by(Governorate.name.asc()).all()) if allowed_gids else []
+    scoped_branches=(Branch.query.filter(Branch.id.in_(bs),Branch.is_active==True)
+                     .order_by(Branch.name.asc()).all()) if bs else []
     if request.method=='POST':
         f=request.form; eid=int(f.get('employee_id','0')) if f.get('employee_id','').isdigit() else 0; e=db.session.get(Employee,eid)
         if not e or not branch_ok(e.branch_id): abort(403)
@@ -2653,7 +2726,7 @@ def movements():
         m=Movement(employee_id=e.id,movement_type=mt,leave_type=f.get('leave_type') or None,destination_branch_id=dest,from_date=parse_date(fd),to_date=parse_date(td),permission_date=parse_date(pd),notes=None,created_by=me().id,status=status,assignment_state=('ساري' if mt=='انتداب' else 'ساري'),approver_id=None); db.session.add(m); db.session.commit(); record_movement_history(m,None,status,'ADD','تسجيل الحركة — لا تحتاج لاعتماد'); log('ADD','Movement',m.id,status); db.session.commit(); flash('تم تسجيل الحركة وأصبحت ظاهرة مباشرة في متابعة الموظفين.')
     rows=Movement.query.join(Employee).filter(Employee.branch_id.in_(bs),Movement.is_active==True).order_by(Movement.created_at.desc()).all() if bs else []
     selected_employee_id=request.args.get('employee_id', type=int)
-    return render_template('movements.html',rows=rows,emps=emps,bs=Branch.query.filter(Branch.id.in_(bs),Branch.is_active==True).all() if bs else [],leave_types=active_leave_types(),movement_types=active_movement_types(),statuses=STATUSES,selected_employee_id=selected_employee_id,approvers={e.id:approvers_for_employee(e) for e in emps})
+    return render_template('movements.html',rows=rows,emps=emps,bs=scoped_branches,govs=govs,leave_types=active_leave_types(),movement_types=active_movement_types(),statuses=STATUSES,selected_employee_id=selected_employee_id,approvers={})
 @app.route('/movements/<int:i>/edit',methods=['GET','POST'])
 @req
 def movement_edit(i):

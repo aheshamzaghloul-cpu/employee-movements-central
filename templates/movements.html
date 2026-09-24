@@ -2,7 +2,10 @@
 <div class="toolbar"><div><h1>تسجيل حركة</h1><p class="subtitle">اختر البيانات من القوائم المنسدلة. الحركة تُسجل مباشرة وتظهر فورًا في متابعة الموظفين.</p></div><a class="btn secondary" href="/employees">العودة للموظفين</a></div>
 <div class="box smart-movement-box"><form method="post" id="movement_form"><input type="hidden" name="_csrf" value="{{csrf}}">
 <div class="grid wide">
-<label>الموظف<select name="employee_id" id="movement_employee" required><option value="">اختر الموظف</option>{% for e in emps %}<option value="{{e.id}}" data-branch-label="{{e.branch.name}}" {% if selected_employee_id==e.id %}selected{% endif %}>{{e.full_name}} — {{e.job_code or 'بدون كود وظيفي'}} — {{e.branch.name}}</option>{% endfor %}</select></label>
+<label>المحافظة<select id="movement_governorate" required><option value="">اختر المحافظة أولًا</option>{% for g in govs %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
+<label>الفرع<select id="movement_branch" disabled><option value="">اختر الفرع أو ابحث باسم/كود الموظف</option>{% for b in bs %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}">{{b.name}}</option>{% endfor %}</select></label>
+<label class="movement-employee-search">بحث باسم الموظف أو الكود الوظيفي<input id="movement_employee_search" type="search" autocomplete="off" placeholder="اكتب أول حرف أو جزء من الاسم أو الكود" disabled><div id="movement_employee_suggestions" class="movement-suggestions" hidden></div></label>
+<label>الموظف<select name="employee_id" id="movement_employee" required disabled><option value="">اختر الموظف</option></select></label>
 <label>الفرع الأساسي للموظف<input id="employee_home_branch" value="" readonly></label>
 <label>نوع الحركة<select name="movement_type" id="movement_type" required><option value="">اختر نوع الحركة</option>{% for x in movement_types %}<option value="{{x}}">{{x}}</option>{% endfor %}</select></label>
 <label data-movement="إجازة" hidden>نوع الإجازة<select name="leave_type" id="leave_type"><option value="">اختر نوع الإجازة</option>{% for x in leave_types %}<option value="{{x}}">{{x}}</option>{% endfor %}</select></label>
@@ -38,6 +41,67 @@
 
 <script>
 (function(){
+ const gov=document.getElementById('movement_governorate');
+ const branch=document.getElementById('movement_branch');
+ const employee=document.getElementById('movement_employee');
+ const search=document.getElementById('movement_employee_search');
+ const suggestions=document.getElementById('movement_employee_suggestions');
+ const homeBranch=document.getElementById('employee_home_branch');
+ let timer=null, seq=0;
+ const esc=v=>String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
+ function resetEmployees(){employee.innerHTML='<option value="">اختر الموظف</option>'; employee.disabled=true; homeBranch.value='';}
+ function resetSearch(){if(suggestions){suggestions.innerHTML='';suggestions.hidden=true;} }
+ function setEmployee(e){
+   employee.innerHTML='<option value="'+e.id+'">'+esc(e.name)+' — '+esc(e.code||'بدون كود وظيفي')+' — '+esc(e.branch||'')+'</option>';
+   employee.value=String(e.id); employee.disabled=false;
+   homeBranch.value=e.branch||''; resetSearch();
+   employee.dispatchEvent(new Event('change',{bubbles:true}));
+ }
+ function fillBranches(items){
+   const current=branch.value; branch.innerHTML='<option value="">اختر الفرع</option>';
+   items.forEach(b=>{const o=document.createElement('option');o.value=b.id;o.textContent=b.name;branch.appendChild(o);});
+   branch.disabled=!gov.value || !items.length;
+   if(items.some(b=>String(b.id)===current)) branch.value=current;
+ }
+ async function api(params){
+   const url='/api/movement-employees?'+new URLSearchParams(params);
+   const r=await fetch(url,{headers:{Accept:'application/json'}});
+   if(!r.ok) throw new Error('search');
+   return await r.json();
+ }
+ async function loadGov(){
+   resetEmployees(); resetSearch(); search.value=''; homeBranch.value='';
+   branch.value=''; branch.disabled=true;
+   if(!gov.value){search.disabled=true;return;}
+   search.disabled=false;
+   try{const d=await api({governorate_id:gov.value});fillBranches(d.branches||[]);}catch(_){fillBranches([]);}
+ }
+ async function loadBranch(){
+   resetSearch(); search.value=''; resetEmployees();
+   if(!gov.value||!branch.value)return;
+   try{const d=await api({governorate_id:gov.value,branch_id:branch.value});
+      employee.innerHTML='<option value="">اختر الموظف</option>';
+      (d.results||[]).forEach(e=>{const o=document.createElement('option');o.value=e.id;o.textContent=e.name+' — '+(e.code||'بدون كود وظيفي')+' — '+(e.branch||'');o.dataset.branchLabel=e.branch||'';employee.appendChild(o);});
+      employee.disabled=!(d.results||[]).length;
+   }catch(_){resetEmployees();}
+ }
+ function renderSuggestions(items){
+   if(!items.length){suggestions.innerHTML='<div class="movement-suggestion-empty">لا توجد مطابقة.</div>';suggestions.hidden=false;return;}
+   suggestions.innerHTML=items.map(e=>'<button type="button" class="movement-suggestion" data-id="'+e.id+'"><strong>'+esc(e.name)+'</strong><small>'+esc(e.code||'بدون كود وظيفي')+' — '+esc(e.branch||'')+'</small></button>').join('');
+   suggestions.hidden=false;
+   suggestions.querySelectorAll('.movement-suggestion').forEach(btn=>btn.addEventListener('click',()=>{const e=items.find(x=>String(x.id)===btn.dataset.id);if(e)setEmployee(e);}));
+ }
+ async function searchEmployees(){
+   const q=search.value.trim(); resetEmployees(); branch.value='';
+   if(!gov.value||q.length<1){resetSearch();return;}
+   const my=++seq; suggestions.hidden=false; suggestions.innerHTML='<div class="movement-suggestion-empty">جاري البحث…</div>';
+   try{const d=await api({governorate_id:gov.value,q}); if(my===seq)renderSuggestions(d.results||[]);}catch(_){if(my===seq){suggestions.innerHTML='<div class="movement-suggestion-empty">تعذر تنفيذ البحث.</div>';suggestions.hidden=false;}}
+ }
+ gov?.addEventListener('change',loadGov);
+ branch?.addEventListener('change',loadBranch);
+ search?.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(searchEmployees,180);});
+ document.addEventListener('click',e=>{if(suggestions&&!e.target.closest('.movement-employee-search'))resetSearch();});
+
  const cb=document.getElementById('open_assignment'), to=document.getElementById('to_date'), wrap=document.getElementById('to_date_wrap'), openWrap=document.getElementById('open_assignment_wrap'), type=document.getElementById('movement_type');
  function sync(){ const isAssign=type?.value==='انتداب', open=!!cb?.checked && isAssign; if(openWrap) openWrap.style.display=isAssign?'':'none'; if(wrap) wrap.style.display=(isAssign||type?.value==='إجازة')?'':'none'; if(to){to.required=type?.value==='إجازة'||(isAssign&&!open); if(open) to.value='';} }
  cb?.addEventListener('change',sync); type?.addEventListener('change',sync); sync();

@@ -174,7 +174,7 @@
   <section class="home-panel home-movements-panel dashboard-widget" data-widget-id="group-movements">
     <div class="home-group-head">
       <span class="home-group-icon">🔄</span>
-      <div><h3>حركات الموظفين</h3><small>التسجيل والمتابعة والتقارير في واجهة واحدة</small></div>
+      <div><h3>حركات الموظفين</h3><small>ابحث عن الموظف واعرض بطاقته وحركاته</small></div>
       <button type="button" class="panel-expand-btn" data-expand-widget="group-movements">⛶ ملء الصفحة</button>
     </div>
     <form class="home-movement-employee-search movement-quick-filter-form" method="get" action="/">
@@ -190,12 +190,12 @@
           {% for b in movement_search_branches if b.id in (user_branch_ids or []) or is_admin or is_manager_support %}<option value="{{b.id}}" {% if movement_branch_id|int == b.id %}selected{% endif %}>{{b.name}}{% if b.code %} — {{b.code}}{% endif %}</option>{% endfor %}
         </select>
       </label>
-      <label>اسم الموظف
-        <input id="movement-search-name" name="movement_name" value="{{movement_name_query}}" type="search" placeholder="اكتب جزءًا من الاسم..." autocomplete="off">
+      <label>البحث عن موظف
+        <input id="movement-search-name" name="movement_name" value="{{movement_name_query}}" type="search" placeholder="اكتب الاسم أو الكود الوظيفي..." autocomplete="off">
       </label>
       <button class="btn" type="submit">🔎 بحث</button>
       {% if movement_governorate_id or movement_branch_id or movement_name_query %}<a class="btn secondary" href="/">مسح البحث</a>{% endif %}
-      <small>اختر المحافظة أولًا، ثم ابحث بالفرع أو بالاسم أو بهما معًا.</small>
+      <small>اختر المحافظة، ثم اختر الفرع أو ابحث مباشرة بالاسم أو الكود الوظيفي.</small>
     </form>
 
     {% if movement_governorate_id and movement_employee_matches and not movement_employee %}
@@ -214,7 +214,7 @@
     {% if movement_employee %}
     <div class="movement-employee-result">
       <article class="movement-employee-result-card">
-        <div class="movement-employee-result-head"><div class="movement-employee-result-person"><div class="movement-employee-result-avatar">{{(movement_employee.full_name or 'م')[:1]}}</div><div><h3>{{movement_employee.full_name}}</h3><p>{{movement_employee.job_title or 'موظف'}} · {{movement_employee.job_code or 'بدون كود'}}</p></div></div><div class="actions no-print"><a class="btn secondary" href="/employee/{{movement_employee.id}}">فتح البطاقة الكاملة</a>{% if can('manage_movements') and can_manage_employee(movement_employee) %}<a class="btn teal" href="/movements?employee_id={{movement_employee.id}}">تسجيل حركة</a>{% endif %}</div></div>
+        <div class="movement-employee-result-head"><div class="movement-employee-result-person"><div class="movement-employee-result-avatar">{{(movement_employee.full_name or 'م')[:1]}}</div><div><h3>{{movement_employee.full_name}}</h3><p>{{movement_employee.job_title or 'موظف'}} · {{movement_employee.job_code or 'بدون كود'}}</p></div></div><div class="actions no-print"><a class="btn secondary" href="/employee/{{movement_employee.id}}">بطاقة الموظف</a></div></div>
         <div class="movement-employee-result-grid"><div><small>فرع التعيين</small><b>{{movement_employee.branch.name if movement_employee.branch else '—'}}</b></div><div><small>الفرع الحالي</small><b>{% set cam=current_assignment_for_employee(movement_employee.id) %}{{(cam.destination.name if cam and cam.destination else movement_employee.branch.name if movement_employee.branch else '—')}}{% if cam and cam.to_date is none %} — <span class="badge">انتداب مفتوح</span>{% endif %}</b></div><div><small>البريد الإلكتروني</small><b>{{movement_employee.email or '—'}}</b></div><div><small>تاريخ التعيين</small><b>{{movement_employee.hire_date or '—'}}</b></div></div>
         <div class="movement-employee-last">{% for k,t in [('إجازة','آخر إجازة'),('انتداب','آخر انتداب'),('إذن','آخر إذن')] %}<div><h4>{{t}}</h4>{% set m=movement_employee_last[k] %}{% if m %}<div class="hint">{% if k=='إذن' %}{{m.permission_date or '—'}}{% else %}{{m.from_date or '—'}} → {{m.to_date or 'مفتوح'}}{% endif %}</div>{% if m.leave_type %}<div class="hint">{{m.leave_type}}</div>{% elif m.destination %}<div class="hint">إلى {{m.destination.name}}</div>{% endif %}<span class="tag">{{m.status}}</span>{% else %}<div class="hint">لا توجد بيانات</div>{% endif %}</div>{% endfor %}</div>
       </article>
@@ -251,7 +251,7 @@
     if(!workspace) return;
     workspace.classList.remove('panel-focus-mode');
     panels.forEach(p=>{p.classList.remove('panel-focused','panel-hidden-mini'); p.removeAttribute('aria-hidden');});
-    workspace.querySelectorAll('.panel-mini-switcher').forEach(x=>x.remove());
+    workspace.querySelectorAll('.panel-mini-switcher,.panel-focus-close').forEach(x=>x.remove());
     document.body.classList.remove('home-panel-focus');
   }
   function focusPanel(id){
@@ -270,8 +270,6 @@
     });
     const back=document.createElement('button'); back.type='button'; back.className='panel-back-btn'; back.textContent='↩ العودة للوضع الأساسي'; back.addEventListener('click',restorePanels); nav.appendChild(back);
     target.prepend(nav);
-    target.querySelector('.panel-focus-close')?.remove();
-    const close=document.createElement('button'); close.type='button'; close.className='panel-focus-close'; close.textContent='↩ العودة'; close.title='العودة للوضع الأساسي'; close.addEventListener('click',restorePanels); target.prepend(close);
   }
   workspace?.querySelectorAll('[data-expand-widget]').forEach(b=>b.addEventListener('click',()=>focusPanel(b.dataset.expandWidget)));
   const branch=document.getElementById('current-status-branch-filter');

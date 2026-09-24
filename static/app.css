@@ -681,7 +681,7 @@ label{font-size:13px}.box>form label,.quick-form label{min-width:0}.form-actions
 .home-content-layout{width:100%!important;max-width:none!important;gap:16px!important}
 .home-left-column,.home-right-column{min-width:0!important}
 .home-right-column{gap:16px!important;display:flex!important;flex-direction:column!important}
-.home-right-column .home-current-status{width:100%!important;min-height:460px!important;height:auto!important;flex:0 0 auto!important}
+.home-right-column .home-current-status{width:100%!important;min-height:520px!important;height:auto!important;flex:0 0 auto!important}
 .home-right-column .home-entry-directory{width:100%!important;box-sizing:border-box;flex:0 0 auto!important;padding:18px!important}
 .home-right-column .home-entry-directory .entry-directory-head{gap:10px;margin-bottom:12px}
 .home-right-column .home-entry-directory .entry-directory-head h2{font-size:20px!important}
@@ -1566,3 +1566,81 @@ main.login .login-hero p{font-size:clamp(15px,1.3vw,18px)}
 .movement-suggestion small{font-size:11px;color:#708492;white-space:nowrap}
 .movement-suggestion-empty{padding:12px;text-align:center;color:#718493;font-size:12px}
 @media(max-width:700px){.movement-suggestion{align-items:flex-start;flex-direction:column;gap:3px}.movement-suggestion small{white-space:normal}}
+
+/* v35.27 — final fixes: no hover overflow, readable supervisor admin, live employee search */
+:where(.home-panel,.home-movements-panel,.current-status-card,.entry-card,.branch-card,.employee-card,.admin-section-card,.admin-overview-card,.admin-card-action,.admin-shortcut-card,.supervisor-clean-card,.supervisor-full-page-card,.movement-employee-result-card){transform:none!important}
+:where(.home-panel,.home-movements-panel,.current-status-card,.entry-card,.branch-card,.employee-card,.admin-section-card,.admin-overview-card,.admin-card-action,.admin-shortcut-card,.supervisor-clean-card,.supervisor-full-page-card,.movement-employee-result-card):hover{transform:none!important;box-shadow:0 12px 30px rgba(20,65,78,.12)!important;z-index:2}
+.home-three-panels > .dashboard-widget{overflow:hidden!important;max-width:100%!important}
+.panel-focus-mode > .dashboard-widget.panel-focused{max-width:100vw!important;overflow:auto!important;transform:none!important}
+.movement-employee-search-field{min-width:0}
+.movement-suggestions{max-height:340px!important;border-width:1.5px!important}
+.movement-suggestion{min-height:56px!important;padding:11px 13px!important;font-size:15px!important}
+.movement-suggestion strong{font-size:15px!important}
+.movement-suggestion small{font-size:12px!important}
+.movement-suggestion b{font-size:13px!important;color:#17698a!important;white-space:nowrap}
+@media(min-width:901px){
+  .supervisor-admin-dashboard .admin-dashboard-hero h2{font-size:34px!important}
+  .supervisor-admin-dashboard .admin-dashboard-hero p{font-size:17px!important}
+  .supervisor-admin-dashboard .admin-section-head h3{font-size:24px!important}
+  .supervisor-admin-dashboard .admin-section-head small{font-size:14px!important}
+  .supervisor-admin-dashboard .admin-action-grid b{font-size:18px!important}
+  .supervisor-admin-dashboard .admin-action-grid small{font-size:13px!important}
+}
+/* State colors: each status gets a distinct, readable color and badge. */
+.current-status-card.is-present{border-color:#9bd2b4!important;background:linear-gradient(135deg,#f2fbf5,#fff)!important}
+.current-status-card.is-present .current-status-badge{background:#e4f6eb!important;color:#176b3b!important;border:1px solid #b8e2c8!important}
+.current-status-card.is-leave{border-color:#c8a9ed!important;background:linear-gradient(135deg,#faf6ff,#fff)!important}
+.current-status-card.is-leave .current-status-badge{background:#eee3ff!important;color:#6a32a0!important;border:1px solid #d7bdf3!important}
+.current-status-card.is-assignment{border-color:#f1c58a!important;background:linear-gradient(135deg,#fff9ef,#fff)!important}
+.current-status-card.is-assignment .current-status-badge{background:#fff0d9!important;color:#9a5900!important;border:1px solid #efcf9e!important}
+.current-status-card.is-open-assignment{border-color:#8fb7ee!important;background:linear-gradient(135deg,#f1f7ff,#fff)!important}
+.current-status-card.is-open-assignment .current-status-badge{background:#e2efff!important;color:#185fa8!important;border:1px solid #b9d5f5!important}
+
+/* v35.29 — assistant: restore normal default size + larger, darker readable text */
+.assistant-window{
+  width:clamp(560px,52vw,820px)!important;
+  height:clamp(560px,76vh,860px)!important;
+  min-width:540px!important;
+  min-height:520px!important;
+  max-width:calc(100vw - 24px)!important;
+  max-height:calc(100vh - 24px)!important;
+  transition:width .12s ease,height .12s ease,top .12s ease,left .12s ease;
+}
+.assistant-window.is-resizing{transition:none!important}
+.assistant-window iframe{display:block;min-width:0;min-height:0}
+.assistant-chat-shell{
+  container-type:inline-size;
+  --assistant-font:clamp(17px,3.0cqw,22px);
+  --assistant-small:clamp(14px,2.2cqw,18px);
+  --assistant-title:clamp(17px,2.8cqw,21px);
+}
+.assistant-chat-shell .assistant-chat-body{
+  padding:12px 13px 10px!important;
+  gap:9px!important;
+}
+.assistant-chat-shell .chat-msg{max-width:82%!important;gap:8px!important}
+.assistant-chat-shell .chat-bubble{
+  font-size:var(--assistant-font)!important;
+  line-height:1.78!important;
+  color:#0b2730!important;
+  font-weight:600!important;
+  padding:10px 13px!important;
+  border-radius:16px 16px 16px 5px!important;
+}
+.assistant-chat-shell .chat-bubble p{font-size:var(--assistant-font)!important;line-height:1.78!important;color:#0b2730!important;font-weight:600!important}
+.assistant-chat-shell .chat-title{font-size:var(--assistant-small)!important;color:#102f3b!important;font-weight:800!important}
+.assistant-chat-shell .chat-error{font-size:var(--assistant-small)!important;line-height:1.75!important;color:#5b2020!important;font-weight:600!important}
+.assistant-chat-shell .assistant-preview{font-size:var(--assistant-small)!important;line-height:1.78!important;padding:10px!important;color:#0b2730!important;font-weight:600!important}
+.assistant-chat-shell .chat-suggestions button,
+.assistant-chat-shell .chat-topic-grid button{font-size:var(--assistant-small)!important;padding:9px 12px!important}
+.assistant-chat-shell .assistant-chat-topbar b{font-size:var(--assistant-title)!important}
+.assistant-chat-shell .assistant-chat-topbar small{font-size:var(--assistant-small)!important;color:#16333d!important;font-weight:700!important}
+.assistant-chat-shell .assistant-chat-input{padding:9px 10px!important;gap:8px!important}
+.assistant-chat-shell .assistant-chat-input textarea{font-size:var(--assistant-font)!important;min-height:56px!important;max-height:130px!important;color:#0b2730!important;font-weight:600!important}
+.assistant-chat-shell .assistant-chat-input>button{width:48px!important;height:48px!important;min-width:48px!important}
+.assistant-resize-handle{width:38px!important;height:38px!important}
+@media(max-width:700px){
+  .assistant-window{width:calc(100vw - 12px)!important;height:calc(100vh - 12px)!important;min-width:0!important;min-height:0!important;transition:none!important}
+  .assistant-chat-shell{--assistant-font:clamp(16px,4.4cqw,19px);--assistant-small:clamp(13px,3.7cqw,16px);--assistant-title:clamp(16px,4cqw,19px)}
+  .assistant-chat-shell .chat-msg{max-width:94%!important}
+}

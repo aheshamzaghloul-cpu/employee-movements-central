@@ -93,6 +93,55 @@
   async function doHome(){const q=(homeSearch?.value||'').trim();if(q.length<2){hideHome();return;}const seq=++searchSeq;if(homeResults){homeResults.hidden=false;homeResults.innerHTML='<div class="search-loading">جاري البحث…</div>';}try{const r=await fetch('/employee-search?q='+encodeURIComponent(q),{headers:{Accept:'application/json'}});const d=await r.json();if(seq===searchSeq)renderHome(d.results||[]);}catch(_){if(seq===searchSeq)homeResults.innerHTML='<div class="search-loading">تعذر تنفيذ البحث.</div>';}}
   homeSearch?.addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(doHome,220)});homeSearch?.addEventListener('keydown',e=>{if(e.key==='Escape')hideHome()});document.addEventListener('click',e=>{if(homeResults&&!e.target.closest('.employee-search-wrap'))hideHome()});
 
+  // Home movement employee lookup: governorate first, then branch OR live name/code search.
+  const movementSearchForm=qs('#movement-employee-search-form');
+  const movementGov=qs('#movement-search-governorate');
+  const movementBranch=qs('#movement-search-branch');
+  const movementName=qs('#movement-search-name');
+  const movementSuggestions=qs('#movement-search-suggestions');
+  let movementSearchTimer=null, movementSearchSeq=0;
+  function hideMovementSuggestions(){if(movementSuggestions){movementSuggestions.hidden=true;movementSuggestions.innerHTML='';}}
+  function setMovementBranches(items, selected=''){
+    if(!movementBranch)return;
+    movementBranch.innerHTML='<option value="">كل الفروع</option>'+items.map(b=>`<option value="${esc(b.id)}">${esc(b.name)}</option>`).join('');
+    if(selected) movementBranch.value=String(selected);
+  }
+  function renderMovementSuggestions(items){
+    if(!movementSuggestions)return;
+    if(!items.length){movementSuggestions.innerHTML='<div class="movement-suggestion-empty">لا توجد نتائج مطابقة.</div>';movementSuggestions.hidden=false;return;}
+    movementSuggestions.innerHTML=items.map(e=>`<button type="button" class="movement-suggestion" data-employee-id="${esc(e.id)}"><span><strong>${esc(e.name)}</strong><small>${esc(e.branch||'')} ${e.code?'· كود '+esc(e.code):''}</small></span><b>عرض البطاقة ←</b></button>`).join('');
+    movementSuggestions.hidden=false;
+    qsa('.movement-suggestion',movementSuggestions).forEach(btn=>btn.addEventListener('click',()=>{
+      const params=new URLSearchParams(); params.set('movement_governorate_id',movementGov.value);
+      if(movementBranch?.value) params.set('movement_branch_id',movementBranch.value);
+      params.set('employee_id',btn.dataset.employeeId);
+      window.location.href='/?'+params.toString();
+    }));
+  }
+  async function loadMovementSearch(){
+    const gid=movementGov?.value||''; if(!gid){if(movementName){movementName.disabled=true;movementName.value='';} hideMovementSuggestions(); setMovementBranches([]); return;}
+    if(movementName) movementName.disabled=false;
+    const q=(movementName?.value||'').trim(); const bid=movementBranch?.value||''; const seq=++movementSearchSeq;
+    if(q.length===1 && movementSuggestions){movementSuggestions.hidden=false;movementSuggestions.innerHTML='<div class="movement-suggestion-empty">اكتب حرفًا آخر للبحث…</div>';}
+    try{
+      const url='/api/movement-employees?governorate_id='+encodeURIComponent(gid)+(bid?'&branch_id='+encodeURIComponent(bid):'')+(q?'&q='+encodeURIComponent(q):'');
+      const r=await fetch(url,{headers:{Accept:'application/json'}}); const d=await r.json();
+      if(seq!==movementSearchSeq)return;
+      setMovementBranches(d.branches||[],bid);
+      if(q.length>=2) renderMovementSuggestions(d.results||[]); else hideMovementSuggestions();
+    }catch(_){if(seq===movementSearchSeq&&movementSuggestions){movementSuggestions.innerHTML='<div class="movement-suggestion-empty">تعذر تنفيذ البحث.</div>';movementSuggestions.hidden=false;}}
+  }
+  movementGov?.addEventListener('change',()=>{if(movementBranch)movementBranch.value=''; if(movementName)movementName.value=''; hideMovementSuggestions(); loadMovementSearch();});
+  movementBranch?.addEventListener('change',()=>{if(movementName)movementName.value=''; hideMovementSuggestions(); if(movementGov?.value)loadMovementSearch();});
+  movementName?.addEventListener('input',()=>{clearTimeout(movementSearchTimer);movementSearchTimer=setTimeout(loadMovementSearch,180);});
+  movementName?.addEventListener('keydown',e=>{if(e.key==='Escape')hideMovementSuggestions();});
+  document.addEventListener('click',e=>{if(movementSuggestions&&!e.target.closest('.movement-employee-search'))hideMovementSuggestions();});
+  if(movementGov?.value)loadMovementSearch();
+  movementSearchForm?.addEventListener('submit',e=>{
+    if(!movementGov?.value){e.preventDefault();alert('اختر المحافظة أولًا.');return;}
+    if(movementName?.value.trim()){e.preventDefault();loadMovementSearch();return;}
+  });
+
   // Generic table search and confirmations.
   qsa('[data-confirm]').forEach(el=>el.addEventListener('click',e=>{if(!confirm(el.dataset.confirm))e.preventDefault()}));
   qsa('[data-auto-search]').forEach(input=>input.addEventListener('input',()=>{const q=input.value.trim().toLowerCase(),target=input.dataset.autoSearch;qsa(target+' tbody tr').forEach(tr=>tr.style.display=!q||tr.innerText.toLowerCase().includes(q)?'':'none');}));

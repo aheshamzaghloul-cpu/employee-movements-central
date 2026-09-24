@@ -61,7 +61,7 @@
     </div>
     <div class="current-status-list" id="current-status-list">
       {% for row in current_status_rows %}
-      <a class="current-status-card {% if row.movement.movement_type=='انتداب' %}is-assignment{% if row.to_date is none %} is-open-assignment{% endif %}{% else %}is-leave{% endif %}" data-status-employee="{{row.employee.id}}" data-status-branch="{{row.display_branch.id if row.display_branch else ''}}" href="/employee/{{row.employee.id}}">
+      <a class="current-status-card {% if row.state.startswith('متواجد') %}is-present{% elif row.movement and row.movement.movement_type=='انتداب' %}is-assignment{% if row.to_date is none %} is-open-assignment{% endif %}{% elif row.movement and row.movement.movement_type=='إجازة' %}is-leave{% endif %}" data-status-employee="{{row.employee.id}}" data-status-branch="{{row.display_branch.id if row.display_branch else ''}}" href="/employee/{{row.employee.id}}">
         <div class="current-status-main"><strong>{{row.employee.full_name}}</strong><small>{{row.display_branch.name if row.display_branch else (row.employee.branch.name if row.employee.branch else '—')}}</small></div>
         <div class="current-status-badge">{% if row.movement and row.movement.movement_type=='انتداب' and row.to_date is none %}🟣 انتداب مفتوح{% else %}{{row.state}}{% endif %}</div>
         <div class="current-status-detail"><b>{{row.place}}</b><div class="status-dates"><span><em>من</em><strong>{{row.from_date.strftime('%d/%m/%Y') if row.from_date else '—'}}</strong></span><span><em>إلى</em><strong>{{row.to_date.strftime('%d/%m/%Y') if row.to_date else 'مفتوح'}}</strong></span></div></div>
@@ -177,9 +177,9 @@
       <div><h3>حركات الموظفين</h3><small>ابحث عن الموظف واعرض بطاقته وحركاته</small></div>
       <button type="button" class="panel-expand-btn" data-expand-widget="group-movements">⛶ ملء الصفحة</button>
     </div>
-    <form class="home-movement-employee-search movement-quick-filter-form" method="get" action="/">
+    <form class="home-movement-employee-search movement-quick-filter-form" id="movement-employee-search-form" method="get" action="/">
       <label>المحافظة <span class="required">*</span>
-        <select id="movement-search-governorate" name="movement_governorate_id" required onchange="this.form.submit()">
+        <select id="movement-search-governorate" name="movement_governorate_id" required>
           <option value="">اختر المحافظة أولًا</option>
           {% for g in movement_search_governorates %}<option value="{{g.id}}" {% if movement_governorate_id|int == g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}
         </select>
@@ -187,15 +187,18 @@
       <label>الفرع
         <select id="movement-search-branch" name="movement_branch_id">
           <option value="">كل الفروع</option>
-          {% for b in movement_search_branches if b.id in (user_branch_ids or []) or is_admin or is_manager_support %}<option value="{{b.id}}" {% if movement_branch_id|int == b.id %}selected{% endif %}>{{b.name}}{% if b.code %} — {{b.code}}{% endif %}</option>{% endfor %}
+          {% for b in movement_search_branches %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}" {% if movement_branch_id|int == b.id %}selected{% endif %}>{{b.name}}{% if b.code %} — {{b.code}}{% endif %}</option>{% endfor %}
         </select>
       </label>
-      <label>البحث عن موظف
-        <input id="movement-search-name" name="movement_name" value="{{movement_name_query}}" type="search" placeholder="اكتب الاسم أو الكود الوظيفي..." autocomplete="off">
+      <label class="movement-employee-search-field">البحث عن موظف
+        <div class="movement-employee-search">
+          <input id="movement-search-name" name="movement_name" value="{{movement_name_query}}" type="search" placeholder="اكتب الاسم أو الكود الوظيفي..." autocomplete="off" {% if not movement_governorate_id %}disabled{% endif %}>
+          <div id="movement-search-suggestions" class="movement-suggestions" hidden></div>
+        </div>
       </label>
       <button class="btn" type="submit">🔎 بحث</button>
       {% if movement_governorate_id or movement_branch_id or movement_name_query %}<a class="btn secondary" href="/">مسح البحث</a>{% endif %}
-      <small>اختر المحافظة، ثم اختر الفرع أو ابحث مباشرة بالاسم أو الكود الوظيفي.</small>
+      <small>بعد اختيار المحافظة: اختر فرعًا لعرض موظفيه، أو اكتب الاسم/الكود مباشرة. ستظهر الاقتراحات مع كل حرف.</small>
     </form>
 
     {% if movement_governorate_id and movement_employee_matches and not movement_employee %}

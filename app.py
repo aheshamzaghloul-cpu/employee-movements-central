@@ -608,20 +608,31 @@ def home():
         if not sb or sb.governorate_id!=search_gov_id or not branch_ok(search_branch_id): search_branch_id=None
     elif not search_gov_id:
         search_branch_id=None
-    # البحث في الفرع الحالي الفعلي للموظف، بما في ذلك الانتداب المفتوح.
+    # البحث داخل المحافظة: يشمل فرع التعيين أو الفرع الحالي أثناء الانتداب.
+    # عند اختيار فرع، تكون النتيجة موظفي هذا الفرع فقط (تعيينًا أو وجودًا فعليًا).
+    search_gov_branch_ids={b.id for b in Branch.query.filter_by(governorate_id=search_gov_id,is_active=True).all()} if search_gov_id else set()
+    permitted_search_branch_ids={bid for bid in search_gov_branch_ids if branch_ok(bid)}
     if search_gov_id:
-        gov_branch_ids={b.id for b in Branch.query.filter_by(governorate_id=search_gov_id,is_active=True).all() if branch_ok(b.id)}
-        if search_branch_id: gov_branch_ids={search_branch_id}
-        candidates=employees_effectively_in_branches(gov_branch_ids,today)
+        target_branch_ids={search_branch_id} if search_branch_id else permitted_search_branch_ids
+        candidates=employees_effectively_in_branches(target_branch_ids,today)
+        # الموظف الذي فرع تعيينه داخل النطاق يجب أن يظهر حتى لو كان منتدبًا خارجه.
+        if not search_branch_id:
+            home_candidates=Employee.query.filter(Employee.is_active==True,Employee.branch_id.in_(permitted_search_branch_ids)).all() if permitted_search_branch_ids else []
+            by_id={e.id:e for e in candidates}
+            by_id.update({e.id:e for e in home_candidates})
+            candidates=list(by_id.values())
         if movement_name_query:
-            nq=movement_name_query.lower()
-            candidates=[e for e in candidates if nq in (e.full_name or '').lower()]
-        movement_employee_matches=sorted(candidates,key=lambda e:e.full_name)[:100]
+            nq=movement_name_query.casefold()
+            candidates=[e for e in candidates if nq in (e.full_name or '').casefold() or nq in (e.job_code or '').casefold()]
+        movement_employee_matches=sorted(candidates,key=lambda e:e.full_name)[:50]
     if movement_employee_id.isdigit():
         candidate=db.session.get(Employee,int(movement_employee_id))
-        if candidate and employee_scope_ok(candidate,today) and search_gov_id:
+        if candidate and candidate.is_active and search_gov_id:
             eff_branch=effective_branch_id_for_employee(candidate.id,today) or candidate.branch_id
-            if eff_branch in ({search_branch_id} if search_branch_id else {b.id for b in Branch.query.filter_by(governorate_id=search_gov_id,is_active=True).all()}):
+            home_ok=candidate.branch_id in permitted_search_branch_ids
+            current_ok=eff_branch in permitted_search_branch_ids
+            branch_ok_for_search=(eff_branch==search_branch_id or candidate.branch_id==search_branch_id) if search_branch_id else (home_ok or current_ok)
+            if employee_scope_ok(candidate,today) and branch_ok_for_search:
                 movement_employee=candidate
     elif len(movement_employee_matches)==1:
         movement_employee=movement_employee_matches[0]

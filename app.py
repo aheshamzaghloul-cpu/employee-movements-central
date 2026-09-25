@@ -2389,7 +2389,7 @@ def assistant_llm_parse(text, chat=None, live_context=''):
     schema={
       'type':'object','additionalProperties':False,
       'properties':{
-        'intent':{'type':'string','enum':['employee_add','employee_status','employee_info','employee_movements','branch_status','branch_info','branch_entry','governorate_employees','governorate_assignments_today','employee_topic','register_movement','topic_options','navigate','help']},
+        'intent':{'type':'string','enum':['employee_add','employee_status','employee_info','employee_movements','branch_status','branch_info','branch_entry','governorate_employees','governorate_assignments_today','movement_people_today','employee_topic','register_movement','topic_options','navigate','help']},
         'topic':{'type':['string','null'],'enum':['leave','assignment','permission','entry','employee','branch','reports','admin','users','delegation','replacement','audit',None]},
         'employee_name':{'type':['string','null']},
         'employee_id':{'type':['integer','null']},
@@ -2535,6 +2535,35 @@ def assistant_parse(text):
             govs=[g for g in Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all() if assistant_search_normalize(place) == assistant_search_normalize(g.name)]
             if len(govs)==1:
                 return {'intent':'governorate_assignments_today','governorate_id':govs[0].id,'governorate_name':govs[0].name}
+
+    # v35.48 — استعلامات الحركة حسب المكان واليوم بصياغة طبيعية.
+    # أمثلة: «مين إجازة في الإسكندرية»، «مين انتداب في سوهاج»،
+    # «مين إجازة اليوم في طما»، «مين عنده إذن اليوم في طما».
+    # وجود «مين» + نوع حركة + مكان يعني بحثًا في البيانات، وليس فتح خيارات الموضوع.
+    movement_query_words = has_any('مين','من','اسماء','أسماء','موظفين','الموظفين','الموظفون')
+    movement_kind = None
+    if has_any(*leave_words): movement_kind='إجازة'
+    elif has_any(*assign_words) or has_any('منتدب','منتدبين','منتدبة','منتدبات'): movement_kind='انتداب'
+    elif has_any(*perm_words): movement_kind='إذن'
+    if movement_query_words and movement_kind and has_any('في','فى','داخل','بمحافظة','بفرع','محافظة','فرع'):
+        pm=re.search(r'(?:في|فى|داخل|بمحافظة|بفرع|محافظة|فرع)\s+(?:محافظة\s+|فرع\s+)?(.+?)(?:\s+(?:اليوم|النهارده|دلوقتي|حاليًا|حاليا|الان|الآن))?\s*$', t, re.I)
+        place=pm.group(1).strip() if pm else ''
+        place=re.sub(r'\s+(?:اليوم|النهارده|دلوقتي|حاليًا|حاليا|الان|الآن)\s*$', '', place, flags=re.I).strip(' ؟?,،؛;:')
+        # «في محافظة سوهاج» يجب أن تذهب للمحافظة، بينما «في طما» يمكن أن تكون فرعًا.
+        explicit_gov=bool(re.search(r'(?:بمحافظة|محافظة)\s+', t, re.I))
+        explicit_branch=bool(re.search(r'(?:بفرع|فرع)\s+', t, re.I))
+        br,bmatches=assistant_find_branch(place) if not explicit_gov else (None,[])
+        govs=[]
+        if not explicit_branch:
+            govs=[g for g in Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all()
+                  if assistant_search_normalize(place)==assistant_search_normalize(g.name)]
+            if not govs:
+                govs=[g for g in Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all()
+                      if assistant_search_normalize(place) in assistant_search_normalize(g.name)]
+        if br and not explicit_gov:
+            return {'intent':'movement_people_today','movement_type':movement_kind,'branch_id':br.id,'branch_name':br.name,'place_type':'branch','place_name':br.name}
+        if len(govs)==1:
+            return {'intent':'movement_people_today','movement_type':movement_kind,'governorate_id':govs[0].id,'governorate_name':govs[0].name,'place_type':'governorate','place_name':govs[0].name}
 
     # استعلامات عامة بصياغة طبيعية: "اسماء موظفين"، "الموظفين في جهينه".
     if has_any('موظفين','الموظفين','الموظفون','اسماء موظفين','أسماء موظفين','اسماء الموظفين','أسماء الموظفين'):
@@ -2783,6 +2812,88 @@ def assistant_status_for_employee(e):
 
 def assistant_render_read(a):
     intent=a.get('intent')
+    if intent=='movement_people_today':
+        mt=a.get('movement_type') or 'إجازة'
+        gid=a.get('governorate_id')
+        bid=a.get('branch_id')
+        gov=db.session.get(Governorate,gid) if gid else None
+        branch=db.session.get(Branch,bid) if bid else None
+        allowed_gids=set(gids())
+        if gov and (not gov.is_active or (allowed_gids and gov.id not in allowed_gids)):
+            return {'title':'نتيجة البحث','error':'المحافظة غير متاحة ضمن نطاق صلاحياتك.'}
+        if branch and (not branch.is_active or not branch_ok(branch.id)):
+            return {'title':'نتيجة البحث','error':'الفرع غير متاح ضمن نطاق صلاحياتك.'}
+        if not gov and not branch:
+            return {'title':'نتيجة البحث','error':'لم أجد محافظة أو فرعًا مطابقًا.'}
+
+        today=date.today()
+        if branch:
+            target_branch_ids={branch.id}
+            location_label=f'فرع {branch.name}'
+        else:
+            bs=Branch.query.filter_by(governorate_id=gov.id,is_active=True).order_by(Branch.name).all()
+            bs=[b for b in bs if branch_ok(b.id)]
+            target_branch_ids={b.id for b in bs}
+            location_label=f'محافظة {gov.name}'
+
+        rows=[]
+        if mt=='إجازة':
+            if target_branch_ids:
+                moves=(Movement.query.join(Employee,Movement.employee_id==Employee.id)
+                       .filter(Employee.is_active==True,Employee.branch_id.in_(target_branch_ids),
+                               Movement.is_active==True,Movement.movement_type=='إجازة',
+                               Movement.from_date<=today,Movement.to_date>=today)
+                       .order_by(Employee.full_name,Movement.id.desc()).all())
+                seen=set()
+                for m in moves:
+                    if m.employee_id in seen: continue
+                    seen.add(m.employee_id); rows.append((m.employee,m,None))
+        elif mt=='إذن':
+            if target_branch_ids:
+                moves=(Movement.query.join(Employee,Movement.employee_id==Employee.id)
+                       .filter(Employee.is_active==True,Employee.branch_id.in_(target_branch_ids),
+                               Movement.is_active==True,Movement.movement_type=='إذن',
+                               Movement.permission_date==today)
+                       .order_by(Employee.full_name,Movement.id.desc()).all())
+                seen=set()
+                for m in moves:
+                    if m.employee_id in seen: continue
+                    seen.add(m.employee_id); rows.append((m.employee,None,None))
+        else:  # انتداب: «في المكان» تعني أن الوجهة الحالية داخل المكان.
+            if target_branch_ids:
+                moves=(Movement.query.join(Employee,Movement.employee_id==Employee.id)
+                       .filter(Employee.is_active==True,Movement.is_active==True,
+                               Movement.movement_type=='انتداب',Movement.assignment_state!='مغلق',
+                               Movement.from_date<=today,
+                               ((Movement.to_date==None)|(Movement.to_date>=today)),
+                               Movement.destination_branch_id.in_(target_branch_ids))
+                       .order_by(Employee.full_name,Movement.id.desc()).all())
+                seen=set()
+                for m in moves:
+                    if m.employee_id in seen: continue
+                    seen.add(m.employee_id); rows.append((m,m.employee.branch,m.destination))
+
+        if not rows:
+            labels={'إجازة':'في إجازة','انتداب':'منتدبين','إذن':'عندهم إذن'}
+            return {'title':f'{labels[mt]} اليوم — {location_label}',
+                    'answer':f'لا يوجد موظفون {labels[mt]} اليوم في {location_label}.'}
+
+        lines=[]
+        for i,(m,origin,dest) in enumerate(rows,1):
+            e=m.employee
+            if mt=='إجازة':
+                detail=f'{m.leave_type or "إجازة"} — حتى {m.to_date}'
+            elif mt=='إذن':
+                detail=f'إذن اليوم — {m.permission_date}'
+            else:
+                direction=f'{origin.name if origin else "غير محدد"} → {dest.name if dest else "غير محدد"}'
+                detail=f'{direction} — ' + ('مفتوح' if m.to_date is None else f'حتى {m.to_date}')
+            branch_name=e.branch.name if e.branch else 'غير محدد'
+            lines.append(f'{i}. {e.full_name} — {detail} — فرع التعيين: {branch_name}')
+        labels={'إجازة':'الموظفون في إجازة','انتداب':'الموظفون المنتدبون','إذن':'الموظفون لديهم إذن'}
+        return {'title':f'{labels[mt]} اليوم — {location_label}',
+                'answer':f'{labels[mt]} اليوم في {location_label}: {len(rows)}\n\n'+'\n'.join(lines)}
+
     if intent=='governorate_assignments_today':
         gid=a.get('governorate_id')
         gov=db.session.get(Governorate,gid) if gid else None

@@ -1,6 +1,19 @@
-# v35.46
+# v35.48
 
-- Fixed smart assistant understanding for natural queries such as: «مين منتدب النهارده فى محافظة سوهاج؟».
-- Added a dedicated intent for current assignments by governorate and date.
-- The assistant now lists employees currently delegated to branches inside the requested governorate, with clear direction (origin → destination) and assignment period.
-- Works without requiring a fixed button phrase and preserves role/governorate permissions.
+إصلاح فهم استعلامات المساعد عن الإجازات والانتدابات والأذونات حسب المكان واليوم.
+
+أمثلة مدعومة بصياغة طبيعية:
+- مين إجازة في الإسكندرية
+- مين إجازة اليوم في الإسكندرية
+- مين انتداب في سوهاج
+- مين منتدب اليوم في سوهاج
+- مين إجازة اليوم في طما
+- مين عنده إذن اليوم في طما
+
+السلوك:
+- الاستعلامات التي تحتوي على «مين/موظفين» + نوع حركة + مكان تُعامل كبحث مباشر في قاعدة البيانات.
+- المحافظة والفرع يتم التعرف عليهما من بيانات النظام.
+- «في المحافظة» للإجازات والأذونات يبحث في موظفي فروع المحافظة.
+- «في المكان» للانتداب يبحث عن الانتداب الحالي إلى المكان، مع عرض اتجاه الانتداب.
+- لا تُعرض قوائم «خيارات الإجازات/الانتداب» لهذه الاستعلامات.
+- اليوم هو التاريخ الافتراضي للاستعلامات الحالية.

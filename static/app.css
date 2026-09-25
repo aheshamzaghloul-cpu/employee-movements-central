@@ -1973,3 +1973,16 @@ main:not(.login){width:100%!important;max-width:none!important;}
   .assistant-fab .fab-label{display:inline!important;font-size:14px!important}
   .assistant-resize-handle{display:block!important;width:42px!important;height:42px!important}
 }
+
+
+/* v35.45 — assistant resize handles are at the TOP corners and remain independent of chat/send */
+.assistant-window{overflow:visible!important;resize:none!important}
+.assistant-resize-handle{display:block!important;position:absolute!important;top:0!important;bottom:auto!important;width:46px!important;height:46px!important;z-index:10001!important;opacity:1!important;touch-action:none!important;pointer-events:auto!important;background:none!important;border:0!important;border-radius:0!important}
+.assistant-resize-left{left:0!important;right:auto!important;cursor:nwse-resize!important}
+.assistant-resize-right{right:0!important;left:auto!important;cursor:nesw-resize!important}
+.assistant-resize-left:after,.assistant-resize-right:after{content:'';position:absolute;top:7px;width:24px;height:24px;opacity:.95;border-top:4px solid #2d788c}
+.assistant-resize-left:after{left:7px;border-left:4px solid #2d788c;border-radius:8px 0 0 0}
+.assistant-resize-right:after{right:7px;border-right:4px solid #2d788c;border-radius:0 8px 0 0}
+.assistant-window.is-resizing{user-select:none!important}
+.assistant-window.is-resizing iframe{pointer-events:none!important}
+@media(max-width:700px){.assistant-resize-handle{display:block!important;width:44px!important;height:44px!important}.assistant-resize-left{left:0!important}.assistant-resize-right{right:0!important}}

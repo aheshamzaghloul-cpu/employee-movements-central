@@ -322,20 +322,18 @@ document.addEventListener('DOMContentLoaded', function(){
    hide();
  }, true);
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)hide();});
- // v35.34 — assistant: drag the window freely + dedicated resize grip away from chat send button
+ // v35.45 — assistant: reliable top-corner resize handles (left + right)
  let drag=false,ox=0,oy=0;
  bar.addEventListener('pointerdown',e=>{
    if(e.button!==0 || e.target.closest('button')) return;
    drag=true;
-   const r=win.getBoundingClientRect();
-   ox=e.clientX-r.left; oy=e.clientY-r.top;
+   const r=win.getBoundingClientRect(); ox=e.clientX-r.left; oy=e.clientY-r.top;
    win.style.right='auto'; win.style.bottom='auto';
-   win.classList.add('is-dragging');
-   bar.setPointerCapture?.(e.pointerId);
+   win.classList.add('is-dragging'); bar.setPointerCapture?.(e.pointerId);
    e.preventDefault(); e.stopPropagation();
  });
  function moveWindow(e){
-   if(!drag) return;
+   if(!drag)return;
    const x=Math.max(8,Math.min(window.innerWidth-win.offsetWidth-8,e.clientX-ox));
    const y=Math.max(8,Math.min(window.innerHeight-win.offsetHeight-8,e.clientY-oy));
    win.style.left=x+'px'; win.style.top=y+'px';
@@ -344,29 +342,41 @@ document.addEventListener('DOMContentLoaded', function(){
  document.addEventListener('pointermove',moveWindow,{passive:false});
  document.addEventListener('pointerup',endDrag,{passive:true});
  document.addEventListener('pointercancel',endDrag,{passive:true});
- // Dedicated bottom-left grip. It never overlaps the chat composer/send button and resizing does not close the conversation.
- const rh=document.getElementById('assistantResizeHandle');let resizing=false,rsx=0,rsy=0,rsw=0,rsh=0,rsLeft=0,rsTop=0,raf=0;
- rh?.addEventListener('pointerdown',e=>{
-   if(e.button!==0||win.classList.contains('is-minimized'))return;
-   resizing=true;rsx=e.clientX;rsy=e.clientY;rsw=win.offsetWidth;rsh=win.offsetHeight;
-   const r=win.getBoundingClientRect();rsLeft=r.left;rsTop=r.top;
-   win.classList.add('is-resizing');rh.setPointerCapture?.(e.pointerId);
+
+ const handles=[document.getElementById('assistantResizeLeft'),document.getElementById('assistantResizeRight')].filter(Boolean);
+ let resizing=null,rsx=0,rsy=0,rsw=0,rsh=0,rsLeft=0,rsTop=0,raf=0;
+ handles.forEach(handle=>handle.addEventListener('pointerdown',e=>{
+   if(e.button!==0)return;
+   const r=win.getBoundingClientRect();
+   resizing={side:handle.classList.contains('assistant-resize-left')?'left':'right'};
+   rsx=e.clientX;rsy=e.clientY;rsw=r.width;rsh=r.height;rsLeft=r.left;rsTop=r.top;
+   win.style.right='auto';win.style.bottom='auto';win.classList.add('is-resizing');
+   handle.setPointerCapture?.(e.pointerId);
    e.preventDefault();e.stopPropagation();
- });
+ }));
  function moveResize(e){
    if(!resizing)return;
    if(raf)cancelAnimationFrame(raf);
+   const ev={x:e.clientX,y:e.clientY};
    raf=requestAnimationFrame(()=>{
-     const minW=380,minH=420,pad=8,maxW=Math.max(minW,window.innerWidth-pad*2),maxH=Math.max(minH,window.innerHeight-pad*2);
-     const w=Math.max(minW,Math.min(maxW,rsw+(e.clientX-rsx)));
-     const h=Math.max(minH,Math.min(maxH,rsh+(e.clientY-rsy)));
-     win.style.width=w+'px';win.style.height=h+'px';
-     win.style.left=Math.max(pad,Math.min(window.innerWidth-w-pad,rsLeft))+'px';
-     win.style.top=Math.max(pad,Math.min(window.innerHeight-h-pad,rsTop))+'px';
-     win.style.right='auto';win.style.bottom='auto';
+     const minW=380,minH=420,pad=8;
+     const maxW=Math.max(minW,window.innerWidth-pad*2),maxH=Math.max(minH,window.innerHeight-pad*2);
+     let left=rsLeft,top=rsTop,w=rsw,h=rsh;
+     const dx=ev.x-rsx,dy=ev.y-rsy;
+     if(resizing.side==='right'){
+       w=Math.max(minW,Math.min(maxW,rsw+dx));
+     }else{
+       w=Math.max(minW,Math.min(maxW,rsw-dx));
+       left=rsLeft+(rsw-w);
+     }
+     h=Math.max(minH,Math.min(maxH,rsh-dy));
+     top=rsTop+(rsh-h);
+     left=Math.max(pad,Math.min(window.innerWidth-w-pad,left));
+     top=Math.max(pad,Math.min(window.innerHeight-h-pad,top));
+     win.style.width=w+'px';win.style.height=h+'px';win.style.left=left+'px';win.style.top=top+'px';
    });
  }
- function endResize(){if(!resizing)return;resizing=false;win.classList.remove('is-resizing');if(raf){cancelAnimationFrame(raf);raf=0;}keepInViewport();}
+ function endResize(){if(!resizing)return;resizing=null;win.classList.remove('is-resizing');if(raf){cancelAnimationFrame(raf);raf=0;}keepInViewport();}
  document.addEventListener('pointermove',moveResize,{passive:false});
  document.addEventListener('pointerup',endResize,{passive:true});
  document.addEventListener('pointercancel',endResize,{passive:true});

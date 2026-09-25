@@ -2389,7 +2389,7 @@ def assistant_llm_parse(text, chat=None, live_context=''):
     schema={
       'type':'object','additionalProperties':False,
       'properties':{
-        'intent':{'type':'string','enum':['employee_add','employee_status','employee_info','employee_movements','branch_status','branch_info','branch_entry','governorate_employees','employee_topic','register_movement','topic_options','navigate','help']},
+        'intent':{'type':'string','enum':['employee_add','employee_status','employee_info','employee_movements','branch_status','branch_info','branch_entry','governorate_employees','governorate_assignments_today','employee_topic','register_movement','topic_options','navigate','help']},
         'topic':{'type':['string','null'],'enum':['leave','assignment','permission','entry','employee','branch','reports','admin','users','delegation','replacement','audit',None]},
         'employee_name':{'type':['string','null']},
         'employee_id':{'type':['integer','null']},
@@ -2516,6 +2516,26 @@ def assistant_parse(text):
     query_words=('حالة','اعرض','عرض','استعلم','استعلام','اسم','من هو','مين','موظفين','الموظفون','الموظفين','بيانات','سجل')
     employee_words=('موظف','الموظف','الموظفين','الموظفون','موظفة','موظفات')
     employee_add_words=('جديد','جديدة','إضافة','اضافة','أضف','اضف','إدخال','ادخال','تعيين')
+    # v35.46 — استعلامات الانتداب الحالية حسب المحافظة/التاريخ.
+    # مثال: «مين منتدب النهارده فى محافظة سوهاج» يجب أن يفهم كاستعلام
+    # عن الانتدابات السارية اليوم داخل المحافظة، وليس كموضوع «انتداب» عام.
+    today_words=('النهارده','اليوم','دلوقتي','حاليا','حاليًا','حاليه','الحاليه','الان','الآن')
+    if has_any('منتدب','منتدبين','منتدبة','منتدبات','انتداب') and has_any('مين','من','اسماء','أسماء','موظفين','الموظفين') and has_any(*today_words) and has_any('محافظة','المحافظه','المحافظة','في','فى','داخل'):
+        gm=re.search(r'(?:محافظة|المحافظه|المحافظة)\s+([^؟?،,؛\n]+)', t, re.I)
+        if gm:
+            place=gm.group(1).strip()
+        else:
+            gm=re.search(r'(?:في|فى|داخل)\s+(?:محافظة\s+)?([^؟?،,؛\n]+)', t, re.I)
+            place=gm.group(1).strip() if gm else ''
+        govs=[g for g in Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all() if place and assistant_search_normalize(place) in assistant_search_normalize(g.name)]
+        if len(govs)==1:
+            return {'intent':'governorate_assignments_today','governorate_id':govs[0].id,'governorate_name':govs[0].name}
+        if not govs and place:
+            # بعض الصياغات تكون «فى سوهاج» بدون كلمة محافظة.
+            govs=[g for g in Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all() if assistant_search_normalize(place) == assistant_search_normalize(g.name)]
+            if len(govs)==1:
+                return {'intent':'governorate_assignments_today','governorate_id':govs[0].id,'governorate_name':govs[0].name}
+
     # استعلامات عامة بصياغة طبيعية: "اسماء موظفين"، "الموظفين في جهينه".
     if has_any('موظفين','الموظفين','الموظفون','اسماء موظفين','أسماء موظفين','اسماء الموظفين','أسماء الموظفين'):
         pm=re.search(r'(?:في|فى|بـ|ب|داخل)\s+(?:فرع\s+)?([^؟?،,؛\n]+)', t, re.I)
@@ -2763,6 +2783,32 @@ def assistant_status_for_employee(e):
 
 def assistant_render_read(a):
     intent=a.get('intent')
+    if intent=='governorate_assignments_today':
+        gid=a.get('governorate_id')
+        gov=db.session.get(Governorate,gid) if gid else None
+        allowed_gids=set(gids())
+        if not gov or not gov.is_active or (allowed_gids and gov.id not in allowed_gids):
+            return {'title':'انتدابات اليوم','error':'لا توجد محافظة مطابقة أو ليست ضمن نطاق صلاحياتك.'}
+        branches=Branch.query.filter_by(governorate_id=gov.id,is_active=True).order_by(Branch.name).all()
+        branches=[b for b in branches if branch_ok(b.id)]
+        branch_ids={b.id for b in branches}
+        rows=[]
+        # الانتداب الحالي إلى فرع داخل المحافظة.
+        for e in Employee.query.filter(Employee.is_active==True).order_by(Employee.full_name).all():
+            m=current_assignment_for_employee(e.id, date.today())
+            if not m or not m.destination_branch_id or m.destination_branch_id not in branch_ids:
+                continue
+            dest=db.session.get(Branch,m.destination_branch_id)
+            origin=e.branch
+            rows.append((e,m,origin,dest))
+        if not rows:
+            return {'title':f'منتدبو اليوم في محافظة {gov.name}','answer':f'لا يوجد موظفون منتدبون حاليًا إلى فروع محافظة {gov.name} اليوم.'}
+        lines=[]
+        for i,(e,m,origin,dest) in enumerate(rows,1):
+            period='مفتوح' if m.to_date is None else f'حتى {m.to_date}'
+            direction=f'{origin.name if origin else "غير محدد"} → {dest.name if dest else "غير محدد"}'
+            lines.append(f'{i}. {e.full_name} — {direction} — من {m.from_date or "غير محدد"} — {period}')
+        return {'title':f'منتدبو اليوم في محافظة {gov.name}','answer':f'عدد المنتدبين إلى فروع المحافظة اليوم: {len(rows)}\n\n'+'\n'.join(lines)}
     if intent=='governorate_employees':
         gid=a.get('governorate_id')
         gov=db.session.get(Governorate,gid) if gid else None

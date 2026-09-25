@@ -1357,6 +1357,9 @@ def _pending_excel_dir():
 def _pending_excel_path(token):
     return os.path.join(_pending_excel_dir(),f'{token}.xlsx')
 
+def _pending_excel_review_path(token):
+    return os.path.join(_pending_excel_dir(),f'{token}.json')
+
 def _save_pending_excel(f):
     token=secrets.token_urlsafe(24)
     path=_pending_excel_path(token)
@@ -1365,8 +1368,9 @@ def _save_pending_excel(f):
 
 def _remove_pending_excel(token):
     if not token: return
-    try: os.remove(_pending_excel_path(token))
-    except OSError: pass
+    for path in (_pending_excel_path(token), _pending_excel_review_path(token)):
+        try: os.remove(path)
+        except OSError: pass
 
 def _get_pending_excel():
     token=session.get('excel_import_token')
@@ -1424,8 +1428,7 @@ def excel_import_confirm(kind):
     if not token or not path:
         flash('انتهت جلسة مطابقة ملف Excel. ارفع الملف مرة أخرى.')
         return redirect(url_for('excel_import_page',kind=kind))
-    spec=_import_spec(kind)
-    fields=_field_labels(kind)
+    spec=_import_spec(kind); fields=_field_labels(kind)
     mapping={}
     for field in fields:
         raw=request.form.get(f'map_{field}','').strip()
@@ -1438,17 +1441,16 @@ def excel_import_confirm(kind):
     if len(set(mapping.values())) != len(mapping):
         return _render_mapping(kind,token,path,warning='لا يمكن استخدام نفس عمود Excel لأكثر من حقل. راجع المطابقة.')
     try:
-        wb=load_workbook(path,read_only=True,data_only=True)
-        ws=wb.active
+        wb=load_workbook(path,read_only=True,data_only=True); ws=wb.active
         headers=_excel_headers(ws)
         if any(i<1 or i>len(headers) for i in mapping.values()):
             wb.close(); return _render_mapping(kind,token,path,warning='اختيار أحد الأعمدة غير صالح. أعد المطابقة.')
-        allowed_gids=_excel_scope_governorates()
-        errors=[]; added=0; skipped=0
+        allowed_gids=_excel_scope_governorates(); errors=[]
         govs={_excel_key(g.name):g for g in Governorate.query.filter(Governorate.is_active==True,Governorate.id.in_(allowed_gids)).all()}
         branches_by_gov={}
         for b in Branch.query.filter(Branch.is_active==True,Branch.governorate_id.in_(allowed_gids)).all():
             branches_by_gov.setdefault(b.governorate_id,{})[_excel_key(b.name)]=b
+        actions=[]
         if kind=='branches':
             for rno,row in enumerate(ws.iter_rows(min_row=2,values_only=False),2):
                 vals={k:_mapped_value(row,mapping,k) for k in spec}
@@ -1456,16 +1458,25 @@ def excel_import_confirm(kind):
                 g=govs.get(_excel_key(vals['governorate']))
                 if not g: errors.append(f'صف {rno}: المحافظة غير موجودة أو خارج نطاقك: {vals["governorate"]}'); continue
                 if not vals['name'] or not vals['code']: errors.append(f'صف {rno}: اسم الفرع وكوده مطلوبان.'); continue
-                key=_excel_key(vals['name']); existing=branches_by_gov.setdefault(g.id,{})
-                if key in existing: skipped+=1; continue
-                code_dup=Branch.query.filter_by(governorate_id=g.id,code=vals['code']).first()
-                if code_dup: errors.append(f'صف {rno}: كود الفرع {vals["code"]} مستخدم بالفعل في {g.name}.'); continue
-                b=Branch(governorate_id=g.id,name=vals['name'],code=vals['code']); db.session.add(b); db.session.flush(); existing[key]=b; added+=1
-            if added or skipped:
-                db.session.commit(); log('IMPORT','Branch',0,f'Excel: إضافة {added}، تخطي {skipped}'); db.session.commit()
-            else: db.session.rollback()
+                existing=branches_by_gov.setdefault(g.id,{})
+                b=existing.get(_excel_key(vals['name'])) or Branch.query.filter_by(governorate_id=g.id,code=vals['code']).first()
+                if b:
+                    changes={}
+                    if vals['name'] and vals['name']!=b.name: changes['name']={'old':b.name,'new':vals['name']}
+                    if vals['code'] and vals['code']!=b.code:
+                        dup=Branch.query.filter(Branch.governorate_id==g.id,Branch.code==vals['code'],Branch.id!=b.id).first()
+                        if dup: errors.append(f'صف {rno}: كود الفرع {vals["code"]} مستخدم بالفعل في فرع آخر.'); continue
+                        changes['code']={'old':b.code or '—','new':vals['code']}
+                    if changes: actions.append({'type':'branch','id':b.id,'row':rno,'name':b.name,'governorate':g.name,'changes':changes})
+                else:
+                    dup=Branch.query.filter_by(governorate_id=g.id,code=vals['code']).first()
+                    if dup: errors.append(f'صف {rno}: كود الفرع {vals["code"]} مستخدم بالفعل.'); continue
+                    if _excel_key(vals['name']) in existing or any(a.get('type')=='new_branch' and a.get('governorate_id')==g.id and _excel_key(a.get('values',{}).get('name'))==_excel_key(vals['name']) for a in actions):
+                        errors.append(f'صف {rno}: الفرع مكرر داخل ملف Excel.'); continue
+                    actions.append({'type':'new_branch','row':rno,'values':vals,'governorate_id':g.id,'governorate':g.name})
         else:
-            managed_branch_ids=set(bids()); branch_cache={}
+            managed_branch_ids=set(bids())
+            branch_cache={}
             for b in Branch.query.filter(Branch.is_active==True,Branch.governorate_id.in_(allowed_gids),Branch.id.in_(managed_branch_ids)).all():
                 branch_cache[(_excel_key(b.governorate.name),_excel_key(b.name))]=b
             emails={_excel_key(e.email):e for e in Employee.query.filter(Employee.email.isnot(None)).all()}
@@ -1482,28 +1493,83 @@ def excel_import_confirm(kind):
                 if not valid_email(vals['email']): errors.append(f'صف {rno}: البريد الإلكتروني غير صحيح.'); continue
                 hd=_excel_date(_cell_by_index(row,mapping.get('hire_date')))
                 if not hd: errors.append(f'صف {rno}: تاريخ التعيين غير صحيح.'); continue
-                ek=_excel_key(vals['email']); ck=_excel_key(vals['job_code'])
-                if ek in emails: skipped+=1; continue
-                if ck in job_codes: errors.append(f'صف {rno}: الكود الوظيفي {vals["job_code"]} مستخدم بالفعل.'); continue
-                e=Employee(employee_code=None,email=vals['email'],full_name=vals['name'],branch_id=b.id,job_title=vals['job_title'],job_code=vals['job_code'],hire_date=hd,company_phone=vals['company_phone'],personal_phone=vals['personal_phone'])
-                db.session.add(e); db.session.flush(); emails[ek]=e; job_codes[ck]=e; added+=1
-            if added or skipped:
-                db.session.commit(); log('IMPORT','Employee',0,f'Excel: إضافة {added}، تخطي {skipped}'); db.session.commit()
-            else: db.session.rollback()
+                ck=_excel_key(vals['job_code']); ek=_excel_key(vals['email'])
+                e=job_codes.get(ck) or emails.get(ek)
+                if e:
+                    # If email points to another employee while the job code points to this one, flag it.
+                    if ck and ck in job_codes and ek and ek in emails and job_codes[ck].id!=emails[ek].id:
+                        errors.append(f'صف {rno}: الكود الوظيفي والبريد الإلكتروني يعودان لموظفين مختلفين.'); continue
+                    changes={}
+                    candidate={'branch_id':b.id,'branch':b.name,'full_name':vals['name'],'email':vals['email'],'job_title':vals['job_title'],'job_code':vals['job_code'],'hire_date':hd.isoformat(),'company_phone':vals['company_phone'],'personal_phone':vals['personal_phone']}
+                    current={'branch_id':e.branch_id,'branch':e.branch.name if e.branch else '—','full_name':e.full_name,'email':e.email or '','job_title':e.job_title or '','job_code':e.job_code or '','hire_date':e.hire_date.isoformat() if e.hire_date else '','company_phone':e.company_phone or '','personal_phone':e.personal_phone or ''}
+                    for f,label in [('branch_id','الفرع'),('full_name','اسم الموظف'),('email','البريد الإلكتروني'),('job_title','الوظيفة'),('job_code','الكود الوظيفي'),('hire_date','تاريخ التعيين'),('company_phone','هاتف الشركة'),('personal_phone','الهاتف الشخصي')]:
+                        if str(current.get(f,'')) != str(candidate.get(f,'')):
+                            changes[f]={'label':label,'old':current.get(f,'—'),'new':candidate.get(f,'—')}
+                    if changes: actions.append({'type':'employee','id':e.id,'row':rno,'name':e.full_name,'changes':changes})
+                else:
+                    if ck in job_codes or (ek and ek in emails):
+                        errors.append(f'صف {rno}: يوجد تكرار داخل ملف Excel للكود الوظيفي أو البريد الإلكتروني.'); continue
+                    actions.append({'type':'new_employee','row':rno,'values':vals,'hire_date':hd.isoformat(),'branch_id':b.id,'branch':b.name,'governorate':g.name})
+                    job_codes[ck]=None; emails[ek]=None
         wb.close()
-        _remove_pending_excel(token); session.pop('excel_import_token',None)
-        msg=f'تم استيراد {added} سجلًا بنجاح.'
-        if skipped: msg+=f' تم تخطي {skipped} سجل مكرر.'
-        if errors: msg+=f' تعذر استيراد {len(errors)} صفًا.'
-        flash(msg)
-        return render_template('excel_import.html',kind=kind,import_done=True,added=added,skipped=skipped,errors=errors)
+        review_path=_pending_excel_review_path(token)
+        with open(review_path,'w',encoding='utf-8') as fh: json.dump({'kind':kind,'mapping':mapping,'actions':actions,'errors':errors},fh,ensure_ascii=False)
+        session['excel_review_token']=token
+        return render_template('excel_import.html',kind=kind,review_step=True,actions=actions,errors=errors,fields=fields)
     except Exception as ex:
-        db.session.rollback()
         try: wb.close()
         except Exception: pass
         _remove_pending_excel(token); session.pop('excel_import_token',None)
-        flash('تعذر استيراد ملف Excel: '+str(ex))
+        flash('تعذر تحليل ملف Excel: '+str(ex))
         return redirect(url_for('excel_import_page',kind=kind))
+
+@app.post('/excel-import/<kind>/apply')
+@req
+def excel_import_apply(kind):
+    _excel_import_permissions(kind)
+    token=session.get('excel_review_token'); path=_pending_excel_path(token) if token else None; review_path=_pending_excel_review_path(token) if token else None
+    if not token or not path or not os.path.isfile(path) or not review_path or not os.path.isfile(review_path):
+        flash('انتهت جلسة مراجعة ملف Excel. ارفع الملف مرة أخرى.'); return redirect(url_for('excel_import_page',kind=kind))
+    try:
+        with open(review_path,'r',encoding='utf-8') as fh: review=json.load(fh)
+        actions=review.get('actions',[]); selected=set(request.form.getlist('change'))
+        added=updated=skipped=0; errors=list(review.get('errors',[]))
+        if kind=='branches':
+            for a in actions:
+                if a['type']=='new_branch':
+                    v=a['values']; b=Branch(governorate_id=a['governorate_id'],name=v['name'],code=v['code']); db.session.add(b); db.session.flush(); added+=1
+                elif a['type']=='branch':
+                    b=db.session.get(Branch,a['id']);
+                    if not b: continue
+                    changed=False
+                    for f in ('name','code'):
+                        key=f"{a['type']}:{a['id']}:{f}"
+                        if key in selected:
+                            setattr(b,f,a['changes'][f]['new']); changed=True
+                    if changed: updated+=1
+        else:
+            for a in actions:
+                if a['type']=='new_employee':
+                    v=a['values']; e=Employee(employee_code=None,email=v['email'],full_name=v['name'],branch_id=a['branch_id'],job_title=v['job_title'],job_code=v['job_code'],hire_date=datetime.fromisoformat(a['hire_date']).date(),company_phone=v['company_phone'],personal_phone=v['personal_phone']); db.session.add(e); db.session.flush(); added+=1
+                elif a['type']=='employee':
+                    e=db.session.get(Employee,a['id']);
+                    if not e: continue
+                    changed=False
+                    for f in a['changes']:
+                        key=f"employee:{a['id']}:{f}"
+                        if key not in selected: continue
+                        new=a['changes'][f]['new']
+                        if f=='branch_id': setattr(e,f,int(new))
+                        elif f=='hire_date': setattr(e,f,datetime.fromisoformat(new).date())
+                        else: setattr(e,f,new)
+                        changed=True
+                    if changed: updated+=1
+        db.session.commit(); log('IMPORT','Branch' if kind=='branches' else 'Employee',0,f'Excel: إضافة {added}، تحديث {updated}، تخطي دون تغييرات {skipped}'); db.session.commit()
+        _remove_pending_excel(token); session.pop('excel_import_token',None); session.pop('excel_review_token',None)
+        return render_template('excel_import.html',kind=kind,import_done=True,added=added,updated=updated,skipped=skipped,errors=errors)
+    except Exception as ex:
+        db.session.rollback(); _remove_pending_excel(token); session.pop('excel_import_token',None); session.pop('excel_review_token',None)
+        flash('تعذر تطبيق تغييرات Excel: '+str(ex)); return redirect(url_for('excel_import_page',kind=kind))
 
 @app.route('/governorates',methods=['GET','POST'])
 @req

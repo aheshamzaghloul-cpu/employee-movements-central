@@ -1,23 +1,56 @@
 {% extends 'base.html' %}
 {% block title %}استيراد من Excel{% endblock %}
 {% block content %}
-<div class="toolbar"><div><h1>استيراد من Excel</h1><p class="subtitle">إضافة {{ 'الفروع' if kind=='branches' else 'الموظفين' }} دفعة واحدة مع التحقق من البيانات والتكرار.</p></div><div class="actions"><a class="btn secondary" href="{{ '/branches' if kind=='branches' else '/employees' }}">↩ العودة</a></div></div>
+<div class="toolbar"><div><h1>استيراد ذكي من Excel</h1><p class="subtitle">يمكنك استخدام أي ملف Excel حتى لو اختلف ترتيب الأعمدة أو اختلفت مسميات العناوين. تتم مطابقة الأعمدة مرة واحدة قبل الاستيراد.</p></div><div class="actions"><a class="btn secondary" href="{{ '/branches' if kind=='branches' else '/employees' }}">↩ العودة</a></div></div>
+
+{% if mapping_step %}
 <div class="box">
-  <div class="section-title"><div><h3>{{ 'استيراد الفروع' if kind=='branches' else 'استيراد الموظفين' }}</h3><span class="hint">استخدم صف العناوين كما هو موضح في النموذج.</span></div></div>
-  <div class="actions" style="margin-bottom:14px"><a class="btn secondary" href="/excel-import/{{kind}}/template">⬇ تحميل نموذج Excel</a></div>
-  <form method="post" enctype="multipart/form-data" class="grid wide">
+  <div class="section-title"><div><h3>① مطابقة أعمدة الملف</h3><span class="hint">النظام اقترح المطابقة تلقائيًا. راجعها وعدّل أي اختيار قبل الضغط على الاستيراد.</span></div></div>
+  {% if warning %}<div class="alert" style="margin-bottom:14px">{{warning}}</div>{% endif %}
+  <form method="post" action="/excel-import/{{kind}}/confirm" class="grid wide">
+    <input type="hidden" name="_csrf" value="{{csrf}}">
+    {% for field,label in fields.items() %}
+    <label style="grid-column:1/-1"><b>{{label}}</b>
+      <select name="map_{{field}}" required>
+        <option value="">— اختر عمود Excel —</option>
+        {% for h in headers %}
+        <option value="{{loop.index}}" {% if suggested.get(field)==loop.index %}selected{% endif %}>{{loop.index}} — {{h if h else '(بدون عنوان)'}}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% endfor %}
+    <div class="form-actions" style="grid-column:1/-1"><button>📥 تأكيد المطابقة واستيراد البيانات</button><a class="btn secondary" href="/excel-import/{{kind}}">إلغاء ورفع ملف آخر</a></div>
+  </form>
+</div>
+
+<div class="box">
+  <div class="section-title"><div><h3>② معاينة الملف</h3><span class="hint">عرض أول 5 صفوف للتأكد من أن المطابقة صحيحة.</span></div></div>
+  <div style="overflow:auto">
+    <table class="data-table" style="min-width:900px">
+      <thead><tr>{% for h in headers %}<th>{{loop.index}} — {{h if h else '(بدون عنوان)'}}</th>{% endfor %}</tr></thead>
+      <tbody>{% for row in preview %}<tr>{% for cell in row %}<td>{{cell}}</td>{% endfor %}</tr>{% else %}<tr><td colspan="{{headers|length}}">لا توجد صفوف بيانات للمعاينة.</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="box">
+  <div class="section-title"><div><h3>استيراد {{ 'الفروع' if kind=='branches' else 'الموظفين' }}</h3><span class="hint">ارفع ملف Excel الخاص بك؛ لا يشترط ترتيب معين للأعمدة.</span></div></div>
+  <div class="actions" style="margin-bottom:14px"><a class="btn secondary" href="/excel-import/{{kind}}/template">⬇ تحميل نموذج Excel اختياري</a></div>
+  <form method="post" action="/excel-import/{{kind}}/preview" enctype="multipart/form-data" class="grid wide">
     <input type="hidden" name="_csrf" value="{{csrf}}">
     <label style="grid-column:1/-1">ملف Excel
-      <input type="file" name="file" accept=".xlsx,.xlsm" required>
+      <input type="file" name="file" accept=".xlsx,.xlsm,.xltx" required>
     </label>
-    <div class="form-actions"><button>📥 استيراد البيانات</button></div>
+    <div class="form-actions"><button>🔍 قراءة الملف ومطابقة الأعمدة</button></div>
   </form>
   {% if kind=='branches' %}
-  <div class="hint" style="margin-top:14px">الأعمدة المطلوبة: <b>المحافظة، اسم الفرع، كود الفرع</b>. الصفوف المكررة لا تُضاف مرة أخرى.</div>
+  <div class="hint" style="margin-top:14px">البيانات المطلوبة: <b>المحافظة، اسم الفرع، كود الفرع</b>. يمكنك تغيير ترتيب الأعمدة أو أسماءها، والنظام يقترح المطابقة تلقائيًا.</div>
   {% else %}
-  <div class="hint" style="margin-top:14px">الأعمدة المطلوبة: <b>المحافظة، الفرع، اسم الموظف، البريد الإلكتروني، الوظيفة، الكود الوظيفي، تاريخ التعيين، هاتف الشركة، الهاتف الشخصي</b>.</div>
+  <div class="hint" style="margin-top:14px">البيانات المطلوبة: <b>المحافظة، الفرع، اسم الموظف، البريد الإلكتروني، الوظيفة، الكود الوظيفي، تاريخ التعيين، هاتف الشركة، الهاتف الشخصي</b>. ترتيب الأعمدة غير مهم.</div>
   {% endif %}
 </div>
+{% endif %}
+
 {% if import_done %}
 <div class="box">
   <div class="section-title"><h3>نتيجة الاستيراد</h3></div>

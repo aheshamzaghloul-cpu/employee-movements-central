@@ -8,7 +8,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from openpyxl import Workbook, load_workbook
 
 app=Flask(__name__)
-APP_VERSION='v35.35'
+APP_VERSION='v35.37'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg2://',1)
 elif DATABASE_URL.startswith('postgresql://'): DATABASE_URL=DATABASE_URL.replace('postgresql://','postgresql+psycopg2://',1)
@@ -1243,7 +1243,7 @@ def _excel_date(value):
     if isinstance(value, datetime): return value.date()
     if isinstance(value, date): return value
     txt=_excel_text(value)
-    for fmt in ('%Y-%m-%d','%d/%m/%Y','%d-%m-%Y','%Y/%m/%d','%d.%m.%Y'):
+    for fmt in ('%Y-%m-%d','%d/%m/%Y','%d-%m-%Y','%Y/%m/%d','%d.%m.%Y','%m/%d/%Y','%m-%d-%Y'):
         try: return datetime.strptime(txt,fmt).date()
         except ValueError: pass
     return None
@@ -1252,46 +1252,78 @@ def _header_map(ws):
     headers={}
     for idx,cell in enumerate(ws[1],1):
         k=_excel_key(cell.value)
-        if k: headers[k]=idx
+        if k and k not in headers: headers[k]=idx
     return headers
 
-def _cell(row, headers, *names):
-    for name in names:
-        idx=headers.get(_excel_key(name))
-        if idx: return row[idx-1].value
-    return None
+def _excel_headers(ws):
+    return [_excel_text(c.value) for c in ws[1]]
+
+def _cell_by_index(row, index):
+    try:
+        idx=int(index)
+        if idx < 1 or idx > len(row): return None
+        return row[idx-1].value
+    except (TypeError,ValueError):
+        return None
 
 BRANCH_IMPORT_HEADERS={
-    'governorate':('المحافظة','اسم المحافظة','governorate'),
-    'name':('اسم الفرع','الفرع','branch','branch name'),
-    'code':('كود الفرع','كود الفرع/الفرع','branch code','code'),
+    'governorate':('المحافظة','اسم المحافظة','المحافظه','governorate','governorate name','governorate_name'),
+    'name':('اسم الفرع','الفرع','branch','branch name','branch_name'),
+    'code':('كود الفرع','كود الفرع/الفرع','كود','branch code','branch_code','code'),
 }
 EMP_IMPORT_HEADERS={
-    'governorate':('المحافظة','اسم المحافظة','governorate'),
-    'branch':('الفرع','اسم الفرع','branch','branch name'),
-    'name':('اسم الموظف','الموظف','اسم الموظف بالكامل','full name','name'),
-    'email':('البريد الإلكتروني','البريد الالكتروني','email'),
-    'job_title':('الوظيفة','المسمى الوظيفي','job title','title'),
-    'job_code':('الكود الوظيفي','كود الوظيفة','كود شئون العاملين','كود شؤون العاملين','employee code','job code','code'),
-    'hire_date':('تاريخ التعيين','hire date','date of hire'),
-    'company_phone':('هاتف الشركة','تليفون الشركة','هاتف العمل','company phone'),
-    'personal_phone':('الهاتف الشخصي','تليفون شخصي','personal phone'),
+    'governorate':('المحافظة','اسم المحافظة','المحافظه','governorate','governorate name','governorate_name'),
+    'branch':('الفرع','اسم الفرع','branch','branch name','branch_name'),
+    'name':('اسم الموظف','الموظف','اسم الموظف بالكامل','اسم الموظف كامل','full name','employee name','name'),
+    'email':('البريد الإلكتروني','البريد الالكتروني','البريد','email','e-mail'),
+    'job_title':('الوظيفة','المسمى الوظيفي','المسمى الوظيفى','الوظيفه','job title','job_title','title'),
+    'job_code':('الكود الوظيفي','كود الوظيفة','كود شئون العاملين','كود شؤون العاملين','كود شئون العاملين للموظف','كود العامل','employee code','employee_code','job code','job_code','code'),
+    'hire_date':('تاريخ التعيين','تاريخ التعيين بالعمل','تاريخ المباشرة','hire date','date of hire','hire_date'),
+    'company_phone':('هاتف الشركة','تليفون الشركة','هاتف العمل','تليفون العمل','company phone','company_phone','work phone'),
+    'personal_phone':('الهاتف الشخصي','تليفون شخصي','الموبايل','رقم الموبايل','رقم الهاتف','personal phone','personal_phone','mobile'),
 }
 
-def _required_headers(headers, spec):
-    missing=[]
+def _import_spec(kind):
+    return BRANCH_IMPORT_HEADERS if kind=='branches' else EMP_IMPORT_HEADERS
+
+def _field_labels(kind):
+    if kind=='branches':
+        return {'governorate':'المحافظة','name':'اسم الفرع','code':'كود الفرع'}
+    return {'governorate':'المحافظة','branch':'الفرع','name':'اسم الموظف','email':'البريد الإلكتروني','job_title':'الوظيفة','job_code':'الكود الوظيفي','hire_date':'تاريخ التعيين','company_phone':'هاتف الشركة','personal_phone':'الهاتف الشخصي'}
+
+def _auto_map_headers(headers, spec):
+    """Return target field -> source column index. Exact/normalized aliases first, then fuzzy tokens."""
+    mapping={}
+    used=set()
+    normalized=[_excel_key(h) for h in headers]
     for field,names in spec.items():
-        if not any(_excel_key(n) in headers for n in names): missing.append(names[0])
-    return missing
+        aliases=[_excel_key(n) for n in names]
+        # exact alias match
+        for i,h in enumerate(normalized,1):
+            if i in used or not h: continue
+            if h in aliases:
+                mapping[field]=i; used.add(i); break
+        if field in mapping: continue
+        # relaxed matching for common Arabic/English header variations
+        for i,h in enumerate(normalized,1):
+            if i in used or not h: continue
+            for a in aliases:
+                if len(a)>=4 and (a in h or h in a):
+                    mapping[field]=i; used.add(i); break
+            if field in mapping: break
+    return mapping
+
+def _excel_import_permissions(kind):
+    if kind not in ('branches','employees'): abort(404)
+    if kind=='branches' and not (can('manage_structure') and has_role('مسؤول التطبيق','مشرف محافظة')): abort(403)
+    if kind=='employees' and not can('manage_employees'): abort(403)
 
 def _excel_scope_governorates():
     return {g.id for g in Governorate.query.filter_by(is_active=True).all()} if 'مسؤول التطبيق' in roles() else set(gids())
 
-def _excel_import_page(kind):
-    if kind not in ('branches','employees'): abort(404)
-    if kind=='branches' and not (can('manage_structure') and has_role('مسؤول التطبيق','مشرف محافظة')): abort(403)
-    if kind=='employees' and not can('manage_employees'): abort(403)
-    return render_template('excel_import.html',kind=kind)
+def _excel_import_page(kind, **ctx):
+    _excel_import_permissions(kind)
+    return render_template('excel_import.html',kind=kind,**ctx)
 
 @app.get('/excel-import/<kind>')
 @req
@@ -1301,9 +1333,7 @@ def excel_import_page(kind):
 @app.get('/excel-import/<kind>/template')
 @req
 def excel_import_template(kind):
-    if kind not in ('branches','employees'): abort(404)
-    if kind=='branches' and not (can('manage_structure') and has_role('مسؤول التطبيق','مشرف محافظة')): abort(403)
-    if kind=='employees' and not can('manage_employees'): abort(403)
+    _excel_import_permissions(kind)
     wb=Workbook(); ws=wb.active; ws.title='بيانات'
     if kind=='branches':
         headers=['المحافظة','اسم الفرع','كود الفرع']
@@ -1319,44 +1349,115 @@ def excel_import_template(kind):
     from flask import send_file
     return send_file(data,as_attachment=True,download_name=f'{kind}-template.xlsx',mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
-@app.post('/excel-import/<kind>')
+def _pending_excel_dir():
+    d=os.path.join(os.getenv('TMPDIR','/tmp'),'employee_movements_excel_imports')
+    os.makedirs(d,exist_ok=True)
+    return d
+
+def _pending_excel_path(token):
+    return os.path.join(_pending_excel_dir(),f'{token}.xlsx')
+
+def _save_pending_excel(f):
+    token=secrets.token_urlsafe(24)
+    path=_pending_excel_path(token)
+    f.save(path)
+    return token,path
+
+def _remove_pending_excel(token):
+    if not token: return
+    try: os.remove(_pending_excel_path(token))
+    except OSError: pass
+
+def _get_pending_excel():
+    token=session.get('excel_import_token')
+    if not token: return None,None
+    path=_pending_excel_path(token)
+    if not os.path.isfile(path):
+        session.pop('excel_import_token',None); return None,None
+    return token,path
+
+def _render_mapping(kind, token, path, warning=None):
+    wb=load_workbook(path,read_only=True,data_only=True)
+    ws=wb.active
+    headers=_excel_headers(ws)
+    preview=[]
+    for row in ws.iter_rows(min_row=2,max_row=6,values_only=True):
+        vals=[_excel_text(v) for v in row]
+        if any(vals): preview.append(vals[:len(headers)])
+    wb.close()
+    spec=_import_spec(kind)
+    mapping=_auto_map_headers(headers,spec)
+    labels=_field_labels(kind)
+    return _excel_import_page(kind, mapping_step=True, token=token, headers=headers, preview=preview, fields=labels, suggested=mapping, warning=warning)
+
+@app.post('/excel-import/<kind>/preview')
 @req
-def excel_import(kind):
-    if kind not in ('branches','employees'): abort(404)
-    if kind=='branches' and not (can('manage_structure') and has_role('مسؤول التطبيق','مشرف محافظة')): abort(403)
-    if kind=='employees' and not can('manage_employees'): abort(403)
+def excel_import_preview(kind):
+    _excel_import_permissions(kind)
     f=request.files.get('file')
-    if not f or not f.filename.lower().endswith(('.xlsx','.xlsm')):
-        flash('اختر ملف Excel بصيغة .xlsx أو .xlsm.')
+    if not f or not f.filename.lower().endswith(('.xlsx','.xlsm','.xltx')):
+        flash('اختر ملف Excel بصيغة .xlsx أو .xlsm أو .xltx.')
         return redirect(url_for('excel_import_page',kind=kind))
     try:
-        wb=load_workbook(f,read_only=True,data_only=True)
+        old=session.pop('excel_import_token',None); _remove_pending_excel(old)
+        token,path=_save_pending_excel(f)
+        wb=load_workbook(path,read_only=True,data_only=True)
         ws=wb.active
-        headers=_header_map(ws)
-        spec=BRANCH_IMPORT_HEADERS if kind=='branches' else EMP_IMPORT_HEADERS
-        missing=_required_headers(headers,spec)
-        if missing:
-            flash('أعمدة ناقصة في الملف: '+ '، '.join(missing))
-            return redirect(url_for('excel_import_page',kind=kind))
+        headers=_excel_headers(ws)
+        wb.close()
+        if not headers or not any(headers):
+            _remove_pending_excel(token); flash('ملف Excel لا يحتوي على صف عناوين صالح.'); return redirect(url_for('excel_import_page',kind=kind))
+        session['excel_import_token']=token
+        return _render_mapping(kind,token,path)
+    except Exception as ex:
+        flash('تعذر قراءة ملف Excel: '+str(ex))
+        return redirect(url_for('excel_import_page',kind=kind))
+
+def _mapped_value(row, mapping, field):
+    return _excel_text(_cell_by_index(row, mapping.get(field)))
+
+@app.post('/excel-import/<kind>/confirm')
+@req
+def excel_import_confirm(kind):
+    _excel_import_permissions(kind)
+    token,path=_get_pending_excel()
+    if not token or not path:
+        flash('انتهت جلسة مطابقة ملف Excel. ارفع الملف مرة أخرى.')
+        return redirect(url_for('excel_import_page',kind=kind))
+    spec=_import_spec(kind)
+    fields=_field_labels(kind)
+    mapping={}
+    for field in fields:
+        raw=request.form.get(f'map_{field}','').strip()
+        if raw:
+            try: mapping[field]=int(raw)
+            except ValueError: pass
+    missing=[fields[k] for k in spec if k not in mapping]
+    if missing:
+        return _render_mapping(kind,token,path,warning='يجب مطابقة الأعمدة التالية: '+ '، '.join(missing))
+    if len(set(mapping.values())) != len(mapping):
+        return _render_mapping(kind,token,path,warning='لا يمكن استخدام نفس عمود Excel لأكثر من حقل. راجع المطابقة.')
+    try:
+        wb=load_workbook(path,read_only=True,data_only=True)
+        ws=wb.active
+        headers=_excel_headers(ws)
+        if any(i<1 or i>len(headers) for i in mapping.values()):
+            wb.close(); return _render_mapping(kind,token,path,warning='اختيار أحد الأعمدة غير صالح. أعد المطابقة.')
         allowed_gids=_excel_scope_governorates()
         errors=[]; added=0; skipped=0
-        # Cache active objects for fast lookup and stable matching by name/code.
         govs={_excel_key(g.name):g for g in Governorate.query.filter(Governorate.is_active==True,Governorate.id.in_(allowed_gids)).all()}
         branches_by_gov={}
         for b in Branch.query.filter(Branch.is_active==True,Branch.governorate_id.in_(allowed_gids)).all():
             branches_by_gov.setdefault(b.governorate_id,{})[_excel_key(b.name)]=b
         if kind=='branches':
             for rno,row in enumerate(ws.iter_rows(min_row=2,values_only=False),2):
-                vals={k:_excel_text(_cell(row,headers,*names)) for k,names in BRANCH_IMPORT_HEADERS.items()}
+                vals={k:_mapped_value(row,mapping,k) for k in spec}
                 if not any(vals.values()): continue
                 g=govs.get(_excel_key(vals['governorate']))
                 if not g: errors.append(f'صف {rno}: المحافظة غير موجودة أو خارج نطاقك: {vals["governorate"]}'); continue
                 if not vals['name'] or not vals['code']: errors.append(f'صف {rno}: اسم الفرع وكوده مطلوبان.'); continue
-                key=_excel_key(vals['name'])
-                existing=branches_by_gov.setdefault(g.id,{})
-                if key in existing:
-                    skipped+=1; continue
-                # Avoid reusing a code for a different branch in the same governorate.
+                key=_excel_key(vals['name']); existing=branches_by_gov.setdefault(g.id,{})
+                if key in existing: skipped+=1; continue
                 code_dup=Branch.query.filter_by(governorate_id=g.id,code=vals['code']).first()
                 if code_dup: errors.append(f'صف {rno}: كود الفرع {vals["code"]} مستخدم بالفعل في {g.name}.'); continue
                 b=Branch(governorate_id=g.id,name=vals['name'],code=vals['code']); db.session.add(b); db.session.flush(); existing[key]=b; added+=1
@@ -1364,15 +1465,13 @@ def excel_import(kind):
                 db.session.commit(); log('IMPORT','Branch',0,f'Excel: إضافة {added}، تخطي {skipped}'); db.session.commit()
             else: db.session.rollback()
         else:
-            # Employee scope follows the branches the current user can manage.
-            managed_branch_ids=set(bids())
-            branch_cache={}
+            managed_branch_ids=set(bids()); branch_cache={}
             for b in Branch.query.filter(Branch.is_active==True,Branch.governorate_id.in_(allowed_gids),Branch.id.in_(managed_branch_ids)).all():
                 branch_cache[(_excel_key(b.governorate.name),_excel_key(b.name))]=b
             emails={_excel_key(e.email):e for e in Employee.query.filter(Employee.email.isnot(None)).all()}
             job_codes={_excel_key(e.job_code):e for e in Employee.query.filter(Employee.job_code.isnot(None)).all()}
             for rno,row in enumerate(ws.iter_rows(min_row=2,values_only=False),2):
-                vals={k:_excel_text(_cell(row,headers,*names)) for k,names in EMP_IMPORT_HEADERS.items()}
+                vals={k:_mapped_value(row,mapping,k) for k in spec}
                 if not any(vals.values()): continue
                 g=govs.get(_excel_key(vals['governorate']))
                 if not g: errors.append(f'صف {rno}: المحافظة غير موجودة أو خارج نطاقك: {vals["governorate"]}'); continue
@@ -1381,18 +1480,18 @@ def excel_import(kind):
                 required=['name','email','job_title','job_code','hire_date','company_phone','personal_phone']
                 if any(not vals[x] for x in required): errors.append(f'صف {rno}: جميع بيانات الموظف مطلوبة.'); continue
                 if not valid_email(vals['email']): errors.append(f'صف {rno}: البريد الإلكتروني غير صحيح.'); continue
-                hd=_excel_date(_cell(row,headers,*EMP_IMPORT_HEADERS['hire_date']))
+                hd=_excel_date(_cell_by_index(row,mapping.get('hire_date')))
                 if not hd: errors.append(f'صف {rno}: تاريخ التعيين غير صحيح.'); continue
                 ek=_excel_key(vals['email']); ck=_excel_key(vals['job_code'])
-                if ek in emails:
-                    skipped+=1; continue
-                if ck in job_codes:
-                    errors.append(f'صف {rno}: الكود الوظيفي {vals["job_code"]} مستخدم بالفعل.'); continue
+                if ek in emails: skipped+=1; continue
+                if ck in job_codes: errors.append(f'صف {rno}: الكود الوظيفي {vals["job_code"]} مستخدم بالفعل.'); continue
                 e=Employee(employee_code=None,email=vals['email'],full_name=vals['name'],branch_id=b.id,job_title=vals['job_title'],job_code=vals['job_code'],hire_date=hd,company_phone=vals['company_phone'],personal_phone=vals['personal_phone'])
                 db.session.add(e); db.session.flush(); emails[ek]=e; job_codes[ck]=e; added+=1
             if added or skipped:
                 db.session.commit(); log('IMPORT','Employee',0,f'Excel: إضافة {added}، تخطي {skipped}'); db.session.commit()
             else: db.session.rollback()
+        wb.close()
+        _remove_pending_excel(token); session.pop('excel_import_token',None)
         msg=f'تم استيراد {added} سجلًا بنجاح.'
         if skipped: msg+=f' تم تخطي {skipped} سجل مكرر.'
         if errors: msg+=f' تعذر استيراد {len(errors)} صفًا.'
@@ -1400,7 +1499,10 @@ def excel_import(kind):
         return render_template('excel_import.html',kind=kind,import_done=True,added=added,skipped=skipped,errors=errors)
     except Exception as ex:
         db.session.rollback()
-        flash('تعذر قراءة ملف Excel: '+str(ex))
+        try: wb.close()
+        except Exception: pass
+        _remove_pending_excel(token); session.pop('excel_import_token',None)
+        flash('تعذر استيراد ملف Excel: '+str(ex))
         return redirect(url_for('excel_import_page',kind=kind))
 
 @app.route('/governorates',methods=['GET','POST'])

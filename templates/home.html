@@ -4,21 +4,6 @@
 <style id="home-manager-search-style">
 .manager-scope-bar{margin:0 0 16px;padding:12px 16px;border:1px solid #dbe3ee;border-radius:14px;background:#f7f9fc}.manager-scope-form{display:flex;align-items:end;gap:14px;flex-wrap:wrap}.manager-scope-form label{min-width:280px}.manager-scope-form select{display:block;width:100%;margin-top:5px}.manager-scope-form span{font-size:13px;color:#64748b}.movement-quick-filter-form{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:10px;align-items:end}.movement-quick-filter-form label{display:flex;flex-direction:column;gap:5px}.movement-quick-filter-form select{width:100%}.movement-quick-filter-form small{grid-column:1/-1}.movement-employee-result{margin-top:14px}.movement-employee-result-card{border:1px solid #d9e2ec;border-radius:16px;background:#fff;box-shadow:0 8px 24px rgba(15,23,42,.07);padding:18px}.movement-employee-result-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}.movement-employee-result-person{display:flex;align-items:center;gap:12px}.movement-employee-result-avatar{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;background:#eef4ff;font-size:23px;font-weight:800}.movement-employee-result-person h3{margin:0 0 4px}.movement-employee-result-person p{margin:0;color:#64748b}.movement-employee-result-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}.movement-employee-result-grid>div{padding:10px 12px;background:#f7f9fc;border-radius:10px}.movement-employee-result-grid small{display:block;color:#64748b;margin-bottom:3px}.movement-employee-last{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}.movement-employee-last>div{border:1px solid #e5eaf0;border-radius:10px;padding:11px}.movement-employee-last h4{margin:0 0 7px}.movement-employee-last .hint{font-size:13px}@media(max-width:900px){.movement-employee-result-grid,.movement-employee-last{grid-template-columns:1fr 1fr}}@media(max-width:600px){.movement-employee-result-grid,.movement-employee-last{grid-template-columns:1fr}}@media(max-width:1100px){.movement-quick-filter-form{grid-template-columns:1fr 1fr}.movement-quick-filter-form button{grid-column:1/-1}}
 </style>
-<style id="home-movement-register-style">
-.home-movement-form{margin-top:6px}.home-movement-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.home-movement-grid label{display:flex;flex-direction:column;gap:7px;font-weight:800;color:#243447}.home-movement-grid input,.home-movement-grid select{min-height:46px;font-size:15px}.home-movement-grid label[hidden]{display:none}.home-movement-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:16px}.home-movement-footer .duration-box{margin:0;min-width:230px}.home-movement-footer .btn{min-height:46px;padding:0 24px;font-size:15px;font-weight:800}.home-movement-employee-search{position:relative}.home-movement-employee-search .movement-suggestions{position:absolute;z-index:30;top:100%;left:0;right:0;margin-top:4px}.home-movement-form .movement-suggestion{width:100%;text-align:right}.home-movement-form .home-movement-grid input[type=checkbox]{min-height:auto;width:auto}.home-movement-form .home-movement-grid label:has(input[type=checkbox]){justify-content:center;padding:10px 12px;border:1px solid #d9e4ed;border-radius:10px;background:#f8fafc}@media(max-width:950px){.home-movement-grid{grid-template-columns:1fr 1fr}}@media(max-width:600px){.home-movement-grid{grid-template-columns:1fr}.home-movement-footer{align-items:stretch;flex-direction:column}.home-movement-footer .duration-box{width:100%;box-sizing:border-box}}
-</style>
-<style id="admin-entry-role-professional-style">
-.admin-entry-role-professional{grid-template-columns:1fr;gap:20px;padding:22px}.admin-entry-role-intro h3{font-size:22px;margin:4px 0 7px}.admin-entry-role-intro p{font-size:14px;line-height:1.8}.admin-entry-role-note{margin-top:10px;padding:10px 12px;border-radius:10px;background:#f3f8fb;border:1px solid #d9e8f0;color:#456070;font-size:13px}.entry-role-professional-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:end}.entry-role-professional-form label{display:flex;flex-direction:column;gap:7px;font-size:14px;font-weight:800}.entry-role-professional-form select{min-height:48px;font-size:15px}.entry-role-professional-form .entry-role-branches-field{grid-column:1/-1}.entry-role-professional-form .entry-role-branches-field select{min-height:150px;padding:8px}.entry-role-professional-form small{font-weight:500;color:#64748b}.entry-role-submit{min-height:48px;font-size:15px;font-weight:800}@media(max-width:800px){.entry-role-professional-form{grid-template-columns:1fr}.entry-role-professional-form .entry-role-branches-field{grid-column:auto}.entry-role-submit{width:100%}}
-</style>
-<style id="home-half-layout-style">
-.home-main-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start;margin-top:16px}
-.home-main-left,.home-main-right{min-width:0;display:flex;flex-direction:column;gap:16px}
-.home-main-left .home-standalone-box,.home-main-right .home-panel{width:100%;box-sizing:border-box;margin:0}
-.home-main-right .home-three-panels{display:flex;flex-direction:column;gap:16px;margin:0}
-.home-main-right .home-panel{width:100%}
-@media(max-width:900px){.home-main-layout{grid-template-columns:1fr}}
-</style>
-
 <div class="home-dashboard-head">
   <div>
     <div class="home-kicker">لوحة التحكم</div>
@@ -40,9 +25,6 @@
   </form>
 </div>
 {% endif %}
-
-<div class="home-main-layout">
-<div class="home-main-left">
 
 <!-- أدوات مستقلة عن لوحات الصفحة الرئيسية -->
 {% if can('manage_movements') or can('view_reports') %}
@@ -103,31 +85,12 @@
     <div><span class="home-kicker">إدخال مباشر</span><h2>تسجيل حركة</h2><p>تسجيل إجازة أو انتداب أو إذن للموظف مباشرة.</p></div>
     <span class="home-standalone-icon">➕</span>
   </div>
-  <form method="post" action="/movements" id="home-movement-form" class="home-movement-form">
-    <input type="hidden" name="_csrf" value="{{csrf}}">
-    <div class="home-movement-grid">
-      <label>المحافظة<select id="home_movement_governorate" required><option value="">اختر المحافظة أولًا</option>{% for g in movement_entry_governorates %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
-      <label>الفرع<select id="home_movement_branch" disabled><option value="">اختر الفرع</option></select></label>
-      <label class="home-movement-employee-search">بحث باسم الموظف أو كود الموظف<input id="home_movement_employee_search" type="search" autocomplete="off" placeholder="اكتب الاسم أو الكود" disabled><div id="home_movement_employee_suggestions" class="movement-suggestions" hidden></div></label>
-      <label>الموظف<select name="employee_id" id="home_movement_employee" required disabled><option value="">اختر الموظف</option></select></label>
-      <label>فرع التعيين<input id="home_employee_home_branch" readonly></label>
-      <label>نوع الحركة<select name="movement_type" id="home_movement_type" required><option value="">اختر نوع الحركة</option>{% for x in movement_types %}<option value="{{x}}">{{x}}</option>{% endfor %}</select></label>
-      <label data-home-movement="إجازة" hidden>نوع الإجازة<select name="leave_type" id="home_leave_type"><option value="">اختر نوع الإجازة</option>{% for x in leave_types %}<option value="{{x}}">{{x}}</option>{% endfor %}</select></label>
-      <label data-home-movement="انتداب" hidden>الفرع المنتدب إليه<select name="destination_branch_id" id="home_destination_branch_id"><option value="">اختر الفرع</option>{% for b in movement_entry_branches %}<option value="{{b.id}}">{{b.name}}</option>{% endfor %}</select></label>
-      <label data-home-movement="إجازة" data-home-movement2="انتداب" hidden>من تاريخ<input type="date" name="from_date" id="home_from_date"></label>
-      <label data-home-movement="انتداب" hidden id="home_open_assignment_wrap"><span><input type="checkbox" name="open_assignment" id="home_open_assignment" value="1"> انتداب مفتوح — بدون تاريخ نهاية</span></label>
-      <label data-home-movement="إجازة" data-home-movement2="انتداب" hidden id="home_to_date_wrap">إلى تاريخ<input type="date" name="to_date" id="home_to_date"></label>
-      <label data-home-movement="إذن" hidden>تاريخ الإذن<input type="date" name="permission_date" id="home_permission_date"></label>
-    </div>
-    <div class="home-movement-footer"><div class="duration-box"><b>المدة</b><strong id="home_movement_days">—</strong><span>يوم</span><small>تحسب تلقائيًا للإجازة والانتداب</small></div><button class="btn" type="submit">حفظ الحركة</button></div>
-  </form>
+  <div class="home-register-action">
+    <a class="movement-action accent" href="/movements"><span>➕</span><b>تسجيل إجازة - انتداب - إذن</b><small>تسجيل حركة الموظف مباشرة دون اعتماد</small></a>
+  </div>
 </section>
 {% endif %}
 {% endif %}
-
-</div>
-
-<div class="home-main-right">
 
 <!-- الصفحة الرئيسية: ثلاث لوحات متساوية فقط -->
 <div class="home-three-panels" id="dashboard-workspace">
@@ -255,16 +218,46 @@
           </div>
         </details>
       {% else %}
-        <div class="entry-empty entry-empty-large"><strong>لا يوجد مدخلون أوائل حتى الآن</strong><span>هذه الخاصية تعرض المدخلين الأوائل وفروع مسؤوليتهم، وتتم إضافة دور جديد من قسم الإدارة.</span></div>
+        <div class="entry-empty entry-empty-large"><strong>لا يوجد مدخلون أوائل حتى الآن</strong><span>هذه الخاصية موجودة هنا دائمًا، ويمكن إضافة الدور مباشرة من زر «إضافة دور مدخل أول».</span></div>
       {% endfor %}
     </div>
 
   </section>
-
+  <section class="home-standalone-box home-entry-role-box" id="home-entry-role-add">
+    <div class="home-standalone-head">
+      <div><span class="home-kicker">السلسلة الوظيفية</span><h2>إضافة دور مدخل أول</h2><p>دور تنظيمي فقط: اختر الموظف والمشرف وفروع مسؤوليته، دون إنشاء حساب دخول.</p></div>
+      <span class="home-standalone-icon">👤</span>
+    </div>
+    <form method="post" action="/entry-role/add" class="inline-entry-role-form home-entry-role-form">
+      <input type="hidden" name="_csrf" value="{{csrf}}">
+      <label>الموظف<select name="employee_id" required><option value="">اختر الموظف</option>{% for e in available_entry_employees %}<option value="{{e.id}}">{{e.full_name}} — {{e.branch.name if e.branch else ''}}</option>{% endfor %}</select></label>
+      {% if is_admin %}<label>المشرف المسؤول<select name="supervisor_id" required><option value="">اختر المشرف</option>{% for s in entry_supervisors %}<option value="{{s.id}}">{{s.full_name}}</option>{% endfor %}</select></label>{% endif %}
+      <label>فروع المسؤولية<select name="branch_id" multiple required title="يمكن اختيار أكثر من فرع"><option value="" disabled>اختر فروع المسؤولية</option>{% for b in available_entry_branches %}<option value="{{b.id}}">{{b.name}}{% if b.code %} — {{b.code}}{% endif %}</option>{% endfor %}</select></label>
+      <button class="btn" type="submit">إضافة المدخل والفروع</button>
+    </form>
+  </section>
   {% endif %}
 
-</div>
-</div>
+  <!-- 3) حركات الموظفين: المحتوى ظاهر مباشرة دون بند داخلي -->
+  {% if can('manage_movements') or can('view_reports') %}
+  <section class="home-panel home-movements-panel dashboard-widget" data-widget-id="group-movements">
+    <div class="home-group-head">
+      <span class="home-group-icon">🔄</span>
+      <div><h3>حركات الموظفين</h3><small>ابحث عن الموظف واعرض بطاقته وحركاته</small></div>
+      <button type="button" class="panel-expand-btn" data-expand-widget="group-movements">⛶ ملء الصفحة</button>
+    </div>
+    <div class="movement-action-grid">
+      {% if can('view_reports') %}
+      <a class="movement-action" href="/reports/leaves"><span>🏖️</span><b>تقرير الإجازات</b><small>الإجازات حسب المحافظة والفرع والموظف والفترة</small></a>
+      <a class="movement-action" href="/reports/assignments"><span>📍</span><b>تقرير الانتدابات</b><small>الجهات المنتدب إليها والمواعيد والحالات</small></a>
+      <a class="movement-action" href="/reports/permissions"><span>🕘</span><b>تقرير الأذونات</b><small>الأذونات وتفاصيلها حسب الموظفين والفترة</small></a>
+      {% endif %}
+      {% if can('manage_movements') %}
+      <a class="movement-action" href="/reports/assignments/print-missions"><span>📄</span><b>طباعة المأموريات</b><small>النماذج الرسمية للانتدابات</small></a>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
 
 </div>
 <script>
@@ -274,6 +267,7 @@
   const panelNames={
     'employee-current-status':'حالة الموظفين الآن',
     'entry-directory':'المدخلون الأوائل',
+    'group-movements':'حركات الموظفين'
   };
   function restorePanels(){
     if(!workspace) return;
@@ -330,55 +324,4 @@
   entryFilter?.addEventListener('change',filterEntries);
 })();
 </script>
-
-<script id="home-movement-register-js">
-(function(){
- const gov=document.getElementById('home_movement_governorate'), branch=document.getElementById('home_movement_branch'), employee=document.getElementById('home_movement_employee'), search=document.getElementById('home_movement_employee_search'), suggestions=document.getElementById('home_movement_employee_suggestions'), homeBranch=document.getElementById('home_employee_home_branch');
- if(!gov) return;
- let timer=null,seq=0;
- const esc=v=>String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
- function resetEmployees(){employee.innerHTML='<option value="">اختر الموظف</option>';employee.disabled=true;homeBranch.value='';}
- function resetSearch(){if(suggestions){suggestions.innerHTML='';suggestions.hidden=true;}}
- function setEmployee(e){employee.innerHTML='<option value="'+e.id+'">'+esc(e.name)+' — '+esc(e.code||'بدون كود')+' — '+esc(e.branch||'')+'</option>';employee.value=String(e.id);employee.disabled=false;homeBranch.value=e.branch||'';resetSearch();}
- async function api(params){const r=await fetch('/api/movement-employees?'+new URLSearchParams(params),{headers:{Accept:'application/json'}});if(!r.ok)throw new Error('search');return await r.json();}
- async function loadGov(){resetEmployees();resetSearch();search.value='';branch.innerHTML='<option value="">اختر الفرع</option>';branch.disabled=true;search.disabled=true;if(!gov.value)return;search.disabled=false;try{const d=await api({governorate_id:gov.value});(d.branches||[]).forEach(b=>{const o=document.createElement('option');o.value=b.id;o.textContent=b.name;branch.appendChild(o);});branch.disabled=!(d.branches||[]).length;}catch(_){}}
- async function loadBranch(){resetSearch();search.value='';resetEmployees();if(!gov.value||!branch.value)return;try{const d=await api({governorate_id:gov.value,branch_id:branch.value});(d.results||[]).forEach(e=>{const o=document.createElement('option');o.value=e.id;o.textContent=e.name+' — '+(e.code||'بدون كود')+' — '+(e.branch||'');employee.appendChild(o);});employee.disabled=!(d.results||[]).length;}catch(_){resetEmployees();}}
- function renderSuggestions(items){if(!items.length){suggestions.innerHTML='<div class="movement-suggestion-empty">لا توجد مطابقة.</div>';suggestions.hidden=false;return;}suggestions.innerHTML=items.map(e=>'<button type="button" class="movement-suggestion" data-id="'+e.id+'"><strong>'+esc(e.name)+'</strong><small>'+esc(e.code||'بدون كود')+' — '+esc(e.branch||'')+'</small></button>').join('');suggestions.hidden=false;suggestions.querySelectorAll('.movement-suggestion').forEach(btn=>btn.addEventListener('click',()=>{const e=items.find(x=>String(x.id)===btn.dataset.id);if(e)setEmployee(e);}));}
- async function searchEmployees(){const q=search.value.trim();resetEmployees();if(!gov.value||q.length<1){resetSearch();return;}const my=++seq;suggestions.hidden=false;suggestions.innerHTML='<div class="movement-suggestion-empty">جاري البحث…</div>';try{const d=await api({governorate_id:gov.value,q});if(my===seq)renderSuggestions(d.results||[]);}catch(_){if(my===seq){suggestions.innerHTML='<div class="movement-suggestion-empty">تعذر تنفيذ البحث.</div>';suggestions.hidden=false;}}}
- gov.addEventListener('change',loadGov);branch.addEventListener('change',loadBranch);search.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(searchEmployees,180);});document.addEventListener('click',e=>{if(suggestions&&!e.target.closest('.home-movement-employee-search'))resetSearch();});
- const type=document.getElementById('home_movement_type'), cb=document.getElementById('home_open_assignment'), to=document.getElementById('home_to_date'), wrap=document.getElementById('home_to_date_wrap'), openWrap=document.getElementById('home_open_assignment_wrap');
- function sync(){const isAssign=type?.value==='انتداب',isLeave=type?.value==='إجازة',isPerm=type?.value==='إذن',open=!!cb?.checked&&isAssign;document.querySelectorAll('[data-home-movement]').forEach(el=>{const a=el.dataset.homeMovement,b=el.dataset.homeMovement2;el.hidden=!(el.dataset.homeMovement===type?.value||el.dataset.homeMovement2===type?.value);});if(openWrap)openWrap.hidden=!isAssign;if(wrap)wrap.hidden=!(isAssign||isLeave);if(to)to.required=isLeave||(isAssign&&!open);if(cb)cb.checked=isAssign&&cb.checked;}
- type?.addEventListener('change',sync);cb?.addEventListener('change',sync);sync();
- const from=document.getElementById('home_from_date'),days=document.getElementById('home_movement_days');
- function calc(){if(!from||!days)return;const end=to?.value;if(!from.value||!end){days.textContent='—';return;}const a=new Date(from.value),b=new Date(end);const n=Math.round((b-a)/86400000)+1;days.textContent=n>0?n:'—';}
- from?.addEventListener('change',calc);to?.addEventListener('change',calc);
-})();
-</script>
-<style id="home-elegant-visual-v35-63">
-/* v35.63 — visual redesign inspired by the approved concept image */
-:root{--ui-teal:#0f8ea3;--ui-teal-dark:#075f70;--ui-sky:#eaf6fa;--ui-border:#d7e6ed;--ui-text:#17394a;--ui-muted:#6c8794;--ui-bg:#edf6f9}
-body{background:linear-gradient(180deg,#f5fafc 0%,#e8f2f6 100%);color:var(--ui-text)}
-.home-dashboard-head{padding:10px 4px 4px;display:flex;align-items:center;justify-content:space-between}.home-title{font-size:25px;font-weight:900;color:#123e50}.home-kicker{color:#0d7f92;font-weight:800;letter-spacing:.1px}.home-scope{color:#78909b;font-size:12px;margin-top:3px}
-.home-main-layout{display:grid;grid-template-columns:1fr 1fr;grid-template-areas:"search register" "status entry";gap:16px;margin-top:12px;align-items:start}
-.home-main-left,.home-main-right{display:contents}
-.home-employee-search-box{grid-area:search}.home-register-movement-box{grid-area:register}.home-current-status{grid-area:status}.home-entry-directory{grid-area:entry}
-.home-standalone-box,.home-panel{background:rgba(255,255,255,.96)!important;border:1px solid var(--ui-border)!important;border-radius:15px!important;box-shadow:0 6px 20px rgba(36,83,103,.07)!important;overflow:hidden}
-.home-standalone-head,.home-section-head,.entry-directory-head{min-height:68px;padding:12px 16px!important;margin:0!important;background:linear-gradient(100deg,#f5fbfd,#edf7fa)!important;border-bottom:1px solid #e0edf2;display:flex;align-items:center;justify-content:space-between;gap:14px}
-.home-standalone-head h2,.home-section-head h2,.entry-directory-head h2{font-size:20px!important;font-weight:900!important;color:#11475a!important;margin:2px 0 3px!important}.home-standalone-head p,.home-section-head p,.entry-directory-head p{font-size:11px!important;color:#718995!important;margin:0!important;line-height:1.6}
-.home-standalone-icon{width:40px!important;height:40px!important;border-radius:13px!important;display:grid!important;place-items:center!important;background:#dff2f7!important;color:#087d91!important;font-size:22px!important;flex:none}
-.home-standalone-box>form,.home-panel>.current-status-filters,.home-panel>.current-status-list,.home-panel>.status-empty,.home-panel>.entry-directory-filters,.home-panel>.entry-directory-list,.home-panel>.status-filter-empty{margin-inline:14px}
-.home-movement-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px!important;padding:14px 0 0}.home-movement-grid label{font-size:12px!important;color:#244e5e!important}.home-movement-grid input,.home-movement-grid select{min-height:43px!important;border:1px solid #cfe0e8!important;border-radius:9px!important;background:#fbfdfe!important}.home-movement-footer{margin:12px 0 14px!important}.home-movement-footer .btn{background:linear-gradient(135deg,#148fa2,#08758a)!important;border-radius:9px!important}
-.movement-quick-filter-form{grid-template-columns:1fr!important;gap:9px!important;padding:14px 0}.movement-quick-filter-form label{font-size:12px;color:#244e5e}.movement-quick-filter-form select,.movement-quick-filter-form input{min-height:43px;border:1px solid #cfe0e8;border-radius:9px;background:#fbfdfe}.movement-quick-filter-form button{min-height:43px;border-radius:9px;background:linear-gradient(135deg,#148fa2,#08758a)!important}.movement-quick-filter-form small{font-size:10px;color:#78909b}
-.current-status-filters{display:grid!important;grid-template-columns:1fr 1fr;gap:9px;padding:12px 0 5px}.current-status-filters label,.entry-directory-filters label{font-size:11px;font-weight:800;color:#2a5667}.current-status-filters select,.entry-directory-filters select{width:100%;margin-top:5px;min-height:40px;border:1px solid #cfe0e8;border-radius:9px;background:#fbfdfe}
-.current-status-list{display:grid;grid-template-columns:1fr;gap:8px;padding:6px 0 14px}.current-status-card{display:grid;grid-template-columns:minmax(0,1.3fr) auto minmax(120px,.8fr) 70px;gap:9px;align-items:center;padding:10px 12px!important;border:1px solid #dce8ed!important;border-radius:11px!important;background:#fff!important;box-shadow:none!important;text-decoration:none}.current-status-card:hover{transform:none!important;border-color:#b8d4df!important}.current-status-main strong{font-size:13px;color:#183e50}.current-status-main small{font-size:10px;color:#78909b}.current-status-badge{padding:5px 8px;border-radius:999px;font-size:10px;font-weight:900}.current-status-card.is-leave .current-status-badge{background:#ffe3e3;color:#c53030}.current-status-card.is-assignment .current-status-badge{background:#fff0d2;color:#a76100}.current-status-card.is-open-assignment .current-status-badge{background:#e4ddff;color:#6546b5}.current-status-card.is-permission .current-status-badge{background:#dff1ff;color:#1c6c9b}.current-status-card.is-leave{border-right:4px solid #e34b4b!important}.current-status-card.is-assignment{border-right:4px solid #e59d2d!important}.current-status-card.is-open-assignment{border-right:4px solid #7655d8!important}.current-status-card.is-permission{border-right:4px solid #2f8fbd!important}.current-status-detail b{font-size:10px;color:#476d7d}.status-dates{display:flex;gap:8px;margin-top:3px}.status-dates span{display:flex;gap:3px;font-size:9px}.status-dates em{font-style:normal;color:#8aa0aa}.status-dates strong{color:#4c6977}.current-status-remaining{font-size:9px;text-align:center}.current-status-remaining b{display:block;font-size:13px;color:#174c5d}.current-status-remaining span{color:#8296a0}
-.entry-directory-filters{padding:12px 0 6px}.entry-directory-list{padding:5px 0 14px}.entry-card{border:1px solid #dce8ed!important;border-radius:11px!important;background:#fff!important;margin-bottom:8px!important;box-shadow:none!important}.entry-card summary{padding:10px 12px!important}.entry-avatar{width:34px!important;height:34px!important;border-radius:10px!important;background:#eeeaff!important;display:grid!important;place-items:center!important}.entry-main strong{font-size:13px!important;color:#244d60}.entry-main small,.entry-meta small{font-size:9px!important;color:#8297a1}.entry-meta b{font-size:15px;color:#246c7d}.entry-panel{border-top:1px solid #e4edf1!important;background:#fbfdfe}.branch-card{border-color:#e1ebef!important}.employee-card{background:#fff!important;border-color:#e3edf1!important}
-.panel-head-actions{display:flex;align-items:center;gap:7px}.panel-expand-btn{border:1px solid #bdd4de!important;background:#fff!important;color:#236579!important;border-radius:8px!important;padding:7px 10px!important;font-size:10px!important}.home-current-count,.entry-directory-badge{background:#e2f2f6!important;color:#146477!important;border-radius:999px!important;padding:5px 9px!important;font-size:10px!important}
-/* navigation: cleaner pill-style menu */
-.main-nav{background:rgba(255,255,255,.95)!important;border:1px solid #d7e6ed!important;border-radius:13px!important;box-shadow:0 4px 15px rgba(36,83,103,.06)!important;padding:7px!important;gap:6px!important}.main-nav a{border-radius:9px!important;padding:9px 15px!important;font-weight:800!important;color:#31586a!important;border:1px solid transparent!important}.main-nav a:hover{background:#eaf6fa!important;color:#0b7386!important;border-color:#cfe4eb!important;transform:none!important}.main-nav a[href="/reports"]{background:#e5f3f7!important;color:#0a7184!important}
-header{background:rgba(255,255,255,.97)!important;border:1px solid #d7e6ed!important;box-shadow:0 3px 14px rgba(36,83,103,.05)!important}.brandmark{background:linear-gradient(135deg,#1493a6,#08758a)!important}.logout{border-radius:8px!important}
-@media(max-width:1000px){.home-main-layout{grid-template-columns:1fr;grid-template-areas:"search" "register" "status" "entry"}.current-status-card{grid-template-columns:1fr auto}.current-status-detail,.current-status-remaining{grid-column:1/-1;text-align:right}.current-status-remaining{display:none}}
-@media(max-width:620px){.home-movement-grid,.current-status-filters{grid-template-columns:1fr}.home-standalone-head,.home-section-head,.entry-directory-head{align-items:flex-start}.panel-head-actions{flex-wrap:wrap}}
-</style>
-
-
 {% endblock %}

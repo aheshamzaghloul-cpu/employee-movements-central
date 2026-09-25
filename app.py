@@ -761,10 +761,6 @@ def home():
         # لتحديد حالة الموظف الحالية.
         ending=[]
 
-    movement_entry_branches = (Branch.query.filter(Branch.id.in_(bs), Branch.is_active==True).order_by(Branch.name.asc()).all() if bs else [])
-    movement_entry_gov_ids = {b.governorate_id for b in movement_entry_branches}
-    movement_entry_governorates = (Governorate.query.filter(Governorate.id.in_(movement_entry_gov_ids), Governorate.is_active==True).order_by(Governorate.name.asc()).all() if movement_entry_gov_ids else [])
-
     return render_template(
         'home.html',
         g=len(visible_govs),
@@ -795,11 +791,7 @@ def home():
         movement_governorate_id=movement_governorate_id,
         movement_branch_id=movement_branch_id,
         movement_name_query=movement_name_query,
-        movement_employee_id=(int(movement_employee_id) if movement_employee_id.isdigit() else None),
-        movement_entry_governorates=movement_entry_governorates,
-        movement_entry_branches=movement_entry_branches,
-        movement_types=active_movement_types(),
-        leave_types=active_leave_types()
+        movement_employee_id=(int(movement_employee_id) if movement_employee_id.isdigit() else None)
     )
 
 @app.get('/api/entry-ids/<int:gid>')
@@ -983,7 +975,6 @@ def structure():
         available_entry_employees=Employee.query.filter(Employee.is_active==True,Employee.branch_id.in_(allowed_branch_set)).order_by(Employee.full_name).all() if allowed_branch_set else []
         available_entry_employees=[e for e in available_entry_employees if not entry_role_exists(e)]
     entry_supervisors=[u for u in User.query.filter_by(is_active=True).order_by(User.full_name).all() if 'مشرف محافظة' in actual_roles(u)]
-    available_entry_branches=Branch.query.filter(Branch.id.in_(allowed_branch_set), Branch.is_active==True).order_by(Branch.governorate_id, Branch.name).all() if allowed_branch_set else []
     return render_template(
         'structure.html',
         tree=tree,
@@ -995,7 +986,7 @@ def structure():
         govs_all=govs_all,
         selected_governorate=selected_gov,
         admin_stats=admin_stats,
-        available_entry_employees=available_entry_employees, entry_supervisors=entry_supervisors, available_entry_branches=available_entry_branches
+        available_entry_employees=available_entry_employees, entry_supervisors=entry_supervisors
     )
 
 

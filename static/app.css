@@ -1784,3 +1784,112 @@ main.login .login-hero p{font-size:clamp(15px,1.3vw,18px)}
 .assistant-window{resize:none!important;overflow:hidden!important;}
 .assistant-resize-handle{left:0!important;top:0!important;right:auto!important;bottom:auto!important;width:44px!important;height:44px!important;z-index:10000!important;cursor:nwse-resize!important;}
 .assistant-window.is-dragging .assistant-window-bar{cursor:grabbing!important;}
+
+/* v35.40 — smooth assistant redesign: no blocking overlay, faster chat, safer placement */
+.assistant-fab{
+  position:fixed!important;
+  left:18px!important;
+  right:auto!important;
+  bottom:18px!important;
+  width:54px!important;
+  height:54px!important;
+  min-width:54px!important;
+  padding:0!important;
+  border-radius:50%!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  z-index:1200!important;
+  box-shadow:0 8px 22px rgba(0,0,0,.18)!important;
+}
+.assistant-fab .fab-icon{font-size:25px!important;line-height:1!important}
+.assistant-fab .fab-label{display:none!important}
+.assistant-fab:hover{transform:translateY(-2px)!important}
+.assistant-modal,.assistant-modal.is-open{background:transparent!important;backdrop-filter:none!important;pointer-events:none!important}
+.assistant-modal .assistant-window{pointer-events:auto!important;will-change:left,top,width,height}
+.assistant-window{transition:none!important}
+.assistant-window-bar{cursor:grab!important;user-select:none!important;touch-action:none!important}
+.assistant-window.is-dragging .assistant-window-bar{cursor:grabbing!important}
+.assistant-chat-shell{contain:layout paint style;}
+.assistant-chat-body{overscroll-behavior:contain;scroll-behavior:auto!important}
+.assistant-chat-input>button{transition:transform .12s ease,opacity .12s ease!important}
+.assistant-chat-input>button.is-sending{opacity:.6!important;transform:none!important}
+.assistant-chat-shell .chat-msg{animation:assistantMsgIn .14s ease-out both}
+@keyframes assistantMsgIn{from{opacity:.4;transform:translateY(3px)}to{opacity:1;transform:none}}
+@media(max-width:700px){
+ .assistant-fab{left:10px!important;bottom:10px!important;width:50px!important;height:50px!important;min-width:50px!important}
+}
+
+
+/* v35.41 — assistant has no close/minimize controls: visible window <-> floating icon only */
+.assistant-window-actions{display:none!important;}
+.assistant-window-bar{justify-content:flex-start!important;}
+.assistant-window.is-minimized{height:auto!important;min-height:0!important;}
+
+/* v35.42 — flat cards, no hover protrusion, ultra-tight page framing */
+/* Keep all application cards inside the page bounds; hover changes only border/background. */
+.quick .box:hover,
+.home-stat-card:hover,
+.home-summary-item:hover,
+.home-report-card:hover,
+.report-dashboard-card:hover,
+.home-group-links a:hover,
+.reports-group-links a:hover,
+.employee-card:hover,
+.tree-employee:hover,
+.admin-shortcut-card:hover,
+.supervisor-gov-card:hover,
+.dashboard-widget:hover,
+.home-info-card.dashboard-widget:hover,
+.home-group-card.dashboard-widget:hover,
+.home-reports-cards.dashboard-widget:hover{
+  transform:none!important;
+  translate:none!important;
+  scale:none!important;
+  position:relative!important;
+  z-index:auto!important;
+}
+/* Very small horizontal breathing room between the page edge and its cards. */
+.wrap{max-width:none!important;padding-left:6px!important;padding-right:6px!important;}
+main:not(.login){width:100%!important;max-width:none!important;}
+/* Light frame: the card edge is visible without a heavy shadow or floating effect. */
+.box,
+.home-stat-card,
+.home-summary-card,
+.home-summary-item,
+.home-group-card,
+.home-info-card,
+.home-reports-cards,
+.report-dashboard-card,
+.report-summary-card,
+.home-report-card,
+.employee-card,
+.tree-entry,
+.tree-branch,
+.branch-card,
+.structure-card,
+.admin-shortcut-card,
+.supervisor-gov-card{
+  box-shadow:none!important;
+}
+.box,
+.home-stat-card,
+.home-group-card,
+.home-info-card,
+.home-reports-cards,
+.report-dashboard-card,
+.report-summary-card,
+.home-report-card,
+.structure-card,
+.admin-shortcut-card,
+.supervisor-gov-card{
+  border:1px solid rgba(117,145,160,.28)!important;
+}
+/* The dashboard canvas itself should not add an outer visual frame. */
+.dashboard-workspace{padding-left:2px!important;padding-right:2px!important;}
+.dashboard-widget{box-shadow:none!important;outline:none!important;}
+.dashboard-widget.dragging{box-shadow:0 4px 12px rgba(25,72,105,.10)!important;outline:1px solid rgba(64,143,197,.20)!important;outline-offset:0!important;}
+.dashboard-widget.widget-active{box-shadow:none!important;}
+@media(max-width:700px){
+  .wrap{padding-left:4px!important;padding-right:4px!important;}
+}

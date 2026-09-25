@@ -24,12 +24,47 @@
   <form method="post" action="/assistant?embed=1" class="assistant-chat-input"><input type="hidden" name="_csrf" value="{{csrf}}"><textarea name="prompt" rows="1" placeholder="اكتب طلبك هنا... مثال: أريد إدخال إجازة لأحمد">{{'' if result else prompt}}</textarea><button type="submit" title="إرسال">➤</button></form>
 </section>
 <script>
-(function(){const body=document.getElementById('assistantChatBody'),form=document.querySelector('.assistant-chat-input'),ta=form?.querySelector('textarea'),send=form?.querySelector('button[type=submit]');
-function autoGrow(){if(!ta)return;ta.style.height='auto';ta.style.height=Math.min(190,Math.max(58,ta.scrollHeight))+'px';}
-function bind(){document.querySelectorAll('[data-prompt]').forEach(b=>b.onclick=()=>{if(ta){ta.value=b.dataset.prompt||'';autoGrow();ta.focus();}});document.querySelectorAll('[data-assistant-url]').forEach(b=>b.onclick=()=>{const u=b.dataset.assistantUrl||'/';try{if(window.parent&&window.parent!==window)window.parent.location.href=u;else window.location.href=u;}catch(e){window.location.href=u;}})}
-bind();if(body)body.scrollTop=body.scrollHeight;autoGrow();
-if(ta){ta.addEventListener('input',autoGrow);ta.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();if(form?.requestSubmit)form.requestSubmit();else form?.submit();}});}
-form?.addEventListener('submit',()=>{if(send){send.disabled=true;send.classList.add('is-sending');}});
+(function(){
+  const shell=document.querySelector('.assistant-chat-shell');
+  let body=document.getElementById('assistantChatBody');
+  let form=document.querySelector('.assistant-chat-input');
+  let ta=form?.querySelector('textarea');
+  let send=form?.querySelector('button[type=submit]');
+  const csrf=form?.querySelector('input[name="_csrf"]')?.value||'';
+  function autoGrow(){if(!ta)return;ta.style.height='auto';ta.style.height=Math.min(150,Math.max(54,ta.scrollHeight))+'px';}
+  function scrollBottom(){if(body) requestAnimationFrame(()=>{body.scrollTop=body.scrollHeight;});}
+  function bindSuggestions(){
+    document.querySelectorAll('[data-prompt]').forEach(b=>b.onclick=()=>{if(ta){ta.value=b.dataset.prompt||'';autoGrow();ta.focus();}});
+    document.querySelectorAll('[data-assistant-url]').forEach(b=>b.onclick=()=>{const u=b.dataset.assistantUrl||'/';try{if(window.parent&&window.parent!==window)window.parent.location.href=u;else window.location.href=u;}catch(e){window.location.href=u;}});
+  }
+  function wire(){
+    body=document.getElementById('assistantChatBody'); form=document.querySelector('.assistant-chat-input'); ta=form?.querySelector('textarea'); send=form?.querySelector('button[type=submit]');
+    bindSuggestions(); autoGrow(); scrollBottom();
+    if(ta){ta.oninput=autoGrow;ta.onkeydown=(e)=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();if(!sending)submitFast();}};}
+    form?.addEventListener('submit',e=>{e.preventDefault();if(!sending)submitFast();});
+  }
+  let sending=false;
+  async function submitFast(){
+    const prompt=(ta?.value||'').trim(); if(!prompt||sending)return;
+    sending=true; if(send){send.disabled=true;send.classList.add('is-sending');}
+    if(body){
+      const row=document.createElement('div');row.className='chat-msg user-msg optimistic-user-msg';row.innerHTML='<div class="chat-bubble"></div><div class="chat-avatar user-avatar">أنت</div>';row.querySelector('.chat-bubble').textContent=prompt;body.appendChild(row);scrollBottom();
+    }
+    const fd=new FormData(form); fd.set('prompt',prompt); fd.set('embed','1');
+    try{
+      const res=await fetch('/assistant?embed=1',{method:'POST',body:fd,headers:{'X-Requested-With':'fetch'},credentials:'same-origin'});
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const html=await res.text();
+      const doc=new DOMParser().parseFromString(html,'text/html');
+      const newBody=doc.querySelector('#assistantChatBody'); const newForm=doc.querySelector('.assistant-chat-input');
+      if(!newBody||!newForm) throw new Error('assistant response unavailable');
+      body.replaceWith(newBody); form.replaceWith(newForm); wire();
+      if(ta)ta.value='';
+    }catch(err){
+      const row=document.createElement('div');row.className='chat-msg assistant-msg';row.innerHTML='<div class="chat-avatar">✦</div><div class="chat-bubble chat-error">تعذر إكمال الرد الآن. جرّب مرة أخرى.</div>';body?.appendChild(row);scrollBottom();
+    }finally{sending=false;if(send){send.disabled=false;send.classList.remove('is-sending');}if(ta){ta.value='';autoGrow();ta.focus();}}
+  }
+  wire();
 })();
 </script>
 {% endblock %}

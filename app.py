@@ -2348,7 +2348,34 @@ def assistant_parse_date(text):
     if not m: return None
     return f'{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}'
 
-def assistant_llm_parse(text, chat=None):
+def assistant_live_context_for_prompt(text, local_a=None):
+    """Build a small live DB snapshot for semantic understanding; refreshed per request."""
+    parts=[]
+    try:
+        emp_id=(local_a or {}).get('employee_id')
+        if emp_id:
+            e=db.session.get(Employee, emp_id)
+            if e:
+                cb=current_assignment_for_employee(e.id)
+                parts.append(f"موظف محدد: {e.full_name} | كود وظيفي: {e.job_code or ''} | كود شئون العاملين: {e.employee_code or ''} | الوظيفة: {e.job_title or ''} | فرع التعيين: {e.branch.name if e.branch else ''} | الفرع الحالي: {cb.destination.name if cb and cb.destination else (e.branch.name if e.branch else '')}")
+        br_id=(local_a or {}).get('branch_id')
+        if br_id:
+            b=db.session.get(Branch, br_id)
+            if b:
+                emps=Employee.query.filter_by(branch_id=b.id,is_active=True).order_by(Employee.full_name).all()
+                parts.append(f"فرع محدد: {b.name} | المحافظة: {b.governorate.name if b.governorate else ''} | عدد الموظفين المسجلين على الفرع: {len(emps)} | الأسماء: {', '.join(e.full_name for e in emps[:80])}")
+        # For a direct employee-name query, expose only matching live records rather than the whole DB.
+        if not parts:
+            nv=assistant_search_normalize(text)
+            if nv:
+                matches=[e for e in assistant_scope_employee_query() if nv in assistant_search_normalize(e.full_name) or (e.job_code and nv in assistant_search_normalize(e.job_code))][:12]
+                if matches:
+                    parts.append('مطابقة موظفين مباشرة: '+ ' | '.join(f"{e.id}:{e.full_name} (فرع {e.branch.name if e.branch else ''})" for e in matches))
+    except Exception:
+        pass
+    return '\n'.join(parts)
+
+def assistant_llm_parse(text, chat=None, live_context=''):
     """Semantic Arabic intent/field extraction via OpenAI Responses API."""
     api_key=os.getenv('OPENAI_API_KEY','').strip()
     if not api_key:
@@ -2392,6 +2419,7 @@ def assistant_llm_parse(text, chat=None):
     system=f"""أنت العقل الحواري لمساعد إداري داخل نظام إدارة حركات الموظفين. لا تعتمد على كلمات أو جمل محفوظة ولا تقارن النص بقائمة أوامر. افهم المعنى والسياق والهدف حتى لو كانت الصياغة عامية أو مختصرة أو بها أخطاء. أنت لا تنفذ بنفسك؛ تستخرج المقصود والكيانات، ثم ينفذ التطبيق بعد التحقق من الصلاحيات والبيانات.
 
 الدور الحالي للمستخدم: {role_text}.
+بيانات حية مرتبطة بطلب المستخدم (تُجلب من قاعدة البيانات عند كل طلب ولا تُعامل كذاكرة ثابتة): {live_context or 'لا توجد مطابقة مباشرة بعد'}.
 المحافظات المتاحة في التطبيق: {gov_catalog}
 الفروع المتاحة: {branch_catalog}
 
@@ -2871,10 +2899,13 @@ def assistant():
         if not prompt:
             result={'title':'المساعد الذكي','error':'اكتب طلبك أولًا.'}
         else:
+            # ابدأ ببيانات التطبيق الحية أولاً. هذا يجعل الاستفسارات الشائعة فورية ولا تنتظر نموذجًا خارجيًا.
             local_a=assistant_parse(prompt)
-            llm_a=assistant_llm_parse(prompt, prior_chat)
-            # النموذج اللغوي هو طبقة الفهم الأساسية. لا نرفض الطلب لأن صيغته لا تطابق كلمة محفوظة.
-            # المحلل المحلي لا يُستخدم إلا كمسار احتياطي عند غياب/فشل الـAPI.
+            live_ctx=assistant_live_context_for_prompt(prompt, local_a)
+            needs_semantic = local_a.get('intent') in ('help','topic_options','employee_topic')
+            llm_a=assistant_llm_parse(prompt, prior_chat, live_ctx) if needs_semantic else None
+            # استخدم الفهم الدلالي فقط عندما تكون الصياغة غير محددة محليًا؛ أما طلبات البيانات المباشرة
+            # فتعتمد على قاعدة البيانات الحالية حتى لا تتأخر بسبب الشبكة.
             if llm_a:
                 a=llm_a
                 # إذا أعاد النموذج تصنيفاً عاماً جداً (help) بينما يستطيع التطبيق

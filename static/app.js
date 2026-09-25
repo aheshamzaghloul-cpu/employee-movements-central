@@ -287,7 +287,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
 // v35.32 — المساعد: تغيير حجم حر بدون زر + حدود الشاشة
 (function(){
- const modal=document.getElementById('assistantModal'), fab=document.getElementById('assistantFab'), win=document.getElementById('assistantWindow'), bar=document.getElementById('assistantDragBar'), close=document.getElementById('assistantClose'), min=document.getElementById('assistantMinimize'), frame=document.getElementById('assistantFrame');
+ const modal=document.getElementById('assistantModal'), fab=document.getElementById('assistantFab'), win=document.getElementById('assistantWindow'), bar=document.getElementById('assistantDragBar'), frame=document.getElementById('assistantFrame');
  if(!modal||!fab||!win||!bar)return;
  function keepInViewport(){
    if(window.innerWidth<=700){win.style.width='';win.style.height='';win.style.left='';win.style.top='';win.style.right='';win.style.bottom='';return;}
@@ -314,15 +314,13 @@ document.addEventListener('DOMContentLoaded', function(){
    fab.hidden=false;
  }
  fab.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();open();});
- close?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();hide();});
- // Clicking anywhere outside the assistant closes it, while the page remains fully usable.
+ // The assistant has only two states: visible window or the floating icon. Clicking outside returns to the icon.
  document.addEventListener('pointerdown',e=>{
    if(modal.hidden || !modal.classList.contains('is-open')) return;
    if(e.target===fab || fab.contains(e.target)) return;
    if(win.contains(e.target)) return;
    hide();
  }, true);
- min?.addEventListener('click',()=>win.classList.toggle('is-minimized'));
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)hide();});
  // v35.34 — assistant: drag the window freely + dedicated resize grip away from chat send button
  let drag=false,ox=0,oy=0;

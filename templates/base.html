@@ -4,8 +4,7 @@
     <span class="assistant-resize-handle" id="assistantResizeHandle" title="تغيير حجم المساعد" aria-label="تغيير حجم المساعد"></span>
     <div class="assistant-window-bar" id="assistantDragBar">
       <div class="assistant-window-title"><span class="assistant-window-mark">✦</span><span>المساعد الذكي</span><small>متاح حسب صلاحيات دورك</small></div>
-      <div class="assistant-window-actions"><button type="button" id="assistantMinimize" title="تصغير">—</button><button type="button" id="assistantClose" title="إغلاق">×</button></div>
     </div>
-    <iframe id="assistantFrame" src="/assistant?embed=1" title="المساعد الذكي" loading="lazy"></iframe>
+    <iframe id="assistantFrame" src="/assistant?embed=1" title="المساعد الذكي" loading="eager"></iframe>
   </div>
 </div>{% endif %}<script src="{{url_for('static',filename='app.js')}}"></script></body></html>

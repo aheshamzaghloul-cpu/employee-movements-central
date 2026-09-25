@@ -2552,7 +2552,8 @@ def assistant_parse(text):
         # «في محافظة سوهاج» يجب أن تذهب للمحافظة، بينما «في طما» يمكن أن تكون فرعًا.
         explicit_gov=bool(re.search(r'(?:بمحافظة|محافظة)\s+', t, re.I))
         explicit_branch=bool(re.search(r'(?:بفرع|فرع)\s+', t, re.I))
-        br,bmatches=assistant_find_branch(place) if not explicit_gov else (None,[])
+        # الأولوية للمحافظة عند التطابق التام: إذا كان هناك محافظة باسم «سوهاج»
+        # وفرع باسم «سوهاج»، فعبارة «في سوهاج» تعني المحافظة ما لم يقل المستخدم صراحة «فرع سوهاج».
         govs=[]
         if not explicit_branch:
             govs=[g for g in Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all()
@@ -2560,10 +2561,16 @@ def assistant_parse(text):
             if not govs:
                 govs=[g for g in Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all()
                       if assistant_search_normalize(place) in assistant_search_normalize(g.name)]
+        if len(govs)==1 and not explicit_branch:
+            return {'intent':'movement_people_today','movement_type':movement_kind,'governorate_id':govs[0].id,'governorate_name':govs[0].name,'place_type':'governorate','place_name':govs[0].name}
+        br,bmatches=assistant_find_branch(place) if not explicit_gov else (None,[])
         if br and not explicit_gov:
             return {'intent':'movement_people_today','movement_type':movement_kind,'branch_id':br.id,'branch_name':br.name,'place_type':'branch','place_name':br.name}
-        if len(govs)==1:
-            return {'intent':'movement_people_today','movement_type':movement_kind,'governorate_id':govs[0].id,'governorate_name':govs[0].name,'place_type':'governorate','place_name':govs[0].name}
+
+    # استعلام الحركة بدون تحديد مكان: «مين انتداب؟»، «مين إجازة؟»، «مين عنده إذن؟»
+    # يُنفذ كبحث عام داخل نطاق صلاحيات المستخدم بدل فتح قائمة الخيارات أو إرجاع «لم أجد».
+    if movement_query_words and movement_kind and not has_any('في','فى','داخل','بمحافظة','بفرع','محافظة','فرع'):
+        return {'intent':'movement_people_today','movement_type':movement_kind,'place_type':'all','place_name':'كل النطاق'}
 
     # استعلامات عامة بصياغة طبيعية: "اسماء موظفين"، "الموظفين في جهينه".
     if has_any('موظفين','الموظفين','الموظفون','اسماء موظفين','أسماء موظفين','اسماء الموظفين','أسماء الموظفين'):
@@ -2830,11 +2837,15 @@ def assistant_render_read(a):
         if branch:
             target_branch_ids={branch.id}
             location_label=f'فرع {branch.name}'
-        else:
+        elif gov:
             bs=Branch.query.filter_by(governorate_id=gov.id,is_active=True).order_by(Branch.name).all()
             bs=[b for b in bs if branch_ok(b.id)]
             target_branch_ids={b.id for b in bs}
             location_label=f'محافظة {gov.name}'
+        else:
+            # بحث عام داخل كل الفروع المتاحة للمستخدم.
+            target_branch_ids={b.id for b in Branch.query.filter_by(is_active=True).all() if branch_ok(b.id)}
+            location_label='النطاق المتاح لك'
 
         rows=[]
         if mt=='إجازة':

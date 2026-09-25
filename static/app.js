@@ -322,49 +322,5 @@ document.addEventListener('DOMContentLoaded', function(){
    hide();
  }, true);
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)hide();});
- // v35.47 — assistant: top-corner resize handles control SIZE only (never position/drag)
- const handles=[document.getElementById('assistantResizeLeft'),document.getElementById('assistantResizeRight')].filter(Boolean);
- let resizing=null;
- handles.forEach(handle=>handle.addEventListener('pointerdown',e=>{
-   if(e.button!==0)return;
-   const r=win.getBoundingClientRect();
-   resizing={side:handle.classList.contains('assistant-resize-left')?'left':'right',x:e.clientX,y:e.clientY,w:r.width,h:r.height,left:r.left,top:r.top};
-   win.style.position='fixed'; win.style.right='auto'; win.style.bottom='auto';
-   win.classList.add('is-resizing');
-   try{handle.setPointerCapture(e.pointerId)}catch(_){ }
-   e.preventDefault(); e.stopPropagation();
- }));
- function moveResize(e){
-   if(!resizing)return;
-   e.preventDefault(); e.stopPropagation();
-   const minW=380,minH=420,pad=8;
-   const maxW=Math.max(minW,window.innerWidth-pad*2),maxH=Math.max(minH,window.innerHeight-pad*2);
-   const dx=e.clientX-resizing.x, dy=e.clientY-resizing.y;
-   let w=resizing.w, h=resizing.h, left=resizing.left, top=resizing.top;
-   if(resizing.side==='right'){
-     w=Math.max(minW,Math.min(maxW,resizing.w+dx));
-   }else{
-     w=Math.max(minW,Math.min(maxW,resizing.w-dx));
-     left=resizing.left+(resizing.w-w);
-   }
-   // Both top handles resize vertically. The bottom edge stays fixed, so the window
-   // grows upward when the handle is moved upward and shrinks when moved downward.
-   h=Math.max(minH,Math.min(maxH,resizing.h-dy));
-   top=resizing.top+(resizing.h-h);
-   left=Math.max(pad,Math.min(window.innerWidth-w-pad,left));
-   top=Math.max(pad,Math.min(window.innerHeight-h-pad,top));
-   win.style.width=Math.round(w)+'px';
-   win.style.height=Math.round(h)+'px';
-   win.style.left=Math.round(left)+'px';
-   win.style.top=Math.round(top)+'px';
- }
- function endResize(e){
-   if(!resizing)return;
-   try{handles.forEach(h=>{if(h.hasPointerCapture?.(e.pointerId))h.releasePointerCapture(e.pointerId)})}catch(_){ }
-   resizing=null; win.classList.remove('is-resizing'); keepInViewport();
- }
- document.addEventListener('pointermove',moveResize,{passive:false});
- document.addEventListener('pointerup',endResize,{passive:false});
- document.addEventListener('pointercancel',endResize,{passive:false});
  window.addEventListener('resize',keepInViewport);
 })();

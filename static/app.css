@@ -1999,3 +1999,8 @@ main:not(.login){width:100%!important;max-width:none!important;}
 .assistant-window.is-resizing{transition:none!important;user-select:none!important}
 .assistant-window.is-resizing iframe{pointer-events:none!important}
 @media(max-width:700px){.assistant-resize-handle{display:block!important;width:48px!important;height:48px!important}}
+
+
+/* v35.50 — assistant is draggable only; resizing controls removed */
+.assistant-resize-handle{display:none!important;pointer-events:none!important;width:0!important;height:0!important}
+.assistant-window{resize:none!important}

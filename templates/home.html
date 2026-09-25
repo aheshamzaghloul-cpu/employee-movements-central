@@ -266,27 +266,6 @@
 </div>
 </div>
 
-<!-- 3) حركات الموظفين: المحتوى ظاهر مباشرة دون بند داخلي -->
-  {% if can('manage_movements') or can('view_reports') %}
-  <section class="home-panel home-movements-panel dashboard-widget" data-widget-id="group-movements">
-    <div class="home-group-head">
-      <span class="home-group-icon">🔄</span>
-      <div><h3>حركات الموظفين</h3><small>ابحث عن الموظف واعرض بطاقته وحركاته</small></div>
-      <button type="button" class="panel-expand-btn" data-expand-widget="group-movements">⛶ ملء الصفحة</button>
-    </div>
-    <div class="movement-action-grid">
-      {% if can('view_reports') %}
-      <a class="movement-action" href="/reports/leaves"><span>🏖️</span><b>تقرير الإجازات</b><small>الإجازات حسب المحافظة والفرع والموظف والفترة</small></a>
-      <a class="movement-action" href="/reports/assignments"><span>📍</span><b>تقرير الانتدابات</b><small>الجهات المنتدب إليها والمواعيد والحالات</small></a>
-      <a class="movement-action" href="/reports/permissions"><span>🕘</span><b>تقرير الأذونات</b><small>الأذونات وتفاصيلها حسب الموظفين والفترة</small></a>
-      {% endif %}
-      {% if can('manage_movements') %}
-      <a class="movement-action" href="/reports/assignments/print-missions"><span>📄</span><b>طباعة المأموريات</b><small>النماذج الرسمية للانتدابات</small></a>
-      {% endif %}
-    </div>
-  </section>
-  {% endif %}
-
 </div>
 <script>
 (function(){
@@ -295,7 +274,6 @@
   const panelNames={
     'employee-current-status':'حالة الموظفين الآن',
     'entry-directory':'المدخلون الأوائل',
-    'group-movements':'حركات الموظفين'
   };
   function restorePanels(){
     if(!workspace) return;
@@ -376,4 +354,31 @@
  from?.addEventListener('change',calc);to?.addEventListener('change',calc);
 })();
 </script>
+<style id="home-elegant-visual-v35-63">
+/* v35.63 — visual redesign inspired by the approved concept image */
+:root{--ui-teal:#0f8ea3;--ui-teal-dark:#075f70;--ui-sky:#eaf6fa;--ui-border:#d7e6ed;--ui-text:#17394a;--ui-muted:#6c8794;--ui-bg:#edf6f9}
+body{background:linear-gradient(180deg,#f5fafc 0%,#e8f2f6 100%);color:var(--ui-text)}
+.home-dashboard-head{padding:10px 4px 4px;display:flex;align-items:center;justify-content:space-between}.home-title{font-size:25px;font-weight:900;color:#123e50}.home-kicker{color:#0d7f92;font-weight:800;letter-spacing:.1px}.home-scope{color:#78909b;font-size:12px;margin-top:3px}
+.home-main-layout{display:grid;grid-template-columns:1fr 1fr;grid-template-areas:"search register" "status entry";gap:16px;margin-top:12px;align-items:start}
+.home-main-left,.home-main-right{display:contents}
+.home-employee-search-box{grid-area:search}.home-register-movement-box{grid-area:register}.home-current-status{grid-area:status}.home-entry-directory{grid-area:entry}
+.home-standalone-box,.home-panel{background:rgba(255,255,255,.96)!important;border:1px solid var(--ui-border)!important;border-radius:15px!important;box-shadow:0 6px 20px rgba(36,83,103,.07)!important;overflow:hidden}
+.home-standalone-head,.home-section-head,.entry-directory-head{min-height:68px;padding:12px 16px!important;margin:0!important;background:linear-gradient(100deg,#f5fbfd,#edf7fa)!important;border-bottom:1px solid #e0edf2;display:flex;align-items:center;justify-content:space-between;gap:14px}
+.home-standalone-head h2,.home-section-head h2,.entry-directory-head h2{font-size:20px!important;font-weight:900!important;color:#11475a!important;margin:2px 0 3px!important}.home-standalone-head p,.home-section-head p,.entry-directory-head p{font-size:11px!important;color:#718995!important;margin:0!important;line-height:1.6}
+.home-standalone-icon{width:40px!important;height:40px!important;border-radius:13px!important;display:grid!important;place-items:center!important;background:#dff2f7!important;color:#087d91!important;font-size:22px!important;flex:none}
+.home-standalone-box>form,.home-panel>.current-status-filters,.home-panel>.current-status-list,.home-panel>.status-empty,.home-panel>.entry-directory-filters,.home-panel>.entry-directory-list,.home-panel>.status-filter-empty{margin-inline:14px}
+.home-movement-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px!important;padding:14px 0 0}.home-movement-grid label{font-size:12px!important;color:#244e5e!important}.home-movement-grid input,.home-movement-grid select{min-height:43px!important;border:1px solid #cfe0e8!important;border-radius:9px!important;background:#fbfdfe!important}.home-movement-footer{margin:12px 0 14px!important}.home-movement-footer .btn{background:linear-gradient(135deg,#148fa2,#08758a)!important;border-radius:9px!important}
+.movement-quick-filter-form{grid-template-columns:1fr!important;gap:9px!important;padding:14px 0}.movement-quick-filter-form label{font-size:12px;color:#244e5e}.movement-quick-filter-form select,.movement-quick-filter-form input{min-height:43px;border:1px solid #cfe0e8;border-radius:9px;background:#fbfdfe}.movement-quick-filter-form button{min-height:43px;border-radius:9px;background:linear-gradient(135deg,#148fa2,#08758a)!important}.movement-quick-filter-form small{font-size:10px;color:#78909b}
+.current-status-filters{display:grid!important;grid-template-columns:1fr 1fr;gap:9px;padding:12px 0 5px}.current-status-filters label,.entry-directory-filters label{font-size:11px;font-weight:800;color:#2a5667}.current-status-filters select,.entry-directory-filters select{width:100%;margin-top:5px;min-height:40px;border:1px solid #cfe0e8;border-radius:9px;background:#fbfdfe}
+.current-status-list{display:grid;grid-template-columns:1fr;gap:8px;padding:6px 0 14px}.current-status-card{display:grid;grid-template-columns:minmax(0,1.3fr) auto minmax(120px,.8fr) 70px;gap:9px;align-items:center;padding:10px 12px!important;border:1px solid #dce8ed!important;border-radius:11px!important;background:#fff!important;box-shadow:none!important;text-decoration:none}.current-status-card:hover{transform:none!important;border-color:#b8d4df!important}.current-status-main strong{font-size:13px;color:#183e50}.current-status-main small{font-size:10px;color:#78909b}.current-status-badge{padding:5px 8px;border-radius:999px;font-size:10px;font-weight:900}.current-status-card.is-leave .current-status-badge{background:#ffe3e3;color:#c53030}.current-status-card.is-assignment .current-status-badge{background:#fff0d2;color:#a76100}.current-status-card.is-open-assignment .current-status-badge{background:#e4ddff;color:#6546b5}.current-status-card.is-permission .current-status-badge{background:#dff1ff;color:#1c6c9b}.current-status-card.is-leave{border-right:4px solid #e34b4b!important}.current-status-card.is-assignment{border-right:4px solid #e59d2d!important}.current-status-card.is-open-assignment{border-right:4px solid #7655d8!important}.current-status-card.is-permission{border-right:4px solid #2f8fbd!important}.current-status-detail b{font-size:10px;color:#476d7d}.status-dates{display:flex;gap:8px;margin-top:3px}.status-dates span{display:flex;gap:3px;font-size:9px}.status-dates em{font-style:normal;color:#8aa0aa}.status-dates strong{color:#4c6977}.current-status-remaining{font-size:9px;text-align:center}.current-status-remaining b{display:block;font-size:13px;color:#174c5d}.current-status-remaining span{color:#8296a0}
+.entry-directory-filters{padding:12px 0 6px}.entry-directory-list{padding:5px 0 14px}.entry-card{border:1px solid #dce8ed!important;border-radius:11px!important;background:#fff!important;margin-bottom:8px!important;box-shadow:none!important}.entry-card summary{padding:10px 12px!important}.entry-avatar{width:34px!important;height:34px!important;border-radius:10px!important;background:#eeeaff!important;display:grid!important;place-items:center!important}.entry-main strong{font-size:13px!important;color:#244d60}.entry-main small,.entry-meta small{font-size:9px!important;color:#8297a1}.entry-meta b{font-size:15px;color:#246c7d}.entry-panel{border-top:1px solid #e4edf1!important;background:#fbfdfe}.branch-card{border-color:#e1ebef!important}.employee-card{background:#fff!important;border-color:#e3edf1!important}
+.panel-head-actions{display:flex;align-items:center;gap:7px}.panel-expand-btn{border:1px solid #bdd4de!important;background:#fff!important;color:#236579!important;border-radius:8px!important;padding:7px 10px!important;font-size:10px!important}.home-current-count,.entry-directory-badge{background:#e2f2f6!important;color:#146477!important;border-radius:999px!important;padding:5px 9px!important;font-size:10px!important}
+/* navigation: cleaner pill-style menu */
+.main-nav{background:rgba(255,255,255,.95)!important;border:1px solid #d7e6ed!important;border-radius:13px!important;box-shadow:0 4px 15px rgba(36,83,103,.06)!important;padding:7px!important;gap:6px!important}.main-nav a{border-radius:9px!important;padding:9px 15px!important;font-weight:800!important;color:#31586a!important;border:1px solid transparent!important}.main-nav a:hover{background:#eaf6fa!important;color:#0b7386!important;border-color:#cfe4eb!important;transform:none!important}.main-nav a[href="/reports"]{background:#e5f3f7!important;color:#0a7184!important}
+header{background:rgba(255,255,255,.97)!important;border:1px solid #d7e6ed!important;box-shadow:0 3px 14px rgba(36,83,103,.05)!important}.brandmark{background:linear-gradient(135deg,#1493a6,#08758a)!important}.logout{border-radius:8px!important}
+@media(max-width:1000px){.home-main-layout{grid-template-columns:1fr;grid-template-areas:"search" "register" "status" "entry"}.current-status-card{grid-template-columns:1fr auto}.current-status-detail,.current-status-remaining{grid-column:1/-1;text-align:right}.current-status-remaining{display:none}}
+@media(max-width:620px){.home-movement-grid,.current-status-filters{grid-template-columns:1fr}.home-standalone-head,.home-section-head,.entry-directory-head{align-items:flex-start}.panel-head-actions{flex-wrap:wrap}}
+</style>
+
+
 {% endblock %}

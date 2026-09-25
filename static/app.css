@@ -2121,3 +2121,62 @@ main:not(.login){width:100%!important;max-width:none!important;}
 .supervisor-admin-action:hover{border-color:#a9c7d6;background:#f8fcfe}
 .supervisor-admin-action>span{font-size:24px;flex:0 0 auto}.supervisor-admin-action div{display:flex;flex-direction:column;gap:3px}.supervisor-admin-action strong{font-size:15px;color:#24576b}.supervisor-admin-action small{font-size:11px;color:#71828d;line-height:1.55}
 @media(max-width:800px){.supervisor-admin-actions{grid-template-columns:1fr}.supervisor-admin-clean .supervisor-admin-hero{align-items:flex-start;flex-direction:column}.supervisor-scope-badge{white-space:normal}}
+
+
+/* v35.62 — نقل محتوى حركات الموظفين إلى بند التقارير واستغلال نصفَي الصفحة الرئيسية */
+.home-main-layout{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+  gap:18px!important;
+  align-items:start!important;
+  width:100%!important;
+  margin-top:16px!important;
+}
+.home-main-left,.home-main-right{
+  width:100%!important;
+  min-width:0!important;
+  display:flex!important;
+  flex-direction:column!important;
+  gap:18px!important;
+}
+.home-main-left .home-standalone-box{
+  width:100%!important;
+  margin:0!important;
+  box-sizing:border-box!important;
+}
+.home-main-right .home-three-panels{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:18px!important;
+  width:100%!important;
+  margin:0!important;
+}
+.home-main-right .home-panel{
+  width:100%!important;
+  margin:0!important;
+  box-sizing:border-box!important;
+}
+.home-main-left .home-employee-search-box,.home-main-left .home-register-movement-box{
+  min-height:0!important;
+}
+.home-main-left .home-movement-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+}
+.home-main-left .movement-quick-filter-form{
+  grid-template-columns:repeat(3,minmax(0,1fr)) auto!important;
+}
+.home-main-right .home-current-status{
+  height:auto!important;
+  min-height:0!important;
+}
+.home-main-right .home-entry-directory{
+  height:auto!important;
+  min-height:0!important;
+}
+@media(max-width:1050px){
+  .home-main-left .home-movement-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .home-main-left .movement-quick-filter-form{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:900px){
+  .home-main-layout{grid-template-columns:1fr!important}
+}

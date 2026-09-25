@@ -45,3 +45,7 @@ OneDrive ليس قاعدة البيانات ولا يشغل التطبيق. يم
 
 ## ملاحظة
 هذا المشروع جاهز فنيًا للنشر، لكن جعله متاحًا فعليًا على الإنترنت يتطلب سيرفرًا وحساب DNS/نطاق وصلاحية تشغيل Docker. لم يتم تنفيذ نشر فعلي في هذه البيئة.
+
+
+## v35.36 — إصلاح PostgreSQL
+تم إصلاح رابط PostgreSQL ليستخدم psycopg2-binary الموجود في requirements.txt بدل psycopg، لمنع ModuleNotFoundError: No module named 'psycopg'.

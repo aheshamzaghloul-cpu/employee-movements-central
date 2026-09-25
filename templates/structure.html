@@ -116,7 +116,7 @@
     {% else %}<div class="empty-small">لا يوجد مشرف مسند لهذه المحافظة.</div>{% endfor %}
   </div>
 
-  <div class="node">
+  <div class="node entry-directory-admin-node">
     <div class="node-title">🧑‍💼 المدخلون الأوائل التنظيميون <span class="node-count">{{entries|length}}</span></div>
     {% for item in entries %}{% set emp=item[0] %}{% set scoped=item[1] %}{% set sup=item[2] %}{% set assignment=item[3] %}{% set linked_emp=item[4] %}
       <details class="hierarchy-entry" open>

@@ -2022,3 +2022,77 @@ main:not(.login){width:100%!important;max-width:none!important;}
 .current-status-card.is-assignment .current-status-remaining b{color:#1261ad!important}
 .current-status-card.is-open-assignment .current-status-remaining b{color:#7038a0!important}
 .current-status-card.is-permission .current-status-remaining b{color:#a56d00!important}
+
+/* v35.54 — فصل بحث الموظف وتسجيل الحركة وإضافة المدخل الأول عن اللوحات الرئيسية */
+.home-standalone-box{
+  width:100%;
+  box-sizing:border-box;
+  margin:0 0 18px;
+  padding:18px 20px;
+  background:#fff;
+  border:1px solid #d6e3eb;
+  border-radius:18px;
+  box-shadow:0 7px 20px rgba(24,55,84,.06);
+}
+.home-standalone-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:14px;
+}
+.home-standalone-head h2{margin:2px 0 4px;font-size:24px;color:#24577d}
+.home-standalone-head p{margin:0;color:#687b89;font-size:13px;line-height:1.6}
+.home-standalone-icon{width:48px;height:48px;display:grid;place-items:center;border-radius:13px;background:#eef6fa;border:1px solid #d5e6ee;font-size:23px;flex:0 0 auto}
+.home-employee-search-box .home-movement-employee-search{margin:0}
+.home-register-action{max-width:460px}
+.home-register-action .movement-action{min-height:88px}
+.home-entry-role-box{margin-top:0}
+.home-entry-role-form{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(220px,1fr)) auto;
+  gap:14px;
+  align-items:end;
+  min-width:0!important;
+  width:100%;
+}
+.home-entry-role-form label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:800;color:#365b70}
+.home-entry-role-form select{width:100%;min-height:50px;padding:10px 13px;font-size:15px;border-radius:11px;box-sizing:border-box}
+.home-entry-role-form select[multiple]{min-height:118px}
+.home-entry-role-form .btn{min-height:50px;padding:10px 18px;font-size:14px;white-space:nowrap}
+
+/* حجم لوحة حالة الموظفين يتبع محتواها بدل الارتفاع الثابت لبقية اللوحات */
+.home-three-panels>.home-current-status{
+  min-height:0!important;
+  height:auto!important;
+  align-self:start!important;
+}
+.home-current-status .current-status-list{min-height:0!important}
+
+/* المدخلون الأوائل وإضافة الدور يظهران كبطاقتين مستقلتين */
+.home-entry-directory{min-height:0!important;height:auto!important;align-self:start!important}
+
+/* في صفحة الإدارة: مربع المدخلين الأوائل مستقل بصريًا عن مربع إضافة الدور */
+.entry-directory-admin-node{
+  margin-top:14px!important;
+  padding:15px!important;
+  background:#fff!important;
+  border:1px solid #d4e2ea!important;
+  border-radius:16px!important;
+  box-shadow:0 5px 16px rgba(24,55,84,.05)!important;
+}
+.entry-directory-admin-node>.node-title{font-size:17px!important;color:#24577d!important;margin-bottom:10px!important}
+
+@media(max-width:1000px){
+  .home-entry-role-form{grid-template-columns:1fr 1fr!important}
+  .home-entry-role-form .btn{grid-column:1/-1;width:100%}
+}
+@media(max-width:700px){
+  .home-standalone-box{padding:15px}
+  .home-standalone-head{align-items:flex-start}
+  .home-standalone-head h2{font-size:21px}
+  .home-entry-role-form{grid-template-columns:1fr!important}
+  .home-entry-role-form .btn{grid-column:auto}
+  .home-register-action{max-width:none}
+  .home-register-action .movement-action{width:100%}
+}

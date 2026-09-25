@@ -26,6 +26,72 @@
 </div>
 {% endif %}
 
+<!-- أدوات مستقلة عن لوحات الصفحة الرئيسية -->
+{% if can('manage_movements') or can('view_reports') %}
+<section class="home-standalone-box home-employee-search-box" id="home-employee-search">
+  <div class="home-standalone-head">
+    <div><span class="home-kicker">بحث مباشر</span><h2>بحث عن موظف</h2><p>ابحث بالاسم أو كود الموظف داخل المحافظة أو الفرع.</p></div>
+    <span class="home-standalone-icon">🔎</span>
+  </div>
+  <form class="home-movement-employee-search movement-quick-filter-form" id="movement-employee-search-form" method="get" action="/">
+    <label>المحافظة <span class="required">*</span>
+      <select id="movement-search-governorate" name="movement_governorate_id" required>
+        <option value="">اختر المحافظة أولًا</option>
+        {% for g in movement_search_governorates %}<option value="{{g.id}}" {% if movement_governorate_id|int == g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}
+      </select>
+    </label>
+    <label>الفرع
+      <select id="movement-search-branch" name="movement_branch_id">
+        <option value="">كل الفروع</option>
+        {% for b in movement_search_branches %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}" {% if movement_branch_id|int == b.id %}selected{% endif %}>{{b.name}}{% if b.code %} — {{b.code}}{% endif %}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="movement-employee-search-field">البحث عن موظف
+      <div class="movement-employee-search">
+        <input id="movement-search-name" name="movement_name" value="{{movement_name_query}}" type="search" placeholder="اكتب الاسم أو كود الموظف..." autocomplete="off" {% if not movement_governorate_id %}disabled{% endif %}>
+        <div id="movement-search-suggestions" class="movement-suggestions" hidden></div>
+      </div>
+    </label>
+    <button class="btn" type="submit">🔎 بحث</button>
+    {% if movement_governorate_id or movement_branch_id or movement_name_query %}<a class="btn secondary" href="/#home-employee-search">مسح البحث</a>{% endif %}
+    <small>بعد اختيار المحافظة: اختر فرعًا لعرض موظفيه، أو اكتب الاسم/كود الموظف مباشرة.</small>
+  </form>
+  {% if movement_governorate_id and movement_employee_matches and not movement_employee %}
+  <div class="movement-search-results">
+    <div class="movement-search-results-head"><b>نتائج البحث</b><span>{{movement_employee_matches|length}} موظف</span></div>
+    <div class="movement-search-results-grid">
+    {% for e in movement_employee_matches %}
+      <a class="movement-search-result" href="/?movement_governorate_id={{movement_governorate_id}}&{% if movement_branch_id %}movement_branch_id={{movement_branch_id}}&{% endif %}employee_id={{e.id}}#home-employee-search"><strong>{{e.full_name}}</strong><span>{{e.job_title or 'موظف'}}{% if e.job_code %} · {{e.job_code}}{% endif %}</span><small>{{e.branch.name if e.branch else '—'}}</small></a>
+    {% endfor %}
+    </div>
+  </div>
+  {% elif movement_governorate_id and (movement_branch_id or movement_name_query) and not movement_employee %}
+    <div class="status-empty"><strong>لا توجد نتائج مطابقة.</strong><span>جرّب اسمًا آخر أو اختر فرعًا مختلفًا.</span></div>
+  {% endif %}
+  {% if movement_employee %}
+  <div class="movement-employee-result">
+    <article class="movement-employee-result-card">
+      <div class="movement-employee-result-head"><div class="movement-employee-result-person"><div class="movement-employee-result-avatar">{{(movement_employee.full_name or 'م')[:1]}}</div><div><h3>{{movement_employee.full_name}}</h3><p>{{movement_employee.job_title or 'موظف'}} · {{movement_employee.job_code or 'بدون كود'}}</p></div></div><div class="actions no-print"><a class="btn secondary" href="/employee/{{movement_employee.id}}">بطاقة الموظف</a></div></div>
+      <div class="movement-employee-result-grid"><div><small>فرع التعيين</small><b>{{movement_employee.branch.name if movement_employee.branch else '—'}}</b></div><div><small>الفرع الحالي</small><b>{% set cam=current_assignment_for_employee(movement_employee.id) %}{{(cam.destination.name if cam and cam.destination else movement_employee.branch.name if movement_employee.branch else '—')}}{% if cam and cam.to_date is none %} — <span class="badge">انتداب مفتوح</span>{% endif %}</b></div><div><small>البريد الإلكتروني</small><b>{{movement_employee.email or '—'}}</b></div><div><small>تاريخ التعيين</small><b>{{movement_employee.hire_date or '—'}}</b></div></div>
+      <div class="movement-employee-last">{% for k,t in [('إجازة','آخر إجازة'),('انتداب','آخر انتداب'),('إذن','آخر إذن')] %}<div><h4>{{t}}</h4>{% set m=movement_employee_last[k] %}{% if m %}<div class="hint">{% if k=='إذن' %}{{m.permission_date or '—'}}{% else %}{{m.from_date or '—'}} → {{m.to_date or 'مفتوح'}}{% endif %}</div>{% if m.leave_type %}<div class="hint">{{m.leave_type}}</div>{% elif m.destination %}<div class="hint">إلى {{m.destination.name}}</div>{% endif %}<span class="tag">{{m.status}}</span>{% else %}<div class="hint">لا توجد بيانات</div>{% endif %}</div>{% endfor %}</div>
+    </article>
+  </div>
+  {% endif %}
+</section>
+
+{% if can('manage_movements') %}
+<section class="home-standalone-box home-register-movement-box" id="home-register-movement">
+  <div class="home-standalone-head">
+    <div><span class="home-kicker">إدخال مباشر</span><h2>تسجيل حركة</h2><p>تسجيل إجازة أو انتداب أو إذن للموظف مباشرة.</p></div>
+    <span class="home-standalone-icon">➕</span>
+  </div>
+  <div class="home-register-action">
+    <a class="movement-action accent" href="/movements"><span>➕</span><b>تسجيل إجازة - انتداب - إذن</b><small>تسجيل حركة الموظف مباشرة دون اعتماد</small></a>
+  </div>
+</section>
+{% endif %}
+{% endif %}
+
 <!-- الصفحة الرئيسية: ثلاث لوحات متساوية فقط -->
 <div class="home-three-panels" id="dashboard-workspace">
 
@@ -156,16 +222,19 @@
       {% endfor %}
     </div>
 
-    <div class="entry-role-chain-add entry-role-chain-add-separate">
-      <div><span class="home-kicker">السلسلة الوظيفية</span><b>＋ إضافة دور مدخل أول</b><small>دور تنظيمي فقط: اختر الموظف وفروع مسؤوليته، دون إنشاء حساب دخول.</small></div>
-      <form method="post" action="/entry-role/add" class="inline-entry-role-form">
-        <input type="hidden" name="_csrf" value="{{csrf}}">
-        <select name="employee_id" required><option value="">اختر الموظف</option>{% for e in available_entry_employees %}<option value="{{e.id}}">{{e.full_name}} — {{e.branch.name if e.branch else ''}}</option>{% endfor %}</select>
-        {% if is_admin %}<select name="supervisor_id" required><option value="">المشرف المسؤول</option>{% for s in entry_supervisors %}<option value="{{s.id}}">{{s.full_name}}</option>{% endfor %}</select>{% endif %}
-        <select name="branch_id" multiple required title="يمكن اختيار أكثر من فرع"><option value="" disabled>اختر فروع المسؤولية</option>{% for b in available_entry_branches %}<option value="{{b.id}}">{{b.name}}{% if b.code %} — {{b.code}}{% endif %}</option>{% endfor %}</select>
-        <button class="btn mini">إضافة المدخل والفروع</button>
-      </form>
+  </section>
+  <section class="home-standalone-box home-entry-role-box" id="home-entry-role-add">
+    <div class="home-standalone-head">
+      <div><span class="home-kicker">السلسلة الوظيفية</span><h2>إضافة دور مدخل أول</h2><p>دور تنظيمي فقط: اختر الموظف والمشرف وفروع مسؤوليته، دون إنشاء حساب دخول.</p></div>
+      <span class="home-standalone-icon">👤</span>
     </div>
+    <form method="post" action="/entry-role/add" class="inline-entry-role-form home-entry-role-form">
+      <input type="hidden" name="_csrf" value="{{csrf}}">
+      <label>الموظف<select name="employee_id" required><option value="">اختر الموظف</option>{% for e in available_entry_employees %}<option value="{{e.id}}">{{e.full_name}} — {{e.branch.name if e.branch else ''}}</option>{% endfor %}</select></label>
+      {% if is_admin %}<label>المشرف المسؤول<select name="supervisor_id" required><option value="">اختر المشرف</option>{% for s in entry_supervisors %}<option value="{{s.id}}">{{s.full_name}}</option>{% endfor %}</select></label>{% endif %}
+      <label>فروع المسؤولية<select name="branch_id" multiple required title="يمكن اختيار أكثر من فرع"><option value="" disabled>اختر فروع المسؤولية</option>{% for b in available_entry_branches %}<option value="{{b.id}}">{{b.name}}{% if b.code %} — {{b.code}}{% endif %}</option>{% endfor %}</select></label>
+      <button class="btn" type="submit">إضافة المدخل والفروع</button>
+    </form>
   </section>
   {% endif %}
 
@@ -177,57 +246,7 @@
       <div><h3>حركات الموظفين</h3><small>ابحث عن الموظف واعرض بطاقته وحركاته</small></div>
       <button type="button" class="panel-expand-btn" data-expand-widget="group-movements">⛶ ملء الصفحة</button>
     </div>
-    <form class="home-movement-employee-search movement-quick-filter-form" id="movement-employee-search-form" method="get" action="/">
-      <label>المحافظة <span class="required">*</span>
-        <select id="movement-search-governorate" name="movement_governorate_id" required>
-          <option value="">اختر المحافظة أولًا</option>
-          {% for g in movement_search_governorates %}<option value="{{g.id}}" {% if movement_governorate_id|int == g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}
-        </select>
-      </label>
-      <label>الفرع
-        <select id="movement-search-branch" name="movement_branch_id">
-          <option value="">كل الفروع</option>
-          {% for b in movement_search_branches %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}" {% if movement_branch_id|int == b.id %}selected{% endif %}>{{b.name}}{% if b.code %} — {{b.code}}{% endif %}</option>{% endfor %}
-        </select>
-      </label>
-      <label class="movement-employee-search-field">البحث عن موظف
-        <div class="movement-employee-search">
-          <input id="movement-search-name" name="movement_name" value="{{movement_name_query}}" type="search" placeholder="اكتب الاسم أو الكود الوظيفي..." autocomplete="off" {% if not movement_governorate_id %}disabled{% endif %}>
-          <div id="movement-search-suggestions" class="movement-suggestions" hidden></div>
-        </div>
-      </label>
-      <button class="btn" type="submit">🔎 بحث</button>
-      {% if movement_governorate_id or movement_branch_id or movement_name_query %}<a class="btn secondary" href="/">مسح البحث</a>{% endif %}
-      <small>بعد اختيار المحافظة: اختر فرعًا لعرض موظفيه، أو اكتب الاسم/الكود مباشرة. ستظهر الاقتراحات مع كل حرف.</small>
-    </form>
-
-    {% if movement_governorate_id and movement_employee_matches and not movement_employee %}
-    <div class="movement-search-results">
-      <div class="movement-search-results-head"><b>نتائج البحث</b><span>{{movement_employee_matches|length}} موظف</span></div>
-      <div class="movement-search-results-grid">
-      {% for e in movement_employee_matches %}
-        <a class="movement-search-result" href="/?movement_governorate_id={{movement_governorate_id}}&{% if movement_branch_id %}movement_branch_id={{movement_branch_id}}&{% endif %}employee_id={{e.id}}"><strong>{{e.full_name}}</strong><span>{{e.job_title or 'موظف'}}{% if e.job_code %} · {{e.job_code}}{% endif %}</span><small>{{e.branch.name if e.branch else '—'}}</small></a>
-      {% endfor %}
-      </div>
-    </div>
-    {% elif movement_governorate_id and (movement_branch_id or movement_name_query) and not movement_employee %}
-      <div class="status-empty"><strong>لا توجد نتائج مطابقة.</strong><span>جرّب اسمًا آخر أو اختر فرعًا مختلفًا.</span></div>
-    {% endif %}
-
-    {% if movement_employee %}
-    <div class="movement-employee-result">
-      <article class="movement-employee-result-card">
-        <div class="movement-employee-result-head"><div class="movement-employee-result-person"><div class="movement-employee-result-avatar">{{(movement_employee.full_name or 'م')[:1]}}</div><div><h3>{{movement_employee.full_name}}</h3><p>{{movement_employee.job_title or 'موظف'}} · {{movement_employee.job_code or 'بدون كود'}}</p></div></div><div class="actions no-print"><a class="btn secondary" href="/employee/{{movement_employee.id}}">بطاقة الموظف</a></div></div>
-        <div class="movement-employee-result-grid"><div><small>فرع التعيين</small><b>{{movement_employee.branch.name if movement_employee.branch else '—'}}</b></div><div><small>الفرع الحالي</small><b>{% set cam=current_assignment_for_employee(movement_employee.id) %}{{(cam.destination.name if cam and cam.destination else movement_employee.branch.name if movement_employee.branch else '—')}}{% if cam and cam.to_date is none %} — <span class="badge">انتداب مفتوح</span>{% endif %}</b></div><div><small>البريد الإلكتروني</small><b>{{movement_employee.email or '—'}}</b></div><div><small>تاريخ التعيين</small><b>{{movement_employee.hire_date or '—'}}</b></div></div>
-        <div class="movement-employee-last">{% for k,t in [('إجازة','آخر إجازة'),('انتداب','آخر انتداب'),('إذن','آخر إذن')] %}<div><h4>{{t}}</h4>{% set m=movement_employee_last[k] %}{% if m %}<div class="hint">{% if k=='إذن' %}{{m.permission_date or '—'}}{% else %}{{m.from_date or '—'}} → {{m.to_date or 'مفتوح'}}{% endif %}</div>{% if m.leave_type %}<div class="hint">{{m.leave_type}}</div>{% elif m.destination %}<div class="hint">إلى {{m.destination.name}}</div>{% endif %}<span class="tag">{{m.status}}</span>{% else %}<div class="hint">لا توجد بيانات</div>{% endif %}</div>{% endfor %}</div>
-      </article>
-    </div>
-    {% endif %}
-
     <div class="movement-action-grid">
-      {% if can('manage_movements') %}
-      <a class="movement-action accent" href="/movements"><span>➕</span><b>تسجيل إجازة - انتداب - إذن</b><small>تسجيل حركة الموظف مباشرة دون اعتماد</small></a>
-      {% endif %}
       {% if can('view_reports') %}
       <a class="movement-action" href="/reports/leaves"><span>🏖️</span><b>تقرير الإجازات</b><small>الإجازات حسب المحافظة والفرع والموظف والفترة</small></a>
       <a class="movement-action" href="/reports/assignments"><span>📍</span><b>تقرير الانتدابات</b><small>الجهات المنتدب إليها والمواعيد والحالات</small></a>

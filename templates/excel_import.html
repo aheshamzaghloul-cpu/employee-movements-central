@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}استيراد من Excel{% endblock %}
+{% block content %}
+<div class="toolbar"><div><h1>استيراد من Excel</h1><p class="subtitle">إضافة {{ 'الفروع' if kind=='branches' else 'الموظفين' }} دفعة واحدة مع التحقق من البيانات والتكرار.</p></div><div class="actions"><a class="btn secondary" href="{{ '/branches' if kind=='branches' else '/employees' }}">↩ العودة</a></div></div>
+<div class="box">
+  <div class="section-title"><div><h3>{{ 'استيراد الفروع' if kind=='branches' else 'استيراد الموظفين' }}</h3><span class="hint">استخدم صف العناوين كما هو موضح في النموذج.</span></div></div>
+  <div class="actions" style="margin-bottom:14px"><a class="btn secondary" href="/excel-import/{{kind}}/template">⬇ تحميل نموذج Excel</a></div>
+  <form method="post" enctype="multipart/form-data" class="grid wide">
+    <input type="hidden" name="_csrf" value="{{csrf}}">
+    <label style="grid-column:1/-1">ملف Excel
+      <input type="file" name="file" accept=".xlsx,.xlsm" required>
+    </label>
+    <div class="form-actions"><button>📥 استيراد البيانات</button></div>
+  </form>
+  {% if kind=='branches' %}
+  <div class="hint" style="margin-top:14px">الأعمدة المطلوبة: <b>المحافظة، اسم الفرع، كود الفرع</b>. الصفوف المكررة لا تُضاف مرة أخرى.</div>
+  {% else %}
+  <div class="hint" style="margin-top:14px">الأعمدة المطلوبة: <b>المحافظة، الفرع، اسم الموظف، البريد الإلكتروني، الوظيفة، الكود الوظيفي، تاريخ التعيين، هاتف الشركة، الهاتف الشخصي</b>.</div>
+  {% endif %}
+</div>
+{% if import_done %}
+<div class="box">
+  <div class="section-title"><h3>نتيجة الاستيراد</h3></div>
+  <p>تمت الإضافة: <b>{{added}}</b> — تم التخطي كمكرر: <b>{{skipped}}</b> — أخطاء: <b>{{errors|length}}</b></p>
+  {% if errors %}<div class="alert">{% for e in errors %}<div>{{e}}</div>{% endfor %}</div>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

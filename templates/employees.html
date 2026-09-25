@@ -2,6 +2,7 @@
 {% block title %}الموظفون{% endblock %}
 {% block content %}
 <div class="toolbar"><div><h1>الموظفون</h1><p class="subtitle">إدارة سجل الموظف وبياناته الأساسية وبطاقته وحركاته من مكان منظم.</p></div></div>
+<div class="actions" style="margin-bottom:12px"><a class="btn secondary" href="/excel-import/employees">📥 إضافة موظفين من Excel</a></div>
 <div class="section-tabs">
   <a class="section-tab active" href="/employees">قائمة الموظفين</a>
   {% if can('manage_employees') %}<a class="section-tab" href="/employees/edit-data">تعديل البيانات</a><a class="section-tab" href="/employees/deleted">الموظفون المحذوفون</a>{% endif %}

@@ -1,9 +1,10 @@
-# Version v35.34
+# v35.35
 
-Assistant drag/resize correction:
-- The assistant window can be moved by dragging its title bar.
-- Dragging is handled at document level for reliable movement.
-- Native browser resize is disabled.
-- The custom resize grip is moved to the top-left corner, away from the chat input/send button.
-- Resize remains free by dragging the dedicated corner grip.
-- Existing reopen/no-dimming behavior is preserved.
+## إضافة استيراد Excel
+- إضافة استيراد جماعي للفروع من ملفات Excel.
+- إضافة استيراد جماعي للموظفين من ملفات Excel.
+- توفير نموذج Excel جاهز للتحميل لكل نوع.
+- التحقق من المحافظة والفرع والصلاحيات قبل الإضافة.
+- منع تكرار الفروع والموظفين.
+- عرض نتيجة الاستيراد وعدد السجلات المضافة والمتخطاة والأخطاء.
+- دعم تواريخ التعيين بصيغ شائعة مثل YYYY-MM-DD و DD/MM/YYYY.

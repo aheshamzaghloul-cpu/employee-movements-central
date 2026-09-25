@@ -2319,17 +2319,25 @@ main:not(.login){width:100%!important;max-width:none!important;}
   }
 }
 
-/* v35.70 — داخل مساحة ¾ اليسرى: المدخلون الأوائل وحالة الموظفين بجانب بعض طولياً */
+/* v35.71 — التوزيع الصحيح RTL: ربع يمين للبحث/التسجيل، وثلاثة أرباع يسار
+   مقسومة طولياً بين المدخلين الأوائل وحالة الموظفين */
 @media (min-width: 901px){
   .home-main-layout{
-    grid-template-columns:minmax(0,1.5fr) minmax(0,1.5fr) minmax(260px,1fr)!important;
+    grid-template-columns:minmax(260px,1fr) minmax(0,1.5fr) minmax(0,1.5fr)!important;
     grid-template-rows:minmax(300px,1fr) minmax(300px,1fr)!important;
     grid-template-areas:
-      "entry status search"
-      "entry status register"!important;
+      "search status entry"
+      "register status entry"!important;
+    gap:16px!important;
+    min-height:calc(100vh - 205px)!important;
   }
-  .home-entry-directory{grid-area:entry!important;}
-  .home-current-status{grid-area:status!important;}
+  .home-entry-directory{grid-area:entry!important; min-height:0!important; height:auto!important;}
+  .home-current-status{grid-area:status!important; min-height:0!important; height:auto!important;}
   .home-employee-search-box{grid-area:search!important;}
   .home-register-movement-box{grid-area:register!important;}
+  .home-current-status .current-status-list,
+  .home-entry-directory .entry-directory-list{
+    overflow:auto!important;
+    max-height:calc(100% - 150px)!important;
+  }
 }

@@ -324,15 +324,53 @@ document.addEventListener('DOMContentLoaded', function(){
  }, true);
  min?.addEventListener('click',()=>win.classList.toggle('is-minimized'));
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)hide();});
+ // v35.34 — assistant: drag the window freely + dedicated resize grip away from chat send button
  let drag=false,ox=0,oy=0;
- bar.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;drag=true;bar.setPointerCapture?.(e.pointerId);const r=win.getBoundingClientRect();ox=e.clientX-r.left;oy=e.clientY-r.top;win.style.right='auto';win.style.bottom='auto';e.preventDefault();e.stopPropagation()});
- bar.addEventListener('pointermove',e=>{if(!drag)return;const x=Math.max(8,Math.min(window.innerWidth-win.offsetWidth-8,e.clientX-ox));const y=Math.max(8,Math.min(window.innerHeight-win.offsetHeight-8,e.clientY-oy));win.style.left=x+'px';win.style.top=y+'px';});
- bar.addEventListener('pointerup',()=>drag=false);bar.addEventListener('pointercancel',()=>drag=false);
- // Free resize: drag the visible corner grip; no "fill page" button is needed.
+ bar.addEventListener('pointerdown',e=>{
+   if(e.button!==0 || e.target.closest('button')) return;
+   drag=true;
+   const r=win.getBoundingClientRect();
+   ox=e.clientX-r.left; oy=e.clientY-r.top;
+   win.style.right='auto'; win.style.bottom='auto';
+   win.classList.add('is-dragging');
+   bar.setPointerCapture?.(e.pointerId);
+   e.preventDefault(); e.stopPropagation();
+ });
+ function moveWindow(e){
+   if(!drag) return;
+   const x=Math.max(8,Math.min(window.innerWidth-win.offsetWidth-8,e.clientX-ox));
+   const y=Math.max(8,Math.min(window.innerHeight-win.offsetHeight-8,e.clientY-oy));
+   win.style.left=x+'px'; win.style.top=y+'px';
+ }
+ function endDrag(){if(!drag)return;drag=false;win.classList.remove('is-dragging');keepInViewport();}
+ document.addEventListener('pointermove',moveWindow,{passive:false});
+ document.addEventListener('pointerup',endDrag,{passive:true});
+ document.addEventListener('pointercancel',endDrag,{passive:true});
+ // Dedicated top-left grip. It is outside the chat input/send-button area and uses JS resizing only.
  const rh=document.getElementById('assistantResizeHandle');let resizing=false,rsx=0,rsy=0,rsw=0,rsh=0,rsLeft=0,rsTop=0,raf=0;
- rh?.addEventListener('pointerdown',e=>{if(window.innerWidth<=700||win.classList.contains('is-minimized'))return;resizing=true;rsx=e.clientX;rsy=e.clientY;rsw=win.offsetWidth;rsh=win.offsetHeight;const r=win.getBoundingClientRect();rsLeft=r.left;rsTop=r.top;win.classList.add('is-resizing');rh.setPointerCapture?.(e.pointerId);e.preventDefault();e.stopPropagation()});
- rh?.addEventListener('pointermove',e=>{if(!resizing)return;if(raf)cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>{const minW=380,minH=500,pad=8,maxW=Math.max(minW,window.innerWidth-pad*2),maxH=Math.max(minH,window.innerHeight-pad*2);const w=Math.max(minW,Math.min(maxW,rsw+(rsx-e.clientX))),h=Math.max(minH,Math.min(maxH,rsh+(rsy-e.clientY)));win.style.width=w+'px';win.style.height=h+'px';win.style.left=Math.max(pad,Math.min(window.innerWidth-w-pad,rsLeft+(rsw-w)))+'px';win.style.top=Math.max(pad,Math.min(window.innerHeight-h-pad,rsTop+(rsh-h)))+'px';win.style.right='auto';win.style.bottom='auto';});});
- function endResize(){if(!resizing)return;resizing=false;win.classList.remove('is-resizing');keepInViewport();}
- rh?.addEventListener('pointerup',endResize);rh?.addEventListener('pointercancel',endResize);
+ rh?.addEventListener('pointerdown',e=>{
+   if(e.button!==0||window.innerWidth<=700||win.classList.contains('is-minimized'))return;
+   resizing=true;rsx=e.clientX;rsy=e.clientY;rsw=win.offsetWidth;rsh=win.offsetHeight;
+   const r=win.getBoundingClientRect();rsLeft=r.left;rsTop=r.top;
+   win.classList.add('is-resizing');rh.setPointerCapture?.(e.pointerId);
+   e.preventDefault();e.stopPropagation();
+ });
+ function moveResize(e){
+   if(!resizing)return;
+   if(raf)cancelAnimationFrame(raf);
+   raf=requestAnimationFrame(()=>{
+     const minW=380,minH=500,pad=8,maxW=Math.max(minW,window.innerWidth-pad*2),maxH=Math.max(minH,window.innerHeight-pad*2);
+     const w=Math.max(minW,Math.min(maxW,rsw+(rsx-e.clientX)));
+     const h=Math.max(minH,Math.min(maxH,rsh+(rsy-e.clientY)));
+     win.style.width=w+'px';win.style.height=h+'px';
+     win.style.left=Math.max(pad,Math.min(window.innerWidth-w-pad,rsLeft+(rsw-w)))+'px';
+     win.style.top=Math.max(pad,Math.min(window.innerHeight-h-pad,rsTop+(rsh-h)))+'px';
+     win.style.right='auto';win.style.bottom='auto';
+   });
+ }
+ function endResize(){if(!resizing)return;resizing=false;win.classList.remove('is-resizing');if(raf){cancelAnimationFrame(raf);raf=0;}keepInViewport();}
+ document.addEventListener('pointermove',moveResize,{passive:false});
+ document.addEventListener('pointerup',endResize,{passive:true});
+ document.addEventListener('pointercancel',endResize,{passive:true});
  window.addEventListener('resize',keepInViewport);
 })();

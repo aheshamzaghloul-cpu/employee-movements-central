@@ -2269,3 +2269,67 @@ main:not(.login){width:100%!important;max-width:none!important;}
   .assistant-window input,.assistant-window textarea{min-height:38px;padding:8px 10px}
   .assistant-window button{padding:7px 11px}
 }
+
+/* v35.67 — تصغير بسيط وواضح للنصوص على مستوى التطبيق بالكامل */
+@media (min-width: 1001px){
+  body{font-size:13px;line-height:1.55}
+  header b{font-size:17px}
+  nav a{font-size:13px;padding:7px 10px}
+  h1{font-size:22px} h2{font-size:18px} h3{font-size:16px}
+  .subtitle{font-size:12px}
+  label{font-size:12px}
+  input,select,textarea{font-size:13px}
+  button,.btn{font-size:13px}
+  .mini{font-size:11px}
+  th,td{font-size:12px}
+  .quick b{font-size:15px}
+  .required-note{font-size:10px}.hint{font-size:11px}
+  .home-search h2{font-size:18px}
+  .employee-search-wrap input{font-size:14px}
+  .report-links .box{font-size:13px}
+  .assistant-window{font-size:13px}
+  .assistant-window input,.assistant-window textarea{font-size:13px}
+}
+
+/* v35.69 — الصفحة الرئيسية: عمود أيمن ربع العرض، وثلاثة أرباع يسار؛
+   البحث أعلى اليمين، تسجيل الحركة أسفله، واليسار: المدخلون الأوائل ثم حالة الموظفين */
+@media (min-width: 901px){
+  .home-main-layout{
+    display:grid!important;
+    grid-template-columns:minmax(0,3fr) minmax(260px,1fr)!important;
+    grid-template-rows:minmax(300px,1fr) minmax(300px,1fr)!important;
+    grid-template-areas:
+      "entry search"
+      "status register"!important;
+    gap:16px!important;
+    min-height:calc(100vh - 205px)!important;
+    align-items:stretch!important;
+  }
+  .home-main-left,.home-main-right{
+    display:contents!important;
+  }
+  .home-employee-search-box{grid-area:search!important;}
+  .home-register-movement-box{grid-area:register!important;}
+  .home-entry-directory{grid-area:entry!important; min-height:0!important; height:auto!important; overflow:hidden!important;}
+  .home-current-status{grid-area:status!important; min-height:0!important; height:auto!important; overflow:hidden!important;}
+  .home-current-status .current-status-list,
+  .home-entry-directory .entry-directory-list{
+    overflow:auto!important;
+    max-height:calc(100% - 150px)!important;
+  }
+}
+
+/* v35.70 — داخل مساحة ¾ اليسرى: المدخلون الأوائل وحالة الموظفين بجانب بعض طولياً */
+@media (min-width: 901px){
+  .home-main-layout{
+    grid-template-columns:minmax(0,1.5fr) minmax(0,1.5fr) minmax(260px,1fr)!important;
+    grid-template-rows:minmax(300px,1fr) minmax(300px,1fr)!important;
+    grid-template-areas:
+      "entry status search"
+      "entry status register"!important;
+  }
+  .home-entry-directory{grid-area:entry!important;}
+  .home-current-status{grid-area:status!important;}
+  .home-employee-search-box{grid-area:search!important;}
+  .home-register-movement-box{grid-area:register!important;}
+}

@@ -2096,3 +2096,28 @@ main:not(.login){width:100%!important;max-width:none!important;}
   .home-register-action{max-width:none}
   .home-register-action .movement-action{width:100%}
 }
+
+/* v35.58 — الإدارة: استبدال بطاقة «المدخلون الأوائل» بإضافة دور مدخل أول */
+.admin-entry-role-admin-card{grid-column:1/-1}
+.admin-entry-role-form{grid-template-columns:repeat(2,minmax(240px,1fr));gap:18px;align-items:end}
+.admin-entry-role-form label{min-width:0}
+.admin-entry-role-form label span{display:block;font-weight:800;font-size:16px;margin-bottom:7px}
+.admin-entry-role-form select{width:100%;min-height:50px;padding:10px 13px;font-size:16px;border:1px solid #c8d8e0;border-radius:12px;background:#fff}
+.admin-entry-role-form .entry-role-branches-field{grid-column:1/-1}
+.admin-entry-role-form .entry-role-branches-field select{min-height:150px}
+.admin-entry-role-form small{display:block;margin-top:6px;font-size:13px;color:#667780}
+.admin-entry-role-form .entry-role-submit{min-height:50px;font-size:16px;padding:10px 22px;justify-self:start}
+@media(max-width:800px){.admin-entry-role-form{grid-template-columns:1fr}.admin-entry-role-form .entry-role-branches-field{grid-column:auto}.admin-entry-role-form .entry-role-submit{width:100%}}
+
+
+/* v35.59 — فصل إدارة المشرف عن الإدارة العامة */
+.supervisor-admin-clean{width:100%;margin:0 0 18px;background:#fff;border:1px solid #d8e5ec;border-radius:18px;padding:18px;box-sizing:border-box}
+.supervisor-admin-clean .supervisor-admin-hero{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:18px;border-radius:15px;background:#f5fafc;border:1px solid #dceaf0}
+.supervisor-admin-clean .supervisor-admin-hero h2{margin:4px 0 7px;font-size:25px;color:#24576b}
+.supervisor-admin-clean .supervisor-admin-hero p{margin:0;color:#627582;line-height:1.8}
+.supervisor-scope-badge{white-space:nowrap;padding:10px 14px;border-radius:999px;background:#fff;border:1px solid #cddde9;font-weight:800;color:#24576b}
+.supervisor-admin-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}
+.supervisor-admin-action{min-height:82px;display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid #dbe6ed;border-radius:14px;background:#fff;text-decoration:none;color:inherit;box-sizing:border-box}
+.supervisor-admin-action:hover{border-color:#a9c7d6;background:#f8fcfe}
+.supervisor-admin-action>span{font-size:24px;flex:0 0 auto}.supervisor-admin-action div{display:flex;flex-direction:column;gap:3px}.supervisor-admin-action strong{font-size:15px;color:#24576b}.supervisor-admin-action small{font-size:11px;color:#71828d;line-height:1.55}
+@media(max-width:800px){.supervisor-admin-actions{grid-template-columns:1fr}.supervisor-admin-clean .supervisor-admin-hero{align-items:flex-start;flex-direction:column}.supervisor-scope-badge{white-space:normal}}

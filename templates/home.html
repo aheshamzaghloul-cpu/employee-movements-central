@@ -10,6 +10,14 @@
 <style id="admin-entry-role-professional-style">
 .admin-entry-role-professional{grid-template-columns:1fr;gap:20px;padding:22px}.admin-entry-role-intro h3{font-size:22px;margin:4px 0 7px}.admin-entry-role-intro p{font-size:14px;line-height:1.8}.admin-entry-role-note{margin-top:10px;padding:10px 12px;border-radius:10px;background:#f3f8fb;border:1px solid #d9e8f0;color:#456070;font-size:13px}.entry-role-professional-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:end}.entry-role-professional-form label{display:flex;flex-direction:column;gap:7px;font-size:14px;font-weight:800}.entry-role-professional-form select{min-height:48px;font-size:15px}.entry-role-professional-form .entry-role-branches-field{grid-column:1/-1}.entry-role-professional-form .entry-role-branches-field select{min-height:150px;padding:8px}.entry-role-professional-form small{font-weight:500;color:#64748b}.entry-role-submit{min-height:48px;font-size:15px;font-weight:800}@media(max-width:800px){.entry-role-professional-form{grid-template-columns:1fr}.entry-role-professional-form .entry-role-branches-field{grid-column:auto}.entry-role-submit{width:100%}}
 </style>
+<style id="home-half-layout-style">
+.home-main-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start;margin-top:16px}
+.home-main-left,.home-main-right{min-width:0;display:flex;flex-direction:column;gap:16px}
+.home-main-left .home-standalone-box,.home-main-right .home-panel{width:100%;box-sizing:border-box;margin:0}
+.home-main-right .home-three-panels{display:flex;flex-direction:column;gap:16px;margin:0}
+.home-main-right .home-panel{width:100%}
+@media(max-width:900px){.home-main-layout{grid-template-columns:1fr}}
+</style>
 
 <div class="home-dashboard-head">
   <div>
@@ -32,6 +40,9 @@
   </form>
 </div>
 {% endif %}
+
+<div class="home-main-layout">
+<div class="home-main-left">
 
 <!-- أدوات مستقلة عن لوحات الصفحة الرئيسية -->
 {% if can('manage_movements') or can('view_reports') %}
@@ -113,6 +124,10 @@
 </section>
 {% endif %}
 {% endif %}
+
+</div>
+
+<div class="home-main-right">
 
 <!-- الصفحة الرئيسية: ثلاث لوحات متساوية فقط -->
 <div class="home-three-panels" id="dashboard-workspace">
@@ -248,7 +263,10 @@
 
   {% endif %}
 
-  <!-- 3) حركات الموظفين: المحتوى ظاهر مباشرة دون بند داخلي -->
+</div>
+</div>
+
+<!-- 3) حركات الموظفين: المحتوى ظاهر مباشرة دون بند داخلي -->
   {% if can('manage_movements') or can('view_reports') %}
   <section class="home-panel home-movements-panel dashboard-widget" data-widget-id="group-movements">
     <div class="home-group-head">

@@ -983,6 +983,7 @@ def structure():
         available_entry_employees=Employee.query.filter(Employee.is_active==True,Employee.branch_id.in_(allowed_branch_set)).order_by(Employee.full_name).all() if allowed_branch_set else []
         available_entry_employees=[e for e in available_entry_employees if not entry_role_exists(e)]
     entry_supervisors=[u for u in User.query.filter_by(is_active=True).order_by(User.full_name).all() if 'مشرف محافظة' in actual_roles(u)]
+    available_entry_branches=Branch.query.filter(Branch.id.in_(allowed_branch_set), Branch.is_active==True).order_by(Branch.governorate_id, Branch.name).all() if allowed_branch_set else []
     return render_template(
         'structure.html',
         tree=tree,
@@ -994,7 +995,7 @@ def structure():
         govs_all=govs_all,
         selected_governorate=selected_gov,
         admin_stats=admin_stats,
-        available_entry_employees=available_entry_employees, entry_supervisors=entry_supervisors
+        available_entry_employees=available_entry_employees, entry_supervisors=entry_supervisors, available_entry_branches=available_entry_branches
     )
 
 

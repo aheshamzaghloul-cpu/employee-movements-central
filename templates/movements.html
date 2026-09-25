@@ -20,25 +20,6 @@
 <div class="form-actions"><button type="submit">حفظ الحركة</button></div>
 </form></div>
 
-<div class="box movement-list-box">
-  <div class="toolbar"><div><h2>الحركات المسجلة</h2><p class="subtitle">يمكنك فتح أي حركة وتعديل بياناتها مباشرة.</p></div></div>
-  <div class="tablewrap"><table>
-    <thead><tr><th>الموظف</th><th>نوع الحركة</th><th>التفاصيل</th><th>الفترة</th><th>الحالة</th><th>إجراء</th></tr></thead>
-    <tbody>
-    {% for m in rows %}
-      <tr>
-        <td><a class="table-link" href="/employee/{{m.employee.id}}">{{m.employee.full_name}}</a><small>{{m.employee.branch.name if m.employee.branch else '—'}}</small></td>
-        <td><span class="badge">{{m.movement_type}}</span></td>
-        <td>{% if m.movement_type=='إجازة' %}{{m.leave_type or 'إجازة'}}{% elif m.movement_type=='انتداب' %}{{m.destination.name if m.destination else '—'}}{% else %}إذن{% endif %}</td>
-        <td>{% if m.movement_type=='إذن' %}{{m.permission_date or '—'}}{% else %}{{m.from_date or '—'}} ← {% if m.movement_type=='انتداب' and m.to_date is none %}<b>مفتوح</b>{% else %}{{m.to_date or '—'}}{% endif %}{% endif %}</td>
-        <td>{{m.status}}{% if m.movement_type=='انتداب' %} — <b>{{assignment_state(m)}}</b>{% endif %}</td>
-        <td><a class="btn mini" href="/movements/{{m.id}}/edit">تعديل الحركة</a>{% if m.movement_type=='انتداب' and m.assignment_state!='مغلق' and m.to_date is none %}<form method="post" action="/movements/{{m.id}}/close-assignment" style="display:inline-flex;gap:5px;margin-inline-start:5px"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="btn mini secondary" type="submit">إنهاء الانتداب</button></form>{% endif %}</td>
-      </tr>
-    {% else %}<tr><td colspan="6" class="empty">لا توجد حركات مسجلة.</td></tr>{% endfor %}
-    </tbody>
-  </table></div>
-</div>
-
 <script>
 (function(){
  const gov=document.getElementById('movement_governorate');

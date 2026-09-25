@@ -761,6 +761,10 @@ def home():
         # لتحديد حالة الموظف الحالية.
         ending=[]
 
+    movement_entry_branches = (Branch.query.filter(Branch.id.in_(bs), Branch.is_active==True).order_by(Branch.name.asc()).all() if bs else [])
+    movement_entry_gov_ids = {b.governorate_id for b in movement_entry_branches}
+    movement_entry_governorates = (Governorate.query.filter(Governorate.id.in_(movement_entry_gov_ids), Governorate.is_active==True).order_by(Governorate.name.asc()).all() if movement_entry_gov_ids else [])
+
     return render_template(
         'home.html',
         g=len(visible_govs),
@@ -791,7 +795,11 @@ def home():
         movement_governorate_id=movement_governorate_id,
         movement_branch_id=movement_branch_id,
         movement_name_query=movement_name_query,
-        movement_employee_id=(int(movement_employee_id) if movement_employee_id.isdigit() else None)
+        movement_employee_id=(int(movement_employee_id) if movement_employee_id.isdigit() else None),
+        movement_entry_governorates=movement_entry_governorates,
+        movement_entry_branches=movement_entry_branches,
+        movement_types=active_movement_types(),
+        leave_types=active_leave_types()
     )
 
 @app.get('/api/entry-ids/<int:gid>')

@@ -2,7 +2,7 @@
 {% block title %}الهيكل الإداري{% endblock %}
 {% block content %}
 <div class="toolbar supervisor-toolbar">
-  <div><h1>الإدارة</h1>{% if is_manager_support %}<div class="section-caption"><b>مركز الإدارة</b><span>نفس واجهة إدارة التطبيق، مع إخفاء وظائف الحسابات والصلاحيات الخاصة بمسؤول التطبيق.</span></div>{% elif is_supervisor %}<div class="section-caption"><b>لوحة إدارة المشرف</b><span>{% if govs_all %}نطاق الإدارة مقصور على: <strong>{{ govs_all|map(attribute='name')|join(' — ') }}</strong>. لا تظهر محافظات أخرى في خيارات الإدارة أو الإسناد.{% else %}لا توجد محافظة مسجلة لهذا المشرف حتى الآن.{% endif %}</span></div>{% elif is_entry %}<div class="section-caption"><b>إدارة فروعك</b><span>تظهر هنا فقط الفروع والموظفون الذين تتولى إدارتهم.</span></div>{% endif %}</div>
+  <div><h1>الإدارة</h1>{% if is_manager_support %}<div class="section-caption"><b>مركز الإدارة</b><span>واجهة الإدارة التشغيلية ضمن صلاحيات الدور الحالي.</span></div>{% elif is_entry %}<div class="section-caption"><b>إدارة فروعك</b><span>تظهر هنا فقط الفروع والموظفون الذين تتولى إدارتهم.</span></div>{% endif %}</div>
 </div>
 {% if is_supervisor and not is_admin and govs_all|length > 1 %}
 <form method="get" class="supervisor-admin-scope-select no-print">
@@ -90,13 +90,19 @@
   </form>
 </div>
 
-<section class="admin-entry-role-card" id="entry-role-chain">
-  <div><span class="eyebrow">السلسلة الوظيفية</span><h3>إضافة دور «المدخل الأول»</h3><p>المدخل الأول هنا دور تنظيمي فقط لترتيب الموظفين في مجموعات. لا يتم إنشاء حساب أو اسم مستخدم له.</p></div>
-  <form method="post" action="/entry-role/add" class="entry-role-picker">
+<section class="admin-entry-role-card admin-entry-role-professional" id="entry-role-chain">
+  <div class="admin-entry-role-intro">
+    <span class="eyebrow">السلسلة الوظيفية</span>
+    <h3>إضافة دور «المدخل الأول»</h3>
+    <p>اختر موظفًا مسجلًا، ثم حدّد المشرف وفروع المسؤولية. الدور تنظيمي فقط ولا يتم إنشاء حساب دخول.</p>
+    <div class="admin-entry-role-note">💡 يمكنك اختيار أكثر من فرع، ولن تظهر الفروع المسندة بالفعل إلى مدخل أول آخر.</div>
+  </div>
+  <form method="post" action="/entry-role/add" class="entry-role-professional-form">
     <input type="hidden" name="_csrf" value="{{csrf}}">
-    <label>الموظف<select name="employee_id" required><option value="">اختر موظفًا مسجلًا</option>{% for e in available_entry_employees %}<option value="{{e.id}}">{{e.full_name}} — {{e.branch.name if e.branch else ''}}</option>{% endfor %}</select></label>
-    {% if is_admin %}<label>المشرف المسؤول<select name="supervisor_id" required><option value="">اختر المشرف</option>{% for s in entry_supervisors %}<option value="{{s.id}}">{{s.full_name}}</option>{% endfor %}</select></label>{% endif %}
-    <button class="btn">إضافة المدخل الأول</button>
+    <label><span>الموظف</span><select name="employee_id" required><option value="">اختر الموظف</option>{% for e in available_entry_employees %}<option value="{{e.id}}">{{e.full_name}}{% if e.job_title %} — {{e.job_title}}{% endif %}{% if e.branch %} — فرع {{e.branch.name}}{% endif %}</option>{% endfor %}</select></label>
+    {% if is_admin or is_manager_support %}<label><span>المشرف المسؤول</span><select name="supervisor_id" required><option value="">اختر المشرف المسؤول</option>{% for s in entry_supervisors %}<option value="{{s.id}}">{{s.full_name}}</option>{% endfor %}</select></label>{% endif %}
+    <label class="entry-role-branches-field"><span>فروع المسؤولية</span><select name="branch_id" multiple required size="5">{% for b in available_entry_branches %}<option value="{{b.id}}">{{b.name}}{% if b.code %} — {{b.code}}{% endif %}</option>{% else %}<option value="" disabled>لا توجد فروع متاحة حاليًا</option>{% endfor %}</select><small>اضغط Ctrl لاختيار أكثر من فرع على الكمبيوتر.</small></label>
+    <button class="btn entry-role-submit" type="submit">إضافة المدخل الأول وحفظ المسؤولية</button>
   </form>
 </section>
 {% endif %}

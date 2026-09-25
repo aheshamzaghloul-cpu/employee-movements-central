@@ -2004,3 +2004,21 @@ main:not(.login){width:100%!important;max-width:none!important;}
 /* v35.50 — assistant is draggable only; resizing controls removed */
 .assistant-resize-handle{display:none!important;pointer-events:none!important;width:0!important;height:0!important}
 .assistant-window{resize:none!important}
+
+/* v35.53 — لوحة حالة الموظفين: أربع حالات فقط وبألوان منفصلة بوضوح */
+.current-status-card.is-leave{background:#fff1f1!important;border-color:#efb4b4!important}
+.current-status-card.is-assignment{background:#eef6ff!important;border-color:#a9c9ea!important}
+.current-status-card.is-open-assignment{background:#f5efff!important;border-color:#cdb8ed!important}
+.current-status-card.is-permission{background:#fff8e8!important;border-color:#edd18a!important}
+.current-status-card.is-leave .current-status-badge{background:#c62828!important;color:#fff!important}
+.current-status-card.is-assignment .current-status-badge{background:#1565c0!important;color:#fff!important}
+.current-status-card.is-open-assignment .current-status-badge{background:#7b3fb0!important;color:#fff!important}
+.current-status-card.is-permission .current-status-badge{background:#b77900!important;color:#fff!important}
+.current-status-card.is-leave .current-status-main strong{color:#a61b1b!important}
+.current-status-card.is-assignment .current-status-main strong{color:#0b559e!important}
+.current-status-card.is-open-assignment .current-status-main strong{color:#67308f!important}
+.current-status-card.is-permission .current-status-main strong{color:#8a5b00!important}
+.current-status-card.is-leave .current-status-remaining b{color:#b51e1e!important}
+.current-status-card.is-assignment .current-status-remaining b{color:#1261ad!important}
+.current-status-card.is-open-assignment .current-status-remaining b{color:#7038a0!important}
+.current-status-card.is-permission .current-status-remaining b{color:#a56d00!important}

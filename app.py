@@ -532,41 +532,78 @@ def change_password():
         else: u.password_hash=generate_password_hash(new); u.must_change_password=False; sync_role_accounts(u); log('PASSWORD_CHANGE','User',u.id); db.session.commit(); flash('تم تغيير كلمة المرور بنجاح.'); return redirect('/')
     return render_template('change_password.html')
 def current_employee_status_rows(branch_ids, today):
-    """Return employees currently located in the selected branches, including open assignments."""
+    """عرض الحالات التشغيلية المطلوبة فقط: إجازة، انتداب ساري، انتداب مفتوح، إذن اليوم."""
     if not branch_ids:
         return []
+
     employees=employees_effectively_in_branches(branch_ids,today)
     rows=[]
     for e in employees:
         moves=(Movement.query.filter_by(employee_id=e.id,is_active=True)
                .order_by(Movement.created_at.desc(),Movement.id.desc()).all())
+
+        # الأولوية في لوحة الحالة: الإجازة، ثم الانتداب المحدد، ثم المفتوح، ثم إذن اليوم.
+        leave=next((m for m in moves if m.movement_type=='إجازة' and m.from_date and m.to_date and m.from_date<=today<=m.to_date),None)
+        assignment=next((m for m in moves if m.movement_type=='انتداب' and m.assignment_state!='مغلق'
+                         and m.from_date and m.from_date<=today and m.to_date is not None and today<=m.to_date),None)
+        open_assignment=next((m for m in moves if m.movement_type=='انتداب' and m.assignment_state!='مغلق'
+                              and m.from_date and m.from_date<=today and m.to_date is None),None)
+        permission=next((m for m in moves if m.movement_type=='إذن' and m.permission_date==today),None)
+
         current=None
-        for m in moves:
-            if m.movement_type=='انتداب' and m.assignment_state!='مغلق' and m.from_date and m.from_date<=today and (m.to_date is None or today<=m.to_date):
-                current=m; break
-            if m.movement_type=='إجازة' and m.from_date and m.to_date and m.from_date<=today<=m.to_date:
-                current=m; break
-        if current and current.movement_type=='انتداب':
-            state='انتداب مفتوح' if current.to_date is None else 'انتداب ساري'
-            place=current.destination.name if current.destination else 'جهة الانتداب غير محددة'
-            until=current.to_date
-            detail=('من {} — مفتوح'.format(current.from_date.strftime('%d/%m/%Y')) if not current.to_date else 'من {} إلى {}'.format(current.from_date.strftime('%d/%m/%Y'),current.to_date.strftime('%d/%m/%Y')))
-            display_branch=current.destination
-        elif current and current.movement_type=='إجازة':
-            state='إجازة مستمرة'; place=current.leave_type or 'إجازة'; until=current.to_date
-            detail='من {} إلى {}'.format(current.from_date.strftime('%d/%m/%Y'),current.to_date.strftime('%d/%m/%Y'))
-            display_branch=e.branch
-        else:
-            state='على رأس العمل'; place=e.branch.name if e.branch else '—'; until=None; detail=''; display_branch=e.branch
+        state=None
+        place=''
+        until=None
+        detail=''
+        display_branch=e.branch
+
+        if leave:
+            current=leave
+            state='إجازة'
+            place=leave.leave_type or 'إجازة'
+            until=leave.to_date
+            detail='من {} إلى {}'.format(leave.from_date.strftime('%d/%m/%Y'),leave.to_date.strftime('%d/%m/%Y'))
+        elif assignment:
+            current=assignment
+            state='انتداب'
+            place=assignment.destination.name if assignment.destination else 'جهة الانتداب غير محددة'
+            until=assignment.to_date
+            detail='من {} إلى {}'.format(assignment.from_date.strftime('%d/%m/%Y'),assignment.to_date.strftime('%d/%m/%Y'))
+            display_branch=assignment.destination or e.branch
+        elif open_assignment:
+            current=open_assignment
+            state='انتداب مفتوح'
+            place=open_assignment.destination.name if open_assignment.destination else 'جهة الانتداب غير محددة'
+            until=None
+            detail='من {} — مفتوح'.format(open_assignment.from_date.strftime('%d/%m/%Y'))
+            display_branch=open_assignment.destination or e.branch
+        elif permission:
+            current=permission
+            state='إذن'
+            place=e.branch.name if e.branch else '—'
+            until=permission.permission_date
+            detail='بتاريخ {}'.format(permission.permission_date.strftime('%d/%m/%Y'))
+
+        # لا نعرض المتواجدين عاديًا؛ هذه اللوحة مخصصة للحالات الأربع فقط.
+        if not current:
+            continue
+
         remaining=(until-today).days if until else None
-        rows.append({'employee':e,'state':state,'place':place,'until':until,'detail':detail,'remaining':remaining,'movement':current,
-                     'ending_notice':bool(until and until <= today + timedelta(days=1)),'from_date':current.from_date if current else None,'to_date':current.to_date if current else None,'display_branch':display_branch})
-    # ترتيب المتابعة: الإجازات أولًا، ثم الانتدابات المحددة، ثم الانتدابات المفتوحة.
+        rows.append({
+            'employee':e,'state':state,'place':place,'until':until,'detail':detail,
+            'remaining':remaining,'movement':current,
+            'ending_notice':bool(until and until <= today + timedelta(days=1)),
+            'from_date':current.from_date if current and current.movement_type in ('إجازة','انتداب') else current.permission_date,
+            'to_date':current.to_date if current and current.movement_type in ('إجازة','انتداب') else None,
+            'display_branch':display_branch
+        })
+
     def status_rank(r):
-        if r['movement'] and r['movement'].movement_type=='إجازة': return 0
-        if r['movement'] and r['movement'].movement_type=='انتداب' and r['to_date'] is not None: return 1
-        if r['movement'] and r['movement'].movement_type=='انتداب' and r['to_date'] is None: return 2
+        if r['state']=='إجازة': return 0
+        if r['state']=='انتداب': return 1
+        if r['state']=='انتداب مفتوح': return 2
         return 3
+
     rows.sort(key=lambda r:(status_rank(r), r['until'] or date.max, r['employee'].full_name))
     return rows
 

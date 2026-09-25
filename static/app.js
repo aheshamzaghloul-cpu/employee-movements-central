@@ -314,6 +314,35 @@ document.addEventListener('DOMContentLoaded', function(){
    fab.hidden=false;
  }
  fab.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();open();});
+
+ // v35.52 — assistant: drag window by title bar only (no resize handles)
+ let dragging=null;
+ bar.addEventListener('pointerdown',e=>{
+   if(e.button!==0)return;
+   const r=win.getBoundingClientRect();
+   dragging={x:e.clientX,y:e.clientY,left:r.left,top:r.top};
+   win.style.position='fixed'; win.style.right='auto'; win.style.bottom='auto';
+   win.classList.add('is-dragging');
+   try{bar.setPointerCapture(e.pointerId)}catch(_){ }
+   e.preventDefault(); e.stopPropagation();
+ });
+ function moveDrag(e){
+   if(!dragging)return;
+   e.preventDefault(); e.stopPropagation();
+   const pad=8, dx=e.clientX-dragging.x, dy=e.clientY-dragging.y;
+   const maxLeft=Math.max(pad,window.innerWidth-win.offsetWidth-pad);
+   const maxTop=Math.max(pad,window.innerHeight-win.offsetHeight-pad);
+   win.style.left=Math.round(Math.max(pad,Math.min(maxLeft,dragging.left+dx)))+'px';
+   win.style.top=Math.round(Math.max(pad,Math.min(maxTop,dragging.top+dy)))+'px';
+ }
+ function endDrag(e){
+   if(!dragging)return;
+   try{if(bar.hasPointerCapture?.(e.pointerId))bar.releasePointerCapture(e.pointerId)}catch(_){ }
+   dragging=null; win.classList.remove('is-dragging'); keepInViewport();
+ }
+ document.addEventListener('pointermove',moveDrag,{passive:false});
+ document.addEventListener('pointerup',endDrag,{passive:false});
+ document.addEventListener('pointercancel',endDrag,{passive:false});
  // The assistant has only two states: visible window or the floating icon. Clicking outside returns to the icon.
  document.addEventListener('pointerdown',e=>{
    if(modal.hidden || !modal.classList.contains('is-open')) return;

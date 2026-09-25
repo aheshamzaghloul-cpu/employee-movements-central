@@ -36,7 +36,7 @@
       <div>
         <span class="home-kicker">متابعة مباشرة</span>
         <h2>حالة الموظفين الآن</h2>
-        <p class="home-current-note">تظهر الإجازات أولًا، ثم الانتدابات المحددة، ثم الانتدابات المفتوحة بعلامات وألوان مميزة.</p>
+        <p class="home-current-note">تظهر الإجازات، ثم الانتدابات، ثم الانتدابات المفتوحة، ثم الأذون — وكل حالة بلون مختلف.</p>
       </div>
       <div class="panel-head-actions"><span class="home-current-count" id="current-status-count">{{current_status_rows|length}} موظف</span><button type="button" class="panel-expand-btn" data-expand-widget="employee-current-status">⛶ ملء الصفحة</button></div>
     </div>
@@ -61,18 +61,18 @@
     </div>
     <div class="current-status-list" id="current-status-list">
       {% for row in current_status_rows %}
-      <a class="current-status-card {% if row.state.startswith('متواجد') %}is-present{% elif row.movement and row.movement.movement_type=='انتداب' %}is-assignment{% if row.to_date is none %} is-open-assignment{% endif %}{% elif row.movement and row.movement.movement_type=='إجازة' %}is-leave{% endif %}" data-status-employee="{{row.employee.id}}" data-status-branch="{{row.display_branch.id if row.display_branch else ''}}" href="/employee/{{row.employee.id}}">
+      <a class="current-status-card {% if row.state=='إجازة' %}is-leave{% elif row.state=='انتداب' %}is-assignment{% elif row.state=='انتداب مفتوح' %}is-open-assignment{% elif row.state=='إذن' %}is-permission{% endif %}" data-status-employee="{{row.employee.id}}" data-status-branch="{{row.display_branch.id if row.display_branch else ''}}" href="/employee/{{row.employee.id}}">
         <div class="current-status-main"><strong>{{row.employee.full_name}}</strong><small>{{row.display_branch.name if row.display_branch else (row.employee.branch.name if row.employee.branch else '—')}}</small></div>
-        <div class="current-status-badge">{% if row.movement and row.movement.movement_type=='انتداب' and row.to_date is none %}🟣 انتداب مفتوح{% else %}{{row.state}}{% endif %}</div>
+        <div class="current-status-badge">{{row.state}}</div>
         <div class="current-status-detail"><b>{{row.place}}</b><div class="status-dates"><span><em>من</em><strong>{{row.from_date.strftime('%d/%m/%Y') if row.from_date else '—'}}</strong></span><span><em>إلى</em><strong>{{row.to_date.strftime('%d/%m/%Y') if row.to_date else 'مفتوح'}}</strong></span></div></div>
-        <div class="current-status-remaining">{% if row.to_date is none %}<b>∞</b><span>بدون نهاية</span>{% else %}<b>{{row.remaining}}</b><span>{% if row.remaining==0 %}ينتهي اليوم{% elif row.remaining==1 %}متبقي يوم واحد{% else %}أيام متبقية{% endif %}</span>{% endif %}</div>
+        <div class="current-status-remaining">{% if row.state=='انتداب مفتوح' %}<b>∞</b><span>مفتوح</span>{% elif row.state=='إذن' %}<b>اليوم</b><span>إذن</span>{% else %}<b>{{row.remaining}}</b><span>{% if row.remaining==0 %}ينتهي اليوم{% elif row.remaining==1 %}متبقي يوم واحد{% else %}أيام متبقية{% endif %}</span>{% endif %}</div>
         {% if row.ending_notice %}<div class="current-status-alert">ينتهي قريبًا</div>{% endif %}
       </a>
       {% endfor %}
     </div>
     <div class="status-filter-empty" id="current-status-filter-empty" hidden>لا توجد نتائج مطابقة للبحث المحدد.</div>
     {% else %}
-      <div class="status-empty"><strong>لا توجد حاليًا إجازات مستمرة أو انتدابات سارية</strong><span>سيظهر الموظف هنا تلقائيًا طوال فترة الإجازة أو الانتداب.</span></div>
+      <div class="status-empty"><strong>لا توجد حاليًا إجازات أو انتدابات أو أذون</strong><span>تظهر هنا الحالات الحالية فقط: إجازة، انتداب، انتداب مفتوح، وإذن اليوم.</span></div>
     {% endif %}
   </section>
   {% endif %}

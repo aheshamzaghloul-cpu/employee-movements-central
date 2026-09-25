@@ -2357,7 +2357,7 @@ def assistant_live_context_for_prompt(text, local_a=None):
             e=db.session.get(Employee, emp_id)
             if e:
                 cb=current_assignment_for_employee(e.id)
-                parts.append(f"موظف محدد: {e.full_name} | كود وظيفي: {e.job_code or ''} | كود شئون العاملين: {e.employee_code or ''} | الوظيفة: {e.job_title or ''} | فرع التعيين: {e.branch.name if e.branch else ''} | الفرع الحالي: {cb.destination.name if cb and cb.destination else (e.branch.name if e.branch else '')}")
+                parts.append(f"موظف محدد: {e.full_name} | كود الموظف: {e.job_code or ''} | الوظيفة: {e.job_title or ''} | فرع التعيين: {e.branch.name if e.branch else ''} | الفرع الحالي: {cb.destination.name if cb and cb.destination else (e.branch.name if e.branch else '')}")
         br_id=(local_a or {}).get('branch_id')
         if br_id:
             b=db.session.get(Branch, br_id)
@@ -2407,7 +2407,7 @@ def assistant_llm_parse(text, chat=None, live_context=''):
         'open_assignment':{'type':'boolean'},
         'navigate_url':{'type':['string','null']},
         'reply':{'type':['string','null']},
-        'employee_field':{'type':['string','null'],'enum':['status','job_title','job_code','employee_code','branch','governorate','hire_date','company_phone','personal_phone','last_leave','last_assignment','last_permission','movements','basic',None]}
+        'employee_field':{'type':['string','null'],'enum':['status','job_title','job_code','employee_code','branch','governorate','hire_date','company_phone','personal_phone','phone','last_leave','last_assignment','last_permission','movements','basic',None]}
       },
       'required':['intent','topic','employee_name','employee_id','branch_name','branch_id','governorate_id','governorate_name','candidate_ids','movement_type','leave_type','destination_name','from_date','to_date','permission_date','open_assignment','navigate_url','reply','employee_field']
     }
@@ -2441,16 +2441,34 @@ def assistant_llm_parse(text, chat=None, live_context=''):
     except Exception:
         return None
 
+def assistant_is_greeting(text):
+    n=assistant_search_normalize(text)
+    greetings=(
+        'السلام عليكم','السلام عليكم ورحمة الله وبركاته','وعليكم السلام',
+        'صباح الخير','مساء الخير','اهلا','اهلاً','مرحبا','مرحباً','هاي','هلا','السلام عليكم ورحمة الله وبركاته'
+    )
+    return any(n==assistant_search_normalize(g) or n.startswith(assistant_search_normalize(g)+' ') for g in greetings)
+
+def assistant_greeting_reply(text):
+    n=assistant_search_normalize(text)
+    if 'صباح الخير' in n:
+        return 'صباح النور ☀️ أهلاً بك. أنا معك، ويمكنك سؤالي عن أي موظف أو فرع أو حركة أو تنفيذ أي إجراء متاح لك.'
+    if 'مساء الخير' in n:
+        return 'مساء النور 🌙 أهلاً بك. أنا معك، ويمكنك سؤالي عن أي موظف أو فرع أو حركة أو تنفيذ أي إجراء متاح لك.'
+    if 'السلام عليكم' in n:
+        return 'وعليكم السلام ورحمة الله وبركاته 🌷 أهلاً بك. كيف أساعدك؟'
+    return 'أهلاً بك 🌷 كيف أساعدك؟'
+
 def assistant_employee_field(text):
     n=assistant_search_normalize(text)
     if any(x in n for x in ('الحاله','حالته','حالته الان','حاله الموظف','متواجد','موجود','في اجازه','منتدب')): return 'status'
     if any(x in n for x in ('الوظيفه','وظيفته','المسمى الوظيفي','المسمى الوظيفى')): return 'job_title'
-    if any(x in n for x in ('الكود الوظيفي','الكود الوظيفى','كود الموظف')): return 'job_code'
-    if any(x in n for x in ('كود شئون العاملين','كود شؤون العاملين','كود شئون')): return 'employee_code'
+    if any(x in n for x in ('الكود الوظيفي','الكود الوظيفى','كود الموظف','كود شئون العاملين','كود شؤون العاملين','كود شئون')): return 'job_code'
     if any(x in n for x in ('فرع التعيين','فرعه','فرع الموظف','الفرع الحالي','فين فرعه','اين فرعه','اين يعمل','بيشتغل فين')): return 'branch'
     if any(x in n for x in ('المحافظه','محافظته','تابع لاي محافظه','تابع لاى محافظه')): return 'governorate'
     if any(x in n for x in ('تاريخ التعيين','اتعين امتى','تاريخ تعيينه')): return 'hire_date'
     if any(x in n for x in ('هاتف الشركه','تليفون الشركه','هاتف العمل','رقم العمل')): return 'company_phone'
+    if any(x in n for x in ('رقم الهاتف','رقم التليفون','رقم الموبايل','التليفون','الهاتف')): return 'phone'
     if any(x in n for x in ('الهاتف الشخصي','تليفونه الشخصي','رقم موبايله','رقم هاتفه')): return 'personal_phone'
     if any(x in n for x in ('اخر اجازه','اخر اجازة','آخر اجازه','آخر إجازة','اجازته الاخيره','اجازته')): return 'last_leave'
     if any(x in n for x in ('اخر انتداب','آخر انتداب','انتدابه الاخير','اخر ماموريه','آخر مأمورية')): return 'last_assignment'
@@ -2461,13 +2479,23 @@ def assistant_employee_field(text):
 
 def assistant_employee_from_mixed_phrase(text):
     cleaned=assistant_normalize(text)
-    patterns=(r'\b(?:ما|ماذا|هل|عايز|اريد|أريد|اعرض|عرض|بيانات|بياناته|بطاقة|بطاقته|حالة|حالته|الموظف|موظف|الموظفة|موظفة)\b',r'\b(?:إجازة|اجازة|الإجازة|الاجازه|انتداب|الانتداب|مأمورية|مأموريه|إذن|اذن|الأذن|الاذن)\b',r'\b(?:آخر|اخر|الاخير|الأخير|تفاصيل|تفصيل|سجل|حركات|حركه|حركة)\b',r'\b(?:في|فى|عن|من|لـ|ل|به|له)\b')
+    # أزل عبارات السؤال والبيان مع الإبقاء على اسم الموظف، مثل:
+    # "ما وظيفة كيرلس" / "رقم الهاتف كيرلس" / "بيانات كيرلس".
+    patterns=(
+        r'\b(?:ما|ماذا|هل|عايز|اريد|أريد|اعرض|عرض|بيانات|بياناته|بطاقة|بطاقته|حالة|حالته|الموظف|موظفة|موظف)\b',
+        r'\b(?:الوظيفة|وظيفته|المسمى الوظيفي|المسمى الوظيفى|رقم الهاتف|رقم التليفون|رقم الموبايل|الهاتف|التليفون|هاتف العمل|هاتف الشركة|الهاتف الشخصي|الكود الوظيفي|كود شئون العاملين|فرع التعيين|الفرع الحالي|المحافظة|تاريخ التعيين|آخر إجازة|اخر اجازه|آخر انتداب|اخر انتداب|آخر إذن|اخر اذن|حركاته|سجل حركاته|سجل الحركات|بيانات الموظف|معلوماته)\b',
+        r'\b(?:إجازة|اجازة|الإجازة|الاجازه|انتداب|الانتداب|مأمورية|مأموريه|إذن|اذن|الأذن|الاذن)\b',
+        r'\b(?:آخر|اخر|الاخير|الأخير|تفاصيل|تفصيل|سجل|حركات|حركه|حركة)\b',
+        r'\b(?:في|فى|عن|من|لـ|ل|به|له)\b'
+    )
     for pat in patterns: cleaned=re.sub(pat,' ',cleaned,flags=re.I)
     cleaned=re.sub(r'[؟?،,؛;:]+',' ',cleaned); cleaned=re.sub(r'\s+',' ',cleaned).strip()
     return assistant_find_employee(cleaned) if cleaned else (None,[])
 
 def assistant_parse(text):
     t=assistant_normalize(text)
+    if assistant_is_greeting(t):
+        return {'intent':'greeting','reply':assistant_greeting_reply(t)}
     # فهم لغوي مرن: نطبع الصيغ الشائعة ونفسر المقصود حتى لو لم يستخدم المستخدم
     # نفس تسمية الزر داخل التطبيق.
     low=t.lower()
@@ -2850,10 +2878,11 @@ def assistant_render_read(a):
             return f'{detail} — من {m.from_date or "—"} إلى {m.to_date or "مفتوح"}'
         if field=='job_title': return {'title':f'وظيفة {e.full_name}','answer':f'{e.full_name} — الوظيفة: {e.job_title or "لا توجد بيانات"}'}
         if field=='job_code': return {'title':f'الكود الوظيفي — {e.full_name}','answer':f'{e.full_name} — الكود الوظيفي: {e.job_code or "لا توجد بيانات"}'}
-        if field=='employee_code': return {'title':f'كود شئون العاملين — {e.full_name}','answer':f'{e.full_name} — كود شئون العاملين: {e.employee_code or "لا توجد بيانات"}'}
+        if field=='employee_code': return {'title':f'كود الموظف — {e.full_name}','answer':f'{e.full_name} — كود الموظف: {e.job_code or "لا توجد بيانات"}'}
         if field=='branch': return {'title':f'فرع {e.full_name}','answer':f'{e.full_name} — فرع التعيين: {e.branch.name if e.branch else "لا توجد بيانات"} — الفرع الحالي: {cb.name if cb else "لا توجد بيانات"}'}
         if field=='governorate': return {'title':f'محافظة {e.full_name}','answer':f'{e.full_name} — المحافظة الحالية: {cb.governorate.name if cb and cb.governorate else "لا توجد بيانات"}'}
         if field=='hire_date': return {'title':f'تاريخ تعيين {e.full_name}','answer':f'{e.full_name} — تاريخ التعيين: {e.hire_date or "لا توجد بيانات"}'}
+        if field=='phone': return {'title':f'رقم الهاتف — {e.full_name}','answer':f'{e.full_name} — هاتف الشركة: {e.company_phone or "لا توجد بيانات"} — الهاتف الشخصي: {e.personal_phone or "لا توجد بيانات"}'}
         if field=='company_phone': return {'title':f'هاتف العمل — {e.full_name}','answer':f'{e.full_name} — هاتف الشركة: {e.company_phone or "لا توجد بيانات"}'}
         if field=='personal_phone': return {'title':f'الهاتف الشخصي — {e.full_name}','answer':f'{e.full_name} — الهاتف الشخصي: {e.personal_phone or "لا توجد بيانات"}'}
         if field=='last_leave': return {'title':f'آخر إجازة — {e.full_name}','answer':f'{e.full_name} — آخر إجازة: {movement_text(leave)}'}
@@ -2861,7 +2890,7 @@ def assistant_render_read(a):
         if field=='last_permission': return {'title':f'آخر إذن — {e.full_name}','answer':f'{e.full_name} — آخر إذن: {movement_text(permission)}'}
         if field=='movements':
             return {'title':f'حركات {e.full_name}','answer':'\n'.join([f'{m.movement_type} — {movement_text(m)} — {m.status}' for m in ms[:20]]) if ms else f'{e.full_name}: لا توجد حركات مسجلة.'}
-        lines=[f'الموظف: {e.full_name}',f'الحالة الآن: {assistant_status_for_employee(e)}',f'الكود الوظيفي: {e.job_code or "لا توجد بيانات"}',f'كود شئون العاملين: {e.employee_code or "لا توجد بيانات"}',f'الوظيفة: {e.job_title or "لا توجد بيانات"}',f'المحافظة: {cb.governorate.name if cb and cb.governorate else "لا توجد بيانات"}',f'فرع التعيين: {e.branch.name if e.branch else "لا توجد بيانات"}',f'الفرع الحالي: {cb.name if cb else "لا توجد بيانات"}',f'تاريخ التعيين: {e.hire_date or "لا توجد بيانات"}',f'آخر إجازة: {movement_text(leave)}',f'آخر انتداب: {movement_text(assignment)}',f'آخر إذن: {movement_text(permission)}']
+        lines=[f'الموظف: {e.full_name}',f'الحالة الآن: {assistant_status_for_employee(e)}',f'كود الموظف: {e.job_code or "لا توجد بيانات"}',f'الوظيفة: {e.job_title or "لا توجد بيانات"}',f'المحافظة: {cb.governorate.name if cb and cb.governorate else "لا توجد بيانات"}',f'فرع التعيين: {e.branch.name if e.branch else "لا توجد بيانات"}',f'الفرع الحالي: {cb.name if cb else "لا توجد بيانات"}',f'تاريخ التعيين: {e.hire_date or "لا توجد بيانات"}',f'آخر إجازة: {movement_text(leave)}',f'آخر انتداب: {movement_text(assignment)}',f'آخر إذن: {movement_text(permission)}']
         return {'title':f'بطاقة الموظف — {e.full_name}','answer':'\n'.join(lines),'actions':[
             {'label':'الوظيفة','url':'#','prompt':f'ما وظيفة {e.full_name}؟'},
             {'label':'آخر إجازة','url':'#','prompt':f'ما آخر إجازة لـ {e.full_name}؟'},
@@ -2946,7 +2975,9 @@ def assistant():
                     ce=db.session.get(Employee, session.get('assistant_context_employee_id'))
                     if ce and ce.is_active and branch_ok(ce.branch_id):
                         a['employee_id']=ce.id
-            if a.get('intent')=='topic_options':
+            if a.get('intent')=='greeting':
+                result={'title':'المساعد الذكي','answer':a.get('reply') or assistant_greeting_reply(prompt)}
+            elif a.get('intent')=='topic_options':
                 result=assistant_topic_options(a.get('topic'))
                 # لا تستخدم رسالة خيارات عامة إذا أعاد النموذج ردًا طبيعيًا أكثر تحديدًا.
                 if a.get('reply') and not result.get('answer'):

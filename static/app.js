@@ -344,10 +344,10 @@ document.addEventListener('DOMContentLoaded', function(){
  document.addEventListener('pointermove',moveWindow,{passive:false});
  document.addEventListener('pointerup',endDrag,{passive:true});
  document.addEventListener('pointercancel',endDrag,{passive:true});
- // Dedicated top-left grip. It is outside the chat input/send-button area and uses JS resizing only.
+ // Dedicated bottom-left grip. It never overlaps the chat composer/send button and resizing does not close the conversation.
  const rh=document.getElementById('assistantResizeHandle');let resizing=false,rsx=0,rsy=0,rsw=0,rsh=0,rsLeft=0,rsTop=0,raf=0;
  rh?.addEventListener('pointerdown',e=>{
-   if(e.button!==0||window.innerWidth<=700||win.classList.contains('is-minimized'))return;
+   if(e.button!==0||win.classList.contains('is-minimized'))return;
    resizing=true;rsx=e.clientX;rsy=e.clientY;rsw=win.offsetWidth;rsh=win.offsetHeight;
    const r=win.getBoundingClientRect();rsLeft=r.left;rsTop=r.top;
    win.classList.add('is-resizing');rh.setPointerCapture?.(e.pointerId);
@@ -357,12 +357,12 @@ document.addEventListener('DOMContentLoaded', function(){
    if(!resizing)return;
    if(raf)cancelAnimationFrame(raf);
    raf=requestAnimationFrame(()=>{
-     const minW=380,minH=500,pad=8,maxW=Math.max(minW,window.innerWidth-pad*2),maxH=Math.max(minH,window.innerHeight-pad*2);
-     const w=Math.max(minW,Math.min(maxW,rsw+(rsx-e.clientX)));
-     const h=Math.max(minH,Math.min(maxH,rsh+(rsy-e.clientY)));
+     const minW=380,minH=420,pad=8,maxW=Math.max(minW,window.innerWidth-pad*2),maxH=Math.max(minH,window.innerHeight-pad*2);
+     const w=Math.max(minW,Math.min(maxW,rsw+(e.clientX-rsx)));
+     const h=Math.max(minH,Math.min(maxH,rsh+(e.clientY-rsy)));
      win.style.width=w+'px';win.style.height=h+'px';
-     win.style.left=Math.max(pad,Math.min(window.innerWidth-w-pad,rsLeft+(rsw-w)))+'px';
-     win.style.top=Math.max(pad,Math.min(window.innerHeight-h-pad,rsTop+(rsh-h)))+'px';
+     win.style.left=Math.max(pad,Math.min(window.innerWidth-w-pad,rsLeft))+'px';
+     win.style.top=Math.max(pad,Math.min(window.innerHeight-h-pad,rsTop))+'px';
      win.style.right='auto';win.style.bottom='auto';
    });
  }

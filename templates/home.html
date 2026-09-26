@@ -192,7 +192,7 @@
     </div>
 
     <div class="entry-directory-filters no-print">
-      <label>البحث باسم المدخل الأول
+      <label class="entry-directory-filter-box">البحث باسم المدخل الأول
         <select id="entry-directory-filter">
           <option value="">كل المدخلين الأوائل</option>
           {% for row in entry_rows %}
@@ -200,6 +200,41 @@
           {% endfor %}
         </select>
       </label>
+      <button type="button" class="btn entry-directory-add-btn" id="toggle-entry-role-add">＋ إضافة دور مدخل أول</button>
+
+      <div class="entry-role-inline-panel" id="entry-role-inline-panel">
+        <div class="entry-role-inline-head">
+          <div><strong>إضافة دور مدخل أول</strong><small>اختر الموظف أولًا، وستظهر فروع محافظته تلقائيًا لاختيار فروع المسؤولية.</small></div>
+          <button type="button" class="btn secondary mini" id="close-entry-role-add">إغلاق</button>
+        </div>
+        <form method="post" action="/entry-role/add" class="entry-role-inline-grid" id="entry-role-inline-form">
+          <input type="hidden" name="_csrf" value="{{csrf}}">
+          <label>اسم المدخل الأول
+            <select name="employee_id" id="inline-entry-employee" required>
+              <option value="">اختر الموظف</option>
+              {% for e in available_entry_employees %}
+                <option value="{{e.id}}" data-gov-id="{{e.branch.governorate_id if e.branch else ''}}">{{e.full_name}}{% if e.branch %} — {{e.branch.name}}{% endif %}</option>
+              {% endfor %}
+            </select>
+          </label>
+          {% if is_admin %}<label>المشرف المسؤول
+            <select name="supervisor_id" required><option value="">اختر المشرف</option>{% for s in entry_supervisors %}<option value="{{s.id}}">{{s.full_name}}</option>{% endfor %}</select>
+          </label>{% endif %}
+          <div class="entry-role-branches-wrap">
+            <div class="entry-role-branches-title"><b>فروع المسؤولية</b><span id="inline-entry-branch-help">اختر الموظف أولًا لعرض الفروع.</span></div>
+            <div class="entry-role-branch-grid" id="inline-entry-branch-grid">
+              {% for b in available_entry_branches %}
+                <label class="entry-role-branch-choice" data-gov-id="{{b.governorate_id}}" hidden>
+                  <input type="checkbox" name="branch_id" value="{{b.id}}">
+                  <span><strong>{{b.name}}</strong><small>{% if b.governorate %}{{b.governorate.name}}{% endif %}{% if b.code %} · كود {{b.code}}{% endif %}</small></span>
+                </label>
+              {% endfor %}
+              <div class="entry-role-branch-empty" id="inline-entry-branch-empty">اختر اسم المدخل الأول لعرض الفروع المتاحة.</div>
+            </div>
+          </div>
+          <div class="entry-role-inline-actions"><button class="btn" type="submit">حفظ الدور والفروع المحددة</button></div>
+        </form>
+      </div>
     </div>
 
     <div class="entry-directory-list" id="entry-directory-list">
@@ -259,19 +294,7 @@
     </div>
 
   </section>
-  <section class="home-standalone-box home-entry-role-box" id="home-entry-role-add">
-    <div class="home-standalone-head">
-      <div><span class="home-kicker">السلسلة الوظيفية</span><h2>إضافة دور مدخل أول</h2><p>دور تنظيمي فقط: اختر الموظف والمشرف وفروع مسؤوليته، دون إنشاء حساب دخول.</p></div>
-      <span class="home-standalone-icon">👤</span>
-    </div>
-    <form method="post" action="/entry-role/add" class="inline-entry-role-form home-entry-role-form">
-      <input type="hidden" name="_csrf" value="{{csrf}}">
-      <label>الموظف<select name="employee_id" required><option value="">اختر الموظف</option>{% for e in available_entry_employees %}<option value="{{e.id}}">{{e.full_name}} — {{e.branch.name if e.branch else ''}}</option>{% endfor %}</select></label>
-      {% if is_admin %}<label>المشرف المسؤول<select name="supervisor_id" required><option value="">اختر المشرف</option>{% for s in entry_supervisors %}<option value="{{s.id}}">{{s.full_name}}</option>{% endfor %}</select></label>{% endif %}
-      <label>فروع المسؤولية<select name="branch_id" multiple required title="يمكن اختيار أكثر من فرع"><option value="" disabled>اختر فروع المسؤولية</option>{% for b in available_entry_branches %}<option value="{{b.id}}">{{b.name}}{% if b.code %} — {{b.code}}{% endif %}</option>{% endfor %}</select></label>
-      <button class="btn" type="submit">إضافة المدخل والفروع</button>
-    </form>
-  </section>
+
   {% endif %}
 
   <!-- 3) حركات الموظفين: المحتوى ظاهر مباشرة دون بند داخلي -->
@@ -358,6 +381,35 @@
     });
   }
   entryFilter?.addEventListener('change',filterEntries);
+})();
+</script>
+
+<script>
+(function(){
+  const toggle=document.getElementById('toggle-entry-role-add');
+  const close=document.getElementById('close-entry-role-add');
+  const panel=document.getElementById('entry-role-inline-panel');
+  const employee=document.getElementById('inline-entry-employee');
+  const choices=[...document.querySelectorAll('#inline-entry-branch-grid .entry-role-branch-choice')];
+  const empty=document.getElementById('inline-entry-branch-empty');
+  const help=document.getElementById('inline-entry-branch-help');
+  if(!toggle||!panel||!employee) return;
+  const setOpen=(open)=>{panel.classList.toggle('open',open); if(open) employee.focus();};
+  toggle.addEventListener('click',()=>setOpen(!panel.classList.contains('open')));
+  close?.addEventListener('click',()=>setOpen(false));
+  employee.addEventListener('change',()=>{
+    const gov=employee.selectedOptions[0]?.dataset.govId||'';
+    let shown=0;
+    choices.forEach(label=>{
+      const match=!!gov && label.dataset.govId===gov;
+      label.hidden=!match;
+      if(!match){ const cb=label.querySelector('input'); if(cb) cb.checked=false; label.classList.remove('selected'); }
+      else shown++;
+    });
+    empty.hidden=shown>0;
+    help.textContent=shown?`تم عرض ${shown} فرعًا ضمن محافظة الموظف — اختر فرعًا أو أكثر.`:'لا توجد فروع متاحة ضمن نطاق هذا الموظف.';
+  });
+  choices.forEach(label=>{ const cb=label.querySelector('input'); cb?.addEventListener('change',()=>label.classList.toggle('selected',cb.checked)); });
 })();
 </script>
 {% endblock %}

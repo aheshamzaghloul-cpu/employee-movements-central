@@ -3635,12 +3635,15 @@ def mission_template_pdf(m, employee, branch, destination, creator=None, print_t
         page.add_redact_annot(rect, fill=(1,1,1))
     page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_NONE)
 
-    # The sample embeds the exact font used by the original form.  It is extracted into
-    # static/mission/mission-original.ttf during release creation so variable text uses the
-    # same font family, metrics, weight and color as the source PDF.
-    if not os.path.exists(font):
-        # Keep a safe fallback for local development; the release always contains the exact font.
-        font=os.path.join(app.root_path,'static','mission','NotoNaskhArabic-Regular.ttf')
+    # Register the exact font extracted from the supplied sample PDF on the page.
+    # This is important: insert_htmlbox can then use the actual Arabic OpenType shaping
+    # tables from the sample font instead of falling back to a browser/default font.
+    if os.path.exists(font):
+        page.insert_font(fontfile=font, fontname='missionorig')
+    else:
+        fallback=os.path.join(app.root_path,'static','mission','NotoNaskhArabic-Regular.ttf')
+        if os.path.exists(fallback):
+            page.insert_font(fontfile=fallback, fontname='missionorig')
 
     now=datetime.now()
     def put(rect, text, size=9.9603748, align='right', direction='rtl'):
@@ -3648,12 +3651,12 @@ def mission_template_pdf(m, employee, branch, destination, creator=None, print_t
         safe=(text.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;'))
         html=(f'<div style="font-family:missionorig;font-size:{size:.6f}pt;'
               f'line-height:1;white-space:nowrap;text-align:{align};direction:{direction};">{safe}</div>')
-        css=f'@font-face{{font-family:missionorig;src:url({font})}}'
-        page.insert_htmlbox(rect, html, css=css)
+        page.insert_htmlbox(rect, html)
 
-    # Upper-right: one single text run so the state can never split into two words/boxes.
+    # Upper-right: keep the mission number visually BEFORE the Arabic status.
+    # LTR here is intentional so the rendered result is exactly: 40873 مغلقة / 40873 تحت التحرير.
     status='مغلقة' if mission_state_label(m)=='مغلقة' else 'تحت التحرير'
-    put(fitz.Rect(498.0, 74.2, 552.8, 87.9), f'{m.id} {status}', 8.0403004, 'right', 'rtl')
+    put(fitz.Rect(498.0, 74.2, 552.8, 87.9), f'{m.id} {status}', 8.0403004, 'right', 'ltr')
 
     creator_name=(creator.full_name if creator else '')
     creator_job=(creator.job_title if creator and creator.job_title else '')

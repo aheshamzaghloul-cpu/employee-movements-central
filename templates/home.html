@@ -31,7 +31,6 @@
   <div>
     <div class="home-kicker">لوحة التحكم</div>
     <h1 class="home-title">الرئيسية</h1>
-    <div class="home-scope">{% if visible_govs %}نطاقك: {{ visible_govs|map(attribute='name')|join(' — ') }}{% else %}لا توجد محافظة مسندة{% endif %}</div>
   </div>
 </div>
 
@@ -158,7 +157,6 @@
       <div>
         <span class="home-kicker">متابعة مباشرة</span>
         <h2>حالة الموظفين الآن</h2>
-        <p class="home-current-note">تظهر الإجازات، ثم الانتدابات، ثم الانتدابات المفتوحة، ثم الأذون — وكل حالة بلون مختلف.</p>
       </div>
       <div class="panel-head-actions"><span class="home-current-count" id="current-status-count">{{current_status_rows|length}} موظف</span><button type="button" class="panel-expand-btn" data-expand-widget="employee-current-status">⛶ ملء الصفحة</button></div>
     </div>
@@ -214,7 +212,6 @@
       <div>
         <span class="home-kicker">السلسلة الوظيفية</span>
         <h2>المدخلون الأوائل</h2>
-        <p>من يدير ماذا الآن؟ المدخل الأول ← فروع مسؤوليته ← موظفو كل فرع، مع مؤشرات تشغيل سريعة.</p>
       </div>
       <div class="panel-head-actions"><div class="entry-directory-badge"><b>{{ entry_rows|length }}</b><span>مدخل أول</span></div><button type="button" class="panel-expand-btn" data-expand-widget="entry-directory">⛶ ملء الصفحة</button></div>
     </div>

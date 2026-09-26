@@ -2221,3 +2221,8 @@ main:not(.login){width:100%!important;max-width:none!important;}
 .home-register-movement-box .home-register-action .movement-action small{
   display:none!important;
 }
+
+/* v35.58 — application-wide 70% zoom (browser zoom is untouched) */
+html{
+  zoom:0.70!important;
+}

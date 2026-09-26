@@ -452,8 +452,30 @@ document.addEventListener('DOMContentLoaded', function(){
       const o=select.options[select.selectedIndex]; input.value=o?label(o):''; input.disabled=!!select.disabled;
       if(input.disabled)close(state,false);
     };
-    input.addEventListener('focus',()=>{if(!input.disabled){input.select();render(state);}});
-    input.addEventListener('click',()=>{if(!input.disabled)render(state);});
+    // First click: open the full list immediately. The displayed selected label
+    // must not be treated as the search query (otherwise "اختر المحافظة"
+    // would filter out every option). After the list opens, typing filters
+    // character-by-character.
+    input.addEventListener('pointerdown',()=>{
+      if(input.disabled)return;
+      if(!openState || openState!==state || state.menu.hidden){
+        input.value='';
+        render(state);
+      }
+    });
+    input.addEventListener('focus',()=>{
+      if(input.disabled)return;
+      if(!openState || openState!==state || state.menu.hidden){
+        input.value='';
+        render(state);
+      }
+    });
+    input.addEventListener('click',()=>{
+      if(!input.disabled && state.menu.hidden){
+        input.value='';
+        render(state);
+      }
+    });
     input.addEventListener('input',()=>{if(!input.disabled)render(state);});
     input.addEventListener('keydown',e=>{
       if(e.key==='ArrowDown'||e.key==='ArrowUp'){

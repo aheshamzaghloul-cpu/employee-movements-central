@@ -379,10 +379,16 @@ document.addEventListener('DOMContentLoaded', function(){
   let openState=null;
   function label(o){return o?.textContent?.trim()||'';}
   function options(select){return [...select.options].filter(o=>!o.disabled);}
+  function clearReservedSpace(state){
+    if(!state?.wrap)return;
+    state.wrap.style.marginBottom='';
+    state.wrap.classList.remove('is-dropdown-open');
+  }
   function close(state,restore=true){
     if(!state)return;
     if(restore){const o=state.select.options[state.select.selectedIndex]; state.input.value=o?label(o):'';}
     state.menu.hidden=true; state.input.setAttribute('aria-expanded','false'); state.active=-1;
+    clearReservedSpace(state);
     if(openState===state) openState=null;
   }
   function position(state){
@@ -397,12 +403,19 @@ document.addEventListener('DOMContentLoaded', function(){
     const topBelow=r.bottom+gap;
     const spaceBelow=vh-topBelow;
     const spaceAbove=r.top-gap;
-    const hVisual=Math.min(maxH,Math.max(120,spaceBelow>=120?spaceBelow:spaceAbove));
+    const contentHeight=Math.min(maxH,Math.max(120,state.menu.scrollHeight||0));
+    const hVisual=spaceBelow>=120 ? Math.min(maxH,Math.max(120,Math.max(contentHeight,Math.min(spaceBelow,360)))) : Math.min(maxH,Math.max(120,Math.min(contentHeight,spaceAbove)));
     const topFinal=spaceBelow>=120 ? topBelow : Math.max(4,r.top-hVisual-gap);
     state.menu.style.left=Math.round(r.left)+'px';
     state.menu.style.top=Math.round(topFinal)+'px';
     state.menu.style.width=Math.round(r.width)+'px';
     state.menu.style.maxHeight=Math.round(hVisual)+'px';
+    // Reserve vertical space in the page while the menu is open. This lets
+    // the page extend downward instead of having the dropdown cover the
+    // content below it. The space is removed immediately when the menu closes.
+    const reserve=Math.max(0,Math.round(hVisual+gap));
+    state.wrap.style.marginBottom=reserve+'px';
+    state.wrap.classList.add('is-dropdown-open');
   }
   function choose(state,o){
     if(!o)return;
@@ -444,7 +457,7 @@ document.addEventListener('DOMContentLoaded', function(){
     menu.style.position='fixed'; menu.style.zIndex='2147483000';
     document.body.appendChild(menu);
     wrap.appendChild(input);
-    const state={select,input,menu,active:-1};
+    const state={select,input,menu,wrap,active:-1};
     const sync=()=>{
       const o=select.options[select.selectedIndex]; input.value=o?label(o):''; input.disabled=!!select.disabled;
       if(input.disabled)close(state,false);

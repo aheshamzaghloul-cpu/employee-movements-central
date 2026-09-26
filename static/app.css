@@ -2351,3 +2351,99 @@ html{
   .home-entry-directory .entry-directory-list{grid-template-columns:1fr!important}
   .home-entry-directory .entry-card[open]{grid-column:auto!important}
 }
+
+/* v35.71 — توحيد أحجام محتوى لوحتي الرئيسية مع صناديق البحث والتسجيل، مع تكبير بسيط */
+.home-current-status .current-status-filters,
+.home-entry-directory .entry-directory-filters{
+  gap:10px!important;
+  padding:9px 11px!important;
+  margin-bottom:12px!important;
+}
+.home-current-status .current-status-filters label,
+.home-entry-directory .entry-directory-filters label{
+  min-width:210px!important;
+  gap:4px!important;
+  font-size:12px!important;
+}
+.home-current-status .current-status-filters .searchable-select-input,
+.home-entry-directory .entry-directory-filters .searchable-select-input,
+.home-entry-directory .entry-directory-filter-box input{
+  min-height:42px!important;
+  height:42px!important;
+  padding:7px 36px!important;
+  font-size:13px!important;
+}
+.home-current-status .current-status-card{
+  padding:13px 14px!important;
+  gap:9px 11px!important;
+  border-radius:14px!important;
+}
+.home-current-status .current-status-main strong{font-size:15px!important;line-height:1.4!important}
+.home-current-status .current-status-main small{font-size:11px!important}
+.home-current-status .current-status-badge{font-size:12px!important;padding:6px 9px!important}
+.home-current-status .current-status-detail>b{font-size:12px!important}
+.home-current-status .status-dates span{padding:6px 8px!important}
+.home-current-status .status-dates em{font-size:10px!important}
+.home-current-status .status-dates strong{font-size:12px!important}
+.home-current-status .current-status-remaining b{font-size:19px!important}
+.home-current-status .current-status-remaining span{font-size:11px!important}
+.home-entry-directory .entry-directory-filter-box input{font-size:13px!important;text-align:center!important}
+.home-entry-directory .entry-directory-add-btn{min-height:42px!important;height:42px!important;padding:7px 14px!important;font-size:13px!important}
+.home-entry-directory .entry-card>summary{padding:13px 12px!important}
+.home-entry-directory .entry-main strong{font-size:15px!important;line-height:1.45!important}
+.home-entry-directory .entry-main small,
+.home-entry-directory .branch-main small{font-size:11px!important}
+.home-entry-directory .entry-meta{font-size:11px!important}
+.home-entry-directory .branch-card>summary{padding:11px 12px!important}
+
+/* v35.71 — زر «ملء الصفحة» يجعل اللوحة تمتد بعرض الشاشة بالكامل */
+.panel-focus-mode > .dashboard-widget.panel-focused{
+  width:100vw!important;
+  max-width:100vw!important;
+  margin-right:calc(50% - 50vw)!important;
+  margin-left:calc(50% - 50vw)!important;
+  border-radius:0!important;
+}
+@media(max-width:700px){
+  .panel-focus-mode > .dashboard-widget.panel-focused{
+    width:100vw!important;
+    max-width:100vw!important;
+    margin-right:calc(50% - 50vw)!important;
+    margin-left:calc(50% - 50vw)!important;
+    padding:16px!important;
+    border-radius:0!important;
+  }
+}
+
+/* v35.72: slightly deeper neutral surfaces + perfectly centered login */
+:root{
+  --bg:#d6e1e7;
+  --surface:#e9eff2;
+  --surface2:#dde8ed;
+  --border:#bccdd5;
+  --shadow:0 8px 24px rgba(38,67,82,.12);
+}
+body{background:var(--bg)}
+header,nav,.box,.structure-card,.home-governorates{background:var(--surface)}
+input,select,textarea{background:var(--surface2)}
+select option{background:#e7eef2}
+th{background:#d1dfe5}
+.login{
+  width:100%;
+  max-width:none;
+  min-height:calc(100vh - 36px);
+  margin:0;
+  padding:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.login-shell{
+  width:min(1100px, calc(100vw - 36px));
+  margin:0 auto;
+  background:#eef3f5;
+}
+@media(max-width:850px){
+  .login{min-height:calc(100vh - 18px)}
+  .login-shell{width:calc(100vw - 18px)}
+}

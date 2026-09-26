@@ -1,8 +1,8 @@
-# v35.83
+# v35.84
 
-Mission PDF precision fix:
-- Register the exact source Arabic font before rendering variable data, so Arabic text stays connected and shaped correctly.
-- Preserve the original form borders by redacting only the source variable text regions.
-- Keep employee name, basic branch, mission destination, dates, and approval destination inside their original boxes.
-- Render the upper-right mission number/status visually as `40873 مغلقة` or `40873 تحت التحرير` without splitting the Arabic status.
-- Preserve the open-assignment print-only end-date behavior from v35.82.
+Smart homepage implementation:
+- حالة الموظفين الآن: summary counts, actionable follow-up count, and detailed out-of-branch states only.
+- المدخلون الأوائل: operational metrics for employees, today's movements, follow-up alerts, and branch chips.
+- بحث عن موظف: name/employee-code first; governorate and branch are optional filters; search is available across all governorates.
+- تسجيل انتداب - إجازة - إذن: three-choice smart wizard, relevant fields only, optional open assignment, destination governorate/branch, and review before save.
+- Preserves existing native dropdowns and role-scoped movement registration.

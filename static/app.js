@@ -93,73 +93,77 @@
   async function doHome(){const q=(homeSearch?.value||'').trim();if(q.length<2){hideHome();return;}const seq=++searchSeq;if(homeResults){homeResults.hidden=false;homeResults.innerHTML='<div class="search-loading">جاري البحث…</div>';}try{const r=await fetch('/employee-search?q='+encodeURIComponent(q),{headers:{Accept:'application/json'}});const d=await r.json();if(seq===searchSeq)renderHome(d.results||[]);}catch(_){if(seq===searchSeq)homeResults.innerHTML='<div class="search-loading">تعذر تنفيذ البحث.</div>';}}
   homeSearch?.addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(doHome,220)});homeSearch?.addEventListener('keydown',e=>{if(e.key==='Escape')hideHome()});document.addEventListener('click',e=>{if(homeResults&&!e.target.closest('.employee-search-wrap'))hideHome()});
 
-  // Home movement employee lookup: governorate first, then branch OR live name/code search.
+  // الصفحة الرئيسية: بحث الموظف الذكي — الاسم/الكود أولًا، والمحافظة والفرع فلاتر اختيارية.
   const movementSearchForm=qs('#movement-employee-search-form');
   const movementGov=qs('#movement-search-governorate');
   const movementBranch=qs('#movement-search-branch');
-  const movementPickerWrap=qs('#movement-employee-picker-wrap');
-  const movementPicker=qs('#movement-search-employee');
   const movementName=qs('#movement-search-name');
   const movementSuggestions=qs('#movement-search-suggestions');
   let movementSearchTimer=null, movementSearchSeq=0;
   function hideMovementSuggestions(){if(movementSuggestions){movementSuggestions.hidden=true;movementSuggestions.innerHTML='';}}
   function setMovementBranches(items, selected=''){
     if(!movementBranch)return;
-    movementBranch.innerHTML='<option value="">كل الفروع</option>'+items.map(b=>`<option value="${esc(b.id)}">${esc(b.name)}</option>`).join('');
+    movementBranch.innerHTML='<option value="">كل الفروع</option>'+items.map(b=>`<option value="${esc(b.id)}" data-governorate="${esc(b.governorate_id||'')}">${esc(b.name)}</option>`).join('');
     if(selected) movementBranch.value=String(selected);
   }
   function renderMovementSuggestions(items){
     if(!movementSuggestions)return;
     if(!items.length){movementSuggestions.innerHTML='<div class="movement-suggestion-empty">لا توجد نتائج مطابقة.</div>';movementSuggestions.hidden=false;return;}
-    movementSuggestions.innerHTML=items.map(e=>`<button type="button" class="movement-suggestion" data-employee-id="${esc(e.id)}"><span><strong>${esc(e.name)}</strong><small>${esc(e.branch||'')} ${e.code?'· كود '+esc(e.code):''}</small></span><b>عرض البطاقة ←</b></button>`).join('');
+    movementSuggestions.innerHTML=items.map(e=>`<button type="button" class="movement-suggestion" data-employee-id="${esc(e.id)}"><span><strong>${esc(e.name)}</strong><small>${esc(e.governorate||'')} · ${esc(e.branch||'')} ${e.code?'· كود '+esc(e.code):''}</small></span><b>عرض البطاقة ←</b></button>`).join('');
     movementSuggestions.hidden=false;
     qsa('.movement-suggestion',movementSuggestions).forEach(btn=>btn.addEventListener('click',()=>{
-      const params=new URLSearchParams(); params.set('movement_governorate_id',movementGov.value);
-      if(movementBranch?.value) params.set('movement_branch_id',movementBranch.value);
-      params.set('employee_id',btn.dataset.employeeId);
-      window.location.href='/?'+params.toString();
+      const params=new URLSearchParams();
+      if(movementGov?.value)params.set('movement_governorate_id',movementGov.value);
+      if(movementBranch?.value)params.set('movement_branch_id',movementBranch.value);
+      params.set('employee_id',btn.dataset.employeeId); window.location.href='/?'+params.toString()+'#home-employee-search';
     }));
   }
   async function loadMovementSearch(){
-    const gid=movementGov?.value||''; if(!gid){if(movementName){movementName.disabled=true;movementName.value='';} hideMovementSuggestions(); setMovementBranches([]); return;}
-    if(movementName) movementName.disabled=false;
-    const q=(movementName?.value||'').trim(); const bid=movementBranch?.value||''; const seq=++movementSearchSeq;
-    if(q.length===1 && movementSuggestions){movementSuggestions.hidden=false;movementSuggestions.innerHTML='<div class="movement-suggestion-empty">اكتب حرفًا آخر للبحث…</div>';}
+    const gid=movementGov?.value||'', bid=movementBranch?.value||'', q=(movementName?.value||'').trim(), seq=++movementSearchSeq;
+    if(q.length<1 && !gid && !bid){hideMovementSuggestions();setMovementBranches([]);return;}
     try{
-      const url='/api/movement-employees?governorate_id='+encodeURIComponent(gid)+(bid?'&branch_id='+encodeURIComponent(bid):'')+(q?'&q='+encodeURIComponent(q):'');
-      const r=await fetch(url,{headers:{Accept:'application/json'}}); const d=await r.json();
-      if(seq!==movementSearchSeq)return;
-      setMovementBranches(d.branches||[],bid);
-      if(movementPicker && movementPickerWrap){
-        if(bid){
-          movementPicker.innerHTML='<option value="">اختر الموظف</option>'+(d.results||[]).map(e=>`<option value="${esc(e.id)}">${esc(e.name)}${e.code?' — '+esc(e.code):''}</option>`).join('');
-          movementPickerWrap.hidden=false;
-        }else{ movementPickerWrap.hidden=true; movementPicker.innerHTML='<option value="">اختر الموظف</option>'; }
-      }
-      if(q.length>=2) renderMovementSuggestions(d.results||[]); else hideMovementSuggestions();
+      const url='/api/movement-employees?'+new URLSearchParams({...(gid?{governorate_id:gid}:{}),...(bid?{branch_id:bid}:{}),...(q?{q}: {})}).toString();
+      const r=await fetch(url,{headers:{Accept:'application/json'}}); const d=await r.json(); if(seq!==movementSearchSeq)return;
+      if(gid)setMovementBranches(d.branches||[],bid);
+      if(q.length>=1)renderMovementSuggestions(d.results||[]); else hideMovementSuggestions();
     }catch(_){if(seq===movementSearchSeq&&movementSuggestions){movementSuggestions.innerHTML='<div class="movement-suggestion-empty">تعذر تنفيذ البحث.</div>';movementSuggestions.hidden=false;}}
   }
-  movementGov?.addEventListener('change',()=>{if(movementBranch)movementBranch.value=''; if(movementName)movementName.value=''; hideMovementSuggestions(); loadMovementSearch();});
-  movementBranch?.addEventListener('change',()=>{if(movementName)movementName.value=''; hideMovementSuggestions(); if(movementGov?.value)loadMovementSearch();});
-  movementPicker?.addEventListener('change',()=>{
-    if(!movementPicker.value)return;
-    const params=new URLSearchParams(); params.set('movement_governorate_id',movementGov.value); if(movementBranch?.value)params.set('movement_branch_id',movementBranch.value); params.set('employee_id',movementPicker.value); window.location.href='/?'+params.toString();
-  });
+  movementGov?.addEventListener('change',()=>{if(movementBranch)movementBranch.value='';hideMovementSuggestions();loadMovementSearch();});
+  movementBranch?.addEventListener('change',()=>{hideMovementSuggestions();loadMovementSearch();});
   movementName?.addEventListener('input',()=>{clearTimeout(movementSearchTimer);movementSearchTimer=setTimeout(loadMovementSearch,180);});
   movementName?.addEventListener('keydown',e=>{if(e.key==='Escape')hideMovementSuggestions();});
   document.addEventListener('click',e=>{if(movementSuggestions&&!e.target.closest('.movement-employee-search'))hideMovementSuggestions();});
-  if(movementGov?.value)loadMovementSearch();
-  movementSearchForm?.addEventListener('submit',e=>{
-    if(!movementGov?.value){e.preventDefault();alert('اختر المحافظة أولًا.');return;}
-    if(movementName?.value.trim()){e.preventDefault();loadMovementSearch();return;}
-  });
+  if(movementGov?.value||movementName?.value)loadMovementSearch();
+  movementSearchForm?.addEventListener('submit',e=>{if(!movementName?.value.trim()&&!movementGov?.value&&!movementBranch?.value){e.preventDefault();movementName?.focus();alert('اكتب اسم الموظف أو كوده، أو اختر محافظة/فرع كفلتر.');}});
 
-  // Compact real movement form on homepage.
-  const hmGov=qs('#home_move_gov'), hmBranch=qs('#home_move_branch'), hmEmp=qs('#home_move_employee'), hmType=qs('#home_move_type');
-  async function hmLoadBranches(){ if(!hmGov||!hmBranch)return; hmBranch.innerHTML='<option value="">اختر الفرع</option>'; hmBranch.disabled=true; hmEmp.innerHTML='<option value="">اختر الموظف</option>'; hmEmp.disabled=true; if(!hmGov.value)return; try{const r=await fetch('/api/movement-employees?governorate_id='+encodeURIComponent(hmGov.value)); const d=await r.json(); hmBranch.innerHTML='<option value="">اختر الفرع</option>'+(d.branches||[]).map(b=>`<option value="${esc(b.id)}">${esc(b.name)}</option>`).join(''); hmBranch.disabled=!(d.branches||[]).length;}catch(_){}}
-  async function hmLoadEmployees(){if(!hmGov?.value||!hmBranch?.value)return; hmEmp.innerHTML='<option value="">جاري التحميل…</option>'; hmEmp.disabled=true; try{const r=await fetch('/api/movement-employees?governorate_id='+encodeURIComponent(hmGov.value)+'&branch_id='+encodeURIComponent(hmBranch.value)); const d=await r.json(); hmEmp.innerHTML='<option value="">اختر الموظف</option>'+(d.results||[]).map(e=>`<option value="${esc(e.id)}">${esc(e.name)}${e.code?' — '+esc(e.code):''}</option>`).join(''); hmEmp.disabled=!(d.results||[]).length;}catch(_){hmEmp.innerHTML='<option value="">تعذر التحميل</option>';}}
-  function hmSyncType(){qsa('.movement-dynamic[data-move-type]').forEach(el=>{const types=(el.dataset.moveType||'').split(','); el.style.display=types.includes(hmType?.value)?'flex':'none';});}
-  hmGov?.addEventListener('change',hmLoadBranches); hmBranch?.addEventListener('change',hmLoadEmployees); hmType?.addEventListener('change',hmSyncType); hmSyncType();
+  // معالج التسجيل الذكي للحركة من الصفحة الرئيسية.
+  const hmForm=qs('#home-real-movement-form'), hmGov=qs('#home_move_gov'), hmBranch=qs('#home_move_branch'), hmEmp=qs('#home_move_employee'), hmType=qs('#home_move_type');
+  const hmNext=qs('#home-movement-next'), hmNextRow=qs('#home-movement-next-row'), hmStepEmp=qs('#home-movement-step-employee'), hmStepDetails=qs('#home-movement-step-details'), hmReview=qs('#home-movement-review');
+  const hmReviewGrid=qs('#home-movement-review-grid'), hmBack=qs('#home-movement-back'), hmState=qs('#home-selected-employee-state');
+  const hmDestGov=qs('#home_move_dest_gov'), hmDestBranch=qs('#home_move_dest_branch'), hmOpen=qs('#home_open_assignment');
+  const hmTypeButtons=qsa('.movement-type-choice');
+  function hmSyncDynamic(){
+    const t=hmType?.value||'';
+    qsa('.home-movement-wizard .movement-dynamic').forEach(el=>{const types=(el.dataset.moveType||'').split(',');el.style.display=types.includes(t)?'flex':'none';});
+    const td=qs('[name="to_date"]',hmForm), fd=qs('[name="from_date"]',hmForm), leave=qs('[name="leave_type"]',hmForm), dest=qs('[name="destination_branch_id"]',hmForm), pd=qs('[name="permission_date"]',hmForm);
+    if(fd)fd.required=t==='إجازة'||t==='انتداب'; if(td)td.required=t==='إجازة'||t==='انتداب'; if(leave)leave.required=t==='إجازة'; if(dest)dest.required=t==='انتداب'; if(pd)pd.required=t==='إذن';
+    if(td&&hmOpen)td.required=t==='انتداب'&&!hmOpen.checked;
+    if(td&&hmOpen&&hmOpen.checked)td.value='';
+  }
+  function hmSelectType(t){hmType.value=t;hmTypeButtons.forEach(b=>b.classList.toggle('selected',b.dataset.type===t));hmStepEmp.hidden=false;hmStepDetails.hidden=true;hmReview.hidden=true;hmNextRow.hidden=false;hmNext.disabled=true;hmSyncDynamic();hmStepEmp.scrollIntoView({behavior:'smooth',block:'nearest'});}
+  hmTypeButtons.forEach(b=>b.addEventListener('click',()=>hmSelectType(b.dataset.type)));
+  async function hmLoadBranches(){if(!hmGov||!hmBranch)return;hmBranch.innerHTML='<option value="">جاري التحميل…</option>';hmBranch.disabled=true;hmEmp.innerHTML='<option value="">اختر الموظف</option>';hmEmp.disabled=true;hmState.hidden=true;if(!hmGov.value)return;try{const r=await fetch('/api/movement-employees?governorate_id='+encodeURIComponent(hmGov.value));const d=await r.json();hmBranch.innerHTML='<option value="">اختر الفرع</option>'+(d.branches||[]).map(b=>`<option value="${esc(b.id)}">${esc(b.name)}</option>`).join('');hmBranch.disabled=!(d.branches||[]).length;}catch(_){hmBranch.innerHTML='<option value="">تعذر التحميل</option>';}}
+  async function hmLoadEmployees(){if(!hmGov?.value||!hmBranch?.value)return;hmEmp.innerHTML='<option value="">جاري التحميل…</option>';hmEmp.disabled=true;try{const r=await fetch('/api/movement-employees?governorate_id='+encodeURIComponent(hmGov.value)+'&branch_id='+encodeURIComponent(hmBranch.value));const d=await r.json();hmEmp.innerHTML='<option value="">اختر الموظف</option>'+(d.results||[]).map(e=>`<option value="${esc(e.id)}">${esc(e.name)}${e.code?' — '+esc(e.code):''}</option>`).join('');hmEmp.disabled=!(d.results||[]).length;}catch(_){hmEmp.innerHTML='<option value="">تعذر التحميل</option>';}}
+  function hmEmployeeState(){const o=hmEmp?.selectedOptions?.[0];if(!o||!o.value){hmState.hidden=true;hmNext.disabled=true;return;}hmState.innerHTML=`<span>👤</span><div><b>${esc(o.textContent)}</b><small>تم اختيار الموظف — يمكنك الانتقال لبيانات الحركة.</small></div>`;hmState.hidden=false;hmNext.disabled=false;}
+  function hmDestSync(){if(!hmDestGov||!hmDestBranch)return;const g=hmDestGov.value;[...hmDestBranch.options].forEach(o=>{if(!o.value)return;const ok=!g||o.dataset.governorate===g;o.hidden=!ok;o.disabled=!ok;});if(hmDestBranch.value&&hmDestBranch.selectedOptions[0]?.disabled)hmDestBranch.value='';}
+  function hmReviewBuild(){const get=n=>qs(`[name="${n}"]`,hmForm)?.selectedOptions?.[0]?.textContent||qs(`[name="${n}"]`,hmForm)?.value||'—';const type=hmType.value;const emp=hmEmp?.selectedOptions?.[0]?.textContent||'—';let rows=[['الموظف',emp],['نوع الحركة',type]];if(type==='إجازة')rows.push(['نوع الإجازة',get('leave_type')]);if(type==='انتداب'){rows.push(['جهة الانتداب',get('destination_branch_id')]);rows.push(['من تاريخ',qs('[name="from_date"]',hmForm)?.value||'—']);rows.push(['إلى تاريخ',hmOpen?.checked?'مفتوح':(qs('[name="to_date"]',hmForm)?.value||'—')]);}else if(type==='إذن')rows.push(['تاريخ الإذن',qs('[name="permission_date"]',hmForm)?.value||'—']);else rows.push(['من تاريخ',qs('[name="from_date"]',hmForm)?.value||'—'],['إلى تاريخ',qs('[name="to_date"]',hmForm)?.value||'—']);hmReviewGrid.innerHTML=rows.map(x=>`<div><small>${esc(x[0])}</small><b>${esc(x[1])}</b></div>`).join('');}
+  hmGov?.addEventListener('change',hmLoadBranches);hmBranch?.addEventListener('change',hmLoadEmployees);hmEmp?.addEventListener('change',hmEmployeeState);hmDestGov?.addEventListener('change',hmDestSync);hmOpen?.addEventListener('change',hmSyncDynamic);hmNext?.addEventListener('click',()=>{if(!hmEmp?.value){alert('اختر الموظف أولًا.');return;}hmStepDetails.hidden=false;hmNextRow.hidden=true;hmSyncDynamic();});hmBack?.addEventListener('click',()=>{hmReview.hidden=true;hmStepDetails.hidden=false;});
+  hmForm?.addEventListener('input',()=>{if(hmStepDetails&&!hmStepDetails.hidden){hmReviewBuild();}});
+  hmForm?.addEventListener('change',()=>{if(hmStepDetails&&!hmStepDetails.hidden){hmReviewBuild();}});
+  hmStepDetails?.addEventListener('click',e=>{if(e.target.closest('#home-movement-review'))return;});
+  hmStepDetails?.insertAdjacentHTML('beforeend','<div class="wizard-details-next"><button type="button" class="btn" id="home-review-button">مراجعة الحركة ←</button></div>');
+  qs('#home-review-button')?.addEventListener('click',()=>{if(!hmType.value||!hmEmp.value){alert('اختر نوع الحركة والموظف.');return;}if(!hmForm.reportValidity())return;hmReviewBuild();hmStepDetails.hidden=true;hmReview.hidden=false;});
+  hmSyncDynamic();hmDestSync();
 
   // Generic table search and confirmations.
   qsa('[data-confirm]').forEach(el=>el.addEventListener('click',e=>{if(!confirm(el.dataset.confirm))e.preventDefault()}));
@@ -185,7 +189,7 @@ document.addEventListener('DOMContentLoaded', function(){
     cards.forEach(card=>{
       const ceid=card.dataset.entryEmployeeId||'';
       const branchIds=(card.dataset.entryBranchIds||'').split(',').filter(Boolean);
-      card.hidden=!!eid && ceid!==eid || !!bid && !branchIds.includes(bid);
+      card.hidden=(!!eid && ceid!==eid) || (!!bid && !branchIds.includes(bid));
     });
   }
   nameSel.addEventListener('change',apply);

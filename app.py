@@ -9,7 +9,7 @@ from openpyxl import Workbook, load_workbook
 import fitz
 
 app=Flask(__name__)
-APP_VERSION='v35.79'
+APP_VERSION='v35.84'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg2://',1)
 elif DATABASE_URL.startswith('postgresql://'): DATABASE_URL=DATABASE_URL.replace('postgresql://','postgresql+psycopg2://',1)
@@ -648,39 +648,35 @@ def home():
     movement_employee_moves=[]
     movement_employee_last={}
     search_gov_id=int(movement_governorate_id) if movement_governorate_id.isdigit() else None
-    allowed_gov_ids=set(gids())
-    if search_gov_id and search_gov_id not in allowed_gov_ids: search_gov_id=None
+    # بحث الموظف في الصفحة الرئيسية مستقل تمامًا عن نطاق المشرف: كل المحافظات متاحة للجميع.
     search_branch_id=int(movement_branch_id) if movement_branch_id.isdigit() else None
-    if search_gov_id and search_branch_id:
-        sb=db.session.get(Branch,search_branch_id)
-        if not sb or sb.governorate_id!=search_gov_id or not branch_ok(search_branch_id): search_branch_id=None
-    elif not search_gov_id:
-        search_branch_id=None
-    # البحث داخل المحافظة: يشمل فرع التعيين أو الفرع الحالي أثناء الانتداب.
-    # عند اختيار فرع، تكون النتيجة موظفي هذا الفرع فقط (تعيينًا أو وجودًا فعليًا).
-    search_gov_branch_ids={b.id for b in Branch.query.filter_by(governorate_id=search_gov_id,is_active=True).all()} if search_gov_id else set()
-    permitted_search_branch_ids={bid for bid in search_gov_branch_ids if branch_ok(bid)}
     if search_gov_id:
-        target_branch_ids={search_branch_id} if search_branch_id else permitted_search_branch_ids
-        candidates=employees_effectively_in_branches(target_branch_ids,today)
-        # الموظف الذي فرع تعيينه داخل النطاق يجب أن يظهر حتى لو كان منتدبًا خارجه.
-        if not search_branch_id:
-            home_candidates=Employee.query.filter(Employee.is_active==True,Employee.branch_id.in_(permitted_search_branch_ids)).all() if permitted_search_branch_ids else []
-            by_id={e.id:e for e in candidates}
-            by_id.update({e.id:e for e in home_candidates})
-            candidates=list(by_id.values())
+        sg=db.session.get(Governorate,search_gov_id)
+        if not sg or not sg.is_active: search_gov_id=None
+    if search_branch_id:
+        sb=db.session.get(Branch,search_branch_id)
+        if not sb or not sb.is_active or (search_gov_id and sb.governorate_id!=search_gov_id): search_branch_id=None
+        elif not search_gov_id: search_gov_id=sb.governorate_id
+
+    # بحث عام: الاسم/الكود هو المدخل الأساسي، والمحافظة والفرع فلاتر اختيارية.
+    search_branch_ids=set()
+    if search_gov_id:
+        search_branch_ids={b.id for b in Branch.query.filter_by(governorate_id=search_gov_id,is_active=True).all()}
+    if search_branch_id: search_branch_ids={search_branch_id}
+    candidates=[]
+    if movement_name_query or search_branch_ids:
+        q=Employee.query.filter(Employee.is_active==True)
+        if search_branch_ids: q=q.filter(Employee.branch_id.in_(search_branch_ids))
         if movement_name_query:
-            nq=movement_name_query.casefold()
-            candidates=[e for e in candidates if nq in (e.full_name or '').casefold() or nq in (e.job_code or '').casefold()]
-        movement_employee_matches=sorted(candidates,key=lambda e:e.full_name)[:50]
+            nq=f'%{movement_name_query}%'
+            q=q.filter(db.or_(Employee.full_name.ilike(nq),Employee.job_code.ilike(nq)))
+        candidates=q.order_by(Employee.full_name.asc()).limit(50).all()
+        movement_employee_matches=candidates
+
     if movement_employee_id.isdigit():
         candidate=db.session.get(Employee,int(movement_employee_id))
-        if candidate and candidate.is_active and search_gov_id:
-            eff_branch=effective_branch_id_for_employee(candidate.id,today) or candidate.branch_id
-            home_ok=candidate.branch_id in permitted_search_branch_ids
-            current_ok=eff_branch in permitted_search_branch_ids
-            branch_ok_for_search=(eff_branch==search_branch_id or candidate.branch_id==search_branch_id) if search_branch_id else (home_ok or current_ok)
-            if employee_scope_ok(candidate,today) and branch_ok_for_search:
+        if candidate and candidate.is_active:
+            if (not search_gov_id or (candidate.branch and candidate.branch.governorate_id==search_gov_id)) and (not search_branch_id or candidate.branch_id==search_branch_id):
                 movement_employee=candidate
     elif len(movement_employee_matches)==1:
         movement_employee=movement_employee_matches[0]
@@ -692,6 +688,7 @@ def home():
     ending=[]
     approved_count=0
     current_status_rows=[]
+    current_status_summary={'present':0,'leave':0,'assignment':0,'open_assignment':0,'permission':0,'follow_up':0}
 
     # Governorates visible to the current effective role.
     visible_govs=(Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True)
@@ -729,14 +726,18 @@ def home():
                 entry_employee_ids={x.employee_id for x in EntryAssignment.query.filter_by(is_active=True).all()}
                 replace_targets=Employee.query.filter(Employee.is_active==True,Employee.branch_id.in_(bs)).order_by(Employee.full_name.asc()).all() if bs else []
                 replace_targets=[x for x in replace_targets if x.id not in entry_employee_ids and x.id!=a.employee_id]
-                entry_rows.append({'assignment':a,'employee':a.employee,'branches':branch_groups,'governorates':gov_names,'supervisor':sup,'available_branches':available_entry_branches,'assignment_branch_ids':assignment_branch_ids,'replace_targets':replace_targets})
+                scoped_ids=[b.id for b in scoped]
+                branch_employee_ids=[e.id for bg in branch_groups for e in bg['employees']]
+                today_movement_count=(Movement.query.filter(Movement.employee_id.in_(branch_employee_ids),Movement.is_active==True,db.or_(Movement.permission_date==today,db.and_(Movement.from_date!=None,Movement.from_date<=today,db.or_(Movement.to_date==None,Movement.to_date>=today)))).count() if branch_employee_ids else 0)
+                alert_count=(Movement.query.filter(Movement.employee_id.in_(branch_employee_ids),Movement.is_active==True,Movement.to_date==tomorrow,Movement.movement_type.in_(['إجازة','انتداب'])).count() if branch_employee_ids else 0)
+                entry_rows.append({'assignment':a,'employee':a.employee,'branches':branch_groups,'governorates':gov_names,'supervisor':sup,'available_branches':available_entry_branches,'assignment_branch_ids':assignment_branch_ids,'replace_targets':replace_targets,'employee_count':len(branch_employee_ids),'today_movement_count':today_movement_count,'alert_count':alert_count})
         # Legacy accounts remain visible only as compatibility records. New organizational entries never create them.
     elif 'المدخل الأول' in effective:
         # Legacy account compatibility; not used for new assignments.
         u=me(); scoped=[b for b in Branch.query.join(UserBranch,UserBranch.branch_id==Branch.id).filter(UserBranch.user_id==u.id,Branch.is_active==True).order_by(Branch.name).all() if b.id in bs]
         if scoped:
             groups=[{'branch':b,'employees':Employee.query.filter(Employee.branch_id==b.id,Employee.is_active==True).order_by(Employee.full_name).all()} for b in scoped]
-            entry_rows=[{'assignment':None,'employee':Employee.query.filter_by(user_id=u.id).first(),'branches':groups,'governorates':[],'supervisor':supervisor_for_entry(u)}]
+            entry_rows=[{'assignment':None,'employee':Employee.query.filter_by(user_id=u.id).first(),'branches':groups,'governorates':[],'supervisor':supervisor_for_entry(u),'employee_count':sum(len(g['employees']) for g in groups),'today_movement_count':0,'alert_count':0}]
 
     # فروع لوحة «المدخلون الأوائل» المستخدمة في فلتر البحث بالفرع.
     entry_directory_branches=(Branch.query.filter(Branch.id.in_(entry_directory_branch_ids),Branch.is_active==True)
@@ -771,6 +772,17 @@ def home():
         # الحركات أصبحت معلومات تشغيلية مباشرة وليست دورة اعتماد.
         if has_role('مشرف محافظة','مسؤول التطبيق','المدخل الأول','Manager Application Support'):
             current_status_rows=current_employee_status_rows(bs,today)
+            # ملخص تشغيلي: المتواجدون لا يظهرون في القائمة التفصيلية، لكن يظهر عددهم في الملخص.
+            total_active_home_employees=Employee.query.filter(Employee.is_active==True,Employee.branch_id.in_(bs)).count() if bs else 0
+            status_employee_ids={r['employee'].id for r in current_status_rows}
+            current_status_summary={
+                'present':max(total_active_home_employees-len(status_employee_ids),0),
+                'leave':sum(1 for r in current_status_rows if r['state']=='إجازة'),
+                'assignment':sum(1 for r in current_status_rows if r['state']=='انتداب'),
+                'open_assignment':sum(1 for r in current_status_rows if r['state']=='انتداب مفتوح'),
+                'permission':sum(1 for r in current_status_rows if r['state']=='إذن'),
+                'follow_up':sum(1 for r in current_status_rows if r['ending_notice']),
+            }
             # ending_notice is calculated while building the current-status rows.
         # تبقى بيانات الاعتماد القديمة قابلة للعرض في السجلات القديمة، لكن لا تُستخدم
         # لتحديد حالة الموظف الحالية.
@@ -794,6 +806,7 @@ def home():
         ending=ending,
         approved_count=approved_count,
         current_status_rows=current_status_rows,
+        current_status_summary=current_status_summary,
         available_entry_employees=available_entry_employees,
         available_entry_branches=available_entry_branches,
         entry_directory_branches=entry_directory_branches,
@@ -804,8 +817,8 @@ def home():
         is_manager_support=is_manager_support,
         manager_governorates=Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all() if is_manager_support else [],
         selected_manager_gov=selected_manager_gov,
-        movement_search_governorates=home_movement_governorates,
-        movement_search_branches=(Branch.query.filter(Branch.governorate_id==search_gov_id,Branch.id.in_(set(bids())),Branch.is_active==True).order_by(Branch.name.asc()).all() if search_gov_id else []),
+        movement_search_governorates=Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all(),
+        movement_search_branches=(Branch.query.filter(Branch.governorate_id==search_gov_id,Branch.is_active==True).order_by(Branch.name.asc()).all() if search_gov_id else []),
         home_movement_governorates=home_movement_governorates,
         home_movement_branches=home_movement_branches,
         movement_search_employees=Employee.query.filter_by(is_active=True).order_by(Employee.full_name.asc()).all(),
@@ -3437,47 +3450,30 @@ def assistant_confirm():
 @app.get('/api/movement-employees')
 @req
 def movement_employees_api():
-    """Return movement employee suggestions after governorate selection.
-
-    The governorate is mandatory for the lookup. A branch filters the list;
-    otherwise q searches by employee name or job code. Results are deliberately
-    small so the autocomplete stays fast and does not trigger the old server
-    error caused by loading a large employee list at once.
-    """
+    """بحث موظفين عام من الصفحة الرئيسية؛ المحافظة والفرع فلاتر اختيارية."""
     gid=request.args.get('governorate_id','').strip()
     bid=request.args.get('branch_id','').strip()
-    q=request.args.get('q','').strip()
-    if not gid.isdigit():
-        return {'results': [], 'branches': []}
-    gid=int(gid)
-    # بحث بطاقة الموظف من الصفحة الرئيسية: اختيار المحافظة متاح لكل المستخدمين.
-    # لا نحصر قائمة المحافظات/الفروع هنا في محافظة المشرف؛ هذا البحث العام مستقل
-    # عن نطاق الإدارة المختار في بقية الصفحة.
-    if not db.session.get(Governorate, gid) or not db.session.get(Governorate, gid).is_active:
-        return {'results': [], 'branches': []}
-    branch_rows=(Branch.query.filter(Branch.governorate_id==gid, Branch.is_active==True)
-                 .order_by(Branch.name.asc()).all())
+    q=(request.args.get('q') or '').strip()
+    gov=None
+    if gid:
+        if not gid.isdigit(): return {'results':[],'branches':[]}
+        gov=db.session.get(Governorate,int(gid))
+        if not gov or not gov.is_active: return {'results':[],'branches':[]}
+    branch_rows=(Branch.query.filter(Branch.governorate_id==gov.id,Branch.is_active==True).order_by(Branch.name.asc()).all() if gov else Branch.query.filter_by(is_active=True).order_by(Branch.name.asc()).all())
     branch_ids=[b.id for b in branch_rows]
     if bid.isdigit():
         bid_int=int(bid)
-        if bid_int not in branch_ids:
-            return {'results': [], 'branches': [{'id':b.id,'name':b.name} for b in branch_rows]}
+        if bid_int not in branch_ids: return {'results':[],'branches':[{'id':b.id,'name':b.name,'governorate_id':b.governorate_id} for b in branch_rows]}
         branch_ids=[bid_int]
-    if q and len(q)<1:
-        q=''
     if not q and not bid.isdigit():
-        return {'results': [], 'branches': [{'id':b.id,'name':b.name} for b in branch_rows]}
-
-    filters=[Employee.is_active==True, Employee.branch_id.in_(branch_ids)]
+        return {'results':[],'branches':[{'id':b.id,'name':b.name,'governorate_id':b.governorate_id} for b in branch_rows]}
+    filters=[Employee.is_active==True]
+    if branch_ids: filters.append(Employee.branch_id.in_(branch_ids))
     if q:
         like=f'%{q}%'
-        filters.append(db.or_(Employee.full_name.ilike(like), Employee.job_code.ilike(like)))
-    rows=(Employee.query.filter(*filters).order_by(Employee.full_name.asc()).limit(20).all())
-    return {
-        'results':[{'id':e.id,'name':e.full_name,'code':e.job_code or '',
-                    'branch':e.branch.name if e.branch else ''} for e in rows],
-        'branches':[{'id':b.id,'name':b.name} for b in branch_rows]
-    }
+        filters.append(db.or_(Employee.full_name.ilike(like),Employee.job_code.ilike(like)))
+    rows=Employee.query.filter(*filters).order_by(Employee.full_name.asc()).limit(20).all()
+    return {'results':[{'id':e.id,'name':e.full_name,'code':e.job_code or '', 'branch':e.branch.name if e.branch else '', 'governorate':e.branch.governorate.name if e.branch and e.branch.governorate else ''} for e in rows], 'branches':[{'id':b.id,'name':b.name,'governorate_id':b.governorate_id} for b in branch_rows]}
 
 @app.route('/movements',methods=['GET','POST'])
 @req

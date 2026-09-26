@@ -1,117 +1,16 @@
 <!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-<meta charset="utf-8">
-<title>نموذج مأمورية عمل</title>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>نموذج مأمورية عمل #{{movement.id}}</title>
 <style>
-@page{size:A4 portrait;margin:12mm}
-*{box-sizing:border-box}
-html,body{margin:0;padding:0;background:#fff;color:#111}
-body{font-family:"Tahoma","Arial","Segoe UI",sans-serif;font-size:13pt;line-height:1.5}
-.printbar{position:fixed;top:10px;left:0;right:0;display:flex;justify-content:center;gap:8px;z-index:99}
-.printbar button,.printbar a{font:14px Arial,Tahoma,sans-serif;padding:8px 16px;border:1px solid #999;background:#f3f3f3;color:#111;text-decoration:none;border-radius:6px;cursor:pointer}
-.mission-page{width:186mm;min-height:273mm;margin:0 auto;background:#fff;padding:2mm 1mm 0}
-.mission-header{display:grid;grid-template-columns:1fr 1.8fr 1fr;align-items:start;border-bottom:2px solid #222;padding-bottom:5mm;margin-bottom:5mm}
-.header-side{font-size:10.5pt;line-height:1.8}.header-side.left{text-align:left;direction:ltr}.header-side.right{text-align:right}
-.header-center{text-align:center}.header-center .agency{font-size:13pt;font-weight:700;margin-bottom:2mm}.header-center h1{font-size:21pt;margin:0;font-weight:800;text-decoration:underline}.header-center .subtitle{font-size:10.5pt;margin-top:1mm}
-.doc-meta{display:flex;justify-content:space-between;gap:8mm;margin-bottom:4mm;font-size:10.5pt}.doc-meta span{display:inline-block;border-bottom:1px dotted #777;min-width:25mm;padding:0 2mm}
-.section-title{background:#edf3f7;border:1px solid #9aa9b3;font-weight:800;padding:2.5mm 3mm;text-align:right;margin-top:4mm}
-.info-table{width:100%;border-collapse:collapse;table-layout:fixed;margin-bottom:4mm}
-.info-table th,.info-table td{border:1px solid #555;padding:2.7mm 2.5mm;vertical-align:middle}
-.info-table th{background:#f6f6f6;width:16%;font-weight:800;white-space:nowrap}.info-table td{width:34%;font-weight:500;word-break:break-word}
-.date-table th{width:16%}.date-table td{width:34%;text-align:center;font-weight:700}
-.approval-wrap{margin-top:8mm;display:grid;grid-template-columns:1fr 1fr;gap:14mm}
-.approval-box{border:1px solid #555;min-height:45mm;padding:4mm;text-align:center}.approval-box h3{margin:0 0 4mm;font-size:13pt}.approval-box .line{margin-top:8mm}.approval-box .name{font-weight:800;margin-top:2mm}.approval-box .job{font-size:10.5pt;margin-top:1mm}
-.footer-note{margin-top:8mm;border-top:1px solid #777;padding-top:3mm;font-size:9.5pt;color:#444;display:flex;justify-content:space-between}
-@media print{.printbar{display:none!important}.mission-page{width:auto;min-height:auto;margin:0;padding:0}.info-table tr,.approval-box{break-inside:avoid}}
-</style>
-</head>
-<body>
-<div class="printbar no-print"><button onclick="window.print()">🖨️ طباعة / حفظ PDF</button><a href="javascript:history.back()">↩ رجوع</a></div>
-<div class="mission-page">
-  <header class="mission-header">
-    <div class="header-side right">
-      <div><b>نموذج:</b> مأمورية عمل</div>
-      <div><b>رقم المأمورية:</b> {{ movement.id }}</div>
-      <div><b>الحالة:</b> {{ mission_state }}</div>
-    </div>
-    <div class="header-center">
-      <div class="agency">نظام إدارة حركات الموظفين</div>
-      <h1>مذكرة مأمورية عمل</h1>
-      <div class="subtitle">نموذج رسمي لاعتماد وتوثيق الانتداب</div>
-    </div>
-    <div class="header-side left">
-      <div><b>التاريخ:</b> {{ printed_at.strftime('%Y/%m/%d') if printed_at else '' }}</div>
-      <div><b>الوقت:</b> {{ printed_at.strftime('%H:%M') if printed_at else '' }}</div>
-      <div><b>الصفحة:</b> 1 / 1</div>
-    </div>
-  </header>
-
-  <div class="doc-meta">
-    <div><b>محرر المذكرة:</b> <span>{{ creator.full_name if creator else '' }}</span></div>
-    <div><b>الوظيفة:</b> <span>{{ creator.job_title if creator and creator.job_title else '' }}</span></div>
-  </div>
-
-  <div class="section-title">أولاً: بيانات الموظف والمأمورية</div>
-  <table class="info-table">
-    <tr>
-      <th>القائم بالمأمورية</th><td>{{ employee.full_name if employee else '' }}</td>
-      <th>الكود الوظيفي</th><td>{{ employee.job_code if employee and employee.job_code else '' }}</td>
-    </tr>
-    <tr>
-      <th>الفرع الأساسي</th><td>{{ branch.name if branch else '' }}</td>
-      <th>المحافظة</th><td>{{ governorate.name if governorate else '' }}</td>
-    </tr>
-    <tr>
-      <th>جهة المأمورية</th><td>{{ movement.destination.name if movement.destination else '' }}</td>
-      <th>محافظة جهة المأمورية</th><td>{{ governorate.name if movement.destination and governorate else '' }}</td>
-    </tr>
-    <tr>
-      <th>الوحدة</th><td></td>
-      <th>نوع المأمورية</th><td>انتداب</td>
-    </tr>
-  </table>
-
-  <div class="section-title">ثانياً: مدة المأمورية</div>
-  <table class="info-table date-table">
-    <tr>
-      <th>من تاريخ</th><td>{{ movement.from_date.strftime('%Y/%m/%d') if movement.from_date else '' }}</td>
-      <th>إلى تاريخ</th><td>{{ movement.to_date.strftime('%Y/%m/%d') if movement.to_date else '' }}</td>
-    </tr>
-    <tr>
-      <th>عدد الأيام</th><td>{% if movement.from_date and movement.to_date %}{{ (movement.to_date - movement.from_date).days + 1 }} يوم{% endif %}</td>
-      <th>تدريب</th><td>☐ نعم &nbsp;&nbsp;&nbsp; ☐ لا</td>
-    </tr>
-  </table>
-
-  <div class="section-title">ثالثاً: سبب المأمورية</div>
-  <table class="info-table"><tr><td colspan="4" style="height:30mm"></td></tr></table>
-
-  <div class="section-title">رابعاً: الاعتماد</div>
-  <div class="approval-wrap">
-    <div class="approval-box">
-      <h3>اعتماد مدير الفرع / الجهة</h3>
-      <div>{{ movement.destination.name if movement.destination else '' }}</div>
-      {% if movement.status=='معتمدة' and approved_by_person %}
-        <div class="line">الاسم</div><div class="name">{{ approved_by_person.full_name }}</div>
-        {% if approved_by_person.job_title %}<div class="job">{{ approved_by_person.job_title }}</div>{% endif %}
-      {% elif approver %}
-        <div class="line">المعتمد المختص</div><div class="name">{{ approver.full_name }}</div>
-        {% if approver.job_title %}<div class="job">{{ approver.job_title }}</div>{% endif %}
-      {% else %}
-        <div class="line">الاسم: ........................................</div>
-      {% endif %}
-      <div class="line">التوقيع: ....................................</div>
-    </div>
-    <div class="approval-box">
-      <h3>اعتماد مسؤول التطبيق / المختص</h3>
-      <div class="line">الاسم: ........................................</div>
-      <div class="line">الوظيفة: ....................................</div>
-      <div class="line">التوقيع: ....................................</div>
-    </div>
-  </div>
-
-  <div class="footer-note"><span>هذه المذكرة صادرة من نظام إدارة حركات الموظفين.</span><span>رقم الحركة: {{ movement.id }}</span></div>
-</div>
-</body>
-</html>
+@page{size:A4 portrait;margin:0}html,body{margin:0;padding:0;background:#fff;color:#111}body{font-family:Tahoma,Arial,sans-serif}.printbar{position:fixed;top:12px;left:0;right:0;text-align:center;z-index:5}.printbar a,.printbar button{font:14px Tahoma,Arial;padding:8px 14px;margin:3px;border:1px solid #aaa;border-radius:6px;background:#f5f5f5;color:#111;text-decoration:none}.sheet{position:relative;width:210mm;height:297mm;margin:0 auto;background:#fff}.title{position:absolute;top:38mm;left:0;right:0;text-align:center;font-size:18pt;font-weight:700;text-decoration:underline}.top-left{position:absolute;top:21mm;left:12mm;font-size:8pt;font-weight:700;direction:ltr}.page-no{position:absolute;top:31mm;left:24mm;font-size:8pt;font-weight:700}.top-right{position:absolute;top:19mm;right:14mm;font-size:8pt;text-align:right;line-height:1.45}.row{position:absolute;right:12mm;display:flex;direction:rtl;align-items:stretch;height:10mm;font-size:10pt}.cell{border:1px solid #bbb;background:#fff;padding:2.5mm 2mm;display:flex;align-items:center;justify-content:center;white-space:nowrap}.label{background:#eee;font-weight:700}.r1{top:56mm}.r2{top:69mm}.r3{top:82mm}.r4{top:97mm}.r1 .name{width:77mm}.r1 .label1{width:34mm}.r1 .branch{width:63mm}.r1 .label2{width:34mm}.r1 .code{width:18mm;font-weight:700}.r2 .dest{width:63mm}.r2 .label1{width:34mm}.r2 .unit{width:63mm}.r2 .label2{width:34mm}.r3 .reason{width:103mm}.r3 .label1{width:34mm}.r3 .training{width:16mm}.r3 .trainingbox{width:20mm;background:#fff}.r4 .from{width:27mm;font-weight:700}.r4 .label1{width:24mm}.r4 .to{width:27mm;font-weight:700}.r4 .label2{width:34mm}.approval{position:absolute;top:130mm;left:37mm;text-align:center;font-size:10pt;font-weight:700;line-height:2}.no-print{display:block}@media print{.no-print{display:none!important}.sheet{margin:0}}
+</style></head><body>
+<div class="printbar no-print"><button onclick="window.open('/reports/assignments/mission-pdf/{{movement.id}}','_blank')">🖨️ فتح PDF المطابق</button><a href="javascript:history.back()">↩ رجوع</a></div>
+<div class="sheet">
+<div class="top-left">{{printed_at.strftime('%Y/%m/%d  %H:%M:%S') if printed_at else ''}}</div><div class="page-no">1 \ 1</div>
+<div class="top-right"><div><b>{{mission_state}}</b>&nbsp;&nbsp;&nbsp;<b>{{movement.id}}</b></div>{% if movement.created_by %}<div style="font-size:6pt">- {{movement.employee.full_name}}</div><div style="font-size:6pt">{{movement.employee.job_title or ''}}</div>{% endif %}</div>
+<div class="title">نموذج مأمورية عمل</div>
+<div class="row r1"><div class="cell name">{{employee.full_name}}</div><div class="cell label label1">: القائم بالمأمورية</div><div class="cell branch">{{branch.name if branch else ''}} - {{branch.governorate.name if branch and branch.governorate else ''}}</div><div class="cell label label2">: الفرع الأساسي</div><div class="cell code">{{employee.job_code or ''}}</div><div class="cell label">: الكود الوظيفى</div></div>
+<div class="row r2"><div class="cell dest">{{destination.name if destination else ''}}</div><div class="cell label label1">: جهة المأمورية</div><div class="cell unit"></div><div class="cell label label2">: الوحده</div></div>
+<div class="row r3"><div class="cell reason"></div><div class="cell label label1">: سبب المأموريه</div><div class="cell trainingbox">□</div><div class="cell label training">: تدريب</div></div>
+<div class="row r4"><div class="cell from">{{movement.from_date.strftime('%Y/%m/%d') if movement.from_date else ''}}</div><div class="cell label label1">: من تاريخ</div><div class="cell to">{{movement.to_date.strftime('%Y/%m/%d') if movement.to_date else ''}}</div><div class="cell label label2">الى تاريخ</div></div>
+<div class="approval">اعتماد مدير فرع<br>{{destination.name if destination else ''}}</div>
+</div></body></html>

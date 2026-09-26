@@ -113,12 +113,12 @@
   </div>
   <form method="post" action="/movements" class="home-register-real-form" id="home-real-movement-form">
     <input type="hidden" name="_csrf" value="{{csrf}}">
-    <label>المحافظة<select id="home_move_gov" required><option value="">اختر المحافظة</option>{% for g in movement_search_governorates %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
+    <label>المحافظة<select id="home_move_gov" required><option value="">اختر المحافظة</option>{% for g in home_movement_governorates %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
     <label>الفرع<select id="home_move_branch" disabled required><option value="">اختر الفرع</option></select></label>
     <label>الموظف<select name="employee_id" id="home_move_employee" disabled required><option value="">اختر الموظف</option></select></label>
     <label>نوع الحركة<select name="movement_type" id="home_move_type" required><option value="">اختر نوع الحركة</option>{% for x in movement_types %}<option value="{{x}}">{{x}}</option>{% endfor %}</select></label>
     <label class="movement-dynamic" data-move-type="إجازة">نوع الإجازة<select name="leave_type"><option value="">اختر النوع</option>{% for x in leave_types %}<option value="{{x}}">{{x}}</option>{% endfor %}</select></label>
-    <label class="movement-dynamic" data-move-type="انتداب">الفرع المنتدب إليه<select name="destination_branch_id"><option value="">اختر الفرع</option>{% for b in movement_search_branches %}<option value="{{b.id}}">{{b.name}}</option>{% endfor %}</select></label>
+    <label class="movement-dynamic" data-move-type="انتداب">الفرع المنتدب إليه<select name="destination_branch_id"><option value="">اختر الفرع</option>{% for b in home_movement_branches %}<option value="{{b.id}}">{{b.name}}</option>{% endfor %}</select></label>
     <label class="movement-dynamic" data-move-type="إجازة,انتداب">من تاريخ<input type="date" name="from_date"></label>
     <label class="movement-dynamic" data-move-type="إجازة,انتداب">إلى تاريخ<input type="date" name="to_date"></label>
     <label class="movement-dynamic" data-move-type="إذن">تاريخ الإذن<input type="date" name="permission_date"></label>
@@ -193,10 +193,16 @@
 
     <div class="entry-directory-filters no-print">
       <label class="entry-directory-filter-box">البحث باسم المدخل الأول
-        <input id="entry-directory-filter" list="entry-directory-names" placeholder="اكتب اسم المدخل الأول..." autocomplete="off">
-        <datalist id="entry-directory-names">
-          {% for row in entry_rows %}<option value="{{row.employee.full_name}}"></option>{% endfor %}
-        </datalist>
+        <select id="entry-directory-filter">
+          <option value="">كل المدخلين الأوائل</option>
+          {% for row in entry_rows|sort(attribute='employee.full_name') %}<option value="{{row.employee.id}}">{{row.employee.full_name}}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="entry-directory-branch-filter-box">الفرع
+        <select id="entry-directory-branch-filter">
+          <option value="">كل الفروع</option>
+          {% for b in entry_directory_branches %}<option value="{{b.id}}">{{b.name}}</option>{% endfor %}
+        </select>
       </label>
       <button type="button" class="btn entry-directory-add-btn" id="toggle-entry-role-add">＋ إضافة دور مدخل أول</button>
 
@@ -236,7 +242,7 @@
 
     <div class="entry-directory-list" id="entry-directory-list">
       {% for row in entry_rows %}
-        <details class="entry-card" data-entry-id="{{row.employee.id}}" data-entry-employee-ids="{% for bg in row.branches %}{% for emp in bg.employees %}{{emp.id}},{% endfor %}{% endfor %}">
+        <details class="entry-card" data-entry-id="{{row.employee.id}}" data-entry-employee-id="{{row.employee.id}}" data-entry-branch-ids="{% for bg in row.branches %}{{bg.branch.id}},{% endfor %}">
           <summary>
             <span class="entry-avatar">👤</span>
             <span class="entry-main"><strong>{{row.employee.full_name}}</strong><small>{{row.employee.job_title or 'مدخل أول تنظيمي'}}{% if row.supervisor %} · المشرف: {{row.supervisor.full_name}}{% endif %}</small></span>

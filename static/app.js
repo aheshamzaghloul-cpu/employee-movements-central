@@ -172,6 +172,26 @@
   const fg=qs('#employee_governorate_filter'), fb=qs('#employee_branch_filter'); if(fg&&fb){const sync=()=>{[...fb.options].forEach(o=>{if(!o.value)return;const ok=!fg.value||o.dataset.governorate===fg.value;o.hidden=!ok;o.disabled=!ok});if(fb.value&&fb.selectedOptions[0]?.disabled)fb.value='';};fg.addEventListener('change',sync);sync();}
 })();
 
+// v35.76 — first-entry directory filters: native selects for name + branch.
+document.addEventListener('DOMContentLoaded', function(){
+  const nameSel=document.getElementById('entry-directory-filter');
+  const branchSel=document.getElementById('entry-directory-branch-filter');
+  const list=document.getElementById('entry-directory-list');
+  if(!nameSel || !branchSel || !list) return;
+  const cards=[...list.querySelectorAll(':scope > .entry-card')];
+  function apply(){
+    const eid=nameSel.value;
+    const bid=branchSel.value;
+    cards.forEach(card=>{
+      const ceid=card.dataset.entryEmployeeId||'';
+      const branchIds=(card.dataset.entryBranchIds||'').split(',').filter(Boolean);
+      card.hidden=!!eid && ceid!==eid || !!bid && !branchIds.includes(bid);
+    });
+  }
+  nameSel.addEventListener('change',apply);
+  branchSel.addEventListener('change',apply);
+});
+
 // v34 movement registration: show employee's basic branch and approver name/job.
 document.addEventListener('DOMContentLoaded', function(){
   const emp=document.getElementById('movement_employee');

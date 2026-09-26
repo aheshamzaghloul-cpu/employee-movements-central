@@ -1,109 +1,100 @@
-{% extends 'base.html' %}{% block title %}تسجيل حركة{% endblock %}{% block content %}
-<div class="toolbar"><div><h1>تسجيل حركة</h1><p class="subtitle">اختر البيانات من القوائم المنسدلة. الحركة تُسجل مباشرة وتظهر فورًا في متابعة الموظفين.</p></div><a class="btn secondary" href="/employees">العودة للموظفين</a></div>
-<div class="box smart-movement-box"><form method="post" id="movement_form"><input type="hidden" name="_csrf" value="{{csrf}}">
-<div class="grid wide">
-<label>المحافظة<select id="movement_governorate" required><option value="">اختر المحافظة أولًا</option>{% for g in govs %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
-<label>الفرع<select id="movement_branch" disabled><option value="">اختر الفرع أو ابحث باسم/كود الموظف</option>{% for b in bs %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}">{{b.name}}</option>{% endfor %}</select></label>
-<label class="movement-employee-search">بحث باسم الموظف أو الكود الوظيفي<input id="movement_employee_search" type="search" autocomplete="off" placeholder="اكتب أول حرف أو جزء من الاسم أو الكود" disabled><div id="movement_employee_suggestions" class="movement-suggestions" hidden></div></label>
-<label>الموظف<select name="employee_id" id="movement_employee" required disabled><option value="">اختر الموظف</option></select></label>
-<label>الفرع الأساسي للموظف<input id="employee_home_branch" value="" readonly></label>
-<label>نوع الحركة<select name="movement_type" id="movement_type" required><option value="">اختر نوع الحركة</option>{% for x in movement_types %}<option value="{{x}}">{{x}}</option>{% endfor %}</select></label>
-<label data-movement="إجازة" hidden>نوع الإجازة<select name="leave_type" id="leave_type"><option value="">اختر نوع الإجازة</option>{% for x in leave_types %}<option value="{{x}}">{{x}}</option>{% endfor %}</select></label>
-<label data-movement="انتداب" hidden>الفرع المنتدب إليه<select name="destination_branch_id" id="destination_branch_id"><option value="">اختر الفرع</option>{% for b in bs %}<option value="{{b.id}}">{{b.name}}</option>{% endfor %}</select></label>
-<label data-movement="إجازة" data-movement2="انتداب" hidden>من تاريخ<input type="date" name="from_date" id="from_date"></label>
-<label data-movement="انتداب" hidden id="open_assignment_wrap"><span><input type="checkbox" name="open_assignment" id="open_assignment" value="1"> انتداب مفتوح — بدون تاريخ نهاية</span></label>
-<label data-movement="إجازة" data-movement2="انتداب" hidden id="to_date_wrap">إلى تاريخ<input type="date" name="to_date" id="to_date"></label>
-<label data-movement="إذن" hidden>تاريخ الإذن<input type="date" name="permission_date" id="permission_date"></label>
-
+{% extends 'base.html' %}
+{% block title %}الحركات المسجلة{% endblock %}
+{% block content %}
+<div class="movement-page-head">
+  <div>
+    <div class="movement-page-kicker">سجل الحركات</div>
+    <h1>الحركات المسجلة</h1>
+    <p class="subtitle">عرض منظم لكل الإجازات والانتدابات والأذونات المسجلة داخل نطاقك. يمكنك فتح أي حركة لتعديل بياناتها.</p>
+  </div>
+  <div class="movement-page-badge">{{ rows|length }} حركة</div>
 </div>
-<div class="duration-box"><b>المدة</b><strong id="movement_days">—</strong><span>يوم</span><small id="movement_duration_hint">تحسب تلقائيًا للإجازة والانتداب</small></div>
-<div class="form-actions"><button type="submit">حفظ الحركة</button></div>
-</form></div>
 
-<div class="box movement-list-box">
-  <div class="toolbar"><div><h2>الحركات المسجلة</h2><p class="subtitle">يمكنك فتح أي حركة وتعديل بياناتها مباشرة.</p></div></div>
-  <div class="tablewrap"><table>
-    <thead><tr><th>الموظف</th><th>نوع الحركة</th><th>التفاصيل</th><th>الفترة</th><th>الحالة</th><th>إجراء</th></tr></thead>
-    <tbody>
-    {% for m in rows %}
-      <tr>
-        <td><a class="table-link" href="/employee/{{m.employee.id}}">{{m.employee.full_name}}</a><small>{{m.employee.branch.name if m.employee.branch else '—'}}</small></td>
-        <td><span class="badge">{{m.movement_type}}</span></td>
-        <td>{% if m.movement_type=='إجازة' %}{{m.leave_type or 'إجازة'}}{% elif m.movement_type=='انتداب' %}{{m.destination.name if m.destination else '—'}}{% else %}إذن{% endif %}</td>
-        <td>{% if m.movement_type=='إذن' %}{{m.permission_date or '—'}}{% else %}{{m.from_date or '—'}} ← {% if m.movement_type=='انتداب' and m.to_date is none %}<b>مفتوح</b>{% else %}{{m.to_date or '—'}}{% endif %}{% endif %}</td>
-        <td>{{m.status}}{% if m.movement_type=='انتداب' %} — <b>{{assignment_state(m)}}</b>{% endif %}</td>
-        <td><a class="btn mini" href="/movements/{{m.id}}/edit">تعديل الحركة</a>{% if m.movement_type=='انتداب' and m.assignment_state!='مغلق' and m.to_date is none %}<form method="post" action="/movements/{{m.id}}/close-assignment" style="display:inline-flex;gap:5px;margin-inline-start:5px"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="btn mini secondary" type="submit">إنهاء الانتداب</button></form>{% endif %}</td>
-      </tr>
-    {% else %}<tr><td colspan="6" class="empty">لا توجد حركات مسجلة.</td></tr>{% endfor %}
-    </tbody>
-  </table></div>
+<div class="movement-summary-grid">
+  <div class="movement-summary-card"><span>إجمالي الحركات</span><strong>{{ rows|length }}</strong></div>
+  <div class="movement-summary-card leave"><span>إجازات</span><strong>{{ rows|selectattr('movement_type','equalto','إجازة')|list|length }}</strong></div>
+  <div class="movement-summary-card assign"><span>انتدابات</span><strong>{{ rows|selectattr('movement_type','equalto','انتداب')|list|length }}</strong></div>
+  <div class="movement-summary-card permit"><span>أذونات</span><strong>{{ rows|selectattr('movement_type','equalto','إذن')|list|length }}</strong></div>
+</div>
+
+<div class="box movement-list-box movement-records-only">
+  <div class="movement-list-tools">
+    <div>
+      <h2>سجل الحركات</h2>
+      <small>ابحث باسم الموظف أو الكود، أو اعرض نوع حركة محدد.</small>
+    </div>
+    <div class="movement-filters">
+      <label class="movement-filter-search"><span>بحث</span><input id="movementRecordsSearch" type="search" placeholder="اسم الموظف أو الكود..." autocomplete="off"></label>
+      <label><span>النوع</span><select id="movementRecordsType"><option value="">كل الحركات</option><option value="إجازة">إجازة</option><option value="انتداب">انتداب</option><option value="إذن">إذن</option></select></label>
+    </div>
+  </div>
+
+  <div class="tablewrap">
+    <table class="movement-records-table" id="movementRecordsTable">
+      <thead>
+        <tr>
+          <th>الموظف</th>
+          <th>نوع الحركة</th>
+          <th>التفاصيل</th>
+          <th>الفترة</th>
+          <th>الحالة</th>
+          <th>الإجراء</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for m in rows %}
+        <tr data-movement-row data-name="{{ m.employee.full_name|lower }}" data-code="{{ (m.employee.job_code or '')|lower }}" data-type="{{ m.movement_type }}">
+          <td>
+            <a class="table-link movement-employee-name" href="/employee/{{m.employee.id}}">{{m.employee.full_name}}</a>
+            <small>{{m.employee.branch.name if m.employee.branch else '—'}}{% if m.employee.job_code %} · {{m.employee.job_code}}{% endif %}</small>
+          </td>
+          <td>
+            {% if m.movement_type=='إجازة' %}<span class="movement-chip leave">إجازة</span>
+            {% elif m.movement_type=='انتداب' %}<span class="movement-chip assign">انتداب</span>
+            {% else %}<span class="movement-chip permit">إذن</span>{% endif %}
+          </td>
+          <td>
+            {% if m.movement_type=='إجازة' %}{{m.leave_type or 'إجازة'}}
+            {% elif m.movement_type=='انتداب' %}إلى {{m.destination.name if m.destination else '—'}}
+            {% else %}إذن{% endif %}
+          </td>
+          <td>
+            {% if m.movement_type=='إذن' %}{{m.permission_date or '—'}}
+            {% else %}{{m.from_date or '—'}} ← {% if m.movement_type=='انتداب' and m.to_date is none %}<b>مفتوح</b>{% else %}{{m.to_date or '—'}}{% endif %}{% endif %}
+          </td>
+          <td><span class="movement-status-text">{{m.status}}</span>{% if m.movement_type=='انتداب' %}<small class="movement-assignment-state">{{assignment_state(m)}}</small>{% endif %}</td>
+          <td class="movement-actions"><a class="btn mini" href="/movements/{{m.id}}/edit">تعديل</a>{% if m.movement_type=='انتداب' and m.assignment_state!='مغلق' and m.to_date is none %}<form method="post" action="/movements/{{m.id}}/close-assignment"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="btn mini secondary" type="submit">إنهاء الانتداب</button></form>{% endif %}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="empty">لا توجد حركات مسجلة حتى الآن.</td></tr>
+      {% endfor %}
+      <tr id="movementNoResults" hidden><td colspan="6" class="empty">لا توجد حركات مطابقة للبحث الحالي.</td></tr>
+      </tbody>
+    </table>
+  </div>
 </div>
 
 <script>
 (function(){
- const gov=document.getElementById('movement_governorate');
- const branch=document.getElementById('movement_branch');
- const employee=document.getElementById('movement_employee');
- const search=document.getElementById('movement_employee_search');
- const suggestions=document.getElementById('movement_employee_suggestions');
- const homeBranch=document.getElementById('employee_home_branch');
- let timer=null, seq=0;
- const esc=v=>String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
- function resetEmployees(){employee.innerHTML='<option value="">اختر الموظف</option>'; employee.disabled=true; homeBranch.value='';}
- function resetSearch(){if(suggestions){suggestions.innerHTML='';suggestions.hidden=true;} }
- function setEmployee(e){
-   employee.innerHTML='<option value="'+e.id+'">'+esc(e.name)+' — '+esc(e.code||'بدون كود وظيفي')+' — '+esc(e.branch||'')+'</option>';
-   employee.value=String(e.id); employee.disabled=false;
-   homeBranch.value=e.branch||''; resetSearch();
-   employee.dispatchEvent(new Event('change',{bubbles:true}));
- }
- function fillBranches(items){
-   const current=branch.value; branch.innerHTML='<option value="">اختر الفرع</option>';
-   items.forEach(b=>{const o=document.createElement('option');o.value=b.id;o.textContent=b.name;branch.appendChild(o);});
-   branch.disabled=!gov.value || !items.length;
-   if(items.some(b=>String(b.id)===current)) branch.value=current;
- }
- async function api(params){
-   const url='/api/movement-employees?'+new URLSearchParams(params);
-   const r=await fetch(url,{headers:{Accept:'application/json'}});
-   if(!r.ok) throw new Error('search');
-   return await r.json();
- }
- async function loadGov(){
-   resetEmployees(); resetSearch(); search.value=''; homeBranch.value='';
-   branch.value=''; branch.disabled=true;
-   if(!gov.value){search.disabled=true;return;}
-   search.disabled=false;
-   try{const d=await api({governorate_id:gov.value});fillBranches(d.branches||[]);}catch(_){fillBranches([]);}
- }
- async function loadBranch(){
-   resetSearch(); search.value=''; resetEmployees();
-   if(!gov.value||!branch.value)return;
-   try{const d=await api({governorate_id:gov.value,branch_id:branch.value});
-      employee.innerHTML='<option value="">اختر الموظف</option>';
-      (d.results||[]).forEach(e=>{const o=document.createElement('option');o.value=e.id;o.textContent=e.name+' — '+(e.code||'بدون كود وظيفي')+' — '+(e.branch||'');o.dataset.branchLabel=e.branch||'';employee.appendChild(o);});
-      employee.disabled=!(d.results||[]).length;
-   }catch(_){resetEmployees();}
- }
- function renderSuggestions(items){
-   if(!items.length){suggestions.innerHTML='<div class="movement-suggestion-empty">لا توجد مطابقة.</div>';suggestions.hidden=false;return;}
-   suggestions.innerHTML=items.map(e=>'<button type="button" class="movement-suggestion" data-id="'+e.id+'"><strong>'+esc(e.name)+'</strong><small>'+esc(e.code||'بدون كود وظيفي')+' — '+esc(e.branch||'')+'</small></button>').join('');
-   suggestions.hidden=false;
-   suggestions.querySelectorAll('.movement-suggestion').forEach(btn=>btn.addEventListener('click',()=>{const e=items.find(x=>String(x.id)===btn.dataset.id);if(e)setEmployee(e);}));
- }
- async function searchEmployees(){
-   const q=search.value.trim(); resetEmployees(); branch.value='';
-   if(!gov.value||q.length<1){resetSearch();return;}
-   const my=++seq; suggestions.hidden=false; suggestions.innerHTML='<div class="movement-suggestion-empty">جاري البحث…</div>';
-   try{const d=await api({governorate_id:gov.value,q}); if(my===seq)renderSuggestions(d.results||[]);}catch(_){if(my===seq){suggestions.innerHTML='<div class="movement-suggestion-empty">تعذر تنفيذ البحث.</div>';suggestions.hidden=false;}}
- }
- gov?.addEventListener('change',loadGov);
- branch?.addEventListener('change',loadBranch);
- search?.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(searchEmployees,180);});
- document.addEventListener('click',e=>{if(suggestions&&!e.target.closest('.movement-employee-search'))resetSearch();});
-
- const cb=document.getElementById('open_assignment'), to=document.getElementById('to_date'), wrap=document.getElementById('to_date_wrap'), openWrap=document.getElementById('open_assignment_wrap'), type=document.getElementById('movement_type');
- function sync(){ const isAssign=type?.value==='انتداب', open=!!cb?.checked && isAssign; if(openWrap) openWrap.style.display=isAssign?'':'none'; if(wrap) wrap.style.display=(isAssign||type?.value==='إجازة')?'':'none'; if(to){to.required=type?.value==='إجازة'||(isAssign&&!open); if(open) to.value='';} }
- cb?.addEventListener('change',sync); type?.addEventListener('change',sync); sync();
+  const search=document.getElementById('movementRecordsSearch');
+  const type=document.getElementById('movementRecordsType');
+  const rows=[...document.querySelectorAll('[data-movement-row]')];
+  const empty=document.getElementById('movementNoResults');
+  function filter(){
+    const q=(search?.value||'').trim().toLocaleLowerCase('ar-EG');
+    const t=type?.value||'';
+    let visible=0;
+    rows.forEach(row=>{
+      const matchQ=!q || (row.dataset.name||'').includes(q) || (row.dataset.code||'').includes(q);
+      const matchT=!t || row.dataset.type===t;
+      const show=matchQ && matchT;
+      row.hidden=!show;
+      if(show) visible++;
+    });
+    if(empty) empty.hidden=visible!==0;
+  }
+  search?.addEventListener('input',filter);
+  type?.addEventListener('change',filter);
 })();
-</script>{% endblock %}
+</script>
+{% endblock %}

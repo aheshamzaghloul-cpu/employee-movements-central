@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}الموظفون المستقيلون{% endblock %}
+{% block content %}
+<div class="toolbar">
+  <div><h1>الموظفون المستقيلون</h1><p class="subtitle">الموظفون الذين انتهت خدمتهم بالاستقالة. السجل والحركات السابقة محفوظة بالكامل ويمكن إعادة التعيين بتاريخ محدد.</p></div>
+  <div class="actions"><a class="btn secondary" href="/employees">عودة للموظفين</a></div>
+</div>
+<div class="notice"><b>مهم:</b> الموظف المستقيل لا يظهر في قوائم الفرع أو الموظفين النشطين، بينما تظل بياناته وحركاته التاريخية محفوظة. عند العودة للعمل استخدم «إعادة تفعيل» وحدد تاريخ إعادة التعيين.</div>
+<div class="box tablewrap">
+  <table>
+    <thead><tr><th>الموظف</th><th>الكود الوظيفي</th><th>فرع التعيين السابق</th><th>تاريخ الاستقالة</th><th>تاريخ إعادة التعيين</th><th>الحالة</th><th>إجراءات</th></tr></thead>
+    <tbody>
+    {% for e in rows %}
+      <tr>
+        <td><a href="/employee/{{e.id}}"><b>{{e.full_name}}</b></a><br><small>{{e.job_title or '—'}}</small></td>
+        <td>{{e.job_code or '—'}}</td>
+        <td>{{e.branch.name if e.branch else '—'}}</td>
+        <td><b>{{e.resignation_date.strftime('%Y-%m-%d') if e.resignation_date else (e.deleted_at.strftime('%Y-%m-%d') if e.deleted_at else '—')}}</b></td>
+        <td>{{e.rehire_date.strftime('%Y-%m-%d') if e.rehire_date else '—'}}</td>
+        <td><span class="employee-deleted-badge">مستقيل</span></td>
+        <td>
+          <a class="btn secondary mini" href="/employee/{{e.id}}">السجل</a>
+          <form class="inline resignation-inline" method="post" action="/employees/{{e.id}}/reactivate">
+            <input type="hidden" name="_csrf" value="{{csrf}}">
+            <input class="mini-date" type="date" name="rehire_date" required title="تاريخ إعادة التعيين">
+            <button class="green mini" data-confirm="هل تريد إعادة تفعيل الموظف بهذا التاريخ؟">إعادة تفعيل</button>
+          </form>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7" class="empty">لا توجد سجلات موظفين مستقيلين.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

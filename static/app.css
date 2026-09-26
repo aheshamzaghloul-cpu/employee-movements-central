@@ -2415,3 +2415,63 @@ header,nav,.box,.structure-card{background:var(--white-soft)!important}
 .home-search,.home-quick-actions,.report-print-area,.mission-report-card{background:var(--white-soft)!important}
 .login{margin:9vh auto!important}
 @media(max-width:850px){.login{margin:7vh auto!important}}
+\n/* v35.76 — unified soft-white application surfaces + first-entry filters */\n:root{--white-soft:#edf2f4;--white-soft-2:#f2f5f6;--page-soft:#e3ebef}\nheader,nav,.box,.structure-card,.home-governorates,.home-standalone-box,.home-entry-directory.dashboard-widget,.home-current-status.dashboard-widget,.home-current-status,.home-entry-directory{\n  background:var(--white-soft)!important;\n}\n.quick .box,.quick-panel,.admin-control-center,.home-search,.home-quick-actions,.report-print-area,.mission-report-card{background:var(--white-soft)!important}\n.home-entry-directory.dashboard-widget,.home-current-status.dashboard-widget{background:linear-gradient(145deg,var(--white-soft),#e7eef1)!important}\n.home-current-status,.home-entry-directory{background:linear-gradient(145deg,var(--white-soft),#e8eff2)!important}\n.home-standalone-box{background:var(--white-soft)!important}\n.entry-directory-filters{gap:14px!important}\n.entry-directory-filter-box,.entry-directory-branch-filter-box{flex:1 1 260px;min-width:220px}\n.entry-directory-filter-box input,.entry-directory-filter-box select,.entry-directory-branch-filter-box select{min-height:40px!important;height:40px!important}\n.entry-directory-add-btn{margin-inline-start:12px!important}\n.entry-directory-filters label{display:flex!important;flex-direction:column!important;gap:5px!important}\n.entry-directory-filter-box select,.entry-directory-branch-filter-box select{text-align:center!important}\n@media(max-width:800px){.entry-directory-filters{gap:10px!important}.entry-directory-filter-box,.entry-directory-branch-filter-box{min-width:100%;flex-basis:100%}.entry-directory-add-btn{margin-inline-start:0!important;width:100%}}\n
+/* v35.76 — soften the white content surfaces across the app without darkening controls */
+main .box,
+main .home-standalone-box,
+main .dashboard-widget,
+main .structure-card,
+main .admin-control-center,
+main .admin-tool-group,
+main .home-action,
+main .home-stat-card,
+main .home-entry-directory,
+main .home-current-status,
+main .entry-card,
+main .branch-card,
+main .employee-card,
+main .movement-employee-result-card,
+main .movement-search-result,
+main .replacement-card,
+main .review-card,
+main .report-card,
+main .mission-report-card,
+main .tablewrap,
+main .quick .box,
+header,
+nav{
+  background-color:#edf2f4!important;
+}
+main .home-standalone-box,
+main .home-entry-directory,
+main .home-current-status,
+main .dashboard-widget{
+  background-image:linear-gradient(145deg,#edf2f4,#e7eef1)!important;
+}
+.entry-directory-filters{background:#e6eef1!important}
+
+/* v35.77 — سجل الحركات: عرض منظم بدون نموذج تسجيل داخل بند الحركات */
+.movement-page-head{display:flex;justify-content:space-between;align-items:center;gap:18px;background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:20px 22px;margin-bottom:14px;box-shadow:var(--shadow)}
+.movement-page-kicker{font-size:12px;font-weight:800;color:#6b8799;margin-bottom:3px}
+.movement-page-head h1{margin:0 0 5px}
+.movement-page-head .subtitle{margin:0;max-width:850px;line-height:1.7}
+.movement-page-badge{min-width:96px;padding:13px 16px;text-align:center;border-radius:14px;background:#e8f4f5;color:#247b84;border:1px solid #b8dfe2;font-weight:800;white-space:nowrap}
+.movement-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px;margin-bottom:14px}
+.movement-summary-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:13px 15px;box-shadow:var(--shadow);border-top:3px solid #6b9eb4}
+.movement-summary-card span{display:block;color:var(--muted);font-size:12px;font-weight:700}
+.movement-summary-card strong{display:block;color:var(--primary);font-size:24px;margin-top:4px}
+.movement-summary-card.leave{border-top-color:#9c6bd0}.movement-summary-card.assign{border-top-color:#d08a35}.movement-summary-card.permit{border-top-color:#3d86b8}
+.movement-records-only{margin-bottom:0}
+.movement-list-tools{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.movement-list-tools h2{margin:0 0 3px}.movement-list-tools small{color:var(--muted)}
+.movement-filters{display:flex;align-items:flex-end;gap:9px;flex-wrap:wrap;min-width:min(100%,520px)}
+.movement-filters label{min-width:150px}.movement-filters .movement-filter-search{min-width:280px;flex:1}.movement-filters label span{display:block;font-size:11px;margin-bottom:5px;color:var(--muted)}
+.movement-filters input,.movement-filters select{margin:0;min-height:42px}
+.movement-records-table th{background:#eef4f7;color:#31566f}.movement-records-table tbody tr:hover td{background:#f4f8fa}.movement-records-table td{padding:12px 11px}.movement-records-table td small{display:block;color:var(--muted);margin-top:3px;font-size:11px}.movement-employee-name{font-size:14px!important}.movement-status-text{font-weight:700}.movement-assignment-state{font-weight:700}.movement-actions{white-space:nowrap}.movement-actions form{display:inline-flex;margin:0 0 0 5px}
+@media(max-width:850px){.movement-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.movement-page-head{align-items:flex-start}.movement-page-badge{min-width:78px}.movement-filters{width:100%}.movement-filters .movement-filter-search{min-width:220px}}
+@media(max-width:560px){.movement-summary-grid{grid-template-columns:1fr 1fr}.movement-page-head{padding:16px}.movement-page-head h1{font-size:23px}.movement-filters{display:grid;grid-template-columns:1fr;width:100%}.movement-filters .movement-filter-search{min-width:0}.movement-actions{white-space:normal}.movement-actions form{margin:5px 0 0}}
+
+/* دورة استقالة الموظف وإعادة التعيين */
+.resignation-inline{display:inline-flex;align-items:center;gap:6px;vertical-align:middle}
+.mini-date{height:34px;min-width:145px;padding:4px 8px;border:1px solid #b8cbd5;border-radius:8px;background:#f5f9fb;font-family:inherit;font-size:12px}
+.resignation-inline .mini-date:focus{outline:2px solid rgba(42,143,160,.18);border-color:#2a8fa0}

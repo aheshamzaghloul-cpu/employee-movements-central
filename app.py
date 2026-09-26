@@ -6,9 +6,10 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import UniqueConstraint
 from werkzeug.security import generate_password_hash, check_password_hash
 from openpyxl import Workbook, load_workbook
+import fitz
 
 app=Flask(__name__)
-APP_VERSION='v35.37'
+APP_VERSION='v35.79'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg2://',1)
 elif DATABASE_URL.startswith('postgresql://'): DATABASE_URL=DATABASE_URL.replace('postgresql://','postgresql+psycopg2://',1)
@@ -109,9 +110,9 @@ class ApprovalDelegation(db.Model):
     delegate=db.relationship('User',foreign_keys=[delegate_id])
     governorate=db.relationship('Governorate')
 class Employee(db.Model):
-    id=db.Column(db.Integer,primary_key=True); employee_code=db.Column(db.String(100),unique=True,nullable=True); user_id=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL'),unique=True,nullable=True); email=db.Column(db.String(254),unique=True,nullable=True); full_name=db.Column(db.String(250),nullable=False); branch_id=db.Column(db.Integer,db.ForeignKey('branch.id',ondelete='RESTRICT'),nullable=False); job_title=db.Column(db.String(200)); job_code=db.Column(db.String(100)); hire_date=db.Column(db.Date); company_phone=db.Column(db.String(80)); personal_phone=db.Column(db.String(80)); is_active=db.Column(db.Boolean,default=True,nullable=False); deleted_at=db.Column(db.DateTime); deleted_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); branch=db.relationship('Branch')
+    id=db.Column(db.Integer,primary_key=True); employee_code=db.Column(db.String(100),unique=True,nullable=True); user_id=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL'),unique=True,nullable=True); email=db.Column(db.String(254),unique=True,nullable=True); full_name=db.Column(db.String(250),nullable=False); branch_id=db.Column(db.Integer,db.ForeignKey('branch.id',ondelete='RESTRICT'),nullable=False); job_title=db.Column(db.String(200)); job_code=db.Column(db.String(100)); hire_date=db.Column(db.Date); company_phone=db.Column(db.String(80)); personal_phone=db.Column(db.String(80)); is_active=db.Column(db.Boolean,default=True,nullable=False); resignation_date=db.Column(db.Date); rehire_date=db.Column(db.Date); resignation_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); deleted_at=db.Column(db.DateTime); deleted_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); branch=db.relationship('Branch')
 class Movement(db.Model):
-    id=db.Column(db.Integer,primary_key=True); employee_id=db.Column(db.Integer,db.ForeignKey('employee.id',ondelete='RESTRICT'),nullable=False); movement_type=db.Column(db.String(30),nullable=False); leave_type=db.Column(db.String(100)); destination_branch_id=db.Column(db.Integer,db.ForeignKey('branch.id',ondelete='RESTRICT')); from_date=db.Column(db.Date); to_date=db.Column(db.Date); permission_date=db.Column(db.Date); status=db.Column(db.String(30),default='مسودة',nullable=False); notes=db.Column(db.Text); rejection_reason=db.Column(db.Text); is_active=db.Column(db.Boolean,default=True,nullable=False); deleted_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); deleted_at=db.Column(db.DateTime); created_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='RESTRICT'),nullable=False); created_at=db.Column(db.DateTime,default=datetime.utcnow); modified_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); modified_at=db.Column(db.DateTime); reviewed_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); reviewed_at=db.Column(db.DateTime); approved_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); approved_at=db.Column(db.DateTime); approver_id=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); employee=db.relationship('Employee'); approver=db.relationship('User',foreign_keys=[approver_id]); destination=db.relationship('Branch',foreign_keys=[destination_branch_id]); assignment_state=db.Column(db.String(30),default='ساري',nullable=False); closed_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); closed_at=db.Column(db.DateTime); closure_reason=db.Column(db.Text); last_assignment_notice_at=db.Column(db.DateTime)
+    id=db.Column(db.Integer,primary_key=True); employee_id=db.Column(db.Integer,db.ForeignKey('employee.id',ondelete='RESTRICT'),nullable=False); movement_type=db.Column(db.String(30),nullable=False); leave_type=db.Column(db.String(100)); destination_branch_id=db.Column(db.Integer,db.ForeignKey('branch.id',ondelete='RESTRICT')); from_date=db.Column(db.Date); to_date=db.Column(db.Date); permission_date=db.Column(db.Date); status=db.Column(db.String(30),default='مسودة',nullable=False); notes=db.Column(db.Text); rejection_reason=db.Column(db.Text); is_active=db.Column(db.Boolean,default=True,nullable=False); deleted_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); deleted_at=db.Column(db.DateTime); created_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='RESTRICT'),nullable=False); created_at=db.Column(db.DateTime,default=datetime.utcnow); modified_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); modified_at=db.Column(db.DateTime); reviewed_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); reviewed_at=db.Column(db.DateTime); approved_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); approved_at=db.Column(db.DateTime); approver_id=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); employee=db.relationship('Employee'); approver=db.relationship('User',foreign_keys=[approver_id]); destination=db.relationship('Branch',foreign_keys=[destination_branch_id]); assignment_state=db.Column(db.String(30),default='ساري',nullable=False); mission_state=db.Column(db.String(30),default='تحت التحرير',nullable=False); closed_by=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); closed_at=db.Column(db.DateTime); closure_reason=db.Column(db.Text); last_assignment_notice_at=db.Column(db.DateTime)
 class MovementHistory(db.Model):
     id=db.Column(db.Integer,primary_key=True); movement_id=db.Column(db.Integer,db.ForeignKey('movement.id',ondelete='CASCADE'),nullable=False); from_status=db.Column(db.String(30)); to_status=db.Column(db.String(30)); action=db.Column(db.String(50),nullable=False); reason=db.Column(db.Text); user_id=db.Column(db.Integer,db.ForeignKey('user.id',ondelete='SET NULL')); created_at=db.Column(db.DateTime,default=datetime.utcnow); movement=db.relationship('Movement')
 class Audit(db.Model):
@@ -698,6 +699,7 @@ def home():
 
     # المدخل الأول هنا بند تنظيمي فقط: لا يحتاج حساب دخول.
     entry_rows=[]
+    entry_directory_branch_ids=set()
     if 'مشرف محافظة' in effective or 'مسؤول التطبيق' in effective or is_manager_support:
         if is_manager_support:
             supervisors = [u for u in User.query.filter_by(is_active=True).order_by(User.full_name).all()
@@ -714,6 +716,7 @@ def home():
                 for b in scoped:
                     emps=Employee.query.filter(Employee.branch_id==b.id,Employee.is_active==True).order_by(Employee.full_name.asc()).all()
                     branch_groups.append({'branch':b,'employees':emps})
+                entry_directory_branch_ids.update(b.id for b in scoped)
                 gov_ids_for_entry={x['branch'].governorate_id for x in branch_groups}
                 gov_names=[gobj.name for gobj in Governorate.query.filter(Governorate.id.in_(gov_ids_for_entry),Governorate.is_active==True).order_by(Governorate.name.asc()).all()] if gov_ids_for_entry else []
                 # بيانات أزرار إدارة الفروع والاستبدال داخل الصفحة الرئيسية.
@@ -734,6 +737,10 @@ def home():
         if scoped:
             groups=[{'branch':b,'employees':Employee.query.filter(Employee.branch_id==b.id,Employee.is_active==True).order_by(Employee.full_name).all()} for b in scoped]
             entry_rows=[{'assignment':None,'employee':Employee.query.filter_by(user_id=u.id).first(),'branches':groups,'governorates':[],'supervisor':supervisor_for_entry(u)}]
+
+    # فروع لوحة «المدخلون الأوائل» المستخدمة في فلتر البحث بالفرع.
+    entry_directory_branches=(Branch.query.filter(Branch.id.in_(entry_directory_branch_ids),Branch.is_active==True)
+                              .order_by(Branch.name.asc()).all() if entry_directory_branch_ids else [])
 
     # بيانات إضافة المدخل الأول التنظيمي في الصفحة الرئيسية يجب أن تُبنى داخل
     # نفس نطاق المستخدم؛ لا تعتمد على متغيرات غير مُمررة للقالب.
@@ -769,6 +776,13 @@ def home():
         # لتحديد حالة الموظف الحالية.
         ending=[]
 
+    # قوائم الصفحة الرئيسية لا تعرض إلا المحافظات الواقعة ضمن نطاق الدور الحالي.
+    home_movement_gov_ids=set(gids())
+    home_movement_governorates=(Governorate.query.filter(Governorate.id.in_(home_movement_gov_ids),Governorate.is_active==True)
+                                .order_by(Governorate.name.asc()).all() if home_movement_gov_ids else [])
+    home_movement_branches=(Branch.query.filter(Branch.governorate_id.in_(home_movement_gov_ids),Branch.is_active==True)
+                            .order_by(Branch.name.asc()).all() if home_movement_gov_ids else [])
+
     return render_template(
         'home.html',
         g=len(visible_govs),
@@ -782,6 +796,7 @@ def home():
         current_status_rows=current_status_rows,
         available_entry_employees=available_entry_employees,
         available_entry_branches=available_entry_branches,
+        entry_directory_branches=entry_directory_branches,
         entry_supervisors=entry_supervisors,
         today=today,
         tomorrow=tomorrow,
@@ -789,8 +804,10 @@ def home():
         is_manager_support=is_manager_support,
         manager_governorates=Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all() if is_manager_support else [],
         selected_manager_gov=selected_manager_gov,
-        movement_search_governorates=Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all(),
-        movement_search_branches=(Branch.query.filter_by(governorate_id=search_gov_id,is_active=True).order_by(Branch.name.asc()).all() if search_gov_id else []),
+        movement_search_governorates=home_movement_governorates,
+        movement_search_branches=(Branch.query.filter(Branch.governorate_id==search_gov_id,Branch.id.in_(set(bids())),Branch.is_active==True).order_by(Branch.name.asc()).all() if search_gov_id else []),
+        home_movement_governorates=home_movement_governorates,
+        home_movement_branches=home_movement_branches,
         movement_search_employees=Employee.query.filter_by(is_active=True).order_by(Employee.full_name.asc()).all(),
         movement_employee=movement_employee,
         movement_employee_moves=movement_employee_moves,
@@ -2042,7 +2059,10 @@ def employees():
                 if existing.is_active:
                     flash('البريد الإلكتروني مستخدم بالفعل لموظف آخر.')
                     return redirect(url_for('employees'))
-                # الموظف غير ظاهر في القائمة لأنه معطّل. لا ننشئ سجلًا ثانيًا؛ نستعيد نفس السجل ونحافظ على تاريخه وحركاته.
+                if existing.resignation_date is not None:
+                    flash('الموظف مسجل كمستقيل. أعد تفعيله أولًا من «الموظفون المستقيلون» بتاريخ إعادة التعيين، ثم حدّث بياناته.')
+                    return redirect(url_for('resigned_employees'))
+                # الموظف غير ظاهر في القائمة لأنه معطّل إداريًا. لا ننشئ سجلًا ثانيًا.
                 existing.full_name=name; existing.email=email; existing.branch_id=bid; existing.job_title=job_title; existing.job_code=job_code
                 existing.hire_date=parse_date(hire_date); existing.company_phone=company_phone; existing.personal_phone=personal_phone; existing.is_active=True; existing.deleted_at=None; existing.deleted_by=None
                 log('RESTORE','Employee',existing.id,existing.full_name); db.session.commit()
@@ -2209,70 +2229,117 @@ def employee_convert_role(i):
     current_sup=assignment.supervisor if assignment else None
     return render_template('employee_role_convert.html',e=e,is_entry=is_entry,branches=branches,supervisors=supervisors,current_branch_ids=current_branch_ids,current_sup=current_sup)
 
-@app.post('/employees/<int:i>/toggle')
+@app.post('/employees/<int:i>/resign')
 @req
-def et(i):
+def employee_resign(i):
     e=db.session.get(Employee,i)
-    if not can_manage_employee(e) or not can('manage_employees'): abort(403)
-    if e.deleted_at is not None:
-        flash('الموظف محذوف. استخدم صفحة الموظفين المحذوفين لاستعادته.')
-    else:
-        e.is_active=not e.is_active; log('TOGGLE','Employee',i)
-        db.session.commit()
-    return redirect('/employees')
-@app.post('/employees/<int:i>/delete')
-@req
-def ed(i):
-    e=db.session.get(Employee,i)
-    if not can_manage_employee(e) or not can('manage_employees'): abort(403)
-    if not e: abort(404)
-    # حذف منطقي: لا نحذف سجل الموظف أو حركاته، بل نضعه في حالة (محذوف).
-    # نلتقط التكليف التنظيمي قبل تعطيل الموظف حتى يمكن تحرير فروع مسؤوليته.
-    assignment=organizational_entry_for_employee(e)
+    if not e or not can_manage_employee(e) or not can('manage_employees'): abort(403)
+    if not e.is_active:
+        flash('الموظف موجود بالفعل ضمن الموظفين المستقيلين.')
+        return redirect('/employees')
+    raw_date=(request.form.get('resignation_date') or '').strip()
+    resignation_date=parse_date(raw_date)
+    if not resignation_date:
+        flash('يجب تحديد تاريخ الاستقالة.')
+        return redirect('/employees')
+    if resignation_date > date.today():
+        flash('تاريخ الاستقالة لا يمكن أن يكون في المستقبل.')
+        return redirect('/employees')
     e.is_active=False
+    e.resignation_date=resignation_date
+    e.rehire_date=None
+    e.resignation_by=me().id if me() else None
+    # الاحتفاظ بـ deleted_at داخليًا للتوافق مع السجلات القديمة ومنع ظهور الموظف في القوائم النشطة.
     e.deleted_at=datetime.utcnow()
     e.deleted_by=me().id if me() else None
+    # إنهاء أي انتداب مفتوح مع الاحتفاظ بالحركة كاملة في التاريخ.
+    open_moves=Movement.query.filter_by(employee_id=e.id,is_active=True,movement_type='انتداب',assignment_state='ساري').all()
+    for m in open_moves:
+        m.assignment_state='مغلق'
+        m.closed_by=me().id if me() else None
+        m.closed_at=datetime.utcnow()
+        m.closure_reason='استقالة الموظف'
+    assignment=organizational_entry_for_employee(e)
     if assignment:
         assignment.is_active=False
-    # دعم السجلات القديمة التي كان فيها المدخل الأول حسابًا: إزالة دوره التنظيمي فقط،
-    # مع إبقاء حساب المستخدم وأي أدوار أخرى محفوظة.
+    # إزالة ارتباطات المدخل الأول التنظيمية حتى لا يبقى الموظف المستقيل مرتبطًا بفروع.
     if e.user_id:
         linked_user=db.session.get(User,e.user_id)
         if linked_user:
             UserRole.query.filter_by(user_id=linked_user.id,role='المدخل الأول').delete()
             UserBranch.query.filter_by(user_id=linked_user.id).delete()
             SupervisorEntry.query.filter_by(entry_id=linked_user.id).delete()
-    log('DELETE','Employee',i,f'حذف منطقي للموظف: {e.full_name}')
+            if not actual_roles(linked_user):
+                linked_user.is_active=False
+    log('RESIGN','Employee',i,f'استقالة الموظف: {e.full_name} بتاريخ {resignation_date.isoformat()}')
     db.session.commit()
-    flash('تم حذف الموظف منطقيًا. بقي سجله وحركاته محفوظة وتم وضع علامة «محذوف».')
+    flash(f'تم تسجيل استقالة {e.full_name} بتاريخ {resignation_date.strftime("%Y-%m-%d")}. أزيل من قوائم الفرع ونُقل إلى الموظفين المستقيلين مع الاحتفاظ بكل تاريخه.')
     return redirect(url_for('employees'))
 
-@app.get('/employees/deleted')
+@app.post('/employees/<int:i>/delete')
 @req
-def deleted_employees():
-    if not can('manage_employees'): abort(403)
-    bs=bids()
-    rows=(Employee.query.filter(Employee.deleted_at.isnot(None),Employee.branch_id.in_(bs)).order_by(Employee.deleted_at.desc(),Employee.full_name).all() if bs else [])
-    return render_template('employee_deleted.html',rows=rows)
-
-@app.post('/employees/<int:i>/restore')
-@req
-def employee_restore(i):
+def ed(i):
     e=db.session.get(Employee,i)
-    if not e or e.deleted_at is None: abort(404)
     if not can_manage_employee(e) or not can('manage_employees'): abort(403)
+    if not e: abort(404)
+    # حذف منطقي إداري استثنائي؛ مسار دورة حياة الموظف الطبيعي هو «استقالة».
+    e.is_active=False
+    e.deleted_at=datetime.utcnow()
+    e.deleted_by=me().id if me() else None
+    assignment=organizational_entry_for_employee(e)
+    if assignment: assignment.is_active=False
+    log('DELETE','Employee',i,f'حذف منطقي إداري للموظف: {e.full_name}')
+    db.session.commit()
+    flash('تم إخفاء الموظف إداريًا. لا يُستخدم هذا المسار لتسجيل الاستقالة؛ استخدم «استقالة».')
+    return redirect(url_for('employees'))
+
+@app.get('/employees/resigned')
+@req
+def resigned_employees():
+    if not can('manage_employees'): abort(403)
+    # الموظفون المستقيلون يُعرضون من نطاق الفروع السابق، مع إبقاء السجل محفوظًا.
+    bs=bids()
+    q=Employee.query.filter((Employee.resignation_date.isnot(None)) | (Employee.deleted_at.isnot(None)))
+    if bs:
+        q=q.filter(Employee.branch_id.in_(bs))
+    rows=q.order_by(Employee.resignation_date.desc().nullslast(),Employee.deleted_at.desc().nullslast(),Employee.full_name).all()
+    return render_template('employee_resigned.html',rows=rows)
+
+@app.get('/employees/resigned')
+@req
+def deleted_employees_legacy():
+    return redirect(url_for('resigned_employees'))
+
+@app.post('/employees/<int:i>/reactivate')
+@req
+def employee_reactivate(i):
+    e=db.session.get(Employee,i)
+    if not e or (e.resignation_date is None and e.deleted_at is None): abort(404)
+    if not can_manage_employee(e) or not can('manage_employees'): abort(403)
+    raw_date=(request.form.get('rehire_date') or '').strip()
+    rehire_date=parse_date(raw_date)
+    if not rehire_date:
+        flash('يجب تحديد تاريخ إعادة التعيين.')
+        return redirect(url_for('resigned_employees'))
+    if e.resignation_date and rehire_date < e.resignation_date:
+        flash('تاريخ إعادة التعيين يجب أن يكون في أو بعد تاريخ الاستقالة.')
+        return redirect(url_for('resigned_employees'))
     e.is_active=True
+    e.rehire_date=rehire_date
     e.deleted_at=None
     e.deleted_by=None
-    log('RESTORE','Employee',i,f'استعادة الموظف: {e.full_name}')
+    e.resignation_by=None
+    log('REACTIVATE','Employee',i,f'إعادة تعيين الموظف: {e.full_name} بتاريخ {rehire_date.isoformat()}')
     db.session.commit()
-    flash('تمت استعادة الموظف مع الاحتفاظ بسجله وحركاته.')
-    return redirect(url_for('deleted_employees'))
+    flash(f'تمت إعادة تفعيل {e.full_name} بتاريخ {rehire_date.strftime("%Y-%m-%d")}. أصبح الموظف متاحًا للفرع مرة أخرى.')
+    return redirect(url_for('card',i=e.id))
 @app.get('/employee/<int:i>')
 @req
 def card(i):
     e=db.session.get(Employee,i)
-    if not e or not employee_scope_ok(e): abort(403)
+    if not e: abort(404)
+    if not e.is_active and not (can('manage_employees') and can_manage_employee(e)):
+        abort(403)
     ms=Movement.query.filter_by(employee_id=i,is_active=True).order_by(Movement.from_date.desc().nullslast(),Movement.permission_date.desc().nullslast(),Movement.id.desc()).all(); last={k:next((m for m in ms if m.movement_type==k),None) for k in MOVEMENT_TYPES}; current_assignment=current_assignment_for_employee(e.id); current_branch=(current_assignment.destination if current_assignment and current_assignment.destination else e.branch); return render_template('employee.html',e=e,ms=ms,last=last,current_assignment=current_assignment,current_branch=current_branch)
 
 @app.get('/review')
@@ -2817,7 +2884,7 @@ def assistant_topic_options(topic):
             {'label':'إضافة موظف جديد','prompt':'إضافة موظف جديد','icon':'➕','kind':'action','url':'/employees'},
             {'label':'تعديل بيانات موظف','prompt':'تعديل بيانات موظف','icon':'✏️','kind':'action','url':'/employees/edit-data'},
             {'label':'البحث عن موظف','prompt':'ابحث عن موظف','icon':'🔎','kind':'query','url':'/employees'},
-            {'label':'الموظفون المحذوفون','prompt':'اعرض الموظفين المحذوفين','icon':'♻️','kind':'query','url':'/employees/deleted'},
+            {'label':'الموظفون المستقيلون','prompt':'اعرض الموظفين المستقيلين','icon':'♻️','kind':'query','url':'/employees/resigned'},
         ]
         if not can('manage_employees'):
             items=[x for x in items if x['kind']=='query']
@@ -3209,7 +3276,7 @@ def assistant():
                 nav=a.get('navigate_url') or ''
                 topic_map={'reports':'/reports/leaves','admin':'/structure','users':'/users','delegation':'/delegations','replacement':'/replacement','audit':'/audit'}
                 if not nav: nav=topic_map.get(a.get('topic'),'')
-                allowed={'/employees':'manage_employees','/employees/edit-data':'manage_employees','/employees/deleted':'manage_employees','/structure':'manage_structure','/governorates':'manage_structure','/branches':'manage_structure','/replacement':'manage_structure','/users':'manage_users','/delegations':'manage_users','/review':'review_movements','/movements':'manage_movements','/audit':'view_audit','/lookups':'view_audit','/reports/leaves':'view_reports','/reports/assignments':'view_reports','/reports/permissions':'view_reports','/reports/assignments/print-missions':'view_reports'}
+                allowed={'/employees':'manage_employees','/employees/edit-data':'manage_employees','/employees/resigned':'manage_employees','/structure':'manage_structure','/governorates':'manage_structure','/branches':'manage_structure','/replacement':'manage_structure','/users':'manage_users','/delegations':'manage_users','/review':'review_movements','/movements':'manage_movements','/audit':'view_audit','/lookups':'view_audit','/reports/leaves':'view_reports','/reports/assignments':'view_reports','/reports/permissions':'view_reports','/reports/assignments/print-missions':'view_reports'}
                 if nav not in allowed:
                     result={'title':'المساعد الذكي','answer':a.get('reply') or 'وضح لي الوظيفة أو التقرير الذي تريده.'}
                 elif not can(allowed[nav]):
@@ -3294,7 +3361,7 @@ def assistant():
             {'label':'إضافة موظف','prompt':'أريد إضافة موظف','icon':'➕','kind':'action','url':'/employees'},
             {'label':'تعديل موظف','prompt':'أريد تعديل بيانات موظف','icon':'✏️','kind':'action','url':'/employees/edit-data'},
             {'label':'حذف موظف','prompt':'أريد حذف موظف','icon':'🗑️','kind':'action','url':'/employees'},
-            {'label':'الموظفون المحذوفون','prompt':'اعرض الموظفين المحذوفين','icon':'♻️','kind':'query','url':'/employees/deleted'},
+            {'label':'الموظفون المستقيلون','prompt':'اعرض الموظفين المستقيلين','icon':'♻️','kind':'query','url':'/employees/resigned'},
         ]})
     if can('manage_structure'):
         assistant_options.append({'group':'الإدارة التنظيمية','items':[
@@ -3533,6 +3600,146 @@ def close_assignment(i):
     flash('تم إنهاء الانتداب، وعاد الموظف لفرعه الأصلي.')
     return redirect('/movements')
 
+
+def mission_state_label(m):
+    return getattr(m, 'mission_state', None) or ('مغلقة' if m.status == 'معتمدة' else 'تحت التحرير')
+
+def mission_template_pdf(m, employee, branch, destination, creator=None):
+    """Render the supplied one-page mission sample as a PDF, replacing only its variable text."""
+    template=os.path.join(app.root_path,'static','mission','mission_template.pdf')
+    font=os.path.join(app.root_path,'static','mission','NotoNaskhArabic-Regular.ttf')
+    doc=fitz.open(template)
+    page=doc[0]
+    # Redact text only; cell borders and all fixed labels remain exactly as in the supplied template.
+    redact_boxes=[
+        (fitz.Rect(497,73,555,88), None),                 # number/status
+        (fitz.Rect(458,87,555,108), None),               # printed user block
+        (fitz.Rect(33,80,116,94), None),                 # print date/time
+        (fitz.Rect(62,94,84,109), None),                 # page number
+        (fitz.Rect(349,160,482,172), None),              # employee name, inside cell
+        (fitz.Rect(158,160,273,172), None),              # basic branch text, inside cell
+        (fitz.Rect(59,160,87,172), None),                # HR code, inside cell
+        (fitz.Rect(348,191,481,205), None),              # destination, inside cell
+        (fitz.Rect(430,256,482,270), None),              # from date, inside cell
+        (fitz.Rect(301,256,358,270), None),              # to date, inside cell
+        (fitz.Rect(100,281,178,299), None),              # approval title/name area
+        (fitz.Rect(100,300,177,318), None),              # approval destination
+    ]
+    for rect,_ in redact_boxes:
+        page.add_redact_annot(rect, fill=(1,1,1))
+    page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_NONE)
+
+    now=datetime.now()
+    def put(rect,text,size=9.96,align=fitz.TEXT_ALIGN_RIGHT,bold=False):
+        if text is None: text=''
+        face='NotoNaskhArabic-Bold.ttf' if bold else 'NotoNaskhArabic-Regular.ttf'
+        fp=os.path.join(app.root_path,'static','mission',face)
+        if not os.path.exists(fp): fp=font
+        html=f'<div style="font-family:arab;font-size:{size}pt;line-height:1.05;text-align:{"right" if align==fitz.TEXT_ALIGN_RIGHT else "center"};direction:rtl">{str(text).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")}</div>'
+        css=f'@font-face{{font-family:arab;src:url({fp})}}'
+        page.insert_htmlbox(rect,html,css=css)
+    # Add bold font alongside regular for headings/data that are bold in the sample.
+    boldfp=os.path.join(app.root_path,'static','mission','NotoNaskhArabic-Bold.ttf')
+    if not os.path.exists(boldfp):
+        import shutil; shutil.copy2(font,boldfp)
+
+    status='مغلقة' if mission_state_label(m)=='مغلقة' else 'تحت التحرير'
+    put(fitz.Rect(497,73,530,88),str(m.id),8.04,fitz.TEXT_ALIGN_RIGHT,True)
+    put(fitz.Rect(530,73,555,88),status,8.04,fitz.TEXT_ALIGN_RIGHT,False)
+    creator_name=(creator.full_name if creator else '')
+    creator_job=(creator.job_title if creator and creator.job_title else '')
+    if creator_name: put(fitz.Rect(458,88,555,98),'- '+creator_name,6.0,fitz.TEXT_ALIGN_RIGHT)
+    if creator_job: put(fitz.Rect(458,97,555,108),creator_job,6.0,fitz.TEXT_ALIGN_RIGHT)
+    put(fitz.Rect(32,80,115,94),now.strftime('%Y/%m/%d  %H:%M:%S'),8.04,fitz.TEXT_ALIGN_LEFT,True)
+    put(fitz.Rect(62,94,84,109),'1 \\ 1',8.04,fitz.TEXT_ALIGN_CENTER,True)
+    put(fitz.Rect(405,156,487,173),employee.full_name if employee else '',9.96,fitz.TEXT_ALIGN_RIGHT,True)
+    # The sample has branch and HR code in the same row; preserve its exact cell geometry.
+    put(fitz.Rect(155,156,274,173),f'{branch.name if branch else ""} - {branch.governorate.name if branch and branch.governorate else ""}',9.96,fitz.TEXT_ALIGN_RIGHT,True)
+    put(fitz.Rect(58,156,90,173),employee.job_code if employee and employee.job_code else '',9.96,fitz.TEXT_ALIGN_CENTER,True)
+    put(fitz.Rect(414,186,486,203),destination.name if destination else '',9.96,fitz.TEXT_ALIGN_RIGHT,True)
+    put(fitz.Rect(425,251,485,269),m.from_date.strftime('%Y/%m/%d') if m.from_date else '',9.96,fitz.TEXT_ALIGN_CENTER,True)
+    put(fitz.Rect(300,251,405,269),m.to_date.strftime('%Y/%m/%d') if m.to_date else '',9.96,fitz.TEXT_ALIGN_CENTER,True)
+    # Approval block is intentionally kept visually identical; only destination is data-driven.
+    put(fitz.Rect(100,281,178,299),'اعتماد مدير فرع',9.96,fitz.TEXT_ALIGN_CENTER,True)
+    put(fitz.Rect(100,300,178,318),destination.name if destination else '',9.96,fitz.TEXT_ALIGN_CENTER,True)
+    out=io.BytesIO(); doc.save(out,garbage=4,deflate=True); doc.close(); out.seek(0)
+    return out.getvalue()
+
+@app.get('/reports/assignments/mission-edit/<int:movement_id>')
+@req
+def mission_edit(movement_id):
+    m=db.session.get(Movement,movement_id)
+    if not m or not m.is_active or m.movement_type!='انتداب' or not branch_ok(m.employee.branch_id): abort(403)
+    if not can('view_reports') or not can_manage_movement(m): abort(403)
+    if mission_state_label(m)!='تحت التحرير':
+        flash('المأمورية مغلقة. استخدم «إعادة الفتح» أولًا ثم عد للتعديل.')
+        return redirect('/reports/assignments/print-missions')
+    bs=bids(); branches=Branch.query.filter(Branch.is_active==True,Branch.id.in_(bs)).order_by(Branch.name.asc()).all() if bs else []
+    return render_template('mission_edit.html',m=m,branches=branches)
+
+@app.post('/reports/assignments/mission-edit/<int:movement_id>')
+@req
+def mission_edit_save(movement_id):
+    m=db.session.get(Movement,movement_id)
+    if not m or not m.is_active or m.movement_type!='انتداب' or not branch_ok(m.employee.branch_id): abort(403)
+    if not can('manage_movements') or not can_manage_movement(m): abort(403)
+    if mission_state_label(m)!='تحت التحرير':
+        flash('لا يمكن تعديل المأمورية وهي مغلقة. أعد فتحها أولًا.')
+        return redirect('/reports/assignments/print-missions')
+    dest_id=request.form.get('destination_branch_id','').strip()
+    destination=db.session.get(Branch,int(dest_id)) if dest_id.isdigit() else None
+    fd=parse_date(request.form.get('from_date',''))
+    td=parse_date(request.form.get('to_date',''))
+    if not destination or destination.id not in set(b.id for b in Branch.query.filter(Branch.id.in_(bids()),Branch.is_active==True).all()):
+        flash('اختر جهة مأمورية صحيحة ضمن نطاقك.'); return redirect(url_for('mission_edit',movement_id=movement_id))
+    if not fd or not td or td < fd:
+        flash('يجب إدخال تاريخ بداية ونهاية صحيحين.'); return redirect(url_for('mission_edit',movement_id=movement_id))
+    overlap=movement_overlaps(m.employee_id,'انتداب',fd,td,None,m.id)
+    if overlap:
+        flash(overlap); return redirect(url_for('mission_edit',movement_id=movement_id))
+    old=(m.destination_branch_id,m.from_date,m.to_date)
+    m.destination_branch_id=destination.id; m.from_date=fd; m.to_date=td; m.modified_by=me().id; m.modified_at=datetime.utcnow()
+    record_movement_history(m,m.status,m.status,'MISSION_EDIT',f'تعديل بيانات المأمورية: جهة={destination.name}، من={fd}، إلى={td}')
+    log('MISSION_EDIT','Movement',m.id,f'{old} -> {(destination.id,fd,td)}')
+    db.session.commit(); flash('تم تعديل المأمورية وهي ما زالت تحت التحرير.'); return redirect('/reports/assignments/print-missions')
+
+@app.post('/reports/assignments/mission-close/<int:movement_id>')
+@req
+def mission_close(movement_id):
+    m=db.session.get(Movement,movement_id)
+    if not m or not m.is_active or m.movement_type!='انتداب' or not branch_ok(m.employee.branch_id): abort(403)
+    if not can('manage_movements') or not can_manage_movement(m): abort(403)
+    if mission_state_label(m)=='مغلقة':
+        flash('المأمورية مغلقة بالفعل.'); return redirect('/reports/assignments/print-missions')
+    m.mission_state='مغلقة'; m.modified_by=me().id; m.modified_at=datetime.utcnow()
+    record_movement_history(m,m.status,m.status,'MISSION_CLOSE','إغلاق المأمورية بعد مراجعة بياناتها')
+    log('MISSION_CLOSE','Movement',m.id,'إغلاق المأمورية')
+    db.session.commit(); flash('تم إغلاق المأمورية.'); return redirect('/reports/assignments/print-missions')
+
+@app.post('/reports/assignments/mission-reopen/<int:movement_id>')
+@req
+def mission_reopen(movement_id):
+    m=db.session.get(Movement,movement_id)
+    if not m or not m.is_active or m.movement_type!='انتداب' or not branch_ok(m.employee.branch_id): abort(403)
+    if not can('manage_movements') or not can_manage_movement(m): abort(403)
+    if mission_state_label(m)!='مغلقة':
+        flash('المأمورية بالفعل تحت التحرير.'); return redirect('/reports/assignments/print-missions')
+    m.mission_state='تحت التحرير'; m.modified_by=me().id; m.modified_at=datetime.utcnow()
+    record_movement_history(m,m.status,m.status,'MISSION_REOPEN','إعادة فتح المأمورية للتعديل')
+    log('MISSION_REOPEN','Movement',m.id,'إعادة فتح المأمورية')
+    db.session.commit(); flash('تمت إعادة فتح المأمورية وعادت إلى «تحت التحرير».'); return redirect(url_for('mission_edit',movement_id=m.id))
+
+@app.get('/reports/assignments/mission-pdf/<int:movement_id>')
+@req
+def mission_pdf(movement_id):
+    m=db.session.get(Movement,movement_id)
+    if not m or not m.is_active or m.movement_type!='انتداب' or not branch_ok(m.employee.branch_id): abort(403)
+    if not can('view_reports') or not can_manage_movement(m): abort(403)
+    employee=db.session.get(Employee,m.employee_id); branch=db.session.get(Branch,employee.branch_id) if employee else None; destination=m.destination; creator=db.session.get(User,m.created_by) if m.created_by else None
+    data=mission_template_pdf(m,employee,branch,destination,creator)
+    from flask import Response
+    return Response(data,mimetype='application/pdf',headers={'Content-Disposition':f'inline; filename=mission-{m.id}.pdf'})
+
 @app.get('/movements/<int:i>/assignment-form')
 @req
 def assignment_form(i):
@@ -3753,22 +3960,12 @@ def mission_print_list():
 @app.get('/reports/assignments/print-mission/<int:movement_id>')
 @req
 def mission_print(movement_id):
-    m = db.session.get(Movement, movement_id)
+    # الصفحة المرئية تعرض النموذج مع زر PDF المطابق للعينة الأصلية.
+    m=db.session.get(Movement,movement_id)
     if not m: abort(404)
-    if not can_manage_movement(m): abort(403)
-    if m.movement_type != 'انتداب': abort(400)
-    employee = db.session.get(Employee, m.employee_id)
-    branch = db.session.get(Branch, employee.branch_id) if employee else None
-    gov = db.session.get(Governorate, branch.governorate_id) if branch else None
-    approver = db.session.get(User, m.approver_id) if getattr(m, 'approver_id', None) else None
-    approved_by_person = db.session.get(User, m.approved_by) if getattr(m, 'approved_by', None) else None
-    creator = db.session.get(User, m.created_by) if getattr(m, 'created_by', None) else None
-    return render_template(
-        'mission_print.html',
-        movement=m, employee=employee, branch=branch, governorate=gov,
-        approver=approver, approved_by_person=approved_by_person, creator=creator, printed_at=datetime.now(),
-        mission_state=('مغلق' if m.status == 'معتمدة' else 'تحت التحرير')
-    )
+    if not can_manage_movement(m) or m.movement_type!='انتداب': abort(403)
+    employee=db.session.get(Employee,m.employee_id); branch=db.session.get(Branch,employee.branch_id) if employee else None
+    return render_template('mission_print.html',movement=m,employee=employee,branch=branch,destination=m.destination,mission_state=mission_state_label(m),printed_at=datetime.now())
 
 @app.get('/reports-missions')
 @req
@@ -3975,7 +4172,8 @@ def ensure_v25_schema():
       'closed_by':'INTEGER',
       'closed_at':'TIMESTAMP',
       'closure_reason':'TEXT',
-      'last_assignment_notice_at':'TIMESTAMP'
+      'last_assignment_notice_at':'TIMESTAMP',
+      'mission_state':"VARCHAR(30) NOT NULL DEFAULT 'تحت التحرير'"
     }
     for name, typ in additions.items():
         if name not in cols:
@@ -3996,6 +4194,12 @@ def ensure_v25_schema():
         db.session.execute(text('ALTER TABLE employee ADD COLUMN deleted_at TIMESTAMP'))
     if 'deleted_by' not in ecols_existing:
         db.session.execute(text('ALTER TABLE employee ADD COLUMN deleted_by INTEGER'))
+    if 'resignation_date' not in ecols_existing:
+        db.session.execute(text('ALTER TABLE employee ADD COLUMN resignation_date DATE'))
+    if 'rehire_date' not in ecols_existing:
+        db.session.execute(text('ALTER TABLE employee ADD COLUMN rehire_date DATE'))
+    if 'resignation_by' not in ecols_existing:
+        db.session.execute(text('ALTER TABLE employee ADD COLUMN resignation_by INTEGER'))
     mcols={c['name'] for c in insp.get_columns('movement')}
     if 'approver_id' not in mcols:
         db.session.execute(text('ALTER TABLE movement ADD COLUMN approver_id INTEGER'))
@@ -4012,6 +4216,8 @@ def ensure_v25_schema():
         if len(gids_e)==1:
             sup=supervisor_for_governorate(next(iter(gids_e)))
             if sup: db.session.add(SupervisorEntry(supervisor_id=sup.id,entry_id=eu.id))
+    # المأموريات القديمة المعتمدة تعتبر مغلقة، بينما باقي المأموريات تبدأ تحت التحرير.
+    db.session.execute(text("UPDATE movement SET mission_state='مغلقة' WHERE movement_type='انتداب' AND status='معتمدة' AND (mission_state IS NULL OR mission_state='تحت التحرير')"))
     db.session.commit()
     # Link existing first-level accounts to their employee record when an unambiguous match exists.
     for eu in User.query.filter_by(is_active=True).all():

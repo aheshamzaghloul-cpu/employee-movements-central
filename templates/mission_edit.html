@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}تعديل المأمورية{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>تعديل المأمورية #{{m.id}}</h1><p class="muted">الحالة: <strong>تحت التحرير</strong> — يمكن تعديل جهة المأمورية وتاريخ البداية والنهاية فقط.</p></div>
+  <div class="actions"><a class="btn secondary" href="/reports/assignments/print-missions">↩ العودة للمأموريات</a><a class="btn teal" href="/reports/assignments/mission-pdf/{{m.id}}" target="_blank">🖨️ PDF مطابق</a></div>
+</div>
+<div class="box">
+<form method="post" class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));gap:16px">
+  <div style="grid-column:1/-1"><label>الموظف</label><input value="{{m.employee.full_name}} — {{m.employee.job_code or '—'}}" disabled></div>
+  <div><label>جهة المأمورية</label><select name="destination_branch_id" required>{% for b in branches %}<option value="{{b.id}}" {% if m.destination_branch_id==b.id %}selected{% endif %}>{{b.name}} — {{b.governorate.name}}</option>{% endfor %}</select></div>
+  <div><label>من تاريخ</label><input type="date" name="from_date" value="{{m.from_date.isoformat() if m.from_date else ''}}" required></div>
+  <div><label>إلى تاريخ</label><input type="date" name="to_date" value="{{m.to_date.isoformat() if m.to_date else ''}}" required></div>
+  <div class="actions" style="grid-column:1/-1"><button class="btn teal">حفظ التعديل</button><a class="btn secondary" href="/reports/assignments/print-missions">إلغاء</a></div>
+</form>
+</div>
+{% endblock %}

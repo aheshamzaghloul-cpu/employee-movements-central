@@ -403,6 +403,7 @@ document.addEventListener('DOMContentLoaded', function(){
     const hVisual=Math.min(maxH,Math.max(120,spaceBelow>120?spaceBelow:spaceAbove));
     const topVisualFinal=spaceBelow>=120 ? topVisual : Math.max(4,r.top-hVisual-gap);
     state.menu.style.left=Math.round(r.left/z)+'px';
+    state.menu.style.right='auto';
     state.menu.style.top=Math.round(topVisualFinal/z)+'px';
     state.menu.style.width=Math.round(r.width/z)+'px';
     state.menu.style.maxHeight=Math.round(hVisual/z)+'px';

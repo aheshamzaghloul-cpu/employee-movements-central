@@ -388,25 +388,21 @@ document.addEventListener('DOMContentLoaded', function(){
   function position(state){
     if(!state || state.menu.hidden)return;
     const r=state.input.getBoundingClientRect();
-    // The application uses CSS zoom (80%). getBoundingClientRect() is returned
-    // in visual pixels while a fixed element under a zoomed root is laid out
-    // in the root's zoomed coordinate system. Compensate so the menu sits
-    // exactly under the input on desktop, tablet and mobile.
-    const root=getComputedStyle(document.documentElement);
-    const zoom=parseFloat(root.zoom)||1;
-    const z=zoom>0?zoom:1;
+    // The menu is mounted directly on <body> and uses position:fixed.
+    // getBoundingClientRect() already gives the viewport coordinates we need;
+    // do NOT compensate for the app's CSS zoom, otherwise the menu drifts
+    // away from its input (especially in the header role selector).
     const gap=4, maxH=280;
     const vh=window.innerHeight;
-    const topVisual=r.bottom+gap;
-    const aboveVisual=r.top-gap;
-    const spaceBelow=vh-topVisual, spaceAbove=aboveVisual;
-    const hVisual=Math.min(maxH,Math.max(120,spaceBelow>120?spaceBelow:spaceAbove));
-    const topVisualFinal=spaceBelow>=120 ? topVisual : Math.max(4,r.top-hVisual-gap);
-    state.menu.style.left=Math.round(r.left/z)+'px';
-    state.menu.style.right='auto';
-    state.menu.style.top=Math.round(topVisualFinal/z)+'px';
-    state.menu.style.width=Math.round(r.width/z)+'px';
-    state.menu.style.maxHeight=Math.round(hVisual/z)+'px';
+    const topBelow=r.bottom+gap;
+    const spaceBelow=vh-topBelow;
+    const spaceAbove=r.top-gap;
+    const hVisual=Math.min(maxH,Math.max(120,spaceBelow>=120?spaceBelow:spaceAbove));
+    const topFinal=spaceBelow>=120 ? topBelow : Math.max(4,r.top-hVisual-gap);
+    state.menu.style.left=Math.round(r.left)+'px';
+    state.menu.style.top=Math.round(topFinal)+'px';
+    state.menu.style.width=Math.round(r.width)+'px';
+    state.menu.style.maxHeight=Math.round(hVisual)+'px';
   }
   function choose(state,o){
     if(!o)return;

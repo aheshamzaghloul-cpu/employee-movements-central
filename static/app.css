@@ -2268,50 +2268,10 @@ html{
 .entry-role-inline-grid input[list]{min-height:42px;padding:8px 10px;border:1px solid #cfdee6;border-radius:10px;background:#fff;font-size:13px}
 @media(max-width:800px){.entry-directory-filters{gap:10px!important}.entry-directory-filter-box{margin-left:0!important}}
 
-/* v35.61 — editable dropdowns, preserving the normal dropdown list */
-.searchable-select{display:block;position:relative;width:100%;min-width:0}
-.searchable-select>select{position:absolute!important;opacity:0!important;width:1px!important;height:1px!important;pointer-events:none!important;inset:auto!important}
-.searchable-select-input{width:100%!important;min-height:44px!important;box-sizing:border-box!important;padding:8px 38px 8px 12px!important;border:1px solid #b5c9d3!important;border-radius:10px!important;background:var(--surface2)!important;color:var(--text)!important;font:inherit!important;cursor:text!important;outline:none!important;background-image:linear-gradient(45deg,transparent 50%,#6c8795 50%),linear-gradient(135deg,#6c8795 50%,transparent 50%)!important;background-position:calc(100% - 18px) 50%,calc(100% - 12px) 50%!important;background-size:6px 6px,6px 6px!important;background-repeat:no-repeat!important}
-.searchable-select-input:focus{border-color:#3d9daf!important;box-shadow:0 0 0 3px rgba(61,157,175,.15)!important}
-.searchable-select-input:disabled{opacity:.55;cursor:not-allowed!important}
-.searchable-select-input::placeholder{color:#8297a3}
-.searchable-select-menu{position:absolute;z-index:9999;left:0;right:0;top:calc(100% + 4px);max-height:280px;overflow-y:auto;padding:5px;background:var(--surface,#fff);border:1px solid #c5d5dc;border-radius:10px;box-shadow:0 10px 28px rgba(25,65,80,.16)}
-.searchable-select-option{display:block;width:100%;border:0;background:transparent;color:var(--text);text-align:right;font:inherit;padding:9px 11px;border-radius:7px;cursor:pointer}
-.searchable-select-option:hover,.searchable-select-option.is-active{background:#b9dfe6!important;color:#163f50!important;box-shadow:inset 0 0 0 1px rgba(22,63,80,.12)!important}
-.searchable-select-option.is-selected{font-weight:700}
-.searchable-select-empty{padding:10px;color:#7a8e98;text-align:center;font-size:.92em}
-.inline-select .searchable-select-input,.inline-form .searchable-select-input{min-height:36px!important;padding-top:5px!important;padding-bottom:5px!important}
-@media(max-width:700px){.searchable-select-input{min-height:42px!important}}
-
-
-/* v35.64 — القائمة تظهر فوق كل الحاويات حتى لا تُقص داخل البطاقات */
-.searchable-select{display:block;position:relative;width:100%;min-width:0}
-.searchable-select>select{position:absolute!important;opacity:0!important;width:1px!important;height:1px!important;pointer-events:none!important;inset:auto!important}
-.searchable-select-input{width:100%!important;min-height:44px!important;box-sizing:border-box!important;padding:8px 38px 8px 12px!important;border:1px solid #b5c9d3!important;border-radius:10px!important;background:var(--surface2,#fff)!important;color:var(--text,#23465c)!important;font:inherit!important;cursor:text!important;outline:none!important;background-image:linear-gradient(45deg,transparent 50%,#6c8795 50%),linear-gradient(135deg,#6c8795 50%,transparent 50%)!important;background-position:calc(100% - 18px) 50%,calc(100% - 12px) 50%!important;background-size:6px 6px,6px 6px!important;background-repeat:no-repeat!important}
-.searchable-select-input:focus{border-color:#3d9daf!important;box-shadow:0 0 0 3px rgba(61,157,175,.15)!important}
-.searchable-select-input:disabled{opacity:.55;cursor:not-allowed!important}
-.searchable-select-input::placeholder{color:#8297a3}
-.searchable-select-menu{position:fixed!important;z-index:2147483000!important;overflow-y:auto!important;overflow-x:hidden!important;padding:5px!important;background:#fff!important;border:1px solid #c5d5dc!important;border-radius:10px!important;box-shadow:0 10px 28px rgba(25,65,80,.16)!important;box-sizing:border-box!important}
-.searchable-select-option{display:block;width:100%;border:0;background:transparent;color:#23465c;text-align:right;font:inherit;padding:9px 11px;border-radius:7px;cursor:pointer}
-.searchable-select-option:hover,.searchable-select-option.is-active{background:#b9dfe6!important;color:#163f50!important;box-shadow:inset 0 0 0 1px rgba(22,63,80,.12)!important}
-.searchable-select-option.is-selected{font-weight:700}
-.searchable-select-empty{padding:10px;color:#7a8e98;text-align:center;font-size:.92em}
-.inline-select .searchable-select-input,.inline-form .searchable-select-input{min-height:36px!important;padding-top:5px!important;padding-bottom:5px!important}
-
 /* بعد حذف «حركات الموظفين» من الرئيسية: النصف المتبقي مقسوم بالتساوي */
 .home-three-panels{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:16px!important;width:100%!important;align-items:stretch!important}
 .home-three-panels>.home-current-status,.home-three-panels>.home-entry-directory{grid-column:auto!important;grid-row:auto!important;width:100%!important;min-width:0!important;height:100%!important;min-height:520px!important}
 @media(max-width:800px){.home-three-panels{grid-template-columns:1fr!important}.home-three-panels>.home-current-status,.home-three-panels>.home-entry-directory{min-height:420px!important}}
-
-/* v35.65 — dropdown search text is centered in every searchable field */
-.searchable-select-input{
-  text-align:center!important;
-  padding-left:38px!important;
-  padding-right:38px!important;
-}
-.searchable-select-input::placeholder{text-align:center!important}
-.searchable-select-menu{direction:rtl!important}
-.searchable-select-option{text-align:center!important}
 
 /* v35.67 — عناصر المحتوى داخل لوحتي الرئيسية بجانب بعضها */
 .home-current-status .current-status-list{
@@ -2365,8 +2325,6 @@ html{
   gap:4px!important;
   font-size:12px!important;
 }
-.home-current-status .current-status-filters .searchable-select-input,
-.home-entry-directory .entry-directory-filters .searchable-select-input,
 .home-entry-directory .entry-directory-filter-box input{
   min-height:42px!important;
   height:42px!important;
@@ -2446,4 +2404,30 @@ th{background:#d1dfe5}
 @media(max-width:850px){
   .login{min-height:calc(100vh - 18px)}
   .login-shell{width:calc(100vw - 18px)}
+}
+
+
+/* v35.74: clearly deeper application background + truly centered login */
+:root{
+  --bg:#c9d6dd;
+  --surface:#e1e9ed;
+  --surface2:#d6e2e7;
+  --border:#afc2cc;
+  --shadow:0 8px 26px rgba(35,60,76,.13);
+}
+body{background:var(--bg)!important}
+header,nav,.box,.structure-card,.home-governorates{background:var(--surface)!important}
+input,select,textarea{background:var(--surface2)!important}
+select option{background:#dbe5e9;color:#183044}
+
+/* Login: equal breathing room on all four sides */
+body:has(.login){background:#c9d6dd!important}
+body:has(.login)>.wrap{max-width:none!important;width:100%!important;min-height:100vh!important;margin:0!important;padding:18px!important;display:flex!important;align-items:center!important;justify-content:center!important}
+body:has(.login) .login{width:100%!important;max-width:none!important;min-height:calc(100vh - 36px)!important;margin:0!important;padding:0!important;display:flex!important;align-items:center!important;justify-content:center!important}
+body:has(.login) .login-shell{width:min(1100px,calc(100vw - 36px))!important;max-width:1100px!important;margin:0!important;background:#e0e8ec!important}
+body:has(.login) .login-card{background:#e0e8ec!important}
+@media(max-width:850px){
+  body:has(.login)>.wrap{padding:9px!important}
+  body:has(.login) .login{min-height:calc(100vh - 18px)!important}
+  body:has(.login) .login-shell{width:100%!important}
 }

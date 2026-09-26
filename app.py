@@ -3762,6 +3762,12 @@ def mission_print(movement_id):
         mission_state=('مغلق' if m.status == 'معتمدة' else 'تحت التحرير')
     )
 
+@app.get('/reports-missions')
+@req
+def reports_missions():
+    if not (can('view_reports') or can('manage_movements')): abort(403)
+    return render_template('reports_missions.html')
+
 @app.get('/reports')
 @req
 def reports():

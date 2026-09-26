@@ -108,7 +108,7 @@
 {% if can('manage_movements') %}
 <section class="home-standalone-box home-register-movement-box" id="home-register-movement">
   <div class="home-standalone-head">
-    <div><span class="home-kicker">إدخال مباشر</span><h2>تسجيل حركة</h2><p>تسجيل إجازة أو انتداب أو إذن للموظف مباشرة.</p></div>
+    <div><span class="home-kicker">إدخال مباشر</span><h2>تسجيل انتداب - إجازة - إذن</h2></div>
     <span class="home-standalone-icon">➕</span>
   </div>
   <form method="post" action="/movements" class="home-register-real-form" id="home-real-movement-form">
@@ -193,12 +193,10 @@
 
     <div class="entry-directory-filters no-print">
       <label class="entry-directory-filter-box">البحث باسم المدخل الأول
-        <select id="entry-directory-filter">
-          <option value="">كل المدخلين الأوائل</option>
-          {% for row in entry_rows %}
-            <option value="entry-{{row.employee.id}}">{{row.employee.full_name}}</option>
-          {% endfor %}
-        </select>
+        <input id="entry-directory-filter" list="entry-directory-names" placeholder="اكتب اسم المدخل الأول..." autocomplete="off">
+        <datalist id="entry-directory-names">
+          {% for row in entry_rows %}<option value="{{row.employee.full_name}}"></option>{% endfor %}
+        </datalist>
       </label>
       <button type="button" class="btn entry-directory-add-btn" id="toggle-entry-role-add">＋ إضافة دور مدخل أول</button>
 
@@ -210,12 +208,11 @@
         <form method="post" action="/entry-role/add" class="entry-role-inline-grid" id="entry-role-inline-form">
           <input type="hidden" name="_csrf" value="{{csrf}}">
           <label>اسم المدخل الأول
-            <select name="employee_id" id="inline-entry-employee" required>
-              <option value="">اختر الموظف</option>
-              {% for e in available_entry_employees %}
-                <option value="{{e.id}}" data-gov-id="{{e.branch.governorate_id if e.branch else ''}}">{{e.full_name}}{% if e.branch %} — {{e.branch.name}}{% endif %}</option>
-              {% endfor %}
-            </select>
+            <input id="inline-entry-employee-search" list="inline-entry-employees" placeholder="اكتب اسم الموظف..." autocomplete="off" required>
+            <input type="hidden" name="employee_id" id="inline-entry-employee" value="">
+            <datalist id="inline-entry-employees">
+              {% for e in available_entry_employees %}<option value="{{e.full_name}}{% if e.branch %} — {{e.branch.name}}{% endif %}" data-id="{{e.id}}" data-gov-id="{{e.branch.governorate_id if e.branch else ''}}"></option>{% endfor %}
+            </datalist>
           </label>
           {% if is_admin %}<label>المشرف المسؤول
             <select name="supervisor_id" required><option value="">اختر المشرف</option>{% for s in entry_supervisors %}<option value="{{s.id}}">{{s.full_name}}</option>{% endfor %}</select>
@@ -297,25 +294,7 @@
 
   {% endif %}
 
-  <!-- 3) حركات الموظفين: المحتوى ظاهر مباشرة دون بند داخلي -->
-  {% if can('manage_movements') or can('view_reports') %}
-  <section class="home-panel home-movements-panel dashboard-widget" data-widget-id="group-movements">
-    <div class="home-group-head">
-      <span class="home-group-icon">🔄</span>
-      <div><h3>حركات الموظفين</h3><small>ابحث عن الموظف واعرض بطاقته وحركاته</small></div>
-      <button type="button" class="panel-expand-btn" data-expand-widget="group-movements">⛶ ملء الصفحة</button>
-    </div>
-    <div class="movement-action-grid">
-      {% if can('view_reports') %}
-      <a class="movement-action" href="/reports/leaves"><span>🏖️</span><b>تقرير الإجازات</b><small>الإجازات حسب المحافظة والفرع والموظف والفترة</small></a>
-      <a class="movement-action" href="/reports/assignments"><span>📍</span><b>تقرير الانتدابات</b><small>الجهات المنتدب إليها والمواعيد والحالات</small></a>
-      <a class="movement-action" href="/reports/permissions"><span>🕘</span><b>تقرير الأذونات</b><small>الأذونات وتفاصيلها حسب الموظفين والفترة</small></a>
-      {% endif %}
-      {% if can('manage_movements') %}
-      <a class="movement-action" href="/reports/assignments/print-missions"><span>📄</span><b>طباعة المأموريات</b><small>النماذج الرسمية للانتدابات</small></a>
-      {% endif %}
-    </div>
-  </section>
+
   {% endif %}
 
 </div>
@@ -373,14 +352,13 @@
   const entryList=document.getElementById('entry-directory-list');
   function filterEntries(){
     if(!entryList || !entryFilter) return;
-    const value=entryFilter.value;
+    const value=(entryFilter.value||'').trim().toLowerCase();
     entryList.querySelectorAll('.entry-card').forEach(card=>{
-      let ok=!value;
-      if(value.startsWith('entry-')) ok=card.dataset.entryId===value.slice(6);
-      card.style.display=ok?'block':'none';
+      const name=(card.querySelector('.entry-main strong')?.textContent||'').trim().toLowerCase();
+      card.style.display=(!value || name.includes(value))?'block':'none';
     });
   }
-  entryFilter?.addEventListener('change',filterEntries);
+  entryFilter?.addEventListener('input',filterEntries);
 })();
 </script>
 
@@ -390,15 +368,20 @@
   const close=document.getElementById('close-entry-role-add');
   const panel=document.getElementById('entry-role-inline-panel');
   const employee=document.getElementById('inline-entry-employee');
+  const employeeSearch=document.getElementById('inline-entry-employee-search');
+  const employeeOptions=[...document.querySelectorAll('#inline-entry-employees option')];
   const choices=[...document.querySelectorAll('#inline-entry-branch-grid .entry-role-branch-choice')];
   const empty=document.getElementById('inline-entry-branch-empty');
   const help=document.getElementById('inline-entry-branch-help');
-  if(!toggle||!panel||!employee) return;
-  const setOpen=(open)=>{panel.classList.toggle('open',open); if(open) employee.focus();};
+  if(!toggle||!panel||!employee||!employeeSearch) return;
+  const setOpen=(open)=>{panel.classList.toggle('open',open); if(open) employeeSearch.focus();};
   toggle.addEventListener('click',()=>setOpen(!panel.classList.contains('open')));
   close?.addEventListener('click',()=>setOpen(false));
-  employee.addEventListener('change',()=>{
-    const gov=employee.selectedOptions[0]?.dataset.govId||'';
+  function syncEntryEmployee(){
+    const raw=(employeeSearch.value||'').trim();
+    const opt=employeeOptions.find(o=>o.value===raw) || employeeOptions.find(o=>o.value.toLowerCase().startsWith(raw.toLowerCase()) && raw);
+    employee.value=opt?.dataset.id||'';
+    const gov=opt?.dataset.govId||'';
     let shown=0;
     choices.forEach(label=>{
       const match=!!gov && label.dataset.govId===gov;
@@ -408,7 +391,9 @@
     });
     empty.hidden=shown>0;
     help.textContent=shown?`تم عرض ${shown} فرعًا ضمن محافظة الموظف — اختر فرعًا أو أكثر.`:'لا توجد فروع متاحة ضمن نطاق هذا الموظف.';
-  });
+  }
+  employeeSearch.addEventListener('input',syncEntryEmployee);
+  employeeSearch.addEventListener('change',syncEntryEmployee);
   choices.forEach(label=>{ const cb=label.querySelector('input'); cb?.addEventListener('change',()=>label.classList.toggle('selected',cb.checked)); });
 })();
 </script>

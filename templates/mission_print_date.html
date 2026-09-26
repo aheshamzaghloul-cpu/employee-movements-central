@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}تاريخ نهاية المأمورية للطباعة{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>طباعة المأمورية</h1>
+    <p class="muted">هذه مأمورية <strong>انتداب مفتوح</strong> ولا يوجد لها تاريخ «إلى» مسجل. أدخل التاريخ المطلوب للـPDF فقط.</p>
+  </div>
+  <div class="actions"><a class="btn secondary" href="/reports/assignments/print-missions">↩ العودة للمأموريات</a></div>
+</div>
+<div class="box" style="max-width:720px;margin:auto">
+  <div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
+    <div><label>الموظف</label><input value="{{m.employee.full_name}} — {{m.employee.job_code or '—'}}" disabled></div>
+    <div><label>تاريخ من</label><input value="{{m.from_date.strftime('%Y-%m-%d') if m.from_date else '—'}}" disabled></div>
+    <div style="grid-column:1/-1">
+      <label>إلى تاريخ <span style="color:#b91c1c">*</span></label>
+      <input type="date" name="print_to_date" form="missionPrintDateForm" min="{{m.from_date.isoformat() if m.from_date else ''}}" required autofocus>
+      <small class="muted">سيُستخدم هذا التاريخ داخل ملف الـPDF لهذه الطباعة فقط، ولن يتم حفظه على الانتداب ولن يغلق الانتداب.</small>
+    </div>
+  </div>
+  <form method="post" id="missionPrintDateForm" class="actions" style="margin-top:18px">
+    <button class="btn teal" type="submit">🖨️ طباعة المأمورية</button>
+    <a class="btn secondary" href="/reports/assignments/print-missions">إلغاء</a>
+  </form>
+</div>
+{% endblock %}

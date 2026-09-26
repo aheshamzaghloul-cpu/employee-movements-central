@@ -1,11 +1,8 @@
-# v35.80
+# v35.81
 
-Mission PDF precision update:
-- Uses the uploaded mission PDF as the immutable visual template.
-- Uses the exact embedded source font extracted from the sample.
-- Upper-right mission number + status are one continuous text run.
-- Employee and branch data are inserted inside the exact source cells.
-- Governorate precedes branch for basic branch, mission destination, and branch approval text.
-- Exact source font size/black color/geometry is preserved for variable text.
-- End date is required before printing.
-- A mission cannot be closed without an end date.
+Mission printing for open assignments:
+- If an assignment is still open and has no saved end date, printing asks for an **إلى تاريخ**.
+- The entered date is used **only in the generated PDF** and is not saved to the movement.
+- Printing does not close the assignment.
+- Closed missions still require reopening before changing saved mission data.
+- Closing an assignment still requires a saved end date.

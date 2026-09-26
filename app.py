@@ -3604,7 +3604,7 @@ def close_assignment(i):
 def mission_state_label(m):
     return getattr(m, 'mission_state', None) or ('مغلقة' if m.status == 'معتمدة' else 'تحت التحرير')
 
-def mission_template_pdf(m, employee, branch, destination, creator=None):
+def mission_template_pdf(m, employee, branch, destination, creator=None, print_to_date=None):
     """Generate the mission PDF by using the supplied sample PDF itself as the immutable template.
 
     Only the variable data regions are redacted/reinserted.  The template's original geometry,
@@ -3684,9 +3684,10 @@ def mission_template_pdf(m, employee, branch, destination, creator=None):
     mission_dest=f'{destination_gov} - {destination_name}' if destination_gov and destination_name else (destination_gov or destination_name)
     put(fitz.Rect(346.8, 189.2, 482.7, 206.9), mission_dest, 9.9603748, 'right', 'rtl')
 
-    # Dates occupy the exact original cells.  The PDF route refuses to print a mission
-    # without an end date (see mission_pdf below).
-    put(fitz.Rect(300.1, 254.6, 359.9, 271.9), m.to_date.strftime('%Y/%m/%d') if m.to_date else '', 9.9603748, 'center', 'ltr')
+    # Dates occupy the exact original cells. For an open assignment, print_to_date
+    # is a temporary print-only end date and is never written back to the movement.
+    effective_to_date = print_to_date or m.to_date
+    put(fitz.Rect(300.1, 254.6, 359.9, 271.9), effective_to_date.strftime('%Y/%m/%d') if effective_to_date else '', 9.9603748, 'center', 'ltr')
     put(fitz.Rect(429.1, 254.6, 482.8, 271.9), m.from_date.strftime('%Y/%m/%d') if m.from_date else '', 9.9603748, 'center', 'ltr')
 
     # Approval title is fixed text from the sample; only the destination data changes.
@@ -3726,14 +3727,19 @@ def mission_edit_save(movement_id):
     td=parse_date(request.form.get('to_date',''))
     if not destination or destination.id not in set(b.id for b in Branch.query.filter(Branch.id.in_(bids()),Branch.is_active==True).all()):
         flash('اختر جهة مأمورية صحيحة ضمن نطاقك.'); return redirect(url_for('mission_edit',movement_id=movement_id))
-    if not fd or not td or td < fd:
-        flash('يجب إدخال تاريخ بداية ونهاية صحيحين.'); return redirect(url_for('mission_edit',movement_id=movement_id))
-    overlap=movement_overlaps(m.employee_id,'انتداب',fd,td,None,m.id)
+    if not fd:
+        flash('يجب إدخال تاريخ بداية صحيح.'); return redirect(url_for('mission_edit',movement_id=movement_id))
+    # الانتداب المفتوح يظل بدون تاريخ نهاية في السجل. تاريخ (إلى) يمكن إدخاله
+    # لاحقًا عند الإغلاق، أو إدخاله مؤقتًا لغرض طباعة المأمورية فقط.
+    if td and td < fd:
+        flash('تاريخ النهاية لا يجوز أن يسبق بداية الانتداب.'); return redirect(url_for('mission_edit',movement_id=movement_id))
+    overlap_end = td if td else None
+    overlap=movement_overlaps(m.employee_id,'انتداب',fd,overlap_end,None,m.id)
     if overlap:
         flash(overlap); return redirect(url_for('mission_edit',movement_id=movement_id))
     old=(m.destination_branch_id,m.from_date,m.to_date)
     m.destination_branch_id=destination.id; m.from_date=fd; m.to_date=td; m.modified_by=me().id; m.modified_at=datetime.utcnow()
-    record_movement_history(m,m.status,m.status,'MISSION_EDIT',f'تعديل بيانات المأمورية: جهة={destination.name}، من={fd}، إلى={td}')
+    record_movement_history(m,m.status,m.status,'MISSION_EDIT',f'تعديل بيانات المأمورية: جهة={destination.name}، من={fd}، إلى={td or "انتداب مفتوح"}')
     log('MISSION_EDIT','Movement',m.id,f'{old} -> {(destination.id,fd,td)}')
     db.session.commit(); flash('تم تعديل المأمورية وهي ما زالت تحت التحرير.'); return redirect('/reports/assignments/print-missions')
 
@@ -3766,6 +3772,42 @@ def mission_reopen(movement_id):
     log('MISSION_REOPEN','Movement',m.id,'إعادة فتح المأمورية')
     db.session.commit(); flash('تمت إعادة فتح المأمورية وعادت إلى «تحت التحرير».'); return redirect(url_for('mission_edit',movement_id=m.id))
 
+@app.get('/reports/assignments/mission-print-date/<int:movement_id>')
+@req
+def mission_print_date(movement_id):
+    m=db.session.get(Movement,movement_id)
+    if not m or not m.is_active or m.movement_type!='انتداب' or not branch_ok(m.employee.branch_id): abort(403)
+    if not can('view_reports') or not can_manage_movement(m): abort(403)
+    if m.to_date:
+        return redirect(url_for('mission_pdf', movement_id=m.id))
+    if getattr(m, 'assignment_state', None) == 'مغلق' or mission_state_label(m) == 'مغلقة':
+        flash('المأمورية مغلقة ولا يوجد لها تاريخ «إلى». أعد فتحها أولًا.')
+        return redirect('/reports/assignments/print-missions')
+    return render_template('mission_print_date.html', m=m)
+
+@app.post('/reports/assignments/mission-print-date/<int:movement_id>')
+@req
+def mission_print_date_save(movement_id):
+    m=db.session.get(Movement,movement_id)
+    if not m or not m.is_active or m.movement_type!='انتداب' or not branch_ok(m.employee.branch_id): abort(403)
+    if not can('view_reports') or not can_manage_movement(m): abort(403)
+    if m.to_date:
+        return redirect(url_for('mission_pdf', movement_id=m.id))
+    if getattr(m, 'assignment_state', None) == 'مغلق' or mission_state_label(m) == 'مغلقة':
+        flash('المأمورية مغلقة ولا يوجد لها تاريخ «إلى». أعد فتحها أولًا.')
+        return redirect('/reports/assignments/print-missions')
+    print_to_date=parse_date(request.form.get('print_to_date',''))
+    if not print_to_date:
+        flash('أدخل تاريخ «إلى» للطباعة.')
+        return redirect(url_for('mission_print_date', movement_id=m.id))
+    if m.from_date and print_to_date < m.from_date:
+        flash('تاريخ «إلى» لا يجوز أن يسبق تاريخ «من».')
+        return redirect(url_for('mission_print_date', movement_id=m.id))
+    employee=db.session.get(Employee,m.employee_id); branch=db.session.get(Branch,employee.branch_id) if employee else None; destination=m.destination; creator=db.session.get(User,m.created_by) if m.created_by else None
+    data=mission_template_pdf(m,employee,branch,destination,creator,print_to_date=print_to_date)
+    from flask import Response
+    return Response(data,mimetype='application/pdf',headers={'Content-Disposition':f'inline; filename=mission-{m.id}.pdf'})
+
 @app.get('/reports/assignments/mission-pdf/<int:movement_id>')
 @req
 def mission_pdf(movement_id):
@@ -3773,9 +3815,8 @@ def mission_pdf(movement_id):
     if not m or not m.is_active or m.movement_type!='انتداب' or not branch_ok(m.employee.branch_id): abort(403)
     if not can('view_reports') or not can_manage_movement(m): abort(403)
     if not m.to_date:
-        if mission_state_label(m)=='تحت التحرير':
-            flash('تاريخ «إلى» غير مسجل. أدخله أولًا قبل طباعة المأمورية.')
-            return redirect(url_for('mission_edit', movement_id=m.id))
+        if mission_state_label(m)=='تحت التحرير' and getattr(m, 'assignment_state', None) != 'مغلق':
+            return redirect(url_for('mission_print_date', movement_id=m.id))
         flash('تاريخ «إلى» غير مسجل في مأمورية مغلقة. أعد فتحها أولًا ثم أدخل التاريخ قبل الطباعة.')
         return redirect('/reports/assignments/print-missions')
     employee=db.session.get(Employee,m.employee_id); branch=db.session.get(Branch,employee.branch_id) if employee else None; destination=m.destination; creator=db.session.get(User,m.created_by) if m.created_by else None

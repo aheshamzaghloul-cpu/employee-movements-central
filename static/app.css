@@ -2282,3 +2282,23 @@ html{
 .searchable-select-empty{padding:10px;color:#7a8e98;text-align:center;font-size:.92em}
 .inline-select .searchable-select-input,.inline-form .searchable-select-input{min-height:36px!important;padding-top:5px!important;padding-bottom:5px!important}
 @media(max-width:700px){.searchable-select-input{min-height:42px!important}}
+
+
+/* v35.64 — القائمة تظهر فوق كل الحاويات حتى لا تُقص داخل البطاقات */
+.searchable-select{display:block;position:relative;width:100%;min-width:0}
+.searchable-select>select{position:absolute!important;opacity:0!important;width:1px!important;height:1px!important;pointer-events:none!important;inset:auto!important}
+.searchable-select-input{width:100%!important;min-height:44px!important;box-sizing:border-box!important;padding:8px 38px 8px 12px!important;border:1px solid #b5c9d3!important;border-radius:10px!important;background:var(--surface2,#fff)!important;color:var(--text,#23465c)!important;font:inherit!important;cursor:text!important;outline:none!important;background-image:linear-gradient(45deg,transparent 50%,#6c8795 50%),linear-gradient(135deg,#6c8795 50%,transparent 50%)!important;background-position:calc(100% - 18px) 50%,calc(100% - 12px) 50%!important;background-size:6px 6px,6px 6px!important;background-repeat:no-repeat!important}
+.searchable-select-input:focus{border-color:#3d9daf!important;box-shadow:0 0 0 3px rgba(61,157,175,.15)!important}
+.searchable-select-input:disabled{opacity:.55;cursor:not-allowed!important}
+.searchable-select-input::placeholder{color:#8297a3}
+.searchable-select-menu{position:fixed!important;z-index:2147483000!important;overflow-y:auto!important;overflow-x:hidden!important;padding:5px!important;background:#fff!important;border:1px solid #c5d5dc!important;border-radius:10px!important;box-shadow:0 10px 28px rgba(25,65,80,.16)!important;box-sizing:border-box!important}
+.searchable-select-option{display:block;width:100%;border:0;background:transparent;color:#23465c;text-align:right;font:inherit;padding:9px 11px;border-radius:7px;cursor:pointer}
+.searchable-select-option:hover,.searchable-select-option.is-active{background:#eaf6f8}
+.searchable-select-option.is-selected{font-weight:700}
+.searchable-select-empty{padding:10px;color:#7a8e98;text-align:center;font-size:.92em}
+.inline-select .searchable-select-input,.inline-form .searchable-select-input{min-height:36px!important;padding-top:5px!important;padding-bottom:5px!important}
+
+/* بعد حذف «حركات الموظفين» من الرئيسية: النصف المتبقي مقسوم بالتساوي */
+.home-three-panels{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:16px!important;width:100%!important;align-items:stretch!important}
+.home-three-panels>.home-current-status,.home-three-panels>.home-entry-directory{grid-column:auto!important;grid-row:auto!important;width:100%!important;min-width:0!important;height:100%!important;min-height:520px!important}
+@media(max-width:800px){.home-three-panels{grid-template-columns:1fr!important}.home-three-panels>.home-current-status,.home-three-panels>.home-entry-directory{min-height:420px!important}}

@@ -448,6 +448,14 @@ def gids():
             g=Governorate.query.filter_by(id=int(selected),is_active=True).first()
             return [g.id] if g else []
         return []
+    if 'مشرف محافظة' in rs:
+        assigned=[x.governorate_id for x in UserGovernorate.query.filter_by(user_id=u.id).join(Governorate).filter(Governorate.is_active==True)]
+        # حساب مسؤول التطبيق قد يحمل دور مشرف موازيًا؛ عند عدم وجود نطاق مسند له
+        # نستخدم كل المحافظات بدل أن تظهر له لوحة مشرف فارغة.
+        if assigned: return assigned
+        if 'مسؤول التطبيق' in actual_roles(u):
+            return [g.id for g in Governorate.query.filter_by(is_active=True)]
+        return []
     return [x.governorate_id for x in UserGovernorate.query.filter_by(user_id=u.id).join(Governorate).filter(Governorate.is_active==True)]
 def bids():
     u=me()
@@ -4054,6 +4062,19 @@ with app.app_context():
     sync_role_accounts(u)
     for _u in User.query.filter_by(is_active=True).all(): sync_role_accounts(_u)
     db.session.commit()
+    # v35.64 — استعادة الدور الموازي «مشرف محافظة» لحساب مسؤول التطبيق.
+    # هذا الدور منفصل عن واجهة مسؤول التطبيق ويمكن اختياره من «الدور الحالي».
+    # إذا لم توجد له محافظات مسندة يدويًا، يعمل كنطاق مشرف موازي على جميع المحافظات،
+    # حتى يستطيع الحساب استخدام وظائف المشرف دون تغيير كلمة المرور أو إنشاء حساب دخول آخر.
+    restore_key='migration:admin-parallel-supervisor-role-v35.64'
+    restore_done=Lookup.query.filter_by(kind='system_migration',name=restore_key).first()
+    if not restore_done:
+        if not UserRole.query.filter_by(user_id=u.id,role='مشرف محافظة').first():
+            db.session.add(UserRole(user_id=u.id,role='مشرف محافظة'))
+        db.session.flush()
+        sync_role_accounts(u)
+        db.session.add(Lookup(kind='system_migration',name=restore_key,is_active=True))
+        db.session.commit()
     # Destructive legacy cleanup is intentionally never run at startup.
 
 if __name__=='__main__': app.run(host='0.0.0.0',port=8000)

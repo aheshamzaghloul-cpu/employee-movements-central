@@ -791,7 +791,9 @@ def home():
         movement_governorate_id=movement_governorate_id,
         movement_branch_id=movement_branch_id,
         movement_name_query=movement_name_query,
-        movement_employee_id=(int(movement_employee_id) if movement_employee_id.isdigit() else None)
+        movement_employee_id=(int(movement_employee_id) if movement_employee_id.isdigit() else None),
+        movement_types=MOVEMENT_TYPES,
+        leave_types=LEAVE_TYPES,
     )
 
 @app.get('/api/entry-ids/<int:gid>')

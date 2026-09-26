@@ -3,6 +3,29 @@
 {% block content %}
 <style id="home-manager-search-style">
 .manager-scope-bar{margin:0 0 16px;padding:12px 16px;border:1px solid #dbe3ee;border-radius:14px;background:#f7f9fc}.manager-scope-form{display:flex;align-items:end;gap:14px;flex-wrap:wrap}.manager-scope-form label{min-width:280px}.manager-scope-form select{display:block;width:100%;margin-top:5px}.manager-scope-form span{font-size:13px;color:#64748b}.movement-quick-filter-form{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:10px;align-items:end}.movement-quick-filter-form label{display:flex;flex-direction:column;gap:5px}.movement-quick-filter-form select{width:100%}.movement-quick-filter-form small{grid-column:1/-1}.movement-employee-result{margin-top:14px}.movement-employee-result-card{border:1px solid #d9e2ec;border-radius:16px;background:#fff;box-shadow:0 8px 24px rgba(15,23,42,.07);padding:18px}.movement-employee-result-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}.movement-employee-result-person{display:flex;align-items:center;gap:12px}.movement-employee-result-avatar{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;background:#eef4ff;font-size:23px;font-weight:800}.movement-employee-result-person h3{margin:0 0 4px}.movement-employee-result-person p{margin:0;color:#64748b}.movement-employee-result-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}.movement-employee-result-grid>div{padding:10px 12px;background:#f7f9fc;border-radius:10px}.movement-employee-result-grid small{display:block;color:#64748b;margin-bottom:3px}.movement-employee-last{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}.movement-employee-last>div{border:1px solid #e5eaf0;border-radius:10px;padding:11px}.movement-employee-last h4{margin:0 0 7px}.movement-employee-last .hint{font-size:13px}@media(max-width:900px){.movement-employee-result-grid,.movement-employee-last{grid-template-columns:1fr 1fr}}@media(max-width:600px){.movement-employee-result-grid,.movement-employee-last{grid-template-columns:1fr}}@media(max-width:1100px){.movement-quick-filter-form{grid-template-columns:1fr 1fr}.movement-quick-filter-form button{grid-column:1/-1}}
+
+/* v35.57: compact employee card + automatic branch employee picker */
+.home-employee-search-box .movement-employee-picker{margin-top:8px}
+.home-employee-search-box .movement-employee-picker[hidden]{display:none!important}
+.movement-employee-result-card{padding:11px!important;border-radius:12px!important;box-shadow:0 4px 12px rgba(15,23,42,.05)!important}
+.movement-employee-result-avatar{width:40px!important;height:40px!important;border-radius:10px!important;font-size:18px!important}
+.movement-employee-result-person{gap:8px!important}
+.movement-employee-result-person h3{font-size:17px!important;margin-bottom:2px!important}
+.movement-employee-result-person p{font-size:12px!important}
+.movement-employee-result-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px!important;margin-top:8px!important}
+.movement-employee-result-grid>div{padding:7px 9px!important;border-radius:8px!important;font-size:12px}
+.movement-employee-result-grid small{font-size:10px!important;margin-bottom:2px!important}
+.movement-employee-last{gap:6px!important;margin-top:7px!important}
+.movement-employee-last>div{padding:7px!important;border-radius:8px!important}
+.movement-employee-last h4{font-size:12px!important;margin-bottom:4px!important}
+.movement-employee-last .hint{font-size:11px!important}
+.home-register-real-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:end}
+.home-register-real-form label{font-size:12px}
+.home-register-real-form select,.home-register-real-form input{min-height:36px!important;height:36px!important}
+.home-register-real-form .movement-dynamic{display:none}
+.home-register-real-form .home-save-movement{grid-column:1/-1;min-height:38px!important}
+@media(max-width:900px){.movement-employee-result-grid{grid-template-columns:1fr 1fr}.home-register-real-form{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.movement-employee-result-grid{grid-template-columns:1fr}.home-register-real-form{grid-template-columns:1fr}}
 </style>
 <div class="home-dashboard-head">
   <div>
@@ -46,6 +69,9 @@
         {% for b in movement_search_branches %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}" {% if movement_branch_id|int == b.id %}selected{% endif %}>{{b.name}}{% if b.code %} — {{b.code}}{% endif %}</option>{% endfor %}
       </select>
     </label>
+    <label class="movement-employee-picker" id="movement-employee-picker-wrap" hidden>اختيار الموظف
+      <select id="movement-search-employee"><option value="">اختر الموظف</option></select>
+    </label>
     <label class="movement-employee-search-field">البحث عن موظف
       <div class="movement-employee-search">
         <input id="movement-search-name" name="movement_name" value="{{movement_name_query}}" type="search" placeholder="اكتب الاسم أو كود الموظف..." autocomplete="off" {% if not movement_governorate_id %}disabled{% endif %}>
@@ -72,7 +98,7 @@
   <div class="movement-employee-result">
     <article class="movement-employee-result-card">
       <div class="movement-employee-result-head"><div class="movement-employee-result-person"><div class="movement-employee-result-avatar">{{(movement_employee.full_name or 'م')[:1]}}</div><div><h3>{{movement_employee.full_name}}</h3><p>{{movement_employee.job_title or 'موظف'}} · {{movement_employee.job_code or 'بدون كود'}}</p></div></div><div class="actions no-print"><a class="btn secondary" href="/employee/{{movement_employee.id}}">بطاقة الموظف</a></div></div>
-      <div class="movement-employee-result-grid"><div><small>فرع التعيين</small><b>{{movement_employee.branch.name if movement_employee.branch else '—'}}</b></div><div><small>الفرع الحالي</small><b>{% set cam=current_assignment_for_employee(movement_employee.id) %}{{(cam.destination.name if cam and cam.destination else movement_employee.branch.name if movement_employee.branch else '—')}}{% if cam and cam.to_date is none %} — <span class="badge">انتداب مفتوح</span>{% endif %}</b></div><div><small>البريد الإلكتروني</small><b>{{movement_employee.email or '—'}}</b></div><div><small>تاريخ التعيين</small><b>{{movement_employee.hire_date or '—'}}</b></div></div>
+      <div class="movement-employee-result-grid"><div><small>فرع التعيين</small><b>{{movement_employee.branch.name if movement_employee.branch else '—'}}</b></div><div><small>الفرع الحالي</small><b>{% set cam=current_assignment_for_employee(movement_employee.id) %}{{(cam.destination.name if cam and cam.destination else movement_employee.branch.name if movement_employee.branch else '—')}}{% if cam and cam.to_date is none %} — <span class="badge">انتداب مفتوح</span>{% endif %}</b></div><div><small>هاتف الشركة</small><b>{{movement_employee.company_phone or '—'}}</b></div><div><small>الهاتف الشخصي</small><b>{{movement_employee.personal_phone or '—'}}</b></div><div><small>البريد الإلكتروني</small><b>{{movement_employee.email or '—'}}</b></div><div><small>تاريخ التعيين</small><b>{{movement_employee.hire_date or '—'}}</b></div></div>
       <div class="movement-employee-last">{% for k,t in [('إجازة','آخر إجازة'),('انتداب','آخر انتداب'),('إذن','آخر إذن')] %}<div><h4>{{t}}</h4>{% set m=movement_employee_last[k] %}{% if m %}<div class="hint">{% if k=='إذن' %}{{m.permission_date or '—'}}{% else %}{{m.from_date or '—'}} → {{m.to_date or 'مفتوح'}}{% endif %}</div>{% if m.leave_type %}<div class="hint">{{m.leave_type}}</div>{% elif m.destination %}<div class="hint">إلى {{m.destination.name}}</div>{% endif %}<span class="tag">{{m.status}}</span>{% else %}<div class="hint">لا توجد بيانات</div>{% endif %}</div>{% endfor %}</div>
     </article>
   </div>
@@ -85,9 +111,19 @@
     <div><span class="home-kicker">إدخال مباشر</span><h2>تسجيل حركة</h2><p>تسجيل إجازة أو انتداب أو إذن للموظف مباشرة.</p></div>
     <span class="home-standalone-icon">➕</span>
   </div>
-  <div class="home-register-action">
-    <a class="movement-action accent" href="/movements"><span>➕</span><b>تسجيل إجازة - انتداب - إذن</b><small>تسجيل حركة الموظف مباشرة دون اعتماد</small></a>
-  </div>
+  <form method="post" action="/movements" class="home-register-real-form" id="home-real-movement-form">
+    <input type="hidden" name="_csrf" value="{{csrf}}">
+    <label>المحافظة<select id="home_move_gov" required><option value="">اختر المحافظة</option>{% for g in movement_search_governorates %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
+    <label>الفرع<select id="home_move_branch" disabled required><option value="">اختر الفرع</option></select></label>
+    <label>الموظف<select name="employee_id" id="home_move_employee" disabled required><option value="">اختر الموظف</option></select></label>
+    <label>نوع الحركة<select name="movement_type" id="home_move_type" required><option value="">اختر نوع الحركة</option>{% for x in movement_types %}<option value="{{x}}">{{x}}</option>{% endfor %}</select></label>
+    <label class="movement-dynamic" data-move-type="إجازة">نوع الإجازة<select name="leave_type"><option value="">اختر النوع</option>{% for x in leave_types %}<option value="{{x}}">{{x}}</option>{% endfor %}</select></label>
+    <label class="movement-dynamic" data-move-type="انتداب">الفرع المنتدب إليه<select name="destination_branch_id"><option value="">اختر الفرع</option>{% for b in movement_search_branches %}<option value="{{b.id}}">{{b.name}}</option>{% endfor %}</select></label>
+    <label class="movement-dynamic" data-move-type="إجازة,انتداب">من تاريخ<input type="date" name="from_date"></label>
+    <label class="movement-dynamic" data-move-type="إجازة,انتداب">إلى تاريخ<input type="date" name="to_date"></label>
+    <label class="movement-dynamic" data-move-type="إذن">تاريخ الإذن<input type="date" name="permission_date"></label>
+    <button class="btn home-save-movement" type="submit">حفظ الحركة</button>
+  </form>
 </section>
 {% endif %}
 {% endif %}

@@ -97,6 +97,8 @@
   const movementSearchForm=qs('#movement-employee-search-form');
   const movementGov=qs('#movement-search-governorate');
   const movementBranch=qs('#movement-search-branch');
+  const movementPickerWrap=qs('#movement-employee-picker-wrap');
+  const movementPicker=qs('#movement-search-employee');
   const movementName=qs('#movement-search-name');
   const movementSuggestions=qs('#movement-search-suggestions');
   let movementSearchTimer=null, movementSearchSeq=0;
@@ -128,11 +130,21 @@
       const r=await fetch(url,{headers:{Accept:'application/json'}}); const d=await r.json();
       if(seq!==movementSearchSeq)return;
       setMovementBranches(d.branches||[],bid);
+      if(movementPicker && movementPickerWrap){
+        if(bid){
+          movementPicker.innerHTML='<option value="">اختر الموظف</option>'+(d.results||[]).map(e=>`<option value="${esc(e.id)}">${esc(e.name)}${e.code?' — '+esc(e.code):''}</option>`).join('');
+          movementPickerWrap.hidden=false;
+        }else{ movementPickerWrap.hidden=true; movementPicker.innerHTML='<option value="">اختر الموظف</option>'; }
+      }
       if(q.length>=2) renderMovementSuggestions(d.results||[]); else hideMovementSuggestions();
     }catch(_){if(seq===movementSearchSeq&&movementSuggestions){movementSuggestions.innerHTML='<div class="movement-suggestion-empty">تعذر تنفيذ البحث.</div>';movementSuggestions.hidden=false;}}
   }
   movementGov?.addEventListener('change',()=>{if(movementBranch)movementBranch.value=''; if(movementName)movementName.value=''; hideMovementSuggestions(); loadMovementSearch();});
   movementBranch?.addEventListener('change',()=>{if(movementName)movementName.value=''; hideMovementSuggestions(); if(movementGov?.value)loadMovementSearch();});
+  movementPicker?.addEventListener('change',()=>{
+    if(!movementPicker.value)return;
+    const params=new URLSearchParams(); params.set('movement_governorate_id',movementGov.value); if(movementBranch?.value)params.set('movement_branch_id',movementBranch.value); params.set('employee_id',movementPicker.value); window.location.href='/?'+params.toString();
+  });
   movementName?.addEventListener('input',()=>{clearTimeout(movementSearchTimer);movementSearchTimer=setTimeout(loadMovementSearch,180);});
   movementName?.addEventListener('keydown',e=>{if(e.key==='Escape')hideMovementSuggestions();});
   document.addEventListener('click',e=>{if(movementSuggestions&&!e.target.closest('.movement-employee-search'))hideMovementSuggestions();});
@@ -141,6 +153,13 @@
     if(!movementGov?.value){e.preventDefault();alert('اختر المحافظة أولًا.');return;}
     if(movementName?.value.trim()){e.preventDefault();loadMovementSearch();return;}
   });
+
+  // Compact real movement form on homepage.
+  const hmGov=qs('#home_move_gov'), hmBranch=qs('#home_move_branch'), hmEmp=qs('#home_move_employee'), hmType=qs('#home_move_type');
+  async function hmLoadBranches(){ if(!hmGov||!hmBranch)return; hmBranch.innerHTML='<option value="">اختر الفرع</option>'; hmBranch.disabled=true; hmEmp.innerHTML='<option value="">اختر الموظف</option>'; hmEmp.disabled=true; if(!hmGov.value)return; try{const r=await fetch('/api/movement-employees?governorate_id='+encodeURIComponent(hmGov.value)); const d=await r.json(); hmBranch.innerHTML='<option value="">اختر الفرع</option>'+(d.branches||[]).map(b=>`<option value="${esc(b.id)}">${esc(b.name)}</option>`).join(''); hmBranch.disabled=!(d.branches||[]).length;}catch(_){}}
+  async function hmLoadEmployees(){if(!hmGov?.value||!hmBranch?.value)return; hmEmp.innerHTML='<option value="">جاري التحميل…</option>'; hmEmp.disabled=true; try{const r=await fetch('/api/movement-employees?governorate_id='+encodeURIComponent(hmGov.value)+'&branch_id='+encodeURIComponent(hmBranch.value)); const d=await r.json(); hmEmp.innerHTML='<option value="">اختر الموظف</option>'+(d.results||[]).map(e=>`<option value="${esc(e.id)}">${esc(e.name)}${e.code?' — '+esc(e.code):''}</option>`).join(''); hmEmp.disabled=!(d.results||[]).length;}catch(_){hmEmp.innerHTML='<option value="">تعذر التحميل</option>';}}
+  function hmSyncType(){qsa('.movement-dynamic[data-move-type]').forEach(el=>{const types=(el.dataset.moveType||'').split(','); el.style.display=types.includes(hmType?.value)?'flex':'none';});}
+  hmGov?.addEventListener('change',hmLoadBranches); hmBranch?.addEventListener('change',hmLoadEmployees); hmType?.addEventListener('change',hmSyncType); hmSyncType();
 
   // Generic table search and confirmations.
   qsa('[data-confirm]').forEach(el=>el.addEventListener('click',e=>{if(!confirm(el.dataset.confirm))e.preventDefault()}));

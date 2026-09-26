@@ -2302,3 +2302,13 @@ html{
 .home-three-panels{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:16px!important;width:100%!important;align-items:stretch!important}
 .home-three-panels>.home-current-status,.home-three-panels>.home-entry-directory{grid-column:auto!important;grid-row:auto!important;width:100%!important;min-width:0!important;height:100%!important;min-height:520px!important}
 @media(max-width:800px){.home-three-panels{grid-template-columns:1fr!important}.home-three-panels>.home-current-status,.home-three-panels>.home-entry-directory{min-height:420px!important}}
+
+/* v35.65 — dropdown search text is centered in every searchable field */
+.searchable-select-input{
+  text-align:center!important;
+  padding-left:38px!important;
+  padding-right:38px!important;
+}
+.searchable-select-input::placeholder{text-align:center!important}
+.searchable-select-menu{direction:rtl!important}
+.searchable-select-option{text-align:center!important}

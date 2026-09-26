@@ -388,14 +388,24 @@ document.addEventListener('DOMContentLoaded', function(){
   function position(state){
     if(!state || state.menu.hidden)return;
     const r=state.input.getBoundingClientRect();
+    // The application uses CSS zoom (80%). getBoundingClientRect() is returned
+    // in visual pixels while a fixed element under a zoomed root is laid out
+    // in the root's zoomed coordinate system. Compensate so the menu sits
+    // exactly under the input on desktop, tablet and mobile.
+    const root=getComputedStyle(document.documentElement);
+    const zoom=parseFloat(root.zoom)||1;
+    const z=zoom>0?zoom:1;
     const gap=4, maxH=280;
-    const spaceBelow=window.innerHeight-r.bottom-gap, spaceAbove=r.top-gap;
-    const h=Math.min(maxH,Math.max(120,spaceBelow>120?spaceBelow:spaceAbove));
-    const top=spaceBelow>=120 ? r.bottom+gap : Math.max(4,r.top-h-gap);
-    state.menu.style.left=Math.round(r.left)+'px';
-    state.menu.style.top=Math.round(top)+'px';
-    state.menu.style.width=Math.round(r.width)+'px';
-    state.menu.style.maxHeight=Math.round(h)+'px';
+    const vh=window.innerHeight;
+    const topVisual=r.bottom+gap;
+    const aboveVisual=r.top-gap;
+    const spaceBelow=vh-topVisual, spaceAbove=aboveVisual;
+    const hVisual=Math.min(maxH,Math.max(120,spaceBelow>120?spaceBelow:spaceAbove));
+    const topVisualFinal=spaceBelow>=120 ? topVisual : Math.max(4,r.top-hVisual-gap);
+    state.menu.style.left=Math.round(r.left/z)+'px';
+    state.menu.style.top=Math.round(topVisualFinal/z)+'px';
+    state.menu.style.width=Math.round(r.width/z)+'px';
+    state.menu.style.maxHeight=Math.round(hVisual/z)+'px';
   }
   function choose(state,o){
     if(!o)return;

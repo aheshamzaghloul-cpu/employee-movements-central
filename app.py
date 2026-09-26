@@ -3605,64 +3605,98 @@ def mission_state_label(m):
     return getattr(m, 'mission_state', None) or ('مغلقة' if m.status == 'معتمدة' else 'تحت التحرير')
 
 def mission_template_pdf(m, employee, branch, destination, creator=None):
-    """Render the supplied one-page mission sample as a PDF, replacing only its variable text."""
+    """Generate the mission PDF by using the supplied sample PDF itself as the immutable template.
+
+    Only the variable data regions are redacted/reinserted.  The template's original geometry,
+    borders, labels, title, colors and embedded font remain untouched.
+    """
     template=os.path.join(app.root_path,'static','mission','mission_template.pdf')
-    font=os.path.join(app.root_path,'static','mission','NotoNaskhArabic-Regular.ttf')
+    font=os.path.join(app.root_path,'static','mission','mission-original.ttf')
     doc=fitz.open(template)
     page=doc[0]
-    # Redact text only; cell borders and all fixed labels remain exactly as in the supplied template.
-    redact_boxes=[
-        (fitz.Rect(497,73,555,88), None),                 # number/status
-        (fitz.Rect(458,87,555,108), None),               # printed user block
-        (fitz.Rect(33,80,116,94), None),                 # print date/time
-        (fitz.Rect(62,94,84,109), None),                 # page number
-        (fitz.Rect(349,160,482,172), None),              # employee name, inside cell
-        (fitz.Rect(158,160,273,172), None),              # basic branch text, inside cell
-        (fitz.Rect(59,160,87,172), None),                # HR code, inside cell
-        (fitz.Rect(348,191,481,205), None),              # destination, inside cell
-        (fitz.Rect(430,256,482,270), None),              # from date, inside cell
-        (fitz.Rect(301,256,358,270), None),              # to date, inside cell
-        (fitz.Rect(100,281,178,299), None),              # approval title/name area
-        (fitz.Rect(100,300,177,318), None),              # approval destination
+
+    # The sample is 595.32 x 841.92 pt. These rectangles are the actual variable cells
+    # measured from the supplied PDF, not approximate HTML coordinates.
+    variable_regions = [
+        fitz.Rect(497.5, 74.0, 553.8, 88.8),   # mission number + state, one continuous string
+        fitz.Rect(458.0, 89.5, 553.8, 106.2),  # current user / job (print metadata)
+        fitz.Rect(31.0, 80.0, 115.0, 94.0),    # print date + time
+        fitz.Rect(62.0, 94.0, 84.5, 109.5),    # page number
+        fitz.Rect(346.6, 158.7, 482.9, 177.2),  # employee name cell
+        fitz.Rect(156.8, 158.7, 274.4, 177.2),  # basic branch cell
+        fitz.Rect(57.1, 158.7, 88.5, 177.2),    # employee code cell
+        fitz.Rect(346.5, 188.8, 482.9, 207.2),  # mission destination cell
+        fitz.Rect(299.9, 253.9, 360.2, 272.6),  # to-date cell
+        fitz.Rect(428.8, 253.9, 483.1, 272.6),  # from-date cell
+        fitz.Rect(100.0, 281.5, 180.0, 298.5),  # approval title
+        fitz.Rect(100.0, 300.0, 180.0, 317.0),  # approval destination
     ]
-    for rect,_ in redact_boxes:
+    for rect in variable_regions:
         page.add_redact_annot(rect, fill=(1,1,1))
     page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_NONE)
 
-    now=datetime.now()
-    def put(rect,text,size=9.96,align=fitz.TEXT_ALIGN_RIGHT,bold=False):
-        if text is None: text=''
-        face='NotoNaskhArabic-Bold.ttf' if bold else 'NotoNaskhArabic-Regular.ttf'
-        fp=os.path.join(app.root_path,'static','mission',face)
-        if not os.path.exists(fp): fp=font
-        html=f'<div style="font-family:arab;font-size:{size}pt;line-height:1.05;text-align:{"right" if align==fitz.TEXT_ALIGN_RIGHT else "center"};direction:rtl">{str(text).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")}</div>'
-        css=f'@font-face{{font-family:arab;src:url({fp})}}'
-        page.insert_htmlbox(rect,html,css=css)
-    # Add bold font alongside regular for headings/data that are bold in the sample.
-    boldfp=os.path.join(app.root_path,'static','mission','NotoNaskhArabic-Bold.ttf')
-    if not os.path.exists(boldfp):
-        import shutil; shutil.copy2(font,boldfp)
+    # The sample embeds the exact font used by the original form.  It is extracted into
+    # static/mission/mission-original.ttf during release creation so variable text uses the
+    # same font family, metrics, weight and color as the source PDF.
+    if not os.path.exists(font):
+        # Keep a safe fallback for local development; the release always contains the exact font.
+        font=os.path.join(app.root_path,'static','mission','NotoNaskhArabic-Regular.ttf')
 
+    now=datetime.now()
+    def put(rect, text, size=9.9603748, align='right', direction='rtl'):
+        text='' if text is None else str(text)
+        safe=(text.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;'))
+        html=(f'<div style="font-family:missionorig;font-size:{size:.6f}pt;'
+              f'line-height:1;white-space:nowrap;text-align:{align};direction:{direction};">{safe}</div>')
+        css=f'@font-face{{font-family:missionorig;src:url({font})}}'
+        page.insert_htmlbox(rect, html, css=css)
+
+    # Upper-right: one single text run so the state can never split into two words/boxes.
     status='مغلقة' if mission_state_label(m)=='مغلقة' else 'تحت التحرير'
-    put(fitz.Rect(497,73,530,88),str(m.id),8.04,fitz.TEXT_ALIGN_RIGHT,True)
-    put(fitz.Rect(530,73,555,88),status,8.04,fitz.TEXT_ALIGN_RIGHT,False)
+    put(fitz.Rect(498.0, 74.2, 552.8, 87.9), f'{m.id} {status}', 8.0403004, 'right', 'rtl')
+
     creator_name=(creator.full_name if creator else '')
     creator_job=(creator.job_title if creator and creator.job_title else '')
-    if creator_name: put(fitz.Rect(458,88,555,98),'- '+creator_name,6.0,fitz.TEXT_ALIGN_RIGHT)
-    if creator_job: put(fitz.Rect(458,97,555,108),creator_job,6.0,fitz.TEXT_ALIGN_RIGHT)
-    put(fitz.Rect(32,80,115,94),now.strftime('%Y/%m/%d  %H:%M:%S'),8.04,fitz.TEXT_ALIGN_LEFT,True)
-    put(fitz.Rect(62,94,84,109),'1 \\ 1',8.04,fitz.TEXT_ALIGN_CENTER,True)
-    put(fitz.Rect(405,156,487,173),employee.full_name if employee else '',9.96,fitz.TEXT_ALIGN_RIGHT,True)
-    # The sample has branch and HR code in the same row; preserve its exact cell geometry.
-    put(fitz.Rect(155,156,274,173),f'{branch.name if branch else ""} - {branch.governorate.name if branch and branch.governorate else ""}',9.96,fitz.TEXT_ALIGN_RIGHT,True)
-    put(fitz.Rect(58,156,90,173),employee.job_code if employee and employee.job_code else '',9.96,fitz.TEXT_ALIGN_CENTER,True)
-    put(fitz.Rect(414,186,486,203),destination.name if destination else '',9.96,fitz.TEXT_ALIGN_RIGHT,True)
-    put(fitz.Rect(425,251,485,269),m.from_date.strftime('%Y/%m/%d') if m.from_date else '',9.96,fitz.TEXT_ALIGN_CENTER,True)
-    put(fitz.Rect(300,251,405,269),m.to_date.strftime('%Y/%m/%d') if m.to_date else '',9.96,fitz.TEXT_ALIGN_CENTER,True)
-    # Approval block is intentionally kept visually identical; only destination is data-driven.
-    put(fitz.Rect(100,281,178,299),'اعتماد مدير فرع',9.96,fitz.TEXT_ALIGN_CENTER,True)
-    put(fitz.Rect(100,300,178,318),destination.name if destination else '',9.96,fitz.TEXT_ALIGN_CENTER,True)
-    out=io.BytesIO(); doc.save(out,garbage=4,deflate=True); doc.close(); out.seek(0)
+    if creator_name:
+        put(fitz.Rect(462.5, 90.2, 552.8, 98.2), f'- {creator_name}', 6.0002327, 'right', 'rtl')
+    if creator_job:
+        put(fitz.Rect(462.5, 97.3, 552.8, 106.0), creator_job, 6.0002327, 'right', 'rtl')
+
+    # Keep the source's exact size/color/positions for the small print metadata.
+    put(fitz.Rect(32.0, 82.0, 77.8, 93.0), now.strftime('%Y/%m/%d'), 8.0403004, 'left', 'ltr')
+    put(fitz.Rect(80.5, 82.0, 115.0, 93.0), now.strftime('%H:%M:%S'), 8.0403004, 'left', 'ltr')
+    put(fitz.Rect(62.0, 96.5, 84.5, 107.5), r'1 \ 1', 8.0403004, 'center', 'ltr')
+
+    # Employee information stays completely inside the original cells.
+    employee_name=employee.full_name if employee else ''
+    gov_name=branch.governorate.name if branch and branch.governorate else ''
+    branch_name=branch.name if branch else ''
+    destination_gov=destination.governorate.name if destination and destination.governorate else ''
+    destination_name=destination.name if destination else ''
+
+    put(fitz.Rect(347.0, 159.1, 482.7, 176.9), employee_name, 9.9603748, 'right', 'rtl')
+    # Requested order: governorate first, then branch. The employee code remains in its own cell.
+    basic_branch=f'{gov_name} - {branch_name}' if gov_name and branch_name else (gov_name or branch_name)
+    put(fitz.Rect(157.0, 159.1, 274.2, 176.9), basic_branch, 9.9603748, 'right', 'rtl')
+    put(fitz.Rect(57.2, 159.1, 88.4, 176.9), employee.job_code if employee and employee.job_code else '', 9.9603748, 'center', 'ltr')
+
+    # Requested order for mission destination: governorate first, then branch.
+    mission_dest=f'{destination_gov} - {destination_name}' if destination_gov and destination_name else (destination_gov or destination_name)
+    put(fitz.Rect(346.8, 189.2, 482.7, 206.9), mission_dest, 9.9603748, 'right', 'rtl')
+
+    # Dates occupy the exact original cells.  The PDF route refuses to print a mission
+    # without an end date (see mission_pdf below).
+    put(fitz.Rect(300.1, 254.6, 359.9, 271.9), m.to_date.strftime('%Y/%m/%d') if m.to_date else '', 9.9603748, 'center', 'ltr')
+    put(fitz.Rect(429.1, 254.6, 482.8, 271.9), m.from_date.strftime('%Y/%m/%d') if m.from_date else '', 9.9603748, 'center', 'ltr')
+
+    # Approval title is fixed text from the sample; only the destination data changes.
+    put(fitz.Rect(116.8, 284.6, 172.2, 296.0), 'اعتماد مدير فرع', 9.9603748, 'center', 'rtl')
+    put(fitz.Rect(107.9, 303.0, 170.1, 314.5), mission_dest, 9.9603748, 'center', 'rtl')
+
+    out=io.BytesIO()
+    doc.save(out, garbage=4, deflate=True)
+    doc.close()
+    out.seek(0)
     return out.getvalue()
 
 @app.get('/reports/assignments/mission-edit/<int:movement_id>')
@@ -3711,6 +3745,9 @@ def mission_close(movement_id):
     if not can('manage_movements') or not can_manage_movement(m): abort(403)
     if mission_state_label(m)=='مغلقة':
         flash('المأمورية مغلقة بالفعل.'); return redirect('/reports/assignments/print-missions')
+    if not m.to_date:
+        flash('لا يمكن إغلاق المأمورية قبل تسجيل «إلى تاريخ».')
+        return redirect(url_for('mission_edit', movement_id=m.id))
     m.mission_state='مغلقة'; m.modified_by=me().id; m.modified_at=datetime.utcnow()
     record_movement_history(m,m.status,m.status,'MISSION_CLOSE','إغلاق المأمورية بعد مراجعة بياناتها')
     log('MISSION_CLOSE','Movement',m.id,'إغلاق المأمورية')
@@ -3735,6 +3772,12 @@ def mission_pdf(movement_id):
     m=db.session.get(Movement,movement_id)
     if not m or not m.is_active or m.movement_type!='انتداب' or not branch_ok(m.employee.branch_id): abort(403)
     if not can('view_reports') or not can_manage_movement(m): abort(403)
+    if not m.to_date:
+        if mission_state_label(m)=='تحت التحرير':
+            flash('تاريخ «إلى» غير مسجل. أدخله أولًا قبل طباعة المأمورية.')
+            return redirect(url_for('mission_edit', movement_id=m.id))
+        flash('تاريخ «إلى» غير مسجل في مأمورية مغلقة. أعد فتحها أولًا ثم أدخل التاريخ قبل الطباعة.')
+        return redirect('/reports/assignments/print-missions')
     employee=db.session.get(Employee,m.employee_id); branch=db.session.get(Branch,employee.branch_id) if employee else None; destination=m.destination; creator=db.session.get(User,m.created_by) if m.created_by else None
     data=mission_template_pdf(m,employee,branch,destination,creator)
     from flask import Response

@@ -1,8 +1,11 @@
-# v35.79 — مأموريات قابلة للتحرير وإعادة الفتح + PDF مطابق للعينة
+# v35.80
 
-- إضافة حالة مستقلة للمأمورية: `تحت التحرير` / `مغلقة`.
-- المأمورية تحت التحرير: تعديل جهة المأمورية ومن تاريخ وإلى تاريخ.
-- المأمورية المغلقة: لا تُعدّل مباشرة؛ يلزم `إعادة الفتح` أولًا ثم التعديل ثم الإغلاق مرة أخرى.
-- إضافة سجل تاريخي لإجراءات تعديل/إغلاق/إعادة فتح المأمورية.
-- إضافة PDF حقيقي مبني على ملف العينة المرفق `كريم.pdf` كقالب أصلي، مع استبدال البيانات المتغيرة فقط.
-- تضمين خط عربي داخل الإصدار حتى يعمل إنشاء PDF على Railway دون الاعتماد على خط موجود في الجهاز.
+Mission PDF precision update:
+- Uses the uploaded mission PDF as the immutable visual template.
+- Uses the exact embedded source font extracted from the sample.
+- Upper-right mission number + status are one continuous text run.
+- Employee and branch data are inserted inside the exact source cells.
+- Governorate precedes branch for basic branch, mission destination, and branch approval text.
+- Exact source font size/black color/geometry is preserved for variable text.
+- End date is required before printing.
+- A mission cannot be closed without an end date.

@@ -2406,28 +2406,12 @@ th{background:#d1dfe5}
   .login-shell{width:calc(100vw - 18px)}
 }
 
-
-/* v35.74: clearly deeper application background + truly centered login */
-:root{
-  --bg:#c9d6dd;
-  --surface:#e1e9ed;
-  --surface2:#d6e2e7;
-  --border:#afc2cc;
-  --shadow:0 8px 26px rgba(35,60,76,.13);
-}
-body{background:var(--bg)!important}
-header,nav,.box,.structure-card,.home-governorates{background:var(--surface)!important}
-input,select,textarea{background:var(--surface2)!important}
-select option{background:#dbe5e9;color:#183044}
-
-/* Login: equal breathing room on all four sides */
-body:has(.login){background:#c9d6dd!important}
-body:has(.login)>.wrap{max-width:none!important;width:100%!important;min-height:100vh!important;margin:0!important;padding:18px!important;display:flex!important;align-items:center!important;justify-content:center!important}
-body:has(.login) .login{width:100%!important;max-width:none!important;min-height:calc(100vh - 36px)!important;margin:0!important;padding:0!important;display:flex!important;align-items:center!important;justify-content:center!important}
-body:has(.login) .login-shell{width:min(1100px,calc(100vw - 36px))!important;max-width:1100px!important;margin:0!important;background:#e0e8ec!important}
-body:has(.login) .login-card{background:#e0e8ec!important}
-@media(max-width:850px){
-  body:has(.login)>.wrap{padding:9px!important}
-  body:has(.login) .login{min-height:calc(100vh - 18px)!important}
-  body:has(.login) .login-shell{width:100%!important}
-}
+/* v35.75: soften only the white surfaces + move login slightly downward */
+:root{--page-soft:#e8eef2;--white-soft:#f1f4f6;--white-soft-2:#f5f7f8}
+body{background:var(--page-soft)!important}
+header,nav,.box,.structure-card{background:var(--white-soft)!important}
+.login-shell{background:var(--white-soft)!important}
+.quick .box,.quick-panel,.admin-control-center{background:var(--white-soft)!important}
+.home-search,.home-quick-actions,.report-print-area,.mission-report-card{background:var(--white-soft)!important}
+.login{margin:9vh auto!important}
+@media(max-width:850px){.login{margin:7vh auto!important}}

@@ -1,8 +1,11 @@
-# v35.91
+# v35.97
 
-Smart homepage implementation:
-- حالة الموظفين الآن: summary counts, actionable follow-up count, and detailed out-of-branch states only.
-- المدخلون الأوائل: operational metrics for employees, today's movements, follow-up alerts, and branch chips.
-- بحث عن موظف: name/employee-code first; governorate and branch are optional filters; search is available across all governorates.
-- تسجيل انتداب - إجازة - إذن: three-choice smart wizard, relevant fields only, optional open assignment, destination governorate/branch, and review before save.
-- Preserves existing native dropdowns and role-scoped movement registration.
+Employee database page redesign:
+- صفحة «الموظفون» أصبحت مخصصة لإدارة قاعدة بيانات الموظفين فقط، بدون تكرار بحث/حالة/حركات الصفحة الرئيسية.
+- بحث إداري بالاسم أو الكود الوظيفي مع فلاتر المحافظة والفرع.
+- جدول مدمج يعرض البيانات الأساسية: الموظف، الكود الوظيفي، الوظيفة، المحافظة، الفرع، والمدخل الأول.
+- إضافة موظف داخل الصفحة مع إبقاء الفرع إلزاميًا.
+- الحقول الاختيارية للموظف: المدخل الأول، رقم هاتف العمل، ورقم الهاتف الشخصي؛ باقي البيانات الأساسية إلزامية.
+- إضافة موظفين من Excel متاحة لمسؤول التطبيق فقط، وأزيل رابطها من صفحة الموظفين وتظهر داخل «الإدارة».
+- استيراد Excel للموظفين يطبق نفس قواعد الحقول الإلزامية/الاختيارية.
+- لا تغيير في بيانات الحركات أو صلاحيات البحث العامة في الصفحة الرئيسية.

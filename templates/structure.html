@@ -66,7 +66,8 @@
     <section class="admin-section-card">
       <div class="admin-section-head"><span>⚙️</span><div><h3>إعدادات النظام والتقارير</h3><small>الأدوات العامة التي يحتاجها مسؤول التطبيق.</small></div></div>
       <div class="admin-action-grid">
-        {% if is_admin %}<a href="/lookups"><b>القوائم الأساسية</b><small>أنواع الحركات والإجازات والقيم المساعدة.</small></a>{% endif %}
+        {% if is_admin %}<a href="/lookups"><b>القوائم الأساسية</b><small>أنواع الحركات والإجازات والقيم المساعدة.</small></a>
+        <a href="/excel-import/employees"><b>إضافة موظفين من Excel</b><small>استيراد ومراجعة بيانات الموظفين من ملفات Excel قبل الحفظ.</small></a>{% endif %}
         <a href="/reports/assignments/print-missions"><b>طباعة المأموريات</b><small>النماذج الرسمية للمأموريات والانتدابات.</small></a>
         <a href="/change-password"><b>حسابي</b><small>إدارة كلمة مرور الحساب الشخصي.</small></a>
       </div>

@@ -1,50 +1,115 @@
 {% extends 'base.html' %}
 {% block title %}الموظفون{% endblock %}
 {% block content %}
-<div class="toolbar"><div><h1>الموظفون</h1></div></div>
-<div class="actions" style="margin-bottom:12px"><a class="btn secondary" href="/excel-import/employees">📥 إضافة موظفين من Excel</a></div>
+<div class="toolbar">
+  <div><h1>الموظفون</h1><p class="subtitle">قاعدة بيانات الموظفين وإدارة بياناتهم الأساسية فقط.</p></div>
+  <div class="actions"><a class="btn" href="#add-employee">＋ إضافة موظف</a></div>
+</div>
+
 <div class="section-tabs">
   <a class="section-tab active" href="/employees">قائمة الموظفين</a>
   {% if can('manage_employees') %}<a class="section-tab" href="/employees/edit-data">تعديل البيانات</a><a class="section-tab" href="/employees/resigned">الموظفون المستقيلون</a>{% endif %}
 </div>
 
+<div class="admin-overview-grid" style="margin-bottom:14px">
+  <div class="admin-overview-card emp"><b>{{rows|length}}</b><span>المعروض الآن</span><small>حسب البحث والفلاتر الحالية</small></div>
+  <div class="admin-overview-card gov"><b>{{govs|length}}</b><span>المحافظات</span><small>ضمن نطاق العرض</small></div>
+  <div class="admin-overview-card branch"><b>{{bs|length}}</b><span>الفروع</span><small>ضمن نطاق العرض</small></div>
+  <div class="admin-overview-card users"><b>{{rows|selectattr('email')|list|length}}</b><span>بريد مسجل</span><small>من بيانات الموظفين</small></div>
+</div>
+
 <div class="box">
-  <div class="section-title"><h3>إضافة موظف جديد</h3></div>
+  <form method="get" class="grid wide" id="employee-filters">
+    <label style="grid-column:1/-1">بحث بالاسم أو الكود الوظيفي
+      <input name="q" value="{{q}}" placeholder="اكتب اسم الموظف أو الكود الوظيفي" autocomplete="off">
+    </label>
+    <label>المحافظة
+      <select name="governorate_id" id="employee_filter_governorate">
+        <option value="">كل المحافظات</option>
+        {% for g in govs %}<option value="{{g.id}}" {% if gov_filter == g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}
+      </select>
+    </label>
+    <label>الفرع
+      <select name="branch_id" id="employee_filter_branch">
+        <option value="">كل الفروع</option>
+        {% for b in bs %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}" {% if request.args.get('branch_id','') == b.id|string %}selected{% endif %}>{{b.name}}</option>{% endfor %}
+      </select>
+    </label>
+    <div class="form-actions" style="align-self:end"><button>بحث وتصفية</button><a class="btn secondary" href="/employees">مسح</a></div>
+  </form>
+</div>
+
+<div class="box tablewrap">
+  <div class="section-title">
+    <div><h3>قاعدة بيانات الموظفين</h3><span class="hint">البيانات الإدارية فقط؛ تفاصيل الحركات والحالة الحالية تبقى في أماكنها المخصصة.</span></div>
+    <span class="search-count">{{rows|length}} موظف</span>
+  </div>
+  <table id="employees-table">
+    <thead><tr><th>الموظف</th><th>الكود الوظيفي</th><th>الوظيفة</th><th>المحافظة</th><th>الفرع</th><th>المدخل الأول</th><th>إجراءات</th></tr></thead>
+    <tbody>
+    {% for e in rows %}
+      <tr>
+        <td><b>{{e.full_name}}</b></td>
+        <td>{{e.job_code}}</td>
+        <td>{{e.job_title}}</td>
+        <td>{{e.branch.governorate.name if e.branch and e.branch.governorate else '—'}}</td>
+        <td>{{e.branch.name if e.branch else '—'}}</td>
+        <td>{% if entry_map.get(e.id) %}{{entry_map.get(e.id)}}{% else %}<span class="hint">غير مسند</span>{% endif %}</td>
+        <td>
+          <a class="btn secondary mini" href="/employees/{{e.id}}/edit">تعديل البيانات</a>
+          <form class="inline resignation-inline" method="post" action="/employees/{{e.id}}/resign">
+            <input type="hidden" name="_csrf" value="{{csrf}}">
+            <input class="mini-date" type="date" name="resignation_date" required title="تاريخ الاستقالة">
+            <button class="red mini" data-confirm="سيتم تسجيل استقالة الموظف ونقله إلى الموظفين المستقيلين. متابعة؟">استقالة</button>
+          </form>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7" class="empty">لا توجد نتائج مطابقة.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="box" id="add-employee">
+  <div class="section-title"><div><h3>إضافة موظف جديد</h3><span class="hint">يجب أن يكون الموظف مرتبطًا بفرع. المدخل الأول والهاتفان يمكن تركها فارغة.</span></div></div>
   <form method="post" class="grid wide">
     <input type="hidden" name="_csrf" value="{{csrf}}">
     <label>المحافظة<select name="governorate_id" id="new_employee_governorate" required><option value="">اختر المحافظة</option>{% for g in add_govs %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
     <label>الفرع<select name="branch_id" id="new_employee_branch" required><option value="">اختر الفرع</option>{% for b in add_bs %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}">{{b.name}}</option>{% endfor %}</select></label>
     <label>اسم الموظف<input name="full_name" required autocomplete="off"></label>
-    <label>البريد الإلكتروني<input name="email" type="email" required autocomplete="email"></label>
+    <label>البريد الإلكتروني<input name="email" type="email" autocomplete="email"></label>
     <label>الوظيفة<input name="job_title" required autocomplete="off"></label>
     <label>الكود الوظيفي<input name="job_code" required autocomplete="off"></label>
     <label>تاريخ التعيين<input type="date" name="hire_date" required></label>
-    <label>هاتف الشركة<input name="company_phone" required autocomplete="off"></label>
-    <label>الهاتف الشخصي<input name="personal_phone" required autocomplete="off"></label>
-    <div class="form-actions"><button>+ إضافة الموظف</button></div>
+    <label>رقم هاتف العمل<input name="company_phone" autocomplete="off"></label>
+    <label>رقم الهاتف الشخصي<input name="personal_phone" autocomplete="off"></label>
+    <div class="form-actions" style="grid-column:1/-1"><button>＋ إضافة الموظف</button></div>
   </form>
 </div>
-{% if q %}
-<div class="employee-search-results">
-  <div class="section-title"><div><h3>نتيجة البحث عن الموظف</h3><span class="hint">النتيجة معروضة كبطاقة موظف للوصول المباشر إلى ملفه وسجل حركاته.</span></div><span class="search-count">{{rows|length}} نتيجة</span></div>
-  <div class="employee-result-cards">
-    {% for e in rows %}
-    <article class="employee-result-card">
-      <div class="employee-result-top"><div class="employee-avatar">{{e.full_name[:1]}}</div><div><h3>{{e.full_name}}</h3><div class="employee-result-meta">{{e.job_title or '—'}} · {{e.job_code or '—'}}</div></div></div>
-      <div class="employee-result-grid"><div><small>المحافظة</small><b>{{e.branch.governorate.name if e.branch and e.branch.governorate else '—'}}</b></div><div><small>فرع التعيين</small><b>{{e.branch.name if e.branch else '—'}}</b></div><div><small>الفرع الحالي</small><b>{% set ca=current_assignment_for_employee(e.id) %}{{ca.destination.name if ca and ca.destination else (e.branch.name if e.branch else '—')}}{% if ca and ca.to_date is none %} — <span class="badge">انتداب مفتوح</span>{% endif %}</b></div><div><small>البريد</small><b>{{e.email or '—'}}</b></div><div><small>المدخل الأول</small><b>{{entry_map.get(e.id) or 'غير مسند'}}</b></div></div>
-      <div class="employee-result-actions"><a class="btn" href="/employee/{{e.id}}">فتح بطاقة الموظف</a>{% if can('manage_movements') and can_manage_employee(e) %}<a class="btn teal" href="/movements?employee_id={{e.id}}">تسجيل حركة</a>{% endif %}</div>
-    </article>
-    {% else %}<div class="empty">لا توجد نتائج مطابقة للبحث.</div>{% endfor %}
-  </div>
-</div>
-{% else %}
-<div class="box tablewrap">
-  <div class="section-title"><div><h3>قائمة الموظفين</h3></div></div>
-  <table id="employees-table"><thead><tr><th>الموظف</th><th>البريد الإلكتروني</th><th>الكود الوظيفي</th><th>المحافظة</th><th>الفرع</th><th>المدخل الأول المسؤول</th><th>الوظيفة</th><th>إجراءات</th></tr></thead>
-  <tbody>{% for e in rows %}<tr>
-    <td><a href="/employee/{{e.id}}"><b>{{e.full_name}}</b></a></td><td>{{e.email or "—"}}</td><td>{{e.job_code}}</td><td>{{e.branch.governorate.name if e.branch and e.branch.governorate else "—"}}</td><td>{{e.branch.name if e.branch else "—"}}{% set ca=current_assignment_for_employee(e.id) %}{% if ca and ca.destination %}<br><small>الحالي: {{ca.destination.name}}{% if ca.to_date is none %} — <b>انتداب مفتوح</b>{% endif %}</small>{% endif %}</td><td>{% if entry_map.get(e.id) %}<b>{{entry_map.get(e.id)}}</b>{% else %}<span class="hint">غير مسند</span>{% endif %}</td><td>{{e.job_title}}</td>
-    <td><a class="btn secondary mini" href="/employee/{{e.id}}">بطاقة الموظف</a> <form class="inline resignation-inline" method="post" action="/employees/{{e.id}}/resign"><input type="hidden" name="_csrf" value="{{csrf}}"><input class="mini-date" type="date" name="resignation_date" required title="تاريخ الاستقالة"><button class="red mini" data-confirm="سيتم تسجيل استقالة الموظف وإزالته من قوائم الفرع ونقله إلى الموظفين المستقيلين. متابعة؟">استقالة</button></form></td>
-  </tr>{% else %}<tr><td colspan="8" class="empty">لا توجد نتائج مطابقة.</td></tr>{% endfor %}</tbody></table>
-</div>
-{% endif %}
+
+<script>
+(function(){
+  const gov=document.getElementById('employee_filter_governorate');
+  const branch=document.getElementById('employee_filter_branch');
+  if(gov && branch){
+    function filterBranches(){
+      const g=gov.value;
+      Array.from(branch.options).forEach((o,i)=>{ if(i===0){o.hidden=false;return;} o.hidden=!!g && o.dataset.governorate!==g; });
+      if(branch.selectedOptions[0] && branch.selectedOptions[0].hidden) branch.value='';
+    }
+    gov.addEventListener('change',filterBranches); filterBranches();
+  }
+  const ng=document.getElementById('new_employee_governorate');
+  const nb=document.getElementById('new_employee_branch');
+  if(ng && nb){
+    function filterAddBranches(){
+      const g=ng.value;
+      Array.from(nb.options).forEach((o,i)=>{ if(i===0){o.hidden=false;return;} o.hidden=!!g && o.dataset.governorate!==g; });
+      if(nb.selectedOptions[0] && nb.selectedOptions[0].hidden) nb.value='';
+    }
+    ng.addEventListener('change',filterAddBranches); filterAddBranches();
+  }
+})();
+</script>
 {% endblock %}

@@ -2128,7 +2128,24 @@ def employees():
     add_govs = Governorate.query.filter(Governorate.id.in_(gids()), Governorate.is_active==True).order_by(Governorate.name).all() if gids() else []
     add_branch_ids = {b.id for b in Branch.query.filter(Branch.governorate_id.in_([g.id for g in add_govs]), Branch.is_active==True).all()} if add_govs else set()
     add_branches = Branch.query.filter(Branch.id.in_(add_branch_ids), Branch.is_active==True).order_by(Branch.name).all() if add_branch_ids else []
-    return render_template('employees.html',rows=rows,bs=branches,add_govs=add_govs,add_bs=add_branches,q=q,govs=filter_govs,gov_filter=gov_filter,entry_map=entry_map)
+
+    # عرض الموظفين يكون مجمعًا حسب المحافظة ثم الفرع، بدل قائمة واحدة طويلة.
+    grouped_employees=[]
+    branch_ids_with_rows=sorted({e.branch_id for e in rows if e.branch_id})
+    if branch_ids_with_rows:
+        branch_objs=Branch.query.filter(Branch.id.in_(branch_ids_with_rows)).order_by(Branch.governorate_id, Branch.name).all()
+        by_branch={b.id: [] for b in branch_objs}
+        for e in rows:
+            if e.branch_id in by_branch:
+                by_branch[e.branch_id].append(e)
+        by_gov={}
+        for b in branch_objs:
+            if by_branch.get(b.id):
+                by_gov.setdefault(b.governorate_id, {'governorate': b.governorate, 'branches': []})['branches'].append({'branch': b, 'employees': by_branch[b.id]})
+        grouped_employees=sorted(by_gov.values(), key=lambda x: (x['governorate'].name if x['governorate'] else ''))
+        for group in grouped_employees:
+            group['branches'].sort(key=lambda x: x['branch'].name)
+    return render_template('employees.html',rows=rows,rows_page=rows,grouped_employees=grouped_employees,bs=branches,add_govs=add_govs,add_bs=add_branches,q=q,govs=filter_govs,gov_filter=gov_filter,entry_map=entry_map,total_rows=len(rows))
 @app.get('/employees/edit-data')
 @req
 def employee_edit_data():

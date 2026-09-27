@@ -2653,3 +2653,110 @@ body.home-panel-focus .panel-focus-mode > .dashboard-widget.panel-focused .panel
 @media(max-width:700px){
   body.home-panel-focus .home-three-panels > .dashboard-widget.panel-focused{padding:14px!important}
 }
+
+/* v35.90 — القوائم المدمجة للصفحة الرئيسية: بدون مربعات لكل موظف/مدخل */
+.home-current-status .current-status-list,
+.home-entry-directory .entry-directory-list{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:0!important;
+  overflow:auto!important;
+  align-content:initial!important;
+  padding:0!important;
+  margin-top:8px!important;
+  max-height:calc(100% - 150px)!important;
+}
+.home-current-status .current-status-card{
+  display:grid!important;
+  grid-template-columns:minmax(150px,1.15fr) auto minmax(180px,1.25fr) auto!important;
+  grid-template-areas:"main badge detail remaining"!important;
+  gap:10px!important;
+  align-items:center!important;
+  width:100%!important;
+  min-width:0!important;
+  padding:9px 6px!important;
+  border:0!important;
+  border-bottom:1px solid #e7edf1!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  transform:none!important;
+}
+.home-current-status .current-status-card:hover{
+  background:#f8fbfc!important;
+  box-shadow:none!important;
+  transform:none!important;
+}
+.home-current-status .current-status-main{grid-area:main!important;padding:0!important}
+.home-current-status .current-status-main strong{font-size:13px!important}
+.home-current-status .current-status-main small{font-size:10px!important}
+.home-current-status .current-status-badge{grid-area:badge!important;font-size:10px!important;padding:5px 8px!important}
+.home-current-status .current-status-detail{
+  grid-area:detail!important;
+  display:flex!important;
+  justify-content:space-between!important;
+  align-items:center!important;
+  gap:8px!important;
+  min-width:0!important;
+  padding:0!important;
+  border:0!important;
+}
+.home-current-status .current-status-detail>b{font-size:10px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.home-current-status .status-dates{margin:0!important;gap:4px!important}
+.home-current-status .status-dates span{padding:3px 5px!important;border-radius:6px!important}
+.home-current-status .status-dates em{font-size:8px!important}
+.home-current-status .status-dates strong{font-size:10px!important}
+.home-current-status .current-status-remaining{
+  grid-area:remaining!important;
+  border:0!important;
+  padding:0!important;
+  justify-content:flex-start!important;
+  font-size:10px!important;
+}
+.home-current-status .current-status-remaining b{font-size:13px!important}
+.home-current-status .current-status-alert{position:static!important;font-size:9px!important}
+
+.home-entry-directory .entry-card{
+  width:100%!important;
+  min-width:0!important;
+  border:0!important;
+  border-bottom:1px solid #e7edf1!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  overflow:visible!important;
+}
+.home-entry-directory .entry-card:hover,
+.home-entry-directory .entry-card[open]{
+  border-color:#e7edf1!important;
+  box-shadow:none!important;
+}
+.home-entry-directory .entry-card>summary{
+  display:flex!important;
+  align-items:center!important;
+  gap:9px!important;
+  width:100%!important;
+  box-sizing:border-box!important;
+  padding:9px 6px!important;
+  background:transparent!important;
+}
+.home-entry-directory .entry-card>summary:hover{background:#f8fbfc!important}
+.home-entry-directory .entry-avatar{width:30px!important;height:30px!important;border-radius:8px!important;font-size:15px!important}
+.home-entry-directory .entry-main strong{font-size:13px!important}
+.home-entry-directory .entry-main small{font-size:10px!important;margin-top:1px!important}
+.home-entry-directory .entry-meta{min-width:48px!important;padding-right:8px!important}
+.home-entry-directory .entry-meta b{font-size:14px!important}
+.home-entry-directory .entry-meta small{font-size:9px!important}
+.home-entry-directory .entry-chevron{width:24px!important;height:24px!important;font-size:19px!important}
+.home-entry-directory .entry-panel{margin:0 6px 8px!important;border-top:1px solid #edf1f4!important}
+
+@media(max-width:900px){
+  .home-current-status .current-status-card{grid-template-columns:minmax(0,1fr) auto!important;grid-template-areas:"main badge" "detail remaining"!important}
+  .home-current-status .current-status-detail{padding-top:5px!important}
+}
+@media(max-width:600px){
+  .home-current-status .current-status-card{grid-template-columns:1fr auto!important}
+  .home-current-status .current-status-detail{grid-column:1/-1!important}
+  .home-current-status .current-status-remaining{grid-column:1/-1!important}
+  .home-entry-directory .entry-meta{display:none!important}
+}

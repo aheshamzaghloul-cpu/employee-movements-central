@@ -1393,7 +1393,7 @@ def _auto_map_headers(headers, spec):
 def _excel_import_permissions(kind):
     if kind not in ('branches','employees'): abort(404)
     if kind=='branches' and not (can('manage_structure') and has_role('مسؤول التطبيق','مشرف محافظة')): abort(403)
-    if kind=='employees' and not can('manage_employees'): abort(403)
+    if kind=='employees' and not has_role('مسؤول التطبيق'): abort(403)
 
 def _excel_scope_governorates():
     return {g.id for g in Governorate.query.filter_by(is_active=True).all()} if 'مسؤول التطبيق' in roles() else set(gids())
@@ -2063,7 +2063,7 @@ def employees():
         branch_obj=db.session.get(Branch,bid)
         name=request.form.get('full_name','').strip(); email=request.form.get('email','').strip(); job_title=request.form.get('job_title','').strip(); job_code=request.form.get('job_code','').strip(); hire_date=request.form.get('hire_date','').strip(); company_phone=request.form.get('company_phone','').strip(); personal_phone=request.form.get('personal_phone','').strip()
         if not branch_obj or branch_obj.governorate_id!=submitted_gid: flash('يجب اختيار محافظة وفرع صحيحين.')
-        elif not all([name,email,job_title,job_code,hire_date,company_phone,personal_phone]): flash('جميع بيانات الموظف مطلوبة.')
+        elif not all([name,email,job_title,job_code,hire_date]): flash('جميع البيانات الأساسية للموظف مطلوبة.')
         elif not valid_email(email): flash('البريد الإلكتروني مطلوب ويجب أن يكون بصيغة صحيحة.')
         elif not parse_date(hire_date): flash('تاريخ التعيين مطلوب وبصيغة صحيحة.')
         else:

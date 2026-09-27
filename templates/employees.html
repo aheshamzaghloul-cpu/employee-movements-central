@@ -1,65 +1,131 @@
 {% extends 'base.html' %}
 {% block title %}الموظفون{% endblock %}
 {% block content %}
-<div class="employees-page">
-  <div class="employees-head">
-    <div><h1>الموظفون</h1></div>
-    {% if can('manage_employees') and add_govs %}
-      <a class="btn employees-add-btn" href="#add-employee">＋ إضافة موظف</a>
-    {% endif %}
-  </div>
+<div class="employees-v2">
+  <header class="employees-v2-head">
+    <div>
+      <h1>الموظفون</h1>
+      <p>إدارة بيانات الموظفين وسجلاتهم الوظيفية.</p>
+    </div>
+    <div class="employees-v2-head-actions">
+      {% if can('manage_employees') and add_govs %}<a class="btn employees-primary" href="#employee-add">＋ إضافة موظف</a>{% endif %}
+    </div>
+  </header>
 
-  <div class="employees-search box">
+  <nav class="employees-v2-tabs" aria-label="إدارة الموظفين">
+    <a class="active" href="/employees">الموظفون</a>
+    {% if can('manage_employees') %}
+      <a href="/employees/edit-data">تعديل البيانات</a>
+      <a href="/employees/resigned">الموظفون المستقيلون</a>
+    {% endif %}
+    {% if has_role('مسؤول التطبيق') %}
+      <a href="/excel-import/employees">📥 إضافة موظفين من Excel</a>
+    {% endif %}
+  </nav>
+
+  <section class="employees-v2-search box">
     <form method="get" action="/employees" id="employees-search-form">
-      <div class="employees-filter-row">
-        <label>المحافظة
+      <div class="employees-v2-filters">
+        <label>
+          <span>المحافظة</span>
           <select name="governorate_id" id="employee_governorate_filter">
-            <option value="">كل المحافظات</option>
+            <option value="">اختر المحافظة</option>
             {% for g in govs %}<option value="{{g.id}}" {% if gov_filter|int == g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}
           </select>
         </label>
-        <label>الفرع
+        <label>
+          <span>الفرع</span>
           <select name="branch_id" id="employee_branch_filter">
-            <option value="">كل الفروع</option>
+            <option value="">اختر الفرع</option>
             {% for b in bs %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}" {% if request.args.get('branch_id','')|int == b.id %}selected{% endif %}>{{b.name}}</option>{% endfor %}
           </select>
         </label>
-        <label class="employees-search-field">اسم الموظف أو الكود الوظيفي
-          <input name="q" id="employees_search_input" value="{{q}}" list="employees_search_list" autocomplete="off" placeholder="اكتب الاسم أو الكود الوظيفي">
+        <label class="employees-v2-name-search">
+          <span>الموظف</span>
+          <input name="q" id="employees_search_input" value="{{q}}" list="employees_search_list" autocomplete="off" placeholder="ابحث بالاسم أو الكود الوظيفي">
           <datalist id="employees_search_list">
-            {% for e in rows %}<option value="{{e.full_name}}">{{e.job_code or ''}}</option>{% if e.job_code %}<option value="{{e.job_code}}">{{e.full_name}}</option>{% endif %}{% endfor %}
+            {% for e in rows %}
+              <option value="{{e.full_name}}">{{e.job_code or ''}}</option>
+              {% if e.job_code %}<option value="{{e.job_code}}">{{e.full_name}}</option>{% endif %}
+            {% endfor %}
           </datalist>
         </label>
         <button class="btn" type="submit">بحث</button>
         {% if q or gov_filter or request.args.get('branch_id') %}<a class="btn secondary" href="/employees">مسح</a>{% endif %}
       </div>
+      <div class="employees-v2-search-note">اختر المحافظة والفرع لتظهر أسماء الموظفين في خانة البحث، ثم اكتب الاسم أو الكود الوظيفي.</div>
     </form>
-  </div>
+  </section>
 
-  <div class="box tablewrap employees-list-box">
-    <div class="employees-list-head"><h3>قائمة الموظفين</h3><span>{{rows|length}} موظف</span></div>
-    <table id="employees-table">
-      <thead><tr><th>الموظف</th><th>الكود الوظيفي</th><th>المحافظة</th><th>الفرع</th><th>الوظيفة</th><th></th></tr></thead>
-      <tbody>
-      {% for e in rows %}
-        <tr>
-          <td><a href="/employee/{{e.id}}"><b>{{e.full_name}}</b></a></td>
-          <td>{{e.job_code or '—'}}</td>
-          <td>{{e.branch.governorate.name if e.branch and e.branch.governorate else '—'}}</td>
-          <td>{{e.branch.name if e.branch else '—'}}</td>
-          <td>{{e.job_title or '—'}}</td>
-          <td class="employee-row-actions"><a class="btn secondary mini" href="/employee/{{e.id}}">فتح</a></td>
-        </tr>
-      {% else %}
-        <tr><td colspan="6" class="empty">لا توجد نتائج مطابقة.</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
+  {% if q %}
+  <section class="employees-v2-results">
+    <div class="employees-v2-section-head">
+      <div><h2>نتيجة البحث</h2><span>{{rows|length}} نتيجة</span></div>
+    </div>
+    {% for e in rows %}
+      {% set ca=current_assignment_for_employee(e.id) %}
+      <article class="employee-search-card">
+        <div class="employee-search-main">
+          <a href="/employee/{{e.id}}" class="employee-avatar-link"><span class="employee-avatar">{{e.full_name[:1]}}</span></a>
+          <div class="employee-search-name"><a href="/employee/{{e.id}}"><strong>{{e.full_name}}</strong></a><small>{{e.job_title or '—'}} · الكود الوظيفي: {{e.job_code or '—'}}</small></div>
+        </div>
+        <div class="employee-search-info"><span><b>المحافظة</b>{{e.branch.governorate.name if e.branch and e.branch.governorate else '—'}}</span><span><b>فرع التعيين</b>{{e.branch.name if e.branch else '—'}}</span><span><b>الفرع الحالي</b>{{ca.destination.name if ca and ca.destination else (e.branch.name if e.branch else '—')}}{% if ca and ca.to_date is none %} <em>انتداب مفتوح</em>{% endif %}</span><span><b>البريد</b>{{e.email or '—'}}</span><span><b>المدخل الأول</b>{{entry_map.get(e.id) or 'غير مسند'}}</span></div>
+        <div class="employee-search-actions">
+          <a class="btn mini" href="/employee/{{e.id}}">بطاقة الموظف</a>
+          {% if can_manage_employee(e) and can('manage_employees') %}<a class="btn secondary mini" href="/employees/{{e.id}}/edit">تعديل</a>{% endif %}
+          {% if can_manage_employee(e) and can('manage_movements') %}<a class="btn teal mini" href="/movements?employee_id={{e.id}}">تسجيل حركة</a>{% endif %}
+        </div>
+      </article>
+    {% else %}<div class="box empty">لا توجد نتائج مطابقة.</div>{% endfor %}
+  </section>
+  {% endif %}
+
+  {% if not q %}
+  <section class="employees-v2-list box">
+    <div class="employees-v2-section-head">
+      <div><h2>قائمة الموظفين</h2><span>البيانات الأساسية للموظف</span></div>
+      <strong>{{rows|length}} موظف</strong>
+    </div>
+    <div class="tablewrap">
+      <table id="employees-table">
+        <thead><tr><th>الموظف</th><th>البريد الإلكتروني</th><th>الكود الوظيفي</th><th>المحافظة</th><th>الفرع</th><th>المدخل الأول</th><th>الوظيفة</th><th>إجراءات</th></tr></thead>
+        <tbody>
+        {% for e in rows %}
+          {% set ca=current_assignment_for_employee(e.id) %}
+          <tr>
+            <td><a href="/employee/{{e.id}}"><b>{{e.full_name}}</b></a></td>
+            <td>{{e.email or '—'}}</td>
+            <td>{{e.job_code or '—'}}</td>
+            <td>{{e.branch.governorate.name if e.branch and e.branch.governorate else '—'}}</td>
+            <td>{{e.branch.name if e.branch else '—'}}{% if ca and ca.destination %}<small class="employee-current-branch">الحالي: {{ca.destination.name}}{% if ca.to_date is none %} · انتداب مفتوح{% endif %}</small>{% endif %}</td>
+            <td>{{entry_map.get(e.id) or 'غير مسند'}}</td>
+            <td>{{e.job_title or '—'}}</td>
+            <td class="employee-actions-cell">
+              <a class="btn secondary mini" href="/employee/{{e.id}}">بطاقة الموظف</a>
+              {% if can_manage_employee(e) and can('manage_employees') %}<a class="btn mini" href="/employees/{{e.id}}/edit">تعديل</a>{% endif %}
+              {% if can_manage_employee(e) and can('manage_movements') %}<a class="btn teal mini" href="/movements?employee_id={{e.id}}">حركة</a>{% endif %}
+              {% if can_manage_employee(e) and can('manage_employees') %}
+                <details class="employee-more"><summary>⋮</summary>
+                  <div class="employee-more-menu">
+                    <a href="/employee/{{e.id}}">فتح البطاقة</a>
+                    <a href="/employees/{{e.id}}/edit">تعديل البيانات</a>
+                    <form method="post" action="/employees/{{e.id}}/resign"><input type="hidden" name="_csrf" value="{{csrf}}"><label>تاريخ الاستقالة<input type="date" name="resignation_date" required></label><button class="red" data-confirm="سيتم تسجيل الاستقالة ونقل الموظف إلى الموظفين المستقيلين. متابعة؟">استقالة</button></form>
+                    {% if has_role('مسؤول التطبيق') %}<form method="post" action="/employees/{{e.id}}/delete"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="danger-link" data-confirm="حذف إداري للموظف؟ استخدم الاستقالة إذا كانت الخدمة انتهت.">حذف إداري</button></form>{% endif %}
+                  </div>
+                </details>
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}<tr><td colspan="8" class="empty">لا توجد نتائج مطابقة.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
 
   {% if can('manage_employees') and add_govs %}
-  <div class="box employees-add-box" id="add-employee">
-    <div class="employees-add-head"><h3>إضافة موظف</h3><span>المحافظة والفرع يحددان نطاق الموظف.</span></div>
+  <section class="employees-v2-add box" id="employee-add">
+    <div class="employees-v2-section-head"><div><h2>إضافة موظف</h2><span>أدخل البيانات الأساسية، ويمكن استكمال رقم هاتف العمل والهاتف الشخصي والمدخل الأول لاحقًا.</span></div></div>
     <form method="post" class="grid wide">
       <input type="hidden" name="_csrf" value="{{csrf}}">
       <label>المحافظة<select name="governorate_id" id="new_employee_governorate" required><option value="">اختر المحافظة</option>{% for g in add_govs %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
@@ -69,11 +135,11 @@
       <label>الوظيفة<input name="job_title" required autocomplete="off"></label>
       <label>الكود الوظيفي<input name="job_code" required autocomplete="off"></label>
       <label>تاريخ التعيين<input type="date" name="hire_date" required></label>
-      <label>هاتف الشركة<input name="company_phone" required autocomplete="off"></label>
-      <label>الهاتف الشخصي<input name="personal_phone" required autocomplete="off"></label>
-      <div class="form-actions"><button>إضافة الموظف</button></div>
+      <label>هاتف العمل<input name="company_phone" autocomplete="off"></label>
+      <label>الهاتف الشخصي<input name="personal_phone" autocomplete="off"></label>
+      <div class="form-actions"><button class="btn employees-primary">إضافة الموظف</button></div>
     </form>
-  </div>
+  </section>
   {% endif %}
 </div>
 {% endblock %}

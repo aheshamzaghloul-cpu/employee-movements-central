@@ -9,7 +9,7 @@ from openpyxl import Workbook, load_workbook
 import fitz
 
 app=Flask(__name__)
-APP_VERSION='v35.84'
+APP_VERSION='v35.96'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg2://',1)
 elif DATABASE_URL.startswith('postgresql://'): DATABASE_URL=DATABASE_URL.replace('postgresql://','postgresql+psycopg2://',1)

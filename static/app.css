@@ -2494,3 +2494,87 @@ main .dashboard-widget{
 .movement-wizard-step,.movement-wizard-review{border:1px solid #dbe5ec;border-radius:12px;background:#fbfdfe;padding:10px;margin-top:8px}.wizard-step-title{display:flex;align-items:center;gap:8px;margin-bottom:9px}.wizard-step-title>span{width:25px;height:25px;border-radius:50%;display:grid;place-items:center;background:#e8f3f7;color:#26738a;font-weight:800;font-size:11px}.wizard-step-title b{display:block;font-size:12px}.wizard-step-title small{display:block;color:#778894;font-size:9px;margin-top:2px}.wizard-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;align-items:end}.wizard-fields label{font-size:10px;display:flex;flex-direction:column;gap:3px}.wizard-fields select,.wizard-fields input{min-height:34px!important;height:34px!important;font-size:11px!important}.wizard-fields .movement-dynamic{display:none}.checkbox-row{display:flex;align-items:center;gap:5px;min-height:34px;border:1px solid #dbe5ec;border-radius:8px;padding:0 8px;background:#fff;font-size:10px}.checkbox-row input{min-height:auto!important;height:auto!important}.wizard-employee-state{display:flex;align-items:center;gap:8px;margin-top:8px;padding:7px 9px;border-radius:9px;background:#eff8f5;border:1px solid #d3ebe3}.wizard-employee-state>span{font-size:16px}.wizard-employee-state b{font-size:11px;display:block}.wizard-employee-state small{font-size:9px;color:#638276}.wizard-next-row,.wizard-details-next{display:flex;justify-content:flex-end;margin-top:8px}.wizard-next-row .btn,.wizard-details-next .btn{min-height:34px;font-size:11px}.wizard-review-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.wizard-review-grid>div{padding:7px 8px;border-radius:8px;background:#f4f8fa;border:1px solid #e1e8ed}.wizard-review-grid small{display:block;font-size:9px;color:#7b8b97;margin-bottom:2px}.wizard-review-grid b{font-size:11px}.wizard-actions{display:flex;justify-content:space-between;gap:7px;margin-top:9px}.wizard-actions .btn{min-height:34px;font-size:11px}
 @media(max-width:1000px){.status-summary-grid{grid-template-columns:repeat(3,1fr)}.home-smart-search-form{grid-template-columns:1fr 1fr!important}.home-smart-search-form .home-search-primary{grid-column:1/-1}.wizard-fields{grid-template-columns:1fr 1fr}.wizard-review-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:650px){.movement-search-results-grid,.movement-wizard-types,.wizard-fields,.wizard-review-grid{grid-template-columns:1fr}.status-summary-grid{grid-template-columns:repeat(2,1fr)}.home-smart-search-form{grid-template-columns:1fr!important}.home-smart-search-form .home-search-primary{grid-column:auto}.home-smart-search-form button,.home-smart-search-form>a{width:100%}.wizard-actions{flex-direction:column}.entry-smart-metrics{display:grid;grid-template-columns:1fr 1fr}}
+
+/* v35.87 — بطاقات «حالة الموظفين الآن» المدمجة */
+.home-current-status .status-summary-grid{
+  gap:6px!important;
+  margin-bottom:8px!important;
+}
+.home-current-status .status-summary-card{
+  min-height:52px!important;
+  padding:6px 7px!important;
+  border-radius:9px!important;
+}
+.home-current-status .status-summary-card b{font-size:18px!important}
+.home-current-status .status-summary-card span{font-size:9px!important;margin-top:3px!important}
+.home-current-status .current-status-list{
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:7px!important;
+  max-height:360px!important;
+  overflow-y:auto!important;
+  padding:1px!important;
+}
+.home-current-status .current-status-card{
+  grid-template-columns:minmax(105px,1fr) auto minmax(115px,1.15fr) auto!important;
+  gap:6px!important;
+  min-height:0!important;
+  padding:8px 9px!important;
+  border-radius:11px!important;
+  box-shadow:0 2px 8px rgba(15,23,42,.04)!important;
+}
+.home-current-status .current-status-main{padding:0 2px!important}
+.home-current-status .current-status-main strong{
+  font-size:12px!important;
+  line-height:1.3!important;
+}
+.home-current-status .current-status-main small{
+  font-size:9px!important;
+  line-height:1.2!important;
+  margin-top:1px!important;
+}
+.home-current-status .current-status-badge{
+  font-size:10px!important;
+  padding:4px 6px!important;
+  border-radius:7px!important;
+  white-space:nowrap!important;
+}
+.home-current-status .current-status-detail{min-width:0!important}
+.home-current-status .current-status-detail>b{
+  font-size:10px!important;
+  line-height:1.25!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+.home-current-status .status-dates span{padding:3px 5px!important}
+.home-current-status .status-dates em{font-size:8px!important}
+.home-current-status .status-dates strong{font-size:10px!important}
+.home-current-status .current-status-remaining{
+  min-width:52px!important;
+  padding-right:6px!important;
+}
+.home-current-status .current-status-remaining b{font-size:15px!important}
+.home-current-status .current-status-remaining span{font-size:8px!important;margin-top:1px!important}
+.home-current-status .current-status-alert{
+  top:4px!important;
+  left:5px!important;
+  font-size:8px!important;
+  padding:2px 4px!important;
+  border-radius:5px!important;
+}
+@media(max-width:1050px){
+  .home-current-status .current-status-list{grid-template-columns:1fr!important}
+}
+@media(max-width:700px){
+  .home-current-status .current-status-list{max-height:330px!important}
+  .home-current-status .current-status-card{
+    grid-template-columns:minmax(0,1fr) auto!important;
+    grid-template-areas:
+      "main badge"
+      "detail remaining"!important;
+  }
+  .home-current-status .current-status-main{grid-area:main!important}
+  .home-current-status .current-status-badge{grid-area:badge!important;align-self:center!important}
+  .home-current-status .current-status-detail{grid-area:detail!important}
+  .home-current-status .current-status-remaining{grid-area:remaining!important}
+}

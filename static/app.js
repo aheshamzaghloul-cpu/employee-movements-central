@@ -15,6 +15,14 @@
   syncDependentSelect('employee_governorate','employee_branch');
   syncDependentSelect('employee_governorate_filter','employee_branch_filter');
 
+  // Employees page: selecting a governorate/branch refreshes the native employee suggestions.
+  const empSearchForm=qs('#employees-search-form');
+  const empGov=qs('#employee_governorate_filter');
+  const empBranch=qs('#employee_branch_filter');
+  if(empSearchForm && (empGov || empBranch)){
+    [empGov,empBranch].filter(Boolean).forEach(el=>el.addEventListener('change',()=>empSearchForm.submit()));
+  }
+
   // Roles control which scope groups are required/visible.
   qsa('form').forEach(form=>{
     const roleBoxes=qsa('input[type=checkbox][name="roles"]',form);

@@ -239,10 +239,11 @@
         <form method="post" action="/entry-role/add" class="entry-role-inline-grid" id="entry-role-inline-form">
           <input type="hidden" name="_csrf" value="{{csrf}}">
           <label>اسم المدخل الأول
-            <select name="employee_id" id="inline-entry-employee" required>
-              <option value="">اختر اسم المدخل الأول</option>
-              {% for e in available_entry_employees %}<option value="{{e.id}}" data-gov-id="{{e.branch.governorate_id if e.branch else ''}}">{{e.full_name}}{% if e.branch %} — {{e.branch.name}}{% endif %}</option>{% endfor %}
-            </select>
+            <input id="inline-entry-employee-search" list="inline-entry-employees" placeholder="اكتب اسم الموظف..." autocomplete="off" required>
+            <input type="hidden" name="employee_id" id="inline-entry-employee" value="">
+            <datalist id="inline-entry-employees">
+              {% for e in available_entry_employees %}<option value="{{e.full_name}}{% if e.branch %} — {{e.branch.name}}{% endif %}" data-id="{{e.id}}" data-gov-id="{{e.branch.governorate_id if e.branch else ''}}"></option>{% endfor %}
+            </datalist>
           </label>
           {% if is_admin %}<label>المشرف المسؤول
             <select name="supervisor_id" required><option value="">اختر المشرف</option>{% for s in entry_supervisors %}<option value="{{s.id}}">{{s.full_name}}</option>{% endfor %}</select>
@@ -399,15 +400,19 @@
   const close=document.getElementById('close-entry-role-add');
   const panel=document.getElementById('entry-role-inline-panel');
   const employee=document.getElementById('inline-entry-employee');
+  const employeeSearch=document.getElementById('inline-entry-employee-search');
+  const employeeOptions=[...document.querySelectorAll('#inline-entry-employees option')];
   const choices=[...document.querySelectorAll('#inline-entry-branch-grid .entry-role-branch-choice')];
   const empty=document.getElementById('inline-entry-branch-empty');
   const help=document.getElementById('inline-entry-branch-help');
-  if(!toggle||!panel||!employee) return;
-  const setOpen=(open)=>{panel.classList.toggle('open',open); if(open) employee.focus();};
+  if(!toggle||!panel||!employee||!employeeSearch) return;
+  const setOpen=(open)=>{panel.classList.toggle('open',open); if(open) employeeSearch.focus();};
   toggle.addEventListener('click',()=>setOpen(!panel.classList.contains('open')));
   close?.addEventListener('click',()=>setOpen(false));
   function syncEntryEmployee(){
-    const opt=employee.options[employee.selectedIndex];
+    const raw=(employeeSearch.value||'').trim();
+    const opt=employeeOptions.find(o=>o.value===raw) || employeeOptions.find(o=>o.value.toLowerCase().startsWith(raw.toLowerCase()) && raw);
+    employee.value=opt?.dataset.id||'';
     const gov=opt?.dataset.govId||'';
     let shown=0;
     choices.forEach(label=>{
@@ -419,7 +424,8 @@
     empty.hidden=shown>0;
     help.textContent=shown?`تم عرض ${shown} فرعًا ضمن محافظة الموظف — اختر فرعًا أو أكثر.`:'لا توجد فروع متاحة ضمن نطاق هذا الموظف.';
   }
-  employee.addEventListener('change',syncEntryEmployee);
+  employeeSearch.addEventListener('input',syncEntryEmployee);
+  employeeSearch.addEventListener('change',syncEntryEmployee);
   choices.forEach(label=>{ const cb=label.querySelector('input'); cb?.addEventListener('change',()=>label.classList.toggle('selected',cb.checked)); });
 })();
 </script>

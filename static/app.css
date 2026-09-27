@@ -2760,3 +2760,27 @@ body.home-panel-focus .panel-focus-mode > .dashboard-widget.panel-focused .panel
   .home-current-status .current-status-remaining{grid-column:1/-1!important}
   .home-entry-directory .entry-meta{display:none!important}
 }
+
+/* Employees — simple management page */
+.employees-page{max-width:1180px;margin:0 auto}
+.employees-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.employees-head h1{margin:0;font-size:25px}
+.employees-add-btn{white-space:nowrap}
+.employees-search{padding:12px 14px;margin-bottom:12px}
+.employees-filter-row{display:grid;grid-template-columns:1fr 1fr minmax(280px,1.8fr) auto auto;gap:9px;align-items:end}
+.employees-filter-row label{margin:0;font-size:12px;font-weight:700;color:var(--primary)}
+.employees-filter-row select,.employees-filter-row input{margin-top:5px;min-height:40px}
+.employees-search-field{min-width:0}
+.employees-list-box{padding:0;overflow:hidden}
+.employees-list-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border)}
+.employees-list-head h3{margin:0;font-size:15px}
+.employees-list-head span{font-size:11px;color:var(--muted)}
+#employees-table{margin:0;width:100%}
+#employees-table th,#employees-table td{padding:10px 12px}
+.employee-row-actions{width:70px;text-align:center}
+.employees-add-box{margin-top:14px;scroll-margin-top:20px}
+.employees-add-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.employees-add-head h3{margin:0}
+.employees-add-head span{font-size:11px;color:var(--muted)}
+@media(max-width:900px){.employees-filter-row{grid-template-columns:1fr 1fr}.employees-search-field{grid-column:1/-1}.employees-filter-row>.btn{min-height:40px}}
+@media(max-width:600px){.employees-head{align-items:center}.employees-head h1{font-size:21px}.employees-filter-row{grid-template-columns:1fr}.employees-search-field{grid-column:auto}.employees-add-head{align-items:flex-start;flex-direction:column}}

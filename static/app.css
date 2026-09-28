@@ -3101,14 +3101,14 @@ table{font-size:13px!important}th,td{padding:9px 10px!important;border-color:var
 .movement-filter-title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
 .movement-filter-title strong{display:block;font-size:13px;color:var(--text,#243447)}
 .movement-filter-title span{display:block;font-size:11px;color:var(--muted,#667085);margin-top:2px}
-.movement-filter-controls{display:grid;grid-template-columns:1fr 1fr 1.25fr 1.6fr .8fr;gap:9px;align-items:end}
+.movement-filter-controls{display:grid;grid-template-columns:1fr 1fr 1.25fr 1.6fr .8fr auto;gap:9px;align-items:end}
 .movement-filter-controls label{min-width:0}
 .movement-filter-controls label>span{display:block;font-size:11px;color:var(--muted,#667085);margin-bottom:5px}
 .movement-filter-controls input,.movement-filter-controls select{width:100%;min-height:40px;margin:0}
 .movement-filter-controls select:disabled{color:#98a2b3;background:#f7f8fa;cursor:not-allowed}
-.movement-filter-reset{min-height:32px!important;padding:5px 10px!important;font-size:11px!important}
-@media(max-width:1050px){.movement-filter-controls{grid-template-columns:1fr 1fr 1fr}.movement-filter-controls .movement-filter-search{grid-column:span 2}}
-@media(max-width:650px){.movement-filter-controls{grid-template-columns:1fr}.movement-filter-controls .movement-filter-search{grid-column:auto}.movement-filter-title{align-items:flex-start}.movement-filter-reset{flex-shrink:0}}
+.movement-filter-reset{min-height:32px!important;padding:5px 10px!important;font-size:11px!important}.movement-filter-submit{min-height:40px;padding:0 18px;white-space:nowrap}
+@media(max-width:1050px){.movement-filter-controls{grid-template-columns:1fr 1fr 1fr}.movement-filter-submit{width:100%}.movement-filter-controls .movement-filter-search{grid-column:span 2}}
+@media(max-width:650px){.movement-filter-controls{grid-template-columns:1fr}.movement-filter-controls .movement-filter-search{grid-column:auto}.movement-filter-submit{width:100%}.movement-filter-title{align-items:flex-start}.movement-filter-reset{flex-shrink:0}}
 
 /* v36.15 — movement page review cleanup */
 .movement-page-count strong{font-size:18px;line-height:1}.movement-filter-empty{margin:8px 12px}.movement-section-card .movement-empty-inline{padding:16px 13px}.movement-filter-controls{grid-template-columns:1fr 1fr 1.2fr 1.5fr .85fr}.movement-filter-controls label{min-width:0}.movement-history-section .movement-list-tools{display:flex;align-items:center;justify-content:space-between;gap:12px}.movement-history-section .movement-list-tools h2{margin:0}.movement-history-section .movement-records-table th:last-child,.movement-history-section .movement-records-table td:last-child{width:44px;text-align:center}.movement-history-section .movement-records-table td:first-child{min-width:170px}.movement-section-card.current .movement-compact-row,.movement-section-card.followup .movement-compact-row{min-height:52px}.movement-section-card .movement-person a{font-weight:700}.movement-section-card .movement-person small{font-size:10px;color:var(--muted,#667085)}

@@ -1,18 +1,32 @@
 {% extends 'base.html' %}
 {% block title %}تقارير ومأموريات{% endblock %}
 {% block content %}
-<div class="toolbar"><div><h1>تقارير ومأموريات</h1></div></div>
-<div class="home-panel reports-missions-hub" style="margin-top:14px">
-  <div class="home-group-head"><span class="home-group-icon">📊</span><div><h3>التقارير والمأموريات</h3><small>اختر الخدمة المطلوبة</small></div></div>
-  <div class="movement-action-grid">
-    {% if can('view_reports') %}
-    <a class="movement-action" href="/reports/leaves"><span>🏖️</span><b>تقرير الإجازات</b><small>الإجازات حسب المحافظة والفرع والموظف والفترة</small></a>
-    <a class="movement-action" href="/reports/assignments"><span>📍</span><b>تقرير الانتدابات</b><small>الجهات المنتدب إليها والمواعيد والحالات</small></a>
-    <a class="movement-action" href="/reports/permissions"><span>🕘</span><b>تقرير الأذونات</b><small>الأذونات وتفاصيلها حسب الموظفين والفترة</small></a>
-    {% endif %}
-    {% if can('manage_movements') or can('view_reports') %}
-    <a class="movement-action" href="/reports/assignments/print-missions"><span>📄</span><b>طباعة المأموريات</b><small>النماذج الرسمية للانتدابات</small></a>
-    {% endif %}
-  </div>
+<div class="page-head">
+  <div><span class="home-kicker">مركز البيانات والتشغيل</span><h1>تقارير ومأموريات</h1><p class="muted">التقارير ضمن نطاق صلاحيتك، والمأموريات متاحة للعرض والطباعة من جميع المحافظات.</p></div>
+</div>
+
+<div class="reports-group-grid" style="margin-top:18px">
+  {% if can('view_reports') %}
+  <section class="reports-group-card free-card">
+    <div class="reports-group-head"><span class="reports-group-icon">📊</span><div><h3>التقارير</h3><small>تحليل الحركات وتصفية النتائج ثم تصديرها إلى Excel.</small></div></div>
+    <div class="reports-group-links">
+      <a href="/reports/leaves"><span>🏖️</span><b>الإجازات</b><small>المحافظة · الفرع · الموظف · الفترة</small></a>
+      <a href="/reports/assignments"><span>📍</span><b>الانتدابات</b><small>الجهة · المدة · الحالة · الموظف</small></a>
+      <a href="/reports/permissions"><span>🕘</span><b>الأذونات</b><small>التاريخ · الموظف · الفرع</small></a>
+    </div>
+  </section>
+  <section class="reports-group-card mission-group-card free-card">
+    <div class="reports-group-head"><span class="reports-group-icon">📄</span><div><h3>المأموريات</h3><small>عرض وطباعة المأموريات من جميع المحافظات.</small></div></div>
+    <div class="reports-group-links">
+      <a href="/reports/assignments/print-missions"><span>🟠</span><b>المأموريات المفتوحة</b><small>الانتدابات المفتوحة بلا تاريخ نهاية.</small></a>
+      <a href="/reports/assignments/print-missions?duration=dated"><span>📅</span><b>المأموريات محددة المدة</b><small>الانتدابات التي لها تاريخ نهاية.</small></a>
+    </div>
+  </section>
+  {% endif %}
+</div>
+
+<div class="box" style="margin-top:18px;padding:18px">
+  <div class="section-title"><div><h3>قاعدة المأمورية المفتوحة</h3><small>عدم وجود تاريخ نهاية ليس خطأ في البيانات.</small></div><span class="tag">مفتوحة المدة</span></div>
+  <p class="muted" style="margin:8px 0 0">الانتداب المفتوح يُسجل بدون تاريخ نهاية، ويظل مفتوحًا حتى يتم تحديد نهاية فعلية أو تعديل مدته. عند الطباعة يمكن استخدام تاريخ مؤقت للنموذج دون تغييره في بيانات الحركة.</p>
 </div>
 {% endblock %}

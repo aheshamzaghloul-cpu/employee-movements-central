@@ -3706,7 +3706,7 @@ def mission_print_date_save(movement_id):
 def mission_pdf(movement_id):
     m=db.session.get(Movement,movement_id)
     if not m or not m.is_active or m.movement_type!='انتداب' or not branch_ok(m.employee.branch_id): abort(403)
-    if not can('view_reports') or not can_manage_movement(m): abort(403)
+    if not can('view_reports'): abort(403)
     if not m.to_date:
         if mission_state_label(m)=='تحت التحرير' and getattr(m, 'assignment_state', None) != 'مغلق':
             return redirect(url_for('mission_print_date', movement_id=m.id))
@@ -3869,10 +3869,10 @@ def audit():
 @req
 def mission_print_list():
     if not can('view_reports'): abort(403)
-    bs=bids()
-    q=(Movement.query.join(Employee).filter(
-        Employee.branch_id.in_(bs), Movement.is_active==True, Movement.movement_type=='انتداب'
-    ) if bs else Movement.query.filter(False))
+    # المأموريات متاحة للعرض والطباعة عبر جميع المحافظات؛ صلاحية التعديل تبقى مرتبطة بنطاق المستخدم.
+    q=Movement.query.join(Employee).filter(
+        Movement.is_active==True, Movement.movement_type=='انتداب'
+    )
 
     gov=request.args.get('governorate_id','').strip()
     branch=request.args.get('branch_id','').strip()
@@ -3880,17 +3880,16 @@ def mission_print_list():
     status=request.args.get('status','').strip()
     date_from=request.args.get('date_from','').strip()
     date_to=request.args.get('date_to','').strip()
+    duration=request.args.get('duration','').strip()
 
-    allowed_gov_ids=set(gids()) if gids() else set()
     govs=Governorate.query.filter(Governorate.is_active==True).order_by(Governorate.name.asc()).all()
-    govs=[g for g in govs if g.id in allowed_gov_ids]
-    branches=Branch.query.filter(Branch.is_active==True, Branch.id.in_(bs)).order_by(Branch.name.asc()).all() if bs else []
-    branches=[b for b in branches if b.governorate_id in allowed_gov_ids]
+    branches=Branch.query.filter(Branch.is_active==True).order_by(Branch.name.asc()).all()
 
     selected_gov=None
-    if gov.isdigit() and int(gov) in allowed_gov_ids:
+    if gov.isdigit() and any(g.id==int(gov) for g in govs):
         selected_gov=db.session.get(Governorate,int(gov))
         branches=[b for b in branches if b.governorate_id==selected_gov.id]
+        q=q.filter(Employee.branch.has(Branch.governorate_id==selected_gov.id))
     else:
         gov=''
 
@@ -3898,12 +3897,10 @@ def mission_print_list():
     if branch.isdigit() and any(b.id==int(branch) for b in branches):
         selected_branch=db.session.get(Branch,int(branch))
         q=q.filter(Employee.branch_id==selected_branch.id)
-    elif selected_gov:
-        q=q.filter(Employee.branch.has(Branch.governorate_id==selected_gov.id))
     else:
         branch=''
 
-    employees_q=Employee.query.filter(Employee.is_active==True,Employee.branch_id.in_(bs)) if bs else Employee.query.filter(False)
+    employees_q=Employee.query.filter(Employee.is_active==True)
     if selected_branch:
         employees_q=employees_q.filter(Employee.branch_id==selected_branch.id)
     elif selected_gov:
@@ -3915,6 +3912,9 @@ def mission_print_list():
     else:
         employee=''
     if status in STATUSES: q=q.filter(Movement.status==status)
+    if duration == 'open': q=q.filter(Movement.to_date.is_(None))
+    elif duration == 'dated': q=q.filter(Movement.to_date.isnot(None))
+    elif duration != '': duration=''
 
     from datetime import date as _date
     def _parse_report_date(value):
@@ -3929,7 +3929,7 @@ def mission_print_list():
     return render_template('mission_reports.html', rows=rows, statuses=STATUSES,
         report_governorates=govs, report_branches=branches, employees=employees,
         selected_governorate=gov, selected_branch=branch, selected_employee=employee,
-        status=status, date_from=date_from, date_to=date_to)
+        status=status, date_from=date_from, date_to=date_to, duration=duration)
 
 @app.get('/reports/assignments/print-mission/<int:movement_id>')
 @req
@@ -3937,7 +3937,7 @@ def mission_print(movement_id):
     # الصفحة المرئية تعرض النموذج مع زر PDF المطابق للعينة الأصلية.
     m=db.session.get(Movement,movement_id)
     if not m: abort(404)
-    if not can_manage_movement(m) or m.movement_type!='انتداب': abort(403)
+    if not can('view_reports') or m.movement_type!='انتداب': abort(403)
     employee=db.session.get(Employee,m.employee_id); branch=db.session.get(Branch,employee.branch_id) if employee else None
     return render_template('mission_print.html',movement=m,employee=employee,branch=branch,destination=m.destination,mission_state=mission_state_label(m),printed_at=datetime.now())
 
@@ -4057,6 +4057,51 @@ def employee_type_report(report_type):
         selected_branch=selected_branch,
         selected_employee=employee_id if employee_id.isdigit() else ''
     )
+
+@app.get('/reports/<report_type>.xlsx')
+@req
+def employee_type_report_xlsx(report_type):
+    if not can('view_reports'): abort(403)
+    mapping={'leaves':'إجازة','assignments':'انتداب','permissions':'إذن'}
+    if report_type not in mapping: abort(404)
+    mt=mapping[report_type]
+    bs=bids()
+    q=Movement.query.join(Employee).filter(Employee.branch_id.in_(bs),Movement.is_active==True,Movement.movement_type==mt) if bs else Movement.query.filter(False)
+    status=request.args.get('status','').strip(); employee_id=request.args.get('employee_id','').strip()
+    date_from=request.args.get('date_from','').strip(); date_to=request.args.get('date_to','').strip()
+    gov=request.args.get('governorate_id','').strip(); branch=request.args.get('branch_id','').strip()
+    if status in STATUSES: q=q.filter(Movement.status==status)
+    if employee_id.isdigit(): q=q.filter(Movement.employee_id==int(employee_id))
+    allowed_gov_ids=set(gids())
+    if gov.isdigit() and int(gov) in allowed_gov_ids: q=q.filter(Employee.branch.has(Branch.governorate_id==int(gov)))
+    if branch.isdigit() and int(branch) in set(bs): q=q.filter(Employee.branch_id==int(branch))
+    from datetime import date as _date
+    try: df=_date.fromisoformat(date_from) if date_from else None
+    except ValueError: df=None
+    try: dt=_date.fromisoformat(date_to) if date_to else None
+    except ValueError: dt=None
+    if df and dt and df>dt: df,dt=dt,df
+    if df: q=q.filter((Movement.to_date >= df) if mt in ('إجازة','انتداب') else (Movement.permission_date >= df))
+    if dt: q=q.filter((Movement.from_date <= dt) if mt in ('إجازة','انتداب') else (Movement.permission_date <= dt))
+    rows=q.order_by(Employee.full_name.asc(),Movement.from_date.desc(),Movement.permission_date.desc()).all()
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from io import BytesIO
+    wb=Workbook(); ws=wb.active; ws.title='التقرير'
+    headers=['الكود الوظيفي','اسم الموظف','المحافظة','الفرع','نوع الحركة','نوع الإجازة','جهة الانتداب','من','إلى','تاريخ الإذن','حالة الحركة']
+    ws.append(headers)
+    for m in rows:
+        ws.append([m.employee.job_code or '',m.employee.full_name,m.employee.branch.governorate.name if m.employee.branch and m.employee.branch.governorate else '',m.employee.branch.name if m.employee.branch else '',m.movement_type,m.leave_type or '',m.destination.name if m.destination else '',m.from_date or '',m.to_date or '',m.permission_date or '',m.status])
+    fill=PatternFill('solid',fgColor='1F3A5F'); thin=Side(style='thin',color='E4E7EC')
+    for cell in ws[1]: cell.font=Font(bold=True,color='FFFFFF'); cell.fill=fill; cell.alignment=Alignment(horizontal='center',vertical='center')
+    for row in ws.iter_rows():
+        for cell in row: cell.alignment=Alignment(horizontal='right',vertical='center'); cell.border=Border(bottom=thin)
+    widths=[16,28,18,24,16,16,24,14,14,16,14]
+    for i,w in enumerate(widths,1): ws.column_dimensions[chr(64+i)].width=w
+    ws.freeze_panes='A2'; ws.auto_filter.ref=ws.dimensions
+    out=BytesIO(); wb.save(out); out.seek(0)
+    from flask import send_file
+    return send_file(out,as_attachment=True,download_name=f'{report_type}_report.xlsx',mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 @app.get('/reports/<report_type>.csv')
 @req

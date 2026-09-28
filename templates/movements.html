@@ -21,6 +21,7 @@
     <label class="movement-employee-filter"><span>الموظف</span><select id="movementEmployeeFilter" disabled><option value="">اختر الفرع أولًا</option></select></label>
     <label class="movement-filter-search"><span>بحث سريع بالاسم أو الكود</span><input id="movementRecordsSearch" type="search" placeholder="اسم الموظف أو الكود الوظيفي..." autocomplete="off"></label>
     <label><span>نوع الحركة</span><select id="movementRecordsType"><option value="">كل الحركات</option><option value="إجازة">إجازة</option><option value="انتداب">انتداب</option><option value="إذن">إذن</option></select></label>
+    <button type="button" class="btn btn-primary movement-filter-submit" id="movementFilterSubmit">بحث</button>
   </div>
 </section>
 
@@ -107,6 +108,7 @@
   const search=document.getElementById('movementRecordsSearch');
   const type=document.getElementById('movementRecordsType');
   const reset=document.getElementById('movementFilterReset');
+  const submit=document.getElementById('movementFilterSubmit');
   const rows=[...document.querySelectorAll('[data-movement-filter-row]')];
   const empty=document.getElementById('movementNoResults');
   const visibleCount=document.getElementById('movementVisibleCount');
@@ -172,6 +174,7 @@
   gov?.addEventListener('change',()=>{ branch.value=''; employee.value=''; loadFilters(); });
   branch?.addEventListener('change',()=>{ employee.value=''; loadEmployees(); });
   employee?.addEventListener('change',apply); search?.addEventListener('input',apply); type?.addEventListener('change',apply);
+  submit?.addEventListener('click',apply);
   reset?.addEventListener('click',()=>{ gov.value=''; branch.value=''; employee.value=''; search.value=''; type.value=''; branch.disabled=true; employee.disabled=true; branch.innerHTML='<option value="">اختر المحافظة أولًا</option>'; employee.innerHTML='<option value="">اختر الفرع أولًا</option>'; apply(); });
   apply();
 

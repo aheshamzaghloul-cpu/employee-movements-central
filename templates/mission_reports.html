@@ -46,10 +46,10 @@
         <td>{{m.destination.name if m.destination else '—'}}</td>
         <td>{{m.from_date or '—'}}</td>
         <td>{{m.to_date or '—'}}</td>
-        <td><span class="tag">{{ 'مغلقة' if ((m.mission_state or '')=='مغلقة' or (not m.mission_state and m.status=='معتمدة')) else 'تحت التحرير' }}</span></td>
+        <td><span class="tag">{{ 'مغلقة' if (m.mission_state or '')=='مغلقة' else 'تحت التحرير' }}</span></td>
         <td class="mission-actions">
           <a class="btn teal small" href="/reports/assignments/mission-pdf/{{m.id}}" target="_blank">🖨️ PDF مطابق</a>
-          {% if not ((m.mission_state or '')=='مغلقة' or (not m.mission_state and m.status=='معتمدة')) %}
+          {% if (m.mission_state or '')!='مغلقة' %}
             <a class="btn secondary small" href="/reports/assignments/mission-edit/{{m.id}}">✏️ تعديل</a>
             <form method="post" action="/reports/assignments/mission-close/{{m.id}}" style="display:inline" onsubmit="return confirm('إغلاق المأمورية؟ بعد الإغلاق يلزم إعادة الفتح قبل أي تعديل.');"><button class="btn secondary small">🔒 إغلاق</button></form>
           {% else %}

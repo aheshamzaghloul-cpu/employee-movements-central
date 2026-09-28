@@ -57,7 +57,7 @@
         <td>{% if m.leave_type %}{{m.leave_type}}{% elif m.destination %}إلى {{m.destination.name}}{% else %}إذن{% endif %}</td>
         <td>{{m.from_date or '-'}}</td><td>{{m.to_date or '-'}}</td>
         <td><span class="tag">{{m.status}}</span></td>
-        <td>{% if m.status=='معتمدة' %}<a class="table-link" href="/movements/{{m.id}}/history">فتح السجل</a>{% else %}<a class="table-link" href="/movements/{{m.id}}/edit">فتح الحركة</a>{% endif %}</td>
+        <td><a class="table-link" href="/movements/{{m.id}}/edit">فتح الحركة</a></td>
       </tr>
     {% else %}<tr><td colspan="7" class="empty">لا توجد حركات مسجلة لهذا الموظف.</td></tr>{% endfor %}
     </tbody>

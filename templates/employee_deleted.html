@@ -19,7 +19,6 @@
         <td>{{e.deleted_at.strftime('%Y-%m-%d %H:%M') if e.deleted_at else '—'}}</td>
         <td><span class="employee-deleted-badge">محذوف</span></td>
         <td>
-          <a class="btn secondary mini" href="/employee/{{e.id}}">السجل</a>
           <form class="inline" method="post" action="/employees/{{e.id}}/restore">
             <input type="hidden" name="_csrf" value="{{csrf}}">
             <button class="green mini" data-confirm="هل تريد استعادة الموظف؟">استعادة</button>

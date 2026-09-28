@@ -48,11 +48,13 @@
 </div>
 {% endif %}
 
-<!-- أدوات مستقلة عن لوحات الصفحة الرئيسية -->
+<!-- منطقة الأوامر السريعة مقابل لوحات المتابعة -->
+<div class="home-command-layout">
 {% if can('manage_movements') or can('view_reports') %}
+<aside class="home-command-column">
 <section class="home-standalone-box home-employee-search-box" id="home-employee-search">
   <div class="home-standalone-head">
-    <div><span class="home-kicker">بحث ذكي</span><h2>بحث عن موظف</h2><p>الاسم أو كود الموظف هو نقطة البداية، والمحافظة والفرع فلاتر اختيارية.</p></div>
+    <div><span class="home-kicker">بحث</span><h2>بحث عن موظف</h2></div>
     <span class="home-standalone-icon">🔎</span>
   </div>
   <form class="home-movement-employee-search movement-quick-filter-form home-smart-search-form" id="movement-employee-search-form" method="get" action="/">
@@ -76,7 +78,6 @@
     </label>
     <button class="btn" type="submit">🔎 بحث</button>
     {% if movement_governorate_id or movement_branch_id or movement_name_query %}<a class="btn secondary" href="/#home-employee-search">مسح البحث</a>{% endif %}
-    <small>اكتب الاسم أو الكود مباشرة للبحث في كل المحافظات، أو استخدم المحافظة والفرع كفلاتر إضافية.</small>
   </form>
   {% if movement_employee_matches and not movement_employee %}
   <div class="movement-search-results">
@@ -93,7 +94,7 @@
   {% if movement_employee %}
   <div class="movement-employee-result">
     <article class="movement-employee-result-card">
-      <div class="movement-employee-result-head"><div class="movement-employee-result-person"><div class="movement-employee-result-avatar">{{(movement_employee.full_name or 'م')[:1]}}</div><div><h3>{{movement_employee.full_name}}</h3><p>{{movement_employee.job_title or 'موظف'}} · {{movement_employee.job_code or 'بدون كود'}}</p></div></div><div class="actions no-print"><a class="btn secondary" href="/employee/{{movement_employee.id}}">بطاقة الموظف</a></div></div>
+      <div class="movement-employee-result-head"><div class="movement-employee-result-person"><div class="movement-employee-result-avatar">{{(movement_employee.full_name or 'م')[:1]}}</div><div><h3><a class="employee-name-link" href="/employee/{{movement_employee.id}}">{{movement_employee.full_name}}</a></h3><p>{{movement_employee.job_title or 'موظف'}} · {{movement_employee.job_code or 'بدون كود'}}</p></div></div></div></div>
       <div class="movement-employee-result-grid"><div><small>فرع التعيين</small><b>{{movement_employee.branch.name if movement_employee.branch else '—'}}</b></div><div><small>الفرع الحالي</small><b>{% set cam=current_assignment_for_employee(movement_employee.id) %}{{(cam.destination.name if cam and cam.destination else movement_employee.branch.name if movement_employee.branch else '—')}}{% if cam and cam.to_date is none %} — <span class="badge">انتداب مفتوح</span>{% endif %}</b></div><div><small>هاتف الشركة</small><b>{{movement_employee.company_phone or '—'}}</b></div><div><small>الهاتف الشخصي</small><b>{{movement_employee.personal_phone or '—'}}</b></div><div><small>البريد الإلكتروني</small><b>{{movement_employee.email or '—'}}</b></div><div><small>تاريخ التعيين</small><b>{{movement_employee.hire_date or '—'}}</b></div></div>
       <div class="movement-employee-last">{% for k,t in [('إجازة','آخر إجازة'),('انتداب','آخر انتداب'),('إذن','آخر إذن')] %}<div><h4>{{t}}</h4>{% set m=movement_employee_last[k] %}{% if m %}<div class="hint">{% if k=='إذن' %}{{m.permission_date or '—'}}{% else %}{{m.from_date or '—'}} → {{m.to_date or 'مفتوح'}}{% endif %}</div>{% if m.leave_type %}<div class="hint">{{m.leave_type}}</div>{% elif m.destination %}<div class="hint">إلى {{m.destination.name}}</div>{% endif %}<span class="tag">{{m.status}}</span>{% else %}<div class="hint">لا توجد بيانات</div>{% endif %}</div>{% endfor %}</div>
     </article>
@@ -145,9 +146,11 @@
   </form>
 </section>
 {% endif %}
+</aside>
 {% endif %}
 
-<!-- الصفحة الرئيسية: ثلاث لوحات متساوية فقط -->
+<div class="home-dashboard-column">
+<!-- لوحات المتابعة الرئيسية -->
 <div class="home-three-panels" id="dashboard-workspace">
 
   <!-- 1) حالة الموظفين الآن -->
@@ -192,8 +195,8 @@
       <a class="current-status-card {% if row.state=='إجازة' %}is-leave{% elif row.state=='انتداب' %}is-assignment{% elif row.state=='انتداب مفتوح' %}is-open-assignment{% elif row.state=='إذن' %}is-permission{% endif %}" data-status-employee="{{row.employee.id}}" data-status-branch="{{row.display_branch.id if row.display_branch else ''}}" href="/employee/{{row.employee.id}}">
         <div class="current-status-main"><strong>{{row.employee.full_name}}</strong><small>{{row.display_branch.name if row.display_branch else (row.employee.branch.name if row.employee.branch else '—')}}</small></div>
         <div class="current-status-badge">{{row.state}}</div>
-        <div class="current-status-detail"><b>{{row.place}}</b><div class="status-dates"><span><em>من</em><strong>{{row.from_date.strftime('%d/%m/%Y') if row.from_date else '—'}}</strong></span><span><em>إلى</em><strong>{{row.to_date.strftime('%d/%m/%Y') if row.to_date else 'مفتوح'}}</strong></span></div></div>
-        <div class="current-status-remaining">{% if row.state=='انتداب مفتوح' %}<b>∞</b><span>مفتوح</span>{% elif row.state=='إذن' %}<b>اليوم</b><span>إذن</span>{% else %}<b>{{row.remaining}}</b><span>{% if row.remaining==0 %}ينتهي اليوم{% elif row.remaining==1 %}متبقي يوم واحد{% else %}أيام متبقية{% endif %}</span>{% endif %}</div>
+        <div class="current-status-detail"><b>{{row.place}}</b><div class="status-dates">{% if row.state=='متواجد في الفرع' %}<span><em>الحالة</em><strong>متواجد الآن</strong></span>{% elif row.state=='إذن' %}<span><em>التاريخ</em><strong>{{row.from_date.strftime('%d/%m/%Y') if row.from_date else 'اليوم'}}</strong></span>{% else %}<span><em>من</em><strong>{{row.from_date.strftime('%d/%m/%Y') if row.from_date else '—'}}</strong></span><span><em>إلى</em><strong>{{row.to_date.strftime('%d/%m/%Y') if row.to_date else 'مفتوح'}}</strong></span>{% endif %}</div></div>
+        <div class="current-status-remaining">{% if row.state=='متواجد في الفرع' %}<b>✓</b><span>متواجد</span>{% elif row.state=='انتداب مفتوح' %}<b>∞</b><span>مفتوح</span>{% elif row.state=='إذن' %}<b>اليوم</b><span>إذن</span>{% else %}<b>{{row.remaining}}</b><span>{% if row.remaining==0 %}ينتهي اليوم{% elif row.remaining==1 %}متبقي يوم واحد{% else %}أيام متبقية{% endif %}</span>{% endif %}</div>
         {% if row.ending_notice %}<div class="current-status-alert">ينتهي قريبًا</div>{% endif %}
       </a>
       {% endfor %}
@@ -270,12 +273,12 @@
         <details class="entry-card" data-entry-id="{{row.employee.id}}" data-entry-employee-id="{{row.employee.id}}" data-entry-branch-ids="{% for bg in row.branches %}{{bg.branch.id}},{% endfor %}">
           <summary>
             <span class="entry-avatar">👤</span>
-            <span class="entry-main"><strong>{{row.employee.full_name}}</strong><small>{{row.employee.job_title or 'مدخل أول تنظيمي'}}{% if row.supervisor %} · المشرف: {{row.supervisor.full_name}}{% endif %}</small></span>
+            <span class="entry-main"><strong><a class="employee-name-link" href="/employee/{{row.employee.id}}">{{row.employee.full_name}}</a></strong><small>{{row.employee.job_title or 'مدخل أول تنظيمي'}}{% if row.supervisor %} · المشرف: {{row.supervisor.full_name}}{% endif %}</small></span>
             <span class="entry-meta"><b>{{row.branches|length}}</b><small>فروع</small></span><span class="entry-meta entry-people"><b>{{row.employee_count or 0}}</b><small>موظف</small></span>
             <span class="entry-chevron">‹</span>
           </summary>
           <div class="entry-panel">
-            <div class="entry-smart-metrics"><span>👥 <b>{{row.employee_count or 0}}</b> موظف</span><span>🔄 <b>{{row.today_movement_count or 0}}</b> حركة اليوم</span><span class="{% if row.alert_count %}attention{% endif %}">⚠️ <b>{{row.alert_count or 0}}</b> يحتاج متابعة</span></div>
+            <div class="entry-smart-metrics"><span>👥 <b>{{row.employee_count or 0}}</b> موظف</span><span>⚠️ <b>{{row.alert_count or 0}}</b> يحتاج متابعة</span></div>
             <div class="entry-branch-chips">{% for bg in row.branches %}<span>{{bg.branch.name}}</span>{% endfor %}</div>
             <div class="entry-panel-top">
               <span>{% if row.governorates %}{{row.governorates|join(' · ')}}{% else %}ضمن نطاقك الحالي{% endif %}</span>
@@ -302,7 +305,6 @@
                   </form>
                 </details>
                 <form method="post" action="/entry-role/{{row.employee.id}}/remove" class="inline" onsubmit="return confirm('إزالة دور المدخل الأول التنظيمي؟ ستصبح فروع مسؤوليته متاحة لإسنادها من جديد، مع بقاء سجل الموظف.');"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="btn red mini">إزالة الدور</button></form>
-                <a href="/employee/{{row.employee.id}}" class="btn secondary mini">ملف الموظف</a>
                 {% endif %}
               </div>
             </div>
@@ -329,6 +331,8 @@
 
 
 
+</div>
+</div>
 </div>
 <script>
 (function(){

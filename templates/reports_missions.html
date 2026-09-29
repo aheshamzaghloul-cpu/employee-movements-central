@@ -1,6 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}تقارير ومأموريات{% endif %}
-{% endblock %}
+{% block title %}تقارير ومأموريات{% endblock %}
 {% block content %}
 {% if scope_required and not scope_selected %}
 <div class="scope-empty-state"><div class="scope-empty-icon">⌖</div><span class="home-kicker">اختيار نطاق العمل</span><h1>اختر المحافظة أولًا</h1><p>حدد المحافظة التي تريد العمل عليها. بعد الاختيار ستتعامل مع هذه الصفحة بصلاحيات مشرف المحافظة داخل المحافظة المحددة.</p></div>
@@ -28,6 +27,7 @@
   </section>
   {% endif %}
 </div>
+{% endif %}
 
 <div class="box" style="margin-top:18px;padding:18px">
   <div class="section-title"><div><h3>قاعدة المأمورية المفتوحة</h3><small>عدم وجود تاريخ نهاية ليس خطأ في البيانات.</small></div><span class="tag">مفتوحة المدة</span></div>

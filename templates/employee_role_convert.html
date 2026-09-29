@@ -12,7 +12,7 @@
   <form method="post" class="grid wide">
     <input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="action" value="to_entry">
     <label>المشرف المسؤول<select name="supervisor_id" required><option value="">اختر المشرف</option>{% for s in supervisors %}<option value="{{s.id}}">{{s.full_name}} — {{s.job_title or ''}}</option>{% endfor %}</select></label>
-    <div class="box" style="grid-column:1/-1"><div class="section-title"><div><h3>فروع مسؤوليته كمدخل أول</h3><span class="hint">يمكن اختيار أكثر من فرع. هذه ليست خانة فرع التعيين.</span></div></div><div class="choice-list">{% for b in branches %}<label class="choice-item"><input type="checkbox" name="branch_id" value="{{b.id}}">{{b.governorate.name}} — {{b.name}}{% if b.code %} — {{b.code }}{% endif %}</label>{% endfor %}</div></div>
+    <div class="box v47-s-1b9b41ec"><div class="section-title"><div><h3>فروع مسؤوليته كمدخل أول</h3><span class="hint">يمكن اختيار أكثر من فرع. هذه ليست خانة فرع التعيين.</span></div></div><div class="choice-list">{% for b in branches %}<label class="choice-item"><input type="checkbox" name="branch_id" value="{{b.id}}">{{b.governorate.name}} — {{b.name}}{% if b.code %} — {{b.code }}{% endif %}</label>{% endfor %}</div></div>
     <div class="form-actions"><button>تحويل إلى مدخل أول</button></div>
   </form>
 </div>

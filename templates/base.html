@@ -6,7 +6,7 @@
 <title>{% block title %}نظام إدارة حركات الموظفين{% endblock %}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{{url_for('static',filename='design46.css')}}">
+<link rel="stylesheet" href="{{url_for('static',filename='design47.css')}}">
 </head>
 <body class="{% if request.args.get('embed')=='1' %}assistant-embed-body{% endif %}">
 <div class="d42-shell{% if request.args.get('embed')=='1' %} assistant-host{% endif %}">
@@ -36,8 +36,8 @@
   <div class="d42-user"><div class="d42-avatar">{{(me.full_name or 'م')[:1]}}</div><div class="d42-user-copy"><strong>{{me.full_name}}</strong><small>{% if active_role %}{{active_role}}{% elif roles %}{{roles|join(' · ')}}{% endif %}</small></div><svg viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></div>
   <div class="d42-command"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.2"/><path d="m16 16 4 4"/></svg><input id="d42-global-search" type="search" placeholder="ابحث عن موظف بالاسم أو كود شئون العاملين أو أي بيانات أخرى..." autocomplete="off"><kbd>Ctrl K</kbd></div>
   <div class="d42-top-actions">
-    {% if scope_required %}<form method="get" action="/" class="d42-scope-form"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg><select name="governorate_id" aria-label="المحافظة" onchange="this.form.submit()"><option value="">{% if scope_selected %}محافظة: {{scope_governorate.name}}{% else %}اختر المحافظة{% endif %}</option>{% for g in scope_governorates %}{% if not scope_selected or g.id!=scope_selected %}<option value="{{g.id}}">محافظة: {{g.name}}</option>{% endif %}{% endfor %}</select></form>{% elif scope_selected and scope_governorate %}<div class="d42-scope-chip"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg>محافظة: {{scope_governorate.name}}</div>{% elif 'مشرف محافظة' in roles %}<div class="d42-scope-chip d42-scope-info"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg>نطاق المشرف: المحافظات المصرح بها</div>{% endif %}
-    {% if real_roles|length > 1 %}<form method="post" action="/switch-role" class="d44-role-switch prominent-role-switch"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="next" value="{{request.path}}"><span>الدور الحالي</span><select name="active_role" aria-label="تغيير الدور" onchange="this.form.submit()">{% for r in ['مسؤول التطبيق','مشرف محافظة','Manager Application Support','المدخل الأول'] if r in real_roles %}<option value="{{r}}" {% if active_role==r or (not active_role and loop.first) %}selected{% endif %}>{{r}}</option>{% endfor %}</select></form>{% endif %}
+    {% if scope_required %}<form method="get" action="/" class="d42-scope-form"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg><select name="governorate_id" aria-label="المحافظة" onchange="this.form.submit()"><option value="">{% if scope_selected %}محافظة: {{scope_governorate.name}}{% else %}اختر المحافظة{% endif %}</option>{% for g in scope_governorates %}{% if not scope_selected or g.id!=scope_selected %}<option value="{{g.id}}">محافظة: {{g.name}}</option>{% endif %}{% endfor %}</select></form>{% elif scope_selected and scope_governorate %}<div class="d42-scope-chip"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg>محافظة: {{scope_governorate.name}}</div>{% elif 'مشرف محافظة' in roles %}<div class="d42-scope-chip d42-scope-info"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg>صلاحيات المشرف: {{scope_governorates|length}} محافظات</div>{% endif %}
+    {% if real_roles|length > 1 %}<form method="post" action="/switch-role" class="d44-role-switch prominent-role-switch"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="next" value="{{request.path}}"><span>تغيير الدور</span><select name="active_role" aria-label="تغيير الدور" onchange="this.form.submit()">{% for r in ['مسؤول التطبيق','مشرف محافظة','Manager Application Support','المدخل الأول'] if r in real_roles %}<option value="{{r}}" {% if active_role==r or (not active_role and loop.first) %}selected{% endif %}>{{r}}</option>{% endfor %}</select></form>{% endif %}
   </div>
 </header>
 {% endif %}
@@ -77,6 +77,15 @@
     close?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.__closeAssistant();});
     modal?.addEventListener('click',e=>{if(e.target===modal)window.__closeAssistant();});
     document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modal&&!modal.hidden)window.__closeAssistant();});
+    const globalSearch=document.getElementById('d42-global-search');
+    globalSearch?.addEventListener('keydown',e=>{
+      if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();globalSearch.focus();globalSearch.select();return;}
+      if(e.key==='Enter' && globalSearch.value.trim()){
+        e.preventDefault();
+        const q=globalSearch.value.trim();
+        window.location.href='/?movement_name='+encodeURIComponent(q)+'#home-employee-search';
+      }
+    });
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();

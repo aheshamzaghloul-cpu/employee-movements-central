@@ -36,7 +36,7 @@
 
   <div class="admin-sections-grid">
     <section class="admin-section-card">
-      <div class="admin-section-head"><span>🏢</span><div><h3>الهيكل الإداري</h3><small>إدارة البناء الإداري للتطبيق من الأعلى إلى الأسفل.</small></div></div>
+      <div class="admin-section-head"><span><span class="ui-inline-icon-box" aria-hidden="true"></span></span><div><h3>الهيكل الإداري</h3><small>إدارة البناء الإداري للتطبيق من الأعلى إلى الأسفل.</small></div></div>
       <div class="admin-action-grid">
         {% if is_admin or can('manage_structure') %}<a href="/governorates"><b>المحافظات</b><small>إضافة وتعديل وحذف المحافظات.</small></a>
         <a href="/branches"><b>الفروع</b><small>إدارة الفروع وربطها بالمحافظات.</small></a>{% endif %}
@@ -46,7 +46,7 @@
     </section>
 
     <section class="admin-section-card">
-      <div class="admin-section-head"><span>🔐</span><div><h3>المستخدمون والصلاحيات</h3><small>الوظائف التي يسمح بها الدور الحالي فقط.</small></div></div>
+      <div class="admin-section-head"><span><span class="ui-inline-icon-lock" aria-hidden="true"></span></span><div><h3>المستخدمون والصلاحيات</h3><small>الوظائف التي يسمح بها الدور الحالي فقط.</small></div></div>
       <div class="admin-action-grid">
         {% if can('manage_users') %}<a href="/users"><b>المستخدمون والصلاحيات</b><small>إنشاء وتعديل وتعطيل الحسابات وإسناد الأدوار.</small></a><a href="/users"><b>الأدوار المتعددة</b><small>إدارة أدوار الشخص وحسابات الأدوار الوهمية.</small></a>{% endif %}
         <a href="/delegations"><b>تفويضات المشرفين</b><small>تفويض مشرف محافظة إلى مشرف محافظة بديل.</small></a>
@@ -55,7 +55,7 @@
     </section>
 
     <section class="admin-section-card">
-      <div class="admin-section-head"><span>👥</span><div><h3>الموظفون والحركات</h3><small>إدارة البيانات التشغيلية ومتابعة حركة الموظفين.</small></div></div>
+      <div class="admin-section-head"><span><span class="ui-inline-icon-group" aria-hidden="true"></span></span><div><h3>الموظفون والحركات</h3><small>إدارة البيانات التشغيلية ومتابعة حركة الموظفين.</small></div></div>
       <div class="admin-action-grid">
         <a href="/employees"><b>الموظفون</b><small>إضافة وتعديل وحذف بيانات الموظفين.</small></a>
         <a href="/movements"><b>حركات الموظفين</b><small>تسجيل ومتابعة الإجازات والانتدابات والأذونات.</small></a>
@@ -78,11 +78,11 @@
 {% else %}
 {% if not is_supervisor %}
 <div class="free-card-workspace admin-free-workspace" id="admin-shortcuts-workspace"><div class="admin-shortcuts no-print admin-card-grid">
-  <div class="admin-shortcut-card admin-shortcut-group free-card" data-free-card-id="admin-structure"><span class="admin-card-icon">🏢</span><span><strong>الهيكل الإداري</strong><small>اختر المحافظة أولًا، ثم تظهر بطاقة الهيكل الخاصة بها.</small></span><a class="admin-card-action" href="#my-governorates">اختيار المحافظة</a></div>
+  <div class="admin-shortcut-card admin-shortcut-group free-card" data-free-card-id="admin-structure"><span class="admin-card-icon"><span class="ui-inline-icon-box" aria-hidden="true"></span></span><span><strong>الهيكل الإداري</strong><small>اختر المحافظة أولًا، ثم تظهر بطاقة الهيكل الخاصة بها.</small></span><a class="admin-card-action" href="#my-governorates">اختيار المحافظة</a></div>
 </div>
 </div>
 
-<div class="admin-replacement-link no-print"><a class="admin-card-action" href="/replacement">🔁 الاستبدال — نقل مسؤولية المشرف أو المدخل الأول</a></div>
+<div class="admin-replacement-link no-print"><a class="admin-card-action" href="/replacement"><span class="ui-inline-icon-swap" aria-hidden="true"></span> الاستبدال — نقل مسؤولية المشرف أو المدخل الأول</a></div>
 <div class="admin-structure-picker no-print" id="my-governorates">
   <div class="section-caption"><b>{% if is_entry %}فروعك وموظفوها{% else %}الهيكل الإداري{% endif %}</b><span>اختر المحافظة للوصول إلى الهيكل والتعديل والإدارة.</span></div>
   <form method="get" class="grid admin-gov-form">
@@ -106,10 +106,10 @@
 <section class="structure-card supervisor-clean-card {% if is_supervisor %}supervisor-full-page-card{% endif %}">
   <div class="structure-head"><div><span class="eyebrow">المحافظة</span><h2>{{g.name}}</h2></div><span class="tag">{{bs|length}} فرع</span></div>
   {% if is_admin %}
-  <details class="inline-add no-print" style="margin-bottom:10px"><summary>＋ إضافة مشرف لهذه المحافظة</summary><form method="post" action="/users" class="quick-form wide-form"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="from_structure" value="1"><input type="hidden" name="role" value="مشرف محافظة"><input type="hidden" name="governorate_id" value="{{g.id}}"><label>اسم المشرف<input name="full_name" required></label><label>البريد الإلكتروني<input name="email" type="email" required autocomplete="email"></label><label>الوظيفة<input name="job_title" required></label><label>الكود الوظيفي<input name="job_code" required></label><label>اسم المستخدم<input name="username" required></label><label>كلمة المرور الأولية<input name="password" type="password" minlength="8" required></label><button>إنشاء المشرف وربطه بالمحافظة</button></form></details>
+  <details class="inline-add no-print v47-s-a7409f75"><summary>＋ إضافة مشرف لهذه المحافظة</summary><form method="post" action="/users" class="quick-form wide-form"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="from_structure" value="1"><input type="hidden" name="role" value="مشرف محافظة"><input type="hidden" name="governorate_id" value="{{g.id}}"><label>اسم المشرف<input name="full_name" required></label><label>البريد الإلكتروني<input name="email" type="email" required autocomplete="email"></label><label>الوظيفة<input name="job_title" required></label><label>الكود الوظيفي<input name="job_code" required></label><label>اسم المستخدم<input name="username" required></label><label>كلمة المرور الأولية<input name="password" type="password" minlength="8" required></label><button>إنشاء المشرف وربطه بالمحافظة</button></form></details>
   {% endif %}
   <div class="node">
-    <div class="node-title">👤 المشرفون <span class="node-count">{{sups|length}}</span></div>
+    <div class="node-title"><span class="ui-inline-icon-person" aria-hidden="true"></span> المشرفون <span class="node-count">{{sups|length}}</span></div>
     {% for sup in sups %}
       <div class="person block"><div><b>{{sup.full_name}}</b><small>{{sup.job_title or '—'}}{% if sup.job_code %} — {{sup.job_code}}{% endif %}</small></div>{% if is_admin %}<a class="btn secondary mini" href="{{ url_for('user_edit',i=sup.id) }}">تعديل</a>{% endif %}</div>
 
@@ -117,10 +117,10 @@
   </div>
 
   <div class="node entry-directory-admin-node">
-    <div class="node-title">🧑‍💼 المدخلون الأوائل التنظيميون <span class="node-count">{{entries|length}}</span></div>
+    <div class="node-title"><span class="ui-inline-icon-person" aria-hidden="true"></span> المدخلون الأوائل التنظيميون <span class="node-count">{{entries|length}}</span></div>
     {% for item in entries %}{% set emp=item[0] %}{% set scoped=item[1] %}{% set sup=item[2] %}{% set assignment=item[3] %}{% set linked_emp=item[4] %}
       <details class="hierarchy-entry" open>
-        <summary><span>👤 <b>{{emp.full_name}}</b> — {{emp.job_title or 'مدخل أول تنظيمي'}}</span><span class="tag">{{scoped|length}} فرع{% if sup %} · المشرف: {{sup.full_name}}{% endif %}</span></summary>
+        <summary><span><span class="ui-inline-icon-person" aria-hidden="true"></span> <b>{{emp.full_name}}</b> — {{emp.job_title or 'مدخل أول تنظيمي'}}</span><span class="tag">{{scoped|length}} فرع{% if sup %} · المشرف: {{sup.full_name}}{% endif %}</span></summary>
         <div class="entry-inner">
           {% if not is_supervisor %}
           <div class="entry-actions no-print">
@@ -130,7 +130,7 @@
           {% endif %}
           {% for b in scoped %}
             <details class="hierarchy-branch" open>
-              <summary><span>🏢 <b>{{b.name}}</b>{% if b.code %} — {{b.code}}{% endif %}</span><span class="tag">{{counts[b.id]}} موظف</span></summary>
+              <summary><span><span class="ui-inline-icon-box" aria-hidden="true"></span> <b>{{b.name}}</b>{% if b.code %} — {{b.code}}{% endif %}</span><span class="tag">{{counts[b.id]}} موظف</span></summary>
               <div class="employee-list">
                 {% for e in b.employee_items %}<a href="{{ url_for('card',i=e.id) }}">{{e.full_name}}{% if e.job_code %} <small>({{e.job_code}})</small>{% endif %}</a>{% else %}<span class="empty-small">لا يوجد موظفون مسجلون.</span>{% endfor %}
               </div>
@@ -140,13 +140,13 @@
       </details>
     {% else %}<div class="empty-small">لا يوجد مدخلون أوائل حاليًا.</div>{% endfor %}
   </div>
-  {% if is_admin or is_supervisor %}<div class="node no-print"><div class="node-title">🏢 فروع غير مرتبطة بمدخل أول</div>{% for b in bs if not branch_entry(b) %}<div class="branch-row"><div><b>{{b.name}}</b>{% if b.code %}<small>{{b.code}}</small>{% endif %}</div><span class="tag">{{counts[b.id]}} موظف</span></div>{% else %}<div class="empty-small">كل الفروع مرتبطة بمدخل أول.</div>{% endfor %}</div>{% endif %}
+  {% if is_admin or is_supervisor %}<div class="node no-print"><div class="node-title"><span class="ui-inline-icon-box" aria-hidden="true"></span> فروع غير مرتبطة بمدخل أول</div>{% for b in bs if not branch_entry(b) %}<div class="branch-row"><div><b>{{b.name}}</b>{% if b.code %}<small>{{b.code}}</small>{% endif %}</div><span class="tag">{{counts[b.id]}} موظف</span></div>{% else %}<div class="empty-small">كل الفروع مرتبطة بمدخل أول.</div>{% endfor %}</div>{% endif %}
 </section>
 {% endfor %}
 </div></div>
 {% else %}
 <div class="structure-select-first no-print">
-  <div class="structure-select-icon">🏢</div>
+  <div class="structure-select-icon"><span class="ui-inline-icon-box" aria-hidden="true"></span></div>
   <h2>اختر المحافظة أولًا</h2>
   <p>بعد اختيار المحافظة ستظهر الفروع والمشرفون والمدخلون والموظفون التابعون لها.</p>
 </div>

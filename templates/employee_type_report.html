@@ -1,6 +1,6 @@
 {% extends 'base.html' %}{% block title %}{{title}}{% endblock %}{% block content %}
 {% if scope_required and not scope_selected %}<div class="scope-empty-state"><div class="scope-empty-icon">⌖</div><span class="home-kicker">اختيار نطاق العمل</span><h1>اختر المحافظة أولًا</h1><p>حدد المحافظة التي تريد العمل عليها قبل عرض التقرير.</p></div>{% else %}
-<div class="page-head no-print"><div><h1>{{title}}</h1><p class="muted">النتيجة تظهر مباشرة داخل التطبيق. يمكنك الطباعة أو التحميل اختياريًا.</p></div><div class="actions"><button type="button" class="btn" onclick="window.print()">🖨️ طباعة التقرير</button><a class="btn secondary" href="/reports">العودة للتقارير</a></div></div>
+<div class="page-head no-print"><div><h1>{{title}}</h1><p class="muted">النتيجة تظهر مباشرة داخل التطبيق. يمكنك الطباعة أو التحميل اختياريًا.</p></div><div class="actions"><button type="button" class="btn" onclick="window.print()"><span class="ui-inline-icon-print" aria-hidden="true"></span>️ طباعة التقرير</button><a class="btn secondary" href="/reports">العودة للتقارير</a></div></div>
 <div class="print-header"><h1>{{title}}</h1><div>نظام حركات الموظفين المركزي</div><div class="print-meta">تاريخ الطباعة: {{ now().strftime("%Y-%m-%d") if now is defined else "" }}</div></div>
 <div class="box no-print"><form method="get" class="grid report-filters" id="reportFilterForm">
 <div><label>المحافظة</label>

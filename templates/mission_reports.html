@@ -7,7 +7,7 @@
   <div class="actions"><a class="btn secondary" href="/reports-missions">↩ تقارير ومأموريات</a></div>
 </div>
 
-<div class="box no-print" style="padding:18px">
+<div class="box no-print v47-s-9128d964">
 <form method="get" class="grid report-filters" id="missionFilterForm">
   <div><label>المحافظة</label><select name="governorate_id" onchange="this.form.branch_id.value='';this.form.employee_id.value='';this.form.submit()"><option value="">كل المحافظات</option>{% for g in report_governorates %}<option value="{{g.id}}" {% if selected_governorate==g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></div>
   <div><label>الفرع</label><select name="branch_id" onchange="this.form.employee_id.value='';this.form.submit()" {% if not selected_governorate %}disabled{% endif %}><option value="">كل الفروع</option>{% for b in report_branches %}<option value="{{b.id}}" {% if selected_branch==b.id|string %}selected{% endif %}>{{b.name}}</option>{% endfor %}</select></div>
@@ -32,7 +32,7 @@
     <td>{{m.from_date or '—'}}</td>
     <td>{% if m.to_date %}{{m.to_date}}{% else %}<span class="tag">مفتوح</span>{% endif %}</td>
     <td>{% if m.to_date %}محدد المدة{% else %}مفتوح المدة{% endif %}</td>
-    <td class="mission-actions"><a class="btn teal small" href="/reports/assignments/mission-pdf/{{m.id}}" target="_blank">🖨️ طباعة</a>{% if can_manage_movement(m) %}<a class="btn secondary small" href="/reports/assignments/mission-edit/{{m.id}}">تعديل</a>{% endif %}</td>
+    <td class="mission-actions"><a class="btn teal small" href="/reports/assignments/mission-pdf/{{m.id}}" target="_blank"><span class="ui-inline-icon-print" aria-hidden="true"></span>️ طباعة</a>{% if can_manage_movement(m) %}<a class="btn secondary small" href="/reports/assignments/mission-edit/{{m.id}}">تعديل</a>{% endif %}</td>
   </tr>
   {% endfor %}
   </tbody></table>

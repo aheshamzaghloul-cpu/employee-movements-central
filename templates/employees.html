@@ -11,7 +11,7 @@
 
   {% if can('manage_employees') and add_govs %}
   <section class="employee-dashboard-panel employee-add-panel" id="employee-add">
-    <div class="employee-panel-head"><div><span class="home-kicker">إضافة جديدة</span><h2>＋ إضافة موظف</h2><p>المحافظة والفرع وبيانات الموظف الأساسية.</p></div><span class="employee-panel-icon">👤＋</span></div>
+    <div class="employee-panel-head"><div><span class="home-kicker">إضافة جديدة</span><h2>＋ إضافة موظف</h2><p>المحافظة والفرع وبيانات الموظف الأساسية.</p></div><span class="employee-panel-icon"><span class="ui-inline-icon-person" aria-hidden="true"></span>＋</span></div>
     <form method="post" class="employee-add-grid">
       <input type="hidden" name="_csrf" value="{{csrf}}">
       <label>المحافظة<select name="governorate_id" id="new_employee_governorate" required><option value="">اختر المحافظة</option>{% for g in add_govs %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
@@ -30,7 +30,7 @@
 
   <!-- البحث السريع عن الموظف موجود في الصفحة الرئيسية؛ لا نكرره هنا. -->
   <section class="employee-dashboard-panel employee-search-panel" hidden>
-    <div class="employee-panel-head"><div><span class="home-kicker">بحث ذكي</span><h2>🔎 البحث عن موظف</h2><p>المحافظة ← الفرع ← اسم الموظف أو الكود الوظيفي.</p></div><span class="employee-panel-icon">🔎</span></div>
+    <div class="employee-panel-head"><div><span class="home-kicker">بحث ذكي</span><h2><span class="ui-inline-icon-search" aria-hidden="true"></span> البحث عن موظف</h2><p>المحافظة ← الفرع ← اسم الموظف أو الكود الوظيفي.</p></div><span class="employee-panel-icon"><span class="ui-inline-icon-search" aria-hidden="true"></span></span></div>
     <form method="get" action="/employees" id="employees-search-form" class="employee-search-grid">
       <label>المحافظة<select name="governorate_id" id="employee_governorate_filter"><option value="">كل المحافظات</option>{% for g in govs %}<option value="{{g.id}}" {% if gov_filter|int == g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>
       <label>الفرع<select name="branch_id" id="employee_branch_filter"><option value="">كل الفروع</option>{% for b in bs %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}" {% if request.args.get('branch_id','')|int == b.id %}selected{% endif %}>{{b.name}}</option>{% endfor %}</select></label>

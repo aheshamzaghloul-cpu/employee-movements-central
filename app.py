@@ -819,6 +819,7 @@ def home():
         # بحث الموظف في الرئيسية متاح لكل المحافظات، حتى لو كان نطاق العمل الحالي محافظة واحدة.
         movement_search_governorates=Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all(),
         movement_search_branches=(Branch.query.filter(Branch.governorate_id==search_gov_id,Branch.is_active==True).order_by(Branch.name.asc()).all() if search_gov_id else []),
+        movement_search_all_branches=Branch.query.filter_by(is_active=True).order_by(Branch.name.asc()).all(),
         home_movement_governorates=home_movement_governorates,
         home_movement_branches=home_movement_branches,
         movement_search_employees=Employee.query.filter_by(is_active=True).order_by(Employee.full_name.asc()).all(),

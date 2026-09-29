@@ -25,6 +25,44 @@
     </div>
   </section>
 
+  <section class="d42-card d48-home-search" aria-labelledby="home-search-title">
+    <header class="d42-card-head d48-search-head">
+      <div>
+        <span class="d42-eyebrow">بحث الموظفين</span>
+        <h2 id="home-search-title">ابحث عن أي موظف</h2>
+        <p>البحث متاح عبر جميع المحافظات، ولا يعتمد على محافظة نطاق التشغيل.</p>
+      </div>
+      <span class="d42-search-badge">بحث عام</span>
+    </header>
+    <form method="get" action="/" class="d48-home-search-form" id="homeEmployeeSearchForm">
+      <label class="d48-search-main-field">
+        <span>اسم الموظف أو كود شئون العاملين</span>
+        <div class="d48-search-input-wrap">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.2"/><path d="m16 16 4 4"/></svg>
+          <input name="movement_name" value="{{movement_name_query or ''}}" type="search" placeholder="اكتب الاسم أو الكود..." autocomplete="off">
+        </div>
+      </label>
+      <label class="d48-search-field">
+        <span>المحافظة <small>اختياري</small></span>
+        <select name="movement_governorate_id" id="homeSearchGovernorate">
+          <option value="">كل المحافظات</option>
+          {% for g in movement_search_governorates %}<option value="{{g.id}}" {% if movement_governorate_id and movement_governorate_id|int==g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="d48-search-field">
+        <span>الفرع <small>اختياري</small></span>
+        <select name="movement_branch_id" id="homeSearchBranch">
+          <option value="">كل الفروع</option>
+          {% for b in movement_search_all_branches %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}" {% if movement_branch_id and movement_branch_id|int==b.id %}selected{% endif %}>{{b.name}}</option>{% endfor %}
+        </select>
+      </label>
+      <button class="d42-primary d48-search-button" type="submit">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.2"/><path d="m16 16 4 4"/></svg>
+        <span>بحث</span>
+      </button>
+    </form>
+  </section>
+
   <section class="d42-kpis">
     <article class="d42-kpi blue"><div class="d42-kpi-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M3.5 19c.6-3 2.5-4.5 5.5-4.5s4.9 1.5 5.5 4.5M14 15c2.7-.7 5.5.5 6.5 4"/></svg></div><div><small>حركات الموظفين الآن</small><strong>{{current_status_summary.leave + current_status_summary.assignment + current_status_summary.open_assignment + current_status_summary.permission}}</strong><span>موظفون لديهم حركة</span></div><a href="/employees">عرض <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></a></article>
     <article class="d42-kpi amber"><div class="d42-kpi-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20c.7-4 3-6 7-6s6.3 2 7 6"/></svg></div><div><small>الموظفون</small><strong>{{e}}</strong><span>إجمالي الموظفين</span></div><a href="/employees">عرض <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></a></article>
@@ -67,6 +105,21 @@
 </div>
 <script>
 document.addEventListener('DOMContentLoaded',()=>{
+  const searchGov=document.getElementById('homeSearchGovernorate');
+  const searchBranch=document.getElementById('homeSearchBranch');
+  if(searchGov && searchBranch){
+    const syncBranches=()=>{
+      const gov=searchGov.value;
+      [...searchBranch.options].forEach((opt,i)=>{
+        if(i===0){opt.hidden=false;return;}
+        opt.hidden=!!gov && opt.dataset.governorate!==gov;
+      });
+      const current=searchBranch.options[searchBranch.selectedIndex];
+      if(current && current.hidden) searchBranch.value='';
+    };
+    searchGov.addEventListener('change',syncBranches);
+    syncBranches();
+  }
   const branch=document.getElementById('current-status-branch-filter'),emp=document.getElementById('current-status-employee-filter'),rows=[...document.querySelectorAll('#current-status-list .d42-row')],empty=document.getElementById('current-status-filter-empty');
   function filter(){const b=branch?.value||'',e=emp?.value||'';let n=0;rows.forEach(r=>{const ok=(!b||r.dataset.statusBranch===b)&&(!e||r.dataset.statusEmployee===e);r.hidden=!ok;if(ok)n++});if(empty)empty.hidden=n!==0} branch?.addEventListener('change',filter);emp?.addEventListener('change',filter);
   const add=document.getElementById('toggle-entry-role-add'),panel=document.getElementById('entry-role-inline-panel');add?.addEventListener('click',()=>{if(panel)panel.hidden=!panel.hidden});

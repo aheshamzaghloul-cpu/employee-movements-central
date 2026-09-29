@@ -1,6 +1,10 @@
 {% extends 'base.html' %}
-{% block title %}تقارير ومأموريات{% endblock %}
+{% block title %}تقارير ومأموريات{% endif %}
+{% endblock %}
 {% block content %}
+{% if scope_required and not scope_selected %}
+<div class="scope-empty-state"><div class="scope-empty-icon">⌖</div><span class="home-kicker">اختيار نطاق العمل</span><h1>اختر المحافظة أولًا</h1><p>حدد المحافظة التي تريد العمل عليها. بعد الاختيار ستتعامل مع هذه الصفحة بصلاحيات مشرف المحافظة داخل المحافظة المحددة.</p></div>
+{% else %}
 <div class="page-head">
   <div><span class="home-kicker">مركز البيانات والتشغيل</span><h1>تقارير ومأموريات</h1><p class="muted">التقارير ضمن نطاق صلاحيتك، والمأموريات متاحة للعرض والطباعة من جميع المحافظات.</p></div>
 </div>

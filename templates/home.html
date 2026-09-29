@@ -1,6 +1,9 @@
 {% extends 'base.html' %}
 {% block title %}الرئيسية — نظام إدارة حركات الموظفين{% endblock %}
 {% block content %}
+{% if scope_required and not scope_selected %}
+<div class="scope-empty-state"><div class="scope-empty-icon">⌖</div><span class="home-kicker">اختيار نطاق العمل</span><h1>اختر المحافظة أولًا</h1><p>حدد المحافظة التي تريد العمل عليها. بعد الاختيار ستتعامل مع هذه الصفحة بصلاحيات مشرف المحافظة داخل المحافظة المحددة.</p></div>
+{% else %}
 <style id="home-manager-search-style">
 .manager-scope-bar{margin:0 0 16px;padding:12px 16px;border:1px solid #dbe3ee;border-radius:14px;background:#f7f9fc}.manager-scope-form{display:flex;align-items:end;gap:14px;flex-wrap:wrap}.manager-scope-form label{min-width:280px}.manager-scope-form select{display:block;width:100%;margin-top:5px}.manager-scope-form span{font-size:13px;color:#64748b}.movement-quick-filter-form{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:10px;align-items:end}.movement-quick-filter-form label{display:flex;flex-direction:column;gap:5px}.movement-quick-filter-form select{width:100%}.movement-quick-filter-form small{grid-column:1/-1}.movement-employee-result{margin-top:14px}.movement-employee-result-card{border:1px solid #d9e2ec;border-radius:16px;background:#fff;box-shadow:0 8px 24px rgba(15,23,42,.07);padding:18px}.movement-employee-result-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}.movement-employee-result-person{display:flex;align-items:center;gap:12px}.movement-employee-result-avatar{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;background:#eef4ff;font-size:23px;font-weight:800}.movement-employee-result-person h3{margin:0 0 4px}.movement-employee-result-person p{margin:0;color:#64748b}.movement-employee-result-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}.movement-employee-result-grid>div{padding:10px 12px;background:#f7f9fc;border-radius:10px}.movement-employee-result-grid small{display:block;color:#64748b;margin-bottom:3px}.movement-employee-last{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}.movement-employee-last>div{border:1px solid #e5eaf0;border-radius:10px;padding:11px}.movement-employee-last h4{margin:0 0 7px}.movement-employee-last .hint{font-size:13px}@media(max-width:900px){.movement-employee-result-grid,.movement-employee-last{grid-template-columns:1fr 1fr}}@media(max-width:600px){.movement-employee-result-grid,.movement-employee-last{grid-template-columns:1fr}}@media(max-width:1100px){.movement-quick-filter-form{grid-template-columns:1fr 1fr}.movement-quick-filter-form button{grid-column:1/-1}}
 
@@ -27,26 +30,14 @@
 @media(max-width:900px){.movement-employee-result-grid{grid-template-columns:1fr 1fr}.home-register-real-form{grid-template-columns:1fr 1fr}}
 @media(max-width:600px){.movement-employee-result-grid{grid-template-columns:1fr}.home-register-real-form{grid-template-columns:1fr}}
 </style>
-<div class="home-dashboard-head">
-  <div>
+<div class="home-dashboard-head v36-home-hero">
+  <div class="v36-home-hero-copy">
     <div class="home-kicker">لوحة التحكم</div>
     <h1 class="home-title">الرئيسية</h1>
+    <p class="v36-home-subtitle">نظرة مركزة على حالة الموظفين والحركات داخل نطاق العمل الحالي.</p>
   </div>
+  {% if scope_required and scope_selected %}<div class="v36-scope-chip"><span>نطاق العمل الحالي</span><strong>{{scope_governorate.name}}</strong><small>تعمل الآن بصلاحيات مشرف المحافظة</small></div>{% elif scope_required %}<div class="v36-scope-chip is-pending"><span>نطاق العمل</span><strong>اختر المحافظة</strong><small>يبدأ العمل بعد تحديد المحافظة</small></div>{% endif %}
 </div>
-
-{% if is_manager_support %}
-<div class="manager-scope-bar no-print">
-  <form method="get" action="/" class="manager-scope-form">
-    <label>المحافظة المطلوبة للعمل
-      <select name="manager_governorate_id" required onchange="this.form.submit()">
-        <option value="">اختر المحافظة أولًا</option>
-        {% for g in manager_governorates %}<option value="{{g.id}}" {% if selected_manager_gov == g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}
-      </select>
-    </label>
-    <span>Manager Application Support — يعرض نفس وظائف مشرف المحافظة بعد اختيار المحافظة.</span>
-  </form>
-</div>
-{% endif %}
 
 <!-- منطقة الأوامر السريعة مقابل لوحات المتابعة -->
 <div class="home-command-layout">
@@ -64,11 +55,11 @@
         <div id="movement-search-suggestions" class="movement-suggestions" hidden></div>
       </div>
     </label>
-    <label>المحافظة <span class="optional-label">اختياري</span>
-      <select id="movement-search-governorate" name="movement_governorate_id">
-        <option value="">كل المحافظات</option>
-        {% for g in movement_search_governorates %}<option value="{{g.id}}" {% if movement_governorate_id|int == g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}
+    <label>المحافظة
+      <select id="movement-search-governorate" name="movement_governorate_id" {% if scope_required and scope_selected %}disabled{% endif %}>
+        {% if scope_required and scope_selected %}<option value="{{scope_selected}}" selected>{{scope_governorate.name}}</option>{% else %}<option value="">كل المحافظات</option>{% for g in movement_search_governorates %}<option value="{{g.id}}" {% if movement_governorate_id|int == g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}{% endif %}
       </select>
+      {% if scope_required and scope_selected %}<input type="hidden" name="movement_governorate_id" value="{{scope_selected}}">{% endif %}
     </label>
     <label>الفرع <span class="optional-label">اختياري</span>
       <select id="movement-search-branch" name="movement_branch_id">

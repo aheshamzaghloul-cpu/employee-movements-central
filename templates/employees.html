@@ -1,6 +1,10 @@
 {% extends 'base.html' %}
-{% block title %}الموظفون{% endblock %}
+{% block title %}الموظفون{% endif %}
+{% endblock %}
 {% block content %}
+{% if scope_required and not scope_selected %}
+<div class="scope-empty-state"><div class="scope-empty-icon">⌖</div><span class="home-kicker">اختيار نطاق العمل</span><h1>اختر المحافظة أولًا</h1><p>حدد المحافظة التي تريد العمل عليها. بعد الاختيار ستتعامل مع هذه الصفحة بصلاحيات مشرف المحافظة داخل المحافظة المحددة.</p></div>
+{% else %}
 <div class="employees-page">
   <div class="employees-page-head">
     <div><span class="home-kicker">إدارة الموظفين</span><h1>الموظفون</h1><p>إضافة الموظفين وإدارة بياناتهم حسب الفروع من مكان واحد.</p></div>

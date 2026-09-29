@@ -9,7 +9,7 @@ from openpyxl import Workbook, load_workbook
 import fitz
 
 app=Flask(__name__)
-APP_VERSION='v36.16'
+APP_VERSION='v36.30'
 DATABASE_URL=os.getenv('DATABASE_URL','sqlite:///local.db')
 if DATABASE_URL.startswith('postgres://'): DATABASE_URL=DATABASE_URL.replace('postgres://','postgresql+psycopg2://',1)
 elif DATABASE_URL.startswith('postgresql://'): DATABASE_URL=DATABASE_URL.replace('postgresql://','postgresql+psycopg2://',1)
@@ -311,7 +311,7 @@ def inject_context():
     active_role=session.get('active_role') if u else None
     if active_role not in real_roles:
         active_role=None
-    return {'me':u,'roles':roles(),'real_roles':real_roles,'active_role':active_role,'csrf':csrf_token(),'user_roles':user_roles,'user_permissions':user_permissions,'can':can,'has_role':has_role,'PERMISSIONS':PERMISSIONS,'user_gov_ids':user_gov_ids,'user_branch_ids':user_branch_ids,'assignment_state':assignment_state,'current_assignment_for_employee':current_assignment_for_employee,'assignment_supervisor':assignment_supervisor,'supervisor_for_entry':supervisor_for_entry,'entries_for_supervisor':entries_for_supervisor,'branch_entry':branch_entry,'can_manage_employee':can_manage_employee,'can_manage_movement':can_manage_movement,'ASSIGNMENT_STATES':ASSIGNMENT_STATES,'ASSIGNMENT_ALERT_DAYS':ASSIGNMENT_ALERT_DAYS}
+    return {'me':u,'roles':roles(),'real_roles':real_roles,'active_role':active_role,'csrf':csrf_token(),'user_roles':user_roles,'user_permissions':user_permissions,'can':can,'has_role':has_role,'PERMISSIONS':PERMISSIONS,'user_gov_ids':user_gov_ids,'user_branch_ids':user_branch_ids,'assignment_state':assignment_state,'current_assignment_for_employee':current_assignment_for_employee,'assignment_supervisor':assignment_supervisor,'supervisor_for_entry':supervisor_for_entry,'entries_for_supervisor':entries_for_supervisor,'branch_entry':branch_entry,'can_manage_employee':can_manage_employee,'can_manage_movement':can_manage_movement,'ASSIGNMENT_STATES':ASSIGNMENT_STATES,'ASSIGNMENT_ALERT_DAYS':ASSIGNMENT_ALERT_DAYS,'scope_required':bool(u and (('مسؤول التطبيق' in roles(u) or 'Manager Application Support' in roles(u)) and is_scope_required_endpoint())),'scope_selected':scope_governorate_id() if u and is_scope_required_endpoint() else None,'scope_governorates':scope_governorates_for_user(u),'scope_governorate':(db.session.get(Governorate,scope_governorate_id()) if u and scope_governorate_id() else None)}
 
 @app.after_request
 def security_headers(resp):
@@ -380,21 +380,47 @@ def csrf_check():
         token=request.form.get('_csrf')
         if not token or token!=session.get('csrf'): abort(400,'CSRF token invalid')
 
+OPERATIONAL_SCOPE_ENDPOINTS={
+    'home','employees','movements','reports','employee_type_report','reports_missions',
+    'mission_print_list','mission_print','mission_print_date'
+}
+
+def is_scope_required_endpoint():
+    return bool(has_request_context() and request.endpoint in OPERATIONAL_SCOPE_ENDPOINTS)
+
+def scope_governorate_id():
+    if not has_request_context(): return None
+    raw=request.args.get('governorate_id') or request.args.get('manager_governorate_id') or ''
+    if raw.isdigit():
+        gid=int(raw)
+        if Governorate.query.filter_by(id=gid,is_active=True).first():
+            session['operational_governorate_id']=gid
+    return session.get('operational_governorate_id')
+
+def scope_governorates_for_user(u=None):
+    u=u or me()
+    if not u: return []
+    rs=roles(u)
+    if 'مسؤول التطبيق' in rs or 'Manager Application Support' in rs:
+        return Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all()
+    return Governorate.query.filter(Governorate.id.in_(user_gov_ids(u)),Governorate.is_active==True).order_by(Governorate.name.asc()).all()
+
 def gids():
     u=me()
     if not u: return []
     rs=roles(u)
+    # أثناء الصفحات التشغيلية، مسؤول التطبيق وManager يعملان داخل المحافظة المختارة فقط.
+    if is_scope_required_endpoint() and ('مسؤول التطبيق' in rs or 'Manager Application Support' in rs):
+        selected=scope_governorate_id()
+        return [int(selected)] if selected else []
     if 'مسؤول التطبيق' in rs: return [g.id for g in Governorate.query.filter_by(is_active=True)]
     if 'Manager Application Support' in rs:
-        selected=session.get('manager_governorate_id')
+        selected=scope_governorate_id()
         if selected:
-            g=Governorate.query.filter_by(id=int(selected),is_active=True).first()
-            return [g.id] if g else []
+            return [int(selected)]
         return []
     if 'مشرف محافظة' in rs:
         assigned=[x.governorate_id for x in UserGovernorate.query.filter_by(user_id=u.id).join(Governorate).filter(Governorate.is_active==True)]
-        # حساب مسؤول التطبيق قد يحمل دور مشرف موازيًا؛ عند عدم وجود نطاق مسند له
-        # نستخدم كل المحافظات بدل أن تظهر له لوحة مشرف فارغة.
         if assigned: return assigned
         if 'مسؤول التطبيق' in actual_roles(u):
             return [g.id for g in Governorate.query.filter_by(is_active=True)]
@@ -579,24 +605,16 @@ def home():
     current_user=me()
     effective=roles(current_user)
     is_manager_support='Manager Application Support' in effective
-    manager_gov_param=request.args.get('manager_governorate_id','').strip()
-    if is_manager_support:
-        if manager_gov_param.isdigit() and Governorate.query.filter_by(id=int(manager_gov_param),is_active=True).first():
-            session['manager_governorate_id']=int(manager_gov_param)
-        elif 'manager_governorate_id' not in session:
-            session['manager_governorate_id']=None
-        selected_manager_gov=session.get('manager_governorate_id')
-        if selected_manager_gov:
-            bs={b.id for b in Branch.query.filter_by(governorate_id=int(selected_manager_gov),is_active=True).all()}
-        else:
-            bs=set()
-    else:
-        selected_manager_gov=None
-        bs=set(bids())
+    is_scope_user=('مسؤول التطبيق' in effective or is_manager_support)
+    selected_manager_gov=scope_governorate_id() if is_scope_user else None
+    bs=set(bids())
     today=date.today()
     tomorrow=today + timedelta(days=1)
     # بحث حركات الموظفين من الصفحة الرئيسية: بالفرع أو بالاسم أو بهما معًا.
+    # لمسؤول التطبيق وManager يصبح نطاق البحث هو المحافظة التشغيلية المختارة فقط.
     movement_governorate_id=request.args.get('movement_governorate_id','').strip()
+    if is_scope_user and selected_manager_gov:
+        movement_governorate_id=str(selected_manager_gov)
     movement_branch_id=request.args.get('movement_branch_id','').strip()
     movement_name_query=(request.args.get('movement_name') or '').strip()
     movement_employee_id=request.args.get('employee_id','').strip()
@@ -771,11 +789,11 @@ def home():
         is_manager_support=is_manager_support,
         manager_governorates=Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all() if is_manager_support else [],
         selected_manager_gov=selected_manager_gov,
-        movement_search_governorates=Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all(),
+        movement_search_governorates=(Governorate.query.filter_by(id=selected_manager_gov,is_active=True).all() if is_scope_user and selected_manager_gov else Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all()),
         movement_search_branches=(Branch.query.filter(Branch.governorate_id==search_gov_id,Branch.is_active==True).order_by(Branch.name.asc()).all() if search_gov_id else []),
         home_movement_governorates=home_movement_governorates,
         home_movement_branches=home_movement_branches,
-        movement_search_employees=Employee.query.filter_by(is_active=True).order_by(Employee.full_name.asc()).all(),
+        movement_search_employees=(Employee.query.join(Branch).filter(Employee.is_active==True,Branch.governorate_id==selected_manager_gov).order_by(Employee.full_name.asc()).all() if is_scope_user and selected_manager_gov else Employee.query.filter_by(is_active=True).order_by(Employee.full_name.asc()).all()),
         movement_employee=movement_employee,
         movement_employee_moves=movement_employee_moves,
         movement_employee_last=movement_employee_last,
@@ -844,7 +862,7 @@ def branch_entry(b):
 @app.get('/structure')
 @req
 def structure():
-    # الإدارة متاحة فقط لمسؤول التطبيق ولمشرف المحافظة.
+    # الإدارة مركز التحكم الخاص بمسؤول التطبيق فقط.
     current=me()
     # صفحة الإدارة تلتزم بالدور النشط؛ الحساب متعدد الأدوار يبدّل الدور من رأس التطبيق.
     real=actual_roles(current)
@@ -853,10 +871,8 @@ def structure():
     is_supervisor = 'مشرف محافظة' in effective
     is_manager_support = 'Manager Application Support' in effective
     is_entry = 'المدخل الأول' in effective
-    if not is_admin and not is_supervisor and not is_manager_support:
+    if not is_admin:
         abort(403)
-    if is_supervisor and not is_admin:
-        session['active_role']='مشرف محافظة'
 
     # مسؤول التطبيق يرى كل المحافظات، والمشرف يرى محافظاته فقط.
     selected_gov=request.args.get('governorate_id','').strip()
@@ -2037,7 +2053,7 @@ def employees():
             e=Employee(employee_code=None,email=email,full_name=name,branch_id=bid,job_title=job_title,job_code=job_code,hire_date=parse_date(hire_date),company_phone=company_phone,personal_phone=personal_phone); db.session.add(e); db.session.commit(); log('ADD','Employee',e.id,e.full_name); db.session.commit(); flash('تمت إضافة الموظف بنجاح. يمكنك الآن تسجيل أول حركة له.'); return redirect(url_for('card',i=e.id))
     # في شاشة الموظفين، المشرف يستطيع اختيار أي محافظة للبحث والاستعراض.
     # هذا لا يمنحه صلاحيات تعديل/حذف خارج نطاقه؛ عمليات التعديل والحذف تظل محكومة بدوال الصلاحيات.
-    supervisor_search_all = 'مشرف محافظة' in roles() or 'Manager Application Support' in roles()
+    supervisor_search_all = 'مشرف محافظة' in roles()
     search_branch_ids = [b.id for b in Branch.query.filter(Branch.is_active==True).all()] if supervisor_search_all else bs
     branches=Branch.query.filter(Branch.id.in_(search_branch_ids),Branch.is_active==True).order_by(Branch.name).all() if search_branch_ids else []
     q=request.args.get('q','').strip()
@@ -2076,7 +2092,7 @@ def employees():
 
     # عرض جميع المحافظات في قائمة البحث للحسابات ذات النطاق الشامل،
     # بينما تبقى نتائج الموظفين نفسها محكومة بصلاحيات/nطاق الحساب.
-    filter_govs = Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all() if (supervisor_search_all or 'مسؤول التطبيق' in roles() or 'Manager Application Support' in roles()) else govs
+    filter_govs = Governorate.query.filter(Governorate.id.in_(gids()),Governorate.is_active==True).order_by(Governorate.name).all() if gids() else []
     # محافظة الإضافة تبقى مقيدة بنطاق الإدارة للمستخدم، بينما قائمة البحث يمكن أن تشمل كل المحافظات للمشرف.
     add_govs = Governorate.query.filter(Governorate.id.in_(gids()), Governorate.is_active==True).order_by(Governorate.name).all() if gids() else []
     add_branch_ids = {b.id for b in Branch.query.filter(Branch.governorate_id.in_([g.id for g in add_govs]), Branch.is_active==True).all()} if add_govs else set()

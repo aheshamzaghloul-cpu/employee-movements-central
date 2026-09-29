@@ -610,11 +610,8 @@ def home():
     bs=set(bids())
     today=date.today()
     tomorrow=today + timedelta(days=1)
-    # بحث حركات الموظفين من الصفحة الرئيسية: بالفرع أو بالاسم أو بهما معًا.
-    # لمسؤول التطبيق وManager يصبح نطاق البحث هو المحافظة التشغيلية المختارة فقط.
+    # بحث الموظف من الصفحة الرئيسية مستقل عن نطاق العمل: البحث متاح في كل المحافظات.
     movement_governorate_id=request.args.get('movement_governorate_id','').strip()
-    if is_scope_user and selected_manager_gov:
-        movement_governorate_id=str(selected_manager_gov)
     movement_branch_id=request.args.get('movement_branch_id','').strip()
     movement_name_query=(request.args.get('movement_name') or '').strip()
     movement_employee_id=request.args.get('employee_id','').strip()
@@ -790,11 +787,12 @@ def home():
         is_manager_support=is_manager_support,
         manager_governorates=Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all() if is_manager_support else [],
         selected_manager_gov=selected_manager_gov,
-        movement_search_governorates=(Governorate.query.filter_by(id=selected_manager_gov,is_active=True).all() if is_scope_user and selected_manager_gov else Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all()),
+        # بحث الموظف في الرئيسية متاح لكل المحافظات، حتى لو كان نطاق العمل الحالي محافظة واحدة.
+        movement_search_governorates=Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all(),
         movement_search_branches=(Branch.query.filter(Branch.governorate_id==search_gov_id,Branch.is_active==True).order_by(Branch.name.asc()).all() if search_gov_id else []),
         home_movement_governorates=home_movement_governorates,
         home_movement_branches=home_movement_branches,
-        movement_search_employees=(Employee.query.join(Branch).filter(Employee.is_active==True,Branch.governorate_id==selected_manager_gov).order_by(Employee.full_name.asc()).all() if is_scope_user and selected_manager_gov else Employee.query.filter_by(is_active=True).order_by(Employee.full_name.asc()).all()),
+        movement_search_employees=Employee.query.filter_by(is_active=True).order_by(Employee.full_name.asc()).all(),
         movement_employee=movement_employee,
         movement_employee_moves=movement_employee_moves,
         movement_employee_last=movement_employee_last,
@@ -3614,7 +3612,7 @@ def mission_template_pdf(m, employee, branch, destination, creator=None, print_t
 @req
 def mission_edit(movement_id):
     m=db.session.get(Movement,movement_id)
-    if not m or not m.is_active or m.movement_type!='انتداب' or not branch_ok(m.employee.branch_id): abort(403)
+    if not m or not m.is_active or m.movement_type!='انتداب' or m.employee.branch_id not in set(bids()): abort(403)
     if not can('view_reports') or not can_manage_movement(m): abort(403)
     if mission_state_label(m)!='تحت التحرير':
         flash('المأمورية مغلقة. استخدم «إعادة الفتح» أولًا ثم عد للتعديل.')
@@ -3661,6 +3659,7 @@ def mission_close(movement_id):
     if not can('manage_movements') or not can_manage_movement(m): abort(403)
     if mission_state_label(m)=='مغلقة':
         flash('المأمورية مغلقة بالفعل.'); return redirect('/reports/assignments/print-missions')
+    if m.employee.branch_id not in set(bids()): abort(403)
     if not m.to_date:
         flash('لا يمكن إغلاق المأمورية قبل تسجيل «إلى تاريخ».')
         return redirect(url_for('mission_edit', movement_id=m.id))
@@ -3686,7 +3685,7 @@ def mission_reopen(movement_id):
 @req
 def mission_print_date(movement_id):
     m=db.session.get(Movement,movement_id)
-    if not m or not m.is_active or m.movement_type!='انتداب' or not branch_ok(m.employee.branch_id): abort(403)
+    if not m or not m.is_active or m.movement_type!='انتداب' or m.employee.branch_id not in set(bids()): abort(403)
     if not can('view_reports') or not can_manage_movement(m): abort(403)
     if m.to_date:
         return redirect(url_for('mission_pdf', movement_id=m.id))
@@ -3699,7 +3698,7 @@ def mission_print_date(movement_id):
 @req
 def mission_print_date_save(movement_id):
     m=db.session.get(Movement,movement_id)
-    if not m or not m.is_active or m.movement_type!='انتداب' or not branch_ok(m.employee.branch_id): abort(403)
+    if not m or not m.is_active or m.movement_type!='انتداب' or m.employee.branch_id not in set(bids()): abort(403)
     if not can('view_reports') or not can_manage_movement(m): abort(403)
     if m.to_date:
         return redirect(url_for('mission_pdf', movement_id=m.id))
@@ -3718,11 +3717,14 @@ def mission_print_date_save(movement_id):
     from flask import Response
     return Response(data,mimetype='application/pdf',headers={'Content-Disposition':f'inline; filename=mission-{m.id}.pdf'})
 
+def employee_branch_in_scope(m):
+    return bool(m and m.employee and m.employee.branch_id in set(bids()))
+
 @app.get('/reports/assignments/mission-pdf/<int:movement_id>')
 @req
 def mission_pdf(movement_id):
     m=db.session.get(Movement,movement_id)
-    if not m or not m.is_active or m.movement_type!='انتداب' or not branch_ok(m.employee.branch_id): abort(403)
+    if not m or not m.is_active or m.movement_type!='انتداب' or m.employee.branch_id not in set(bids()): abort(403)
     if not can('view_reports'): abort(403)
     if not m.to_date:
         if mission_state_label(m)=='تحت التحرير' and getattr(m, 'assignment_state', None) != 'مغلق':
@@ -3886,10 +3888,14 @@ def audit():
 @req
 def mission_print_list():
     if not can('view_reports'): abort(403)
-    # المأموريات متاحة للعرض والطباعة عبر جميع المحافظات؛ صلاحية التعديل تبقى مرتبطة بنطاق المستخدم.
+    # المأموريات تعمل داخل نطاق المحافظة المختارة لمسؤول التطبيق وManager،
+    # وداخل محافظات المشرف للمشرف؛ لا تُعرض بيانات تشغيلية قبل تحديد النطاق.
+    allowed_gids=set(gids())
+    allowed_bids=set(bids())
     q=Movement.query.join(Employee).filter(
-        Movement.is_active==True, Movement.movement_type=='انتداب'
-    )
+        Movement.is_active==True, Movement.movement_type=='انتداب',
+        Employee.branch_id.in_(allowed_bids)
+    ) if allowed_bids else Movement.query.filter(False)
 
     gov=request.args.get('governorate_id','').strip()
     branch=request.args.get('branch_id','').strip()
@@ -3899,8 +3905,8 @@ def mission_print_list():
     date_to=request.args.get('date_to','').strip()
     duration=request.args.get('duration','').strip()
 
-    govs=Governorate.query.filter(Governorate.is_active==True).order_by(Governorate.name.asc()).all()
-    branches=Branch.query.filter(Branch.is_active==True).order_by(Branch.name.asc()).all()
+    govs=Governorate.query.filter(Governorate.id.in_(allowed_gids),Governorate.is_active==True).order_by(Governorate.name.asc()).all() if allowed_gids else []
+    branches=Branch.query.filter(Branch.id.in_(allowed_bids),Branch.is_active==True).order_by(Branch.name.asc()).all() if allowed_bids else []
 
     selected_gov=None
     if gov.isdigit() and any(g.id==int(gov) for g in govs):
@@ -3954,7 +3960,7 @@ def mission_print(movement_id):
     # الصفحة المرئية تعرض النموذج مع زر PDF المطابق للعينة الأصلية.
     m=db.session.get(Movement,movement_id)
     if not m: abort(404)
-    if not can('view_reports') or m.movement_type!='انتداب': abort(403)
+    if not can('view_reports') or m.movement_type!='انتداب' or not employee_branch_in_scope(m): abort(403)
     employee=db.session.get(Employee,m.employee_id); branch=db.session.get(Branch,employee.branch_id) if employee else None
     return render_template('mission_print.html',movement=m,employee=employee,branch=branch,destination=m.destination,mission_state=mission_state_label(m),printed_at=datetime.now())
 

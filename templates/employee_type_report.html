@@ -1,4 +1,5 @@
 {% extends 'base.html' %}{% block title %}{{title}}{% endblock %}{% block content %}
+{% if scope_required and not scope_selected %}<div class="scope-empty-state"><div class="scope-empty-icon">⌖</div><span class="home-kicker">اختيار نطاق العمل</span><h1>اختر المحافظة أولًا</h1><p>حدد المحافظة التي تريد العمل عليها قبل عرض التقرير.</p></div>{% else %}
 <div class="page-head no-print"><div><h1>{{title}}</h1><p class="muted">النتيجة تظهر مباشرة داخل التطبيق. يمكنك الطباعة أو التحميل اختياريًا.</p></div><div class="actions"><button type="button" class="btn" onclick="window.print()">🖨️ طباعة التقرير</button><a class="btn secondary" href="/reports">العودة للتقارير</a></div></div>
 <div class="print-header"><h1>{{title}}</h1><div>نظام حركات الموظفين المركزي</div><div class="print-meta">تاريخ الطباعة: {{ now().strftime("%Y-%m-%d") if now is defined else "" }}</div></div>
 <div class="box no-print"><form method="get" class="grid report-filters" id="reportFilterForm">
@@ -32,4 +33,4 @@
 <table><tr><th>النوع</th>{% if report_type=='leaves' %}<th>نوع الإجازة</th><th>من</th><th>إلى</th><th>المدة</th>{% elif report_type=='assignments' %}<th>الفرع المنتدب إليه</th><th>من</th><th>إلى</th><th>حالة المأمورية</th>{% else %}<th>تاريخ الإذن</th><th>الحالة</th>{% endif %}<th>حالة الحركة</th><th>التفاصيل</th>{% if report_type=='assignments' %}<th class="no-print">المأمورية</th>{% endif %}</tr>
 {% for m in group.rows %}<tr><td>{{m.movement_type}}</td>{% if report_type=='leaves' %}<td>{{m.leave_type or '—'}}</td><td>{{m.from_date or '—'}}</td><td>{{m.to_date or '—'}}</td><td>{% if m.from_date and m.to_date %}{{(m.to_date-m.from_date).days+1}} يوم{% else %}—{% endif %}</td>{% elif report_type=='assignments' %}<td>{{m.destination.name if m.destination else '—'}}</td><td>{{m.from_date or '—'}}</td><td>{{m.to_date or '—'}}</td><td>{{assignment_state(m)}}</td>{% else %}<td>{{m.permission_date or '—'}}</td><td>{{m.status}}</td>{% endif %}<td>{{m.status}}</td><td><a class="btn small" href="/movements/{{m.id}}/history">التفاصيل</a></td>{% if report_type=='assignments' %}{% endif %}</tr>{% endfor %}</table></div>{% endfor %}
 {% else %}<div class="empty">لا توجد بيانات ضمن نطاق التقرير المحدد.</div>{% endif %}
-</div>{% endblock %}
+</div>{% endif %}{% endblock %}

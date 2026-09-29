@@ -55,11 +55,10 @@
         <div id="movement-search-suggestions" class="movement-suggestions" hidden></div>
       </div>
     </label>
-    <label>المحافظة
-      <select id="movement-search-governorate" name="movement_governorate_id" {% if scope_required and scope_selected %}disabled{% endif %}>
-        {% if scope_required and scope_selected %}<option value="{{scope_selected}}" selected>{{scope_governorate.name}}</option>{% else %}<option value="">كل المحافظات</option>{% for g in movement_search_governorates %}<option value="{{g.id}}" {% if movement_governorate_id|int == g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}{% endif %}
+    <label>المحافظة <span class="optional-label">اختياري</span>
+      <select id="movement-search-governorate" name="movement_governorate_id">
+        <option value="">كل المحافظات</option>{% for g in movement_search_governorates %}<option value="{{g.id}}" {% if movement_governorate_id|int == g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}
       </select>
-      {% if scope_required and scope_selected %}<input type="hidden" name="movement_governorate_id" value="{{scope_selected}}">{% endif %}
     </label>
     <label>الفرع <span class="optional-label">اختياري</span>
       <select id="movement-search-branch" name="movement_branch_id">

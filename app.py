@@ -633,13 +633,14 @@ def home():
         if not sb or not sb.is_active or (search_gov_id and sb.governorate_id!=search_gov_id): search_branch_id=None
         elif not search_gov_id: search_gov_id=sb.governorate_id
 
-    # بحث عام: الاسم/الكود هو المدخل الأساسي، والمحافظة والفرع فلاتر اختيارية.
+    # اختيار المحافظة يحدد سياق العمل فقط؛ لا يبدأ بحث الموظفين تلقائيًا.
+    # البحث الفعلي يبدأ عند إدخال اسم/كود أو اختيار فرع والضغط على بحث.
     search_branch_ids=set()
     if search_gov_id:
         search_branch_ids={b.id for b in Branch.query.filter_by(governorate_id=search_gov_id,is_active=True).all()}
     if search_branch_id: search_branch_ids={search_branch_id}
     candidates=[]
-    if movement_name_query or search_branch_ids:
+    if movement_name_query or search_branch_id:
         q=Employee.query.filter(Employee.is_active==True)
         if search_branch_ids: q=q.filter(Employee.branch_id.in_(search_branch_ids))
         if movement_name_query:

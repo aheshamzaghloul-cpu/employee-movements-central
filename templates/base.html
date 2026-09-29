@@ -1,9 +1,9 @@
 <!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0f4c5c"><title>{% block title %}نظام إدارة حركات الموظفين{% endblock %}</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="{{url_for('static',filename='app.css')}}"></head><body class="{% if request.args.get('embed')=='1' %}assistant-embed-body{% endif %}"><div class="wrap{% if request.args.get('embed')=='1' %} assistant-host{% endif %}">{% if me %}{% if request.args.get('embed')!='1' %}
 <header class="app-header">
-  <div class="brand"><div class="brandmark">م</div><div class="brand-copy"><b>نظام إدارة حركات الموظفين</b><small>{{me.full_name}}{% if active_role %} · {{active_role}}{% elif roles %} · {{roles|join(' | ')}}{% endif %}</small></div></div>
+  <div class="brand"><div class="brandmark" aria-hidden="true">ح</div><div class="brand-copy"><b>نظام إدارة حركات الموظفين</b><small><span>{{me.full_name}}</span>{% if active_role %}<i>·</i><span>{{active_role}}</span>{% elif roles %}<i>·</i><span>{{roles|join(' | ')}}</span>{% endif %}</small></div></div>
   <div class="header-actions">
     {% if real_roles|length > 1 %}<form class="role-switcher" method="post" action="/switch-role"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="next" value="{{request.path}}"><label><span>الدور الحالي</span><select name="active_role" onchange="this.form.submit()">{% for r in ['مسؤول التطبيق','مشرف محافظة','المدخل الأول','Manager Application Support'] if r in real_roles %}<option value="{{r}}" {% if active_role==r or (not active_role and loop.first) %}selected{% endif %}>{{r}}</option>{% endfor %}</select></label></form>{% else %}<span class="current-role">{{roles|join(' | ')}}</span>{% endif %}
-    <a class="logout" href="/logout">خروج</a>
+    <a class="account-link" href="/change-password">حسابي</a><a class="logout" href="/logout">خروج</a>
   </div>
 </header>
 <nav class="main-nav" aria-label="التنقل الرئيسي">
@@ -13,7 +13,7 @@
   {% if can('view_reports') or can('manage_movements') %}<a href="/reports-missions" class="{% if request.path.startswith('/reports') %}active{% endif %}">تقارير ومأموريات</a>{% endif %}
   {% if 'مشرف محافظة' in roles and 'مسؤول التطبيق' not in roles %}<a href="/delegations" class="{% if request.path.startswith('/delegations') %}active{% endif %}">تفويض</a>{% endif %}
   {% if 'مسؤول التطبيق' in roles %}<a href="/structure" class="{% if request.path.startswith('/structure') %}active{% endif %}">الإدارة</a>{% endif %}
-  <a href="/change-password" class="{% if request.path.startswith('/change-password') %}active{% endif %}">حسابي</a>
+  <a class="nav-account {% if request.path.startswith('/change-password') %}active{% endif %}" href="/change-password">حسابي</a>
 </nav>
 {% if scope_required %}
 <div class="scope-shell no-print">

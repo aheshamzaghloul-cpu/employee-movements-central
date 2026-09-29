@@ -603,13 +603,10 @@ def current_employee_status_rows(branch_ids, today):
             until=permission.permission_date
             detail='بتاريخ {}'.format(permission.permission_date.strftime('%d/%m/%Y'))
 
-        # الموظف الذي لا توجد له حالة خاصة اليوم يظهر كـ«متواجد في الفرع».
+        # لوحة «حالة الموظفين الآن» مخصصة للحالات التي لديها حركة فعلية فقط.
+        # الموظفون المتواجدون بشكل طبيعي لا يظهرون في القائمة، لأن وجودهم لا يمثل حركة.
         if not current:
-            state='متواجد في الفرع'
-            place=e.branch.name if e.branch else '—'
-            until=None
-            detail='متواجد في فرع التعيين'
-            display_branch=e.branch
+            continue
 
         remaining=(until-today).days if until else None
         rows.append({

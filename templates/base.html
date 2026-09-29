@@ -6,7 +6,7 @@
 <title>{% block title %}نظام إدارة حركات الموظفين{% endblock %}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{{url_for('static',filename='design45.css')}}">
+<link rel="stylesheet" href="{{url_for('static',filename='design46.css')}}">
 </head>
 <body class="{% if request.args.get('embed')=='1' %}assistant-embed-body{% endif %}">
 <div class="d42-shell{% if request.args.get('embed')=='1' %} assistant-host{% endif %}">
@@ -27,18 +27,17 @@
   </nav>
   {% if 'مسؤول التطبيق' in roles %}<div class="d42-caption admin">الإدارة</div><nav class="d42-nav"><a href="/structure" class="{% if request.path.startswith('/structure') %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.8 2.8M15 15l2.7 2.7M17.7 6.3 15 9M9 15l-2.7 2.7"/><circle cx="12" cy="12" r="3.5"/></svg><span>الإدارة</span></a></nav>{% endif %}
   <div class="d42-spacer"></div>
-  <a class="d42-ai-card" href="#" id="sidebarAssistantOpen" aria-label="فتح المساعد الذكي"><span class="d42-ai-mark"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg></span><span><b>المساعد الذكي</b><small>اسأل عن أي شيء في النظام</small></span><svg class="d42-ai-arrow" viewBox="0 0 24 24"><path d="m8 16 8-8M9 8h7v7"/></svg></a>
+  <button class="d42-ai-card" type="button" id="sidebarAssistantOpen" aria-label="فتح المساعد الذكي"><span class="d42-ai-mark"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg></span><span><b>المساعد الذكي</b><small>اسأل عن أي شيء في النظام</small></span><svg class="d42-ai-arrow" viewBox="0 0 24 24"><path d="m8 16 8-8M9 8h7v7"/></svg></button>
   <div class="d42-account"><a href="/change-password"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20c.7-3.5 3-5 7-5s6.3 1.5 7 5"/></svg><span>حسابي</span></a><a href="/logout"><svg viewBox="0 0 24 24"><path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10"/></svg><span>خروج</span></a></div>
-  <div class="d42-version">نظام إدارة حركات الموظفين · الإصدار 45.0</div>
+  <div class="d42-version">نظام إدارة حركات الموظفين · الإصدار 46.0</div>
 </aside>
 <header class="d42-topbar">
   <button class="d42-mobile-menu" id="sidebarToggle" type="button" aria-label="القائمة"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   <div class="d42-user"><div class="d42-avatar">{{(me.full_name or 'م')[:1]}}</div><div class="d42-user-copy"><strong>{{me.full_name}}</strong><small>{% if active_role %}{{active_role}}{% elif roles %}{{roles|join(' · ')}}{% endif %}</small></div><svg viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></div>
   <div class="d42-command"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.2"/><path d="m16 16 4 4"/></svg><input id="d42-global-search" type="search" placeholder="ابحث عن موظف بالاسم أو كود شئون العاملين أو أي بيانات أخرى..." autocomplete="off"><kbd>Ctrl K</kbd></div>
   <div class="d42-top-actions">
-    {% if scope_required %}<form method="get" action="/" class="d42-scope-form"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg><select name="governorate_id" aria-label="المحافظة" onchange="this.form.submit()"><option value="">{% if scope_selected %}محافظة: {{scope_governorate.name}}{% else %}اختر المحافظة{% endif %}</option>{% for g in scope_governorates %}{% if not scope_selected or g.id!=scope_selected %}<option value="{{g.id}}">محافظة: {{g.name}}</option>{% endif %}{% endfor %}</select></form>{% elif scope_selected and scope_governorate %}<div class="d42-scope-chip"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg>محافظة: {{scope_governorate.name}}</div>{% endif %}
-    <button class="d42-icon-btn" type="button" title="الإشعارات"><svg viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><i></i></button>
-    {% if real_roles|length > 1 %}<form method="post" action="/switch-role" class="d44-role-switch"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="next" value="{{request.path}}"><span>تغيير الدور</span><select name="active_role" aria-label="تغيير الدور" onchange="this.form.submit()">{% for r in ['مسؤول التطبيق','مشرف محافظة','Manager Application Support','المدخل الأول'] if r in real_roles %}<option value="{{r}}" {% if active_role==r or (not active_role and loop.first) %}selected{% endif %}>{{r}}</option>{% endfor %}</select></form>{% endif %}
+    {% if scope_required %}<form method="get" action="/" class="d42-scope-form"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg><select name="governorate_id" aria-label="المحافظة" onchange="this.form.submit()"><option value="">{% if scope_selected %}محافظة: {{scope_governorate.name}}{% else %}اختر المحافظة{% endif %}</option>{% for g in scope_governorates %}{% if not scope_selected or g.id!=scope_selected %}<option value="{{g.id}}">محافظة: {{g.name}}</option>{% endif %}{% endfor %}</select></form>{% elif scope_selected and scope_governorate %}<div class="d42-scope-chip"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg>محافظة: {{scope_governorate.name}}</div>{% elif 'مشرف محافظة' in roles %}<div class="d42-scope-chip d42-scope-info"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg>نطاق المشرف: المحافظات المصرح بها</div>{% endif %}
+    {% if real_roles|length > 1 %}<form method="post" action="/switch-role" class="d44-role-switch prominent-role-switch"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="next" value="{{request.path}}"><span>الدور الحالي</span><select name="active_role" aria-label="تغيير الدور" onchange="this.form.submit()">{% for r in ['مسؤول التطبيق','مشرف محافظة','Manager Application Support','المدخل الأول'] if r in real_roles %}<option value="{{r}}" {% if active_role==r or (not active_role and loop.first) %}selected{% endif %}>{{r}}</option>{% endfor %}</select></form>{% endif %}
   </div>
 </header>
 {% endif %}
@@ -48,7 +47,7 @@
 {% block content %}{% endblock %}
 {% if not me %}</div>{% endif %}
 </main></div>
-{% if me and request.args.get('embed')!='1' %}<button type="button" class="d42-fab" id="assistantFab" title="فتح المساعد الذكي" aria-label="فتح المساعد الذكي" onclick="window.__openAssistant&&window.__openAssistant();return false;"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg></button><div class="assistant-modal" id="assistantModal" hidden aria-hidden="true"><div class="assistant-window" id="assistantWindow" role="dialog" aria-modal="true" aria-label="المساعد الذكي"><div class="assistant-window-bar" id="assistantDragBar"><div class="assistant-window-title"><span class="assistant-window-mark">✦</span><span>المساعد الذكي</span><small>مساعدك التشغيلي</small></div></div><iframe id="assistantFrame" src="/assistant?embed=1" title="المساعد الذكي" loading="eager"></iframe></div></div>{% endif %}
+{% if me and request.args.get('embed')!='1' %}<button type="button" class="d42-fab" id="assistantFab" title="فتح المساعد الذكي" aria-label="فتح المساعد الذكي" onclick="window.__openAssistant&&window.__openAssistant();return false;"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg></button><div class="assistant-modal" id="assistantModal" hidden aria-hidden="true"><div class="assistant-window" id="assistantWindow" role="dialog" aria-modal="true" aria-label="المساعد الذكي"><div class="assistant-window-bar" id="assistantDragBar"><div class="assistant-window-title"><span class="assistant-window-mark">✦</span><span>المساعد الذكي</span><small>مساعدك التشغيلي</small></div><button type="button" class="assistant-close" id="assistantClose" aria-label="إغلاق المساعد">×</button></div><iframe id="assistantFrame" src="/assistant?embed=1" title="المساعد الذكي" loading="eager"></iframe></div></div>{% endif %}
 <script src="{{url_for('static',filename='app.js')}}"></script>
 <script>
 (function(){
@@ -61,6 +60,7 @@
     const modal=document.getElementById('assistantModal');
     const fab=document.getElementById('assistantFab');
     const side=document.getElementById('sidebarAssistantOpen');
+    const close=document.getElementById('assistantClose');
     const frame=document.getElementById('assistantFrame');
     window.__openAssistant=function(){
       if(!modal)return;
@@ -74,6 +74,7 @@
       if(fab)fab.hidden=false;
     };
     [fab,side].forEach(el=>el?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.__openAssistant();}));
+    close?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();window.__closeAssistant();});
     modal?.addEventListener('click',e=>{if(e.target===modal)window.__closeAssistant();});
     document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modal&&!modal.hidden)window.__closeAssistant();});
   }

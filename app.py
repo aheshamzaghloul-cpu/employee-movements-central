@@ -390,12 +390,33 @@ def is_scope_required_endpoint():
 
 def scope_governorate_id():
     if not has_request_context(): return None
+    u=me()
+    if not u: return None
+    rs=roles(u)
+    # نطاق العمل تشغيلي مستقل تمامًا عن المحافظات المرتبطة بأدوار الحساب.
+    # لا نرث محافظة مشرف (مثل سوهاج) كاختيار تلقائي لمسؤول التطبيق/Manager.
     raw=request.args.get('governorate_id') or request.args.get('manager_governorate_id') or ''
     if raw.isdigit():
         gid=int(raw)
-        if Governorate.query.filter_by(id=gid,is_active=True).first():
+        allowed={g.id for g in scope_governorates_for_user(u)}
+        if gid in allowed and Governorate.query.filter_by(id=gid,is_active=True).first():
             session['operational_governorate_id']=gid
-    return session.get('operational_governorate_id')
+            session['operational_scope_uid']=u.id
+            session['operational_scope_role']=next(iter(rs & {'مسؤول التطبيق','Manager Application Support'}), None)
+    selected=session.get('operational_governorate_id')
+    # إذا كان الاختيار محفوظًا لحساب/دور مختلف، فلا نستخدمه.
+    scope_uid=session.get('operational_scope_uid')
+    scope_role=session.get('operational_scope_role')
+    current_scope_role=next(iter(rs & {'مسؤول التطبيق','Manager Application Support'}), None)
+    if scope_uid != u.id or scope_role != current_scope_role:
+        session.pop('operational_governorate_id',None)
+        session.pop('operational_scope_uid',None)
+        session.pop('operational_scope_role',None)
+        return None
+    if selected and not Governorate.query.filter_by(id=int(selected),is_active=True).first():
+        session.pop('operational_governorate_id',None)
+        return None
+    return selected
 
 def scope_governorates_for_user(u=None):
     u=u or me()
@@ -430,6 +451,12 @@ def bids():
     u=me()
     if not u: return []
     rs=roles(u)
+    # في الصفحات التشغيلية، مسؤول التطبيق يعمل مثل مشرف المحافظة داخل
+    # المحافظة المختارة فقط؛ لا يجوز لدور مشرف آخر على نفس الحساب أن
+    # يوسع النطاق أو يعيد سوهاج تلقائيًا.
+    if is_scope_required_endpoint() and ('مسؤول التطبيق' in rs or 'Manager Application Support' in rs):
+        gids_now=gids()
+        return [b.id for b in Branch.query.filter(Branch.governorate_id.in_(gids_now),Branch.is_active==True)] if gids_now else []
     if 'مسؤول التطبيق' in rs: return [b.id for b in Branch.query.filter_by(is_active=True)]
     if 'Manager Application Support' in rs:
         gids_now=gids()
@@ -492,6 +519,11 @@ def switch_role():
         old_role = session.get('active_role')
         session['active_role'] = selected
         if old_role != selected:
+            # تغيير الدور يغيّر السياق التشغيلي؛ لا ننقل محافظة الدور السابق
+            # إلى الدور الجديد. يجب اختيار المحافظة من جديد عند الحاجة.
+            session.pop('operational_governorate_id', None)
+            session.pop('operational_scope_uid', None)
+            session.pop('operational_scope_role', None)
             log('SWITCH_ROLE', 'User', u.id, f'{old_role or "الدور التلقائي"} -> {selected}')
             db.session.commit()
     else:

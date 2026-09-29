@@ -1,17 +1,17 @@
 {% extends 'base.html' %}
 {% block title %}تعديل المأمورية{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div><h1>تعديل المأمورية #{{m.id}}</h1><p class="muted">الحالة: <strong>تحت التحرير</strong> — يمكن تعديل جهة المأمورية وتاريخ البداية، وتاريخ النهاية إذا كان مسجلًا. الانتداب المفتوح يمكن طباعته بتاريخ نهاية مؤقت دون إغلاقه.</p></div>
-  <div class="actions"><a class="btn secondary" href="/reports/assignments/print-missions">↩ العودة للمأموريات</a><a class="btn teal" href="/reports/assignments/mission-pdf/{{m.id}}" target="_blank"><span class="ui-inline-icon-print" aria-hidden="true"></span>️ PDF مطابق</a></div>
+<div class="ds-page-head">
+  <div><h1>تعديل المأمورية #{{m.id}}</h1><p class="ds-muted">الحالة: <strong>تحت التحرير</strong> — يمكن تعديل جهة المأمورية وتاريخ البداية، وتاريخ النهاية إذا كان مسجلًا. الانتداب المفتوح يمكن طباعته بتاريخ نهاية مؤقت دون إغلاقه.</p></div>
+  <div class="ds-actions"><a class="ds-btn ds-btn-secondary" href="/reports/assignments/print-missions"><svg class="ds-icon ds-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6 3 12l6 6"/><path d="M4 12h11a5 5 0 0 1 5 5v1"/></svg> العودة للمأموريات</a><a class="ds-btn ds-tone-teal" href="/reports/assignments/mission-pdf/{{m.id}}" target="_blank"><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="M18 12h.01"/></svg>️ PDF مطابق</a></div>
 </div>
-<div class="box">
-<form method="post" class="grid v47-s-7ef14da5">
-  <div class="v47-s-1b9b41ec"><label>الموظف</label><input value="{{m.employee.full_name}} — {{m.employee.job_code or '—'}}" disabled></div>
+<div class="ds-card ds-mission-edit-card">
+<form method="post" class="ds-grid ds-grid-3-gap-16">
+  <div class="ds-grid-full"><label>الموظف</label><input value="{{m.employee.full_name}} — {{m.employee.job_code or '—'}}" disabled></div>
   <div><label>جهة المأمورية</label><select name="destination_branch_id" required>{% for b in branches %}<option value="{{b.id}}" {% if m.destination_branch_id==b.id %}selected{% endif %}>{{b.name}} — {{b.governorate.name}}</option>{% endfor %}</select></div>
   <div><label>من تاريخ</label><input type="date" name="from_date" value="{{m.from_date.isoformat() if m.from_date else ''}}" required></div>
   <div><label>إلى تاريخ</label><input type="date" name="to_date" value="{{m.to_date.isoformat() if m.to_date else ''}}" min="{{m.from_date.isoformat() if m.from_date else ''}}"></div>
-  <div class="actions v47-s-1b9b41ec"><button class="btn teal">حفظ التعديل</button><a class="btn secondary" href="/reports/assignments/print-missions">إلغاء</a></div>
+  <div class="ds-actions ds-grid-full"><button class="ds-btn ds-tone-teal">حفظ التعديل</button><a class="ds-btn ds-btn-secondary" href="/reports/assignments/print-missions">إلغاء</a></div>
 </form>
 </div>
 {% endblock %}

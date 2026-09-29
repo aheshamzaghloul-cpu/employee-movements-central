@@ -2,17 +2,17 @@
 {% block title %}الموظفون{% endblock %}
 {% block content %}
 {% if scope_required and not scope_selected %}
-<div class="scope-empty-state"><div class="scope-empty-icon">⌖</div><span class="home-kicker">اختيار نطاق العمل</span><h1>اختر المحافظة أولًا</h1><p>حدد المحافظة التي تريد العمل عليها. بعد الاختيار ستتعامل مع هذه الصفحة بصلاحيات مشرف المحافظة داخل المحافظة المحددة.</p></div>
+<div class="scope-empty-state"><div class="scope-empty-icon"><svg class="ds-icon ds-icon-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18"/></svg></div><span class="home-kicker">اختيار نطاق العمل</span><h1>اختر المحافظة أولًا</h1><p>حدد المحافظة التي تريد العمل عليها. بعد الاختيار ستتعامل مع هذه الصفحة بصلاحيات مشرف المحافظة داخل المحافظة المحددة.</p></div>
 {% else %}
-<div class="employees-page">
-  <div class="employees-page-head">
+<div class="ds-page-shell employees-page">
+  <div class="ds-page-head employees-page-head">
     <div><span class="home-kicker">إدارة الموظفين</span><h1>الموظفون</h1><p>إضافة الموظفين وإدارة بياناتهم حسب الفروع من مكان واحد.</p></div>
   </div>
 
   {% if can('manage_employees') and add_govs %}
-  <section class="employee-dashboard-panel employee-add-panel" id="employee-add">
-    <div class="employee-panel-head"><div><span class="home-kicker">إضافة جديدة</span><h2>＋ إضافة موظف</h2><p>المحافظة والفرع وبيانات الموظف الأساسية.</p></div><span class="employee-panel-icon"><span class="ui-inline-icon-person" aria-hidden="true"></span>＋</span></div>
-    <form method="post" class="employee-add-grid">
+  <section class="ds-module-card ds-employee-module employee-dashboard-panel employee-add-panel" id="employee-add">
+    <div class="ds-module-head employee-panel-head"><div><span class="home-kicker">إضافة جديدة</span><h2><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg> إضافة موظف</h2><p>المحافظة والفرع وبيانات الموظف الأساسية.</p></div><span class="ds-icon-tile employee-panel-icon"><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="3"/><path d="M5 21a7 7 0 0 1 14 0"/></svg></span></div>
+    <form method="post" class="ds-form-grid ds-form-grid-employee employee-add-grid">
       <input type="hidden" name="_csrf" value="{{csrf}}">
       <label>المحافظة<select name="governorate_id" id="new_employee_governorate" required><option value="">اختر المحافظة</option>{% for g in add_govs %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
       <label>الفرع<select name="branch_id" id="new_employee_branch" required><option value="">اختر الفرع</option>{% for b in add_bs %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}">{{b.name}}</option>{% endfor %}</select></label>
@@ -23,46 +23,46 @@
       <label>تاريخ التعيين<input type="date" name="hire_date" required></label>
       <label>هاتف العمل <small>(اختياري)</small><input name="company_phone" autocomplete="off"></label>
       <label>الهاتف الشخصي <small>(اختياري)</small><input name="personal_phone" autocomplete="off"></label>
-      <div class="employee-add-actions"><button class="btn employees-primary">حفظ الموظف</button><span>إسناد المدخل الأول يتم لاحقًا من إدارة الأدوار.</span></div>
+      <div class="ds-form-actions employee-add-actions"><button class="ds-btn employees-primary">حفظ الموظف</button><span>إسناد المدخل الأول يتم لاحقًا من إدارة الأدوار.</span></div>
     </form>
   </section>
   {% endif %}
 
   <!-- البحث السريع عن الموظف موجود في الصفحة الرئيسية؛ لا نكرره هنا. -->
   <section class="employee-dashboard-panel employee-search-panel" hidden>
-    <div class="employee-panel-head"><div><span class="home-kicker">بحث ذكي</span><h2><span class="ui-inline-icon-search" aria-hidden="true"></span> البحث عن موظف</h2><p>المحافظة ← الفرع ← اسم الموظف أو الكود الوظيفي.</p></div><span class="employee-panel-icon"><span class="ui-inline-icon-search" aria-hidden="true"></span></span></div>
+    <div class="ds-module-head employee-panel-head"><div><span class="home-kicker">بحث ذكي</span><h2><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 5 5"/></svg> البحث عن موظف</h2><p>المحافظة ← الفرع ← اسم الموظف أو الكود الوظيفي.</p></div><span class="ds-icon-tile employee-panel-icon"><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 5 5"/></svg></span></div>
     <form method="get" action="/employees" id="employees-search-form" class="employee-search-grid">
       <label>المحافظة<select name="governorate_id" id="employee_governorate_filter"><option value="">كل المحافظات</option>{% for g in govs %}<option value="{{g.id}}" {% if gov_filter|int == g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>
       <label>الفرع<select name="branch_id" id="employee_branch_filter"><option value="">كل الفروع</option>{% for b in bs %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}" {% if request.args.get('branch_id','')|int == b.id %}selected{% endif %}>{{b.name}}</option>{% endfor %}</select></label>
       <label class="employee-search-main">اسم الموظف أو الكود الوظيفي<input name="q" id="employees_search_input" value="{{q}}" list="employees_search_list" autocomplete="off" placeholder="اكتب الاسم أو الكود الوظيفي"><datalist id="employees_search_list">{% for e in rows %}<option value="{{e.full_name}}">{{e.job_code or ''}}</option>{% if e.job_code %}<option value="{{e.job_code}}">{{e.full_name}}</option>{% endif %}{% endfor %}</datalist></label>
-      <button class="btn" type="submit">بحث</button>{% if q or gov_filter or request.args.get('branch_id') %}<a class="btn secondary" href="/employees">مسح</a>{% endif %}
+      <button class="ds-btn" type="submit">بحث</button>{% if q or gov_filter or request.args.get('branch_id') %}<a class="ds-btn ds-btn-secondary" href="/employees">مسح</a>{% endif %}
     </form>
     <div class="employee-search-hint">بعد اختيار المحافظة والفرع، تظهر أسماء الموظفين المطابقة في خانة البحث. ويمكن البحث بالاسم أو الكود الوظيفي.</div>
   </section>
 
-  <section class="employee-dashboard-panel employee-tools-panel">
-    <div class="employee-tools-grid employee-tools-grid-clean">
-      {% if can('manage_employees') %}<a class="employee-tool-card" href="/employees/resigned"><span>↻</span><div><b>الموظفون المستقيلون</b><small>سجل مستقل محفوظ بالكامل وإعادة التعيين بتاريخ محدد</small></div><strong>عرض</strong></a>{% endif %}
+  <section class="ds-module-card ds-employee-module employee-dashboard-panel employee-tools-panel">
+    <div class="ds-card-grid ds-employee-tools employee-tools-grid employee-tools-grid-clean">
+      {% if can('manage_employees') %}<a class="ds-tool-card employee-tool-card" href="/employees/resigned"><span class="ds-icon-tile"><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2-5"/><path d="M4 5v5h5"/></svg></span><div><b>الموظفون المستقيلون</b><small>سجل مستقل محفوظ بالكامل وإعادة التعيين بتاريخ محدد</small></div><strong>عرض</strong></a>{% endif %}
     </div>
   </section>
 
-  <section class="employee-dashboard-panel employee-list-panel">
-    <div class="employee-list-head"><div><span class="home-kicker">دليل الموظفين</span><h2>الموظفون حسب الفروع</h2><p>كل فرع في قسم مستقل، والموظفون التابعون له يظهرون تحته.</p></div><b>{{total_rows}} موظف</b></div>
+  <section class="ds-module-card ds-employee-module employee-dashboard-panel employee-list-panel">
+    <div class="ds-module-head employee-list-head"><div><span class="home-kicker">دليل الموظفين</span><h2>الموظفون حسب الفروع</h2><p>كل فرع في قسم مستقل، والموظفون التابعون له يظهرون تحته.</p></div><b>{{total_rows}} موظف</b></div>
     {% if grouped_employees %}
-      <div class="employee-branch-groups">
+      <div class="ds-group-list employee-branch-groups">
       {% for g in grouped_employees %}
-        <section class="employee-gov-group">
-          <div class="employee-gov-head"><span>المحافظة</span><strong>{{g.governorate.name if g.governorate else '—'}}</strong><em>{{g.branches|length}} فرع</em></div>
-          <div class="employee-branch-list">
+        <section class="ds-group employee-gov-group">
+          <div class="ds-group-head employee-gov-head"><span>المحافظة</span><strong>{{g.governorate.name if g.governorate else '—'}}</strong><em>{{g.branches|length}} فرع</em></div>
+          <div class="ds-branch-list employee-branch-list">
           {% for bg in g.branches %}
-            <details class="employee-branch-group" {% if q or gov_filter or request.args.get('branch_id') %}open{% endif %}>
-              <summary><span class="employee-branch-title"><span class="employee-branch-icon">⌂</span><span><strong>{{bg.branch.name}}</strong><small>{{bg.employees|length}} موظف</small></span></span><span class="employee-branch-toggle">⌄</span></summary>
-              <div class="employee-cards-grid">
+            <details class="ds-branch-group employee-branch-group" {% if q or gov_filter or request.args.get('branch_id') %}open{% endif %}>
+              <summary><span class="ds-branch-title employee-branch-title"><span class="ds-branch-icon employee-branch-icon"><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10M9 20v-6h6v6"/></svg></span><span><strong>{{bg.branch.name}}</strong><small>{{bg.employees|length}} موظف</small></span></span><span class="ds-branch-toggle employee-branch-toggle"><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></summary>
+              <div class="ds-item-grid employee-cards-grid">
               {% for e in bg.employees %}{% set ca=current_assignment_for_employee(e.id) %}
-                <article class="employee-dashboard-card">
-                  <a class="employee-card-person" href="/employee/{{e.id}}"><span class="employee-card-avatar">{{e.full_name[:1]}}</span><span><strong>{{e.full_name}}</strong><small>{{e.job_title or 'موظف'}} · {{e.job_code or 'بدون كود'}}</small></span></a>
-                  <div class="employee-card-data"><span><small>المدخل الأول</small><b>{{entry_map.get(e.id) or 'غير مسند'}}</b></span><span><small>البريد</small><b>{{e.email or '—'}}</b></span>{% if ca and ca.destination %}<span><small>الفرع الحالي</small><b>{{ca.destination.name}}{% if ca.to_date is none %} · انتداب مفتوح{% endif %}</b></span>{% endif %}</div>
-                  <div class="employee-card-actions">{% if can_manage_employee(e) and can('manage_employees') %}<details class="employee-more"><summary>⋮</summary><div class="employee-more-menu"><a href="/employees/{{e.id}}/edit">تعديل البيانات</a><form method="post" action="/employees/{{e.id}}/resign"><input type="hidden" name="_csrf" value="{{csrf}}"><label>تاريخ الاستقالة<input type="date" name="resignation_date" required></label><button class="red" data-confirm="سيتم تسجيل الاستقالة ونقل الموظف إلى الموظفين المستقيلين. متابعة؟">استقالة</button></form>{% if has_role('مسؤول التطبيق') %}<form method="post" action="/employees/{{e.id}}/delete"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="danger-link" data-confirm="حذف إداري للموظف؟ استخدم الاستقالة إذا كانت الخدمة انتهت.">حذف إداري</button></form>{% endif %}</div></details>{% endif %}</div>
+                <article class="ds-item-card employee-dashboard-card">
+                  <a class="ds-item-person employee-card-person" href="/employee/{{e.id}}"><span class="ds-avatar employee-card-avatar">{{e.full_name[:1]}}</span><span><strong>{{e.full_name}}</strong><small>{{e.job_title or 'موظف'}} · {{e.job_code or 'بدون كود'}}</small></span></a>
+                  <div class="ds-item-data employee-card-data"><span><small>المدخل الأول</small><b>{{entry_map.get(e.id) or 'غير مسند'}}</b></span><span><small>البريد</small><b>{{e.email or '—'}}</b></span>{% if ca and ca.destination %}<span><small>الفرع الحالي</small><b>{{ca.destination.name}}{% if ca.to_date is none %} · انتداب مفتوح{% endif %}</b></span>{% endif %}</div>
+                  <div class="ds-item-actions employee-card-actions">{% if can_manage_employee(e) and can('manage_employees') %}<details class="employee-more"><summary aria-label="المزيد"><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></summary><div class="employee-more-menu"><a href="/employees/{{e.id}}/edit">تعديل البيانات</a><form method="post" action="/employees/{{e.id}}/resign"><input type="hidden" name="_csrf" value="{{csrf}}"><label>تاريخ الاستقالة<input type="date" name="resignation_date" required></label><button class="ds-btn-danger" data-confirm="سيتم تسجيل الاستقالة ونقل الموظف إلى الموظفين المستقيلين. متابعة؟">استقالة</button></form>{% if has_role('مسؤول التطبيق') %}<form method="post" action="/employees/{{e.id}}/delete"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="danger-link" data-confirm="حذف إداري للموظف؟ استخدم الاستقالة إذا كانت الخدمة انتهت.">حذف إداري</button></form>{% endif %}</div></details>{% endif %}</div>
                 </article>
               {% endfor %}
               </div>
@@ -73,7 +73,7 @@
       {% endfor %}
       </div>
     {% else %}
-      <div class="employee-empty">{% if q or gov_filter or request.args.get('branch_id') %}لا توجد نتائج مطابقة.{% else %}لا توجد موظفين ضمن نطاق العرض.{% endif %}</div>
+      <div class="ds-empty employee-empty">{% if q or gov_filter or request.args.get('branch_id') %}لا توجد نتائج مطابقة.{% else %}لا توجد موظفين ضمن نطاق العرض.{% endif %}</div>
     {% endif %}
   </section>
 

@@ -2823,7 +2823,7 @@ def assistant_topic_options(topic):
         items=[
             {'label':'تسجيل إجازة','prompt':'تسجيل إجازة','icon':'🌿','kind':'action'},
             {'label':'تقرير الإجازات','prompt':'أريد تقرير الإجازات','icon':'📊','kind':'report'},
-            {'label':'حالة إجازة موظف','prompt':'ما حالة إجازة الموظف ','icon':'👤','kind':'query'},
+            {'label':'حالة إجازة موظف','prompt':'ما حالة إجازة الموظف ','icon':'person','kind':'query'},
             {'label':'سجل إجازات موظف','prompt':'اعرض سجل حركات الموظف ','icon':'📋','kind':'query'},
         ]
         if not can('manage_movements'): items=[x for x in items if x['kind']!='action']
@@ -2831,9 +2831,9 @@ def assistant_topic_options(topic):
         return {'title':'خيارات الإجازات','answer':'اختر ما تريد بخصوص الإجازات، أو اكتب طلبك مباشرة.','topic_items':items}
     if topic=='assignment':
         items=[
-            {'label':'تسجيل انتداب','prompt':'تسجيل انتداب','icon':'↔️','kind':'action'},
+            {'label':'تسجيل انتداب','prompt':'تسجيل انتداب','icon':'assignment','kind':'action'},
             {'label':'تقرير الانتدابات','prompt':'أريد تقرير الانتدابات','icon':'📊','kind':'report'},
-            {'label':'حالة انتداب موظف','prompt':'اعرض حالة انتداب الموظف ','icon':'👤','kind':'query'},
+            {'label':'حالة انتداب موظف','prompt':'اعرض حالة انتداب الموظف ','icon':'person','kind':'query'},
             {'label':'سجل انتدابات موظف','prompt':'اعرض سجل حركات الموظف ','icon':'📋','kind':'query'},
             {'label':'طباعة المأموريات','prompt':'أريد طباعة المأموريات','icon':'🖨️','kind':'report'},
         ]
@@ -2842,7 +2842,7 @@ def assistant_topic_options(topic):
         return {'title':'خيارات الانتداب','answer':'اختر الإجراء أو الاستعلام المطلوب بخصوص الانتدابات.','topic_items':items}
     if topic=='permission':
         items=[
-            {'label':'تسجيل إذن','prompt':'تسجيل إذن','icon':'🕒','kind':'action'},
+            {'label':'تسجيل إذن','prompt':'تسجيل إذن','icon':'permission','kind':'action'},
             {'label':'تقرير الأذونات','prompt':'أريد تقرير الأذونات','icon':'📊','kind':'report'},
             {'label':'سجل أذونات موظف','prompt':'اعرض سجل حركات الموظف ','icon':'📋','kind':'query'},
         ]
@@ -2851,10 +2851,10 @@ def assistant_topic_options(topic):
         return {'title':'خيارات الأذونات','answer':'اختر ما تريد بخصوص الأذونات، أو اكتب طلبك مباشرة.','topic_items':items}
     if topic=='employee':
         items=[
-            {'label':'إضافة موظف جديد','prompt':'إضافة موظف جديد','icon':'➕','kind':'action','url':'/employees'},
-            {'label':'تعديل بيانات موظف','prompt':'تعديل بيانات موظف','icon':'✏️','kind':'action','url':'/employees/edit-data'},
+            {'label':'إضافة موظف جديد','prompt':'إضافة موظف جديد','icon':'add','kind':'action','url':'/employees'},
+            {'label':'تعديل بيانات موظف','prompt':'تعديل بيانات موظف','icon':'edit','kind':'action','url':'/employees/edit-data'},
             {'label':'البحث عن موظف','prompt':'ابحث عن موظف','icon':'🔎','kind':'query','url':'/employees'},
-            {'label':'الموظفون المستقيلون','prompt':'اعرض الموظفين المستقيلين','icon':'♻️','kind':'query','url':'/employees/resigned'},
+            {'label':'الموظفون المستقيلون','prompt':'اعرض الموظفين المستقيلين','icon':'restore','kind':'query','url':'/employees/resigned'},
         ]
         if not can('manage_employees'):
             items=[x for x in items if x['kind']=='query']
@@ -2864,10 +2864,10 @@ def assistant_topic_options(topic):
         if can('manage_structure'):
             items += [
                 {'label':'تعيين مدخل أول','prompt':'أريد تعيين مدخل أول','icon':'👥','kind':'action'},
-                {'label':'إزالة دور مدخل أول','prompt':'أريد إزالة دور مدخل أول','icon':'↩️','kind':'action'},
-                {'label':'إدارة المدخلين الأوائل','prompt':'أريد إدارة المدخلين الأوائل','icon':'⚙️','kind':'action'},
+                {'label':'إزالة دور مدخل أول','prompt':'أريد إزالة دور مدخل أول','icon':'remove-role','kind':'action'},
+                {'label':'إدارة المدخلين الأوائل','prompt':'أريد إدارة المدخلين الأوائل','icon':'settings','kind':'action'},
                 {'label':'فروع مسؤولية مدخل أول','prompt':'اعرض فروع مسؤولية مدخل أول','icon':'🏬','kind':'query'},
-                {'label':'موظفو مدخل أول','prompt':'اعرض موظفي مدخل أول','icon':'👤','kind':'query'},
+                {'label':'موظفو مدخل أول','prompt':'اعرض موظفي مدخل أول','icon':'person','kind':'query'},
             ]
         if not items:
             items=[{'label':'عرض المدخل الأول','prompt':'اعرض بيانات المدخل الأول','icon':'👥','kind':'query'}]
@@ -3310,57 +3310,57 @@ def assistant():
     # تعرض الاستعلامات والتنفيذات الممكنة، ولا تظهر وظائف لا يملك المستخدم صلاحيتها.
     assistant_options=[
         {'group':'استعلامات الموظفين','items':[
-            {'label':'حالة موظف','prompt':'ما حالة الموظف ؟','icon':'👤','kind':'query'},
+            {'label':'حالة موظف','prompt':'ما حالة الموظف ؟','icon':'person','kind':'query'},
             {'label':'سجل حركات موظف','prompt':'اعرض سجل حركات الموظف ؟','icon':'📋','kind':'query'},
             {'label':'بيانات موظف','prompt':'اعرض بيانات الموظف ؟','icon':'🪪','kind':'query'},
         ]},
         {'group':'استعلامات الفروع والحركات','items':[
             {'label':'حالة فرع','prompt':'ما حالة موظفي فرع ؟','icon':'🏢','kind':'query'},
             {'label':'حالة الموظفين الآن','prompt':'اعرض حالة الموظفين الآن','icon':'📊','kind':'query'},
-            {'label':'الحركات المنتهية قريبًا','prompt':'اعرض الحركات التي تنتهي قريبًا','icon':'⏳','kind':'query'},
+            {'label':'الحركات المنتهية قريبًا','prompt':'اعرض الحركات التي تنتهي قريبًا','icon':'clock','kind':'query'},
         ]},
     ]
     if can('manage_movements'):
         assistant_options.append({'group':'تسجيل الحركات','items':[
             {'label':'إجازة','prompt':'تسجيل إجازة للموظف ','icon':'🌿','kind':'action'},
-            {'label':'انتداب','prompt':'تسجيل انتداب للموظف ','icon':'↔️','kind':'action'},
-            {'label':'إذن','prompt':'تسجيل إذن للموظف ','icon':'🕒','kind':'action'},
+            {'label':'انتداب','prompt':'تسجيل انتداب للموظف ','icon':'assignment','kind':'action'},
+            {'label':'إذن','prompt':'تسجيل إذن للموظف ','icon':'permission','kind':'action'},
         ]})
     if can('manage_employees'):
         assistant_options.append({'group':'إدارة الموظفين','items':[
-            {'label':'إضافة موظف','prompt':'أريد إضافة موظف','icon':'➕','kind':'action','url':'/employees'},
-            {'label':'تعديل موظف','prompt':'أريد تعديل بيانات موظف','icon':'✏️','kind':'action','url':'/employees/edit-data'},
-            {'label':'حذف موظف','prompt':'أريد حذف موظف','icon':'🗑️','kind':'action','url':'/employees'},
-            {'label':'الموظفون المستقيلون','prompt':'اعرض الموظفين المستقيلين','icon':'♻️','kind':'query','url':'/employees/resigned'},
+            {'label':'إضافة موظف','prompt':'أريد إضافة موظف','icon':'add','kind':'action','url':'/employees'},
+            {'label':'تعديل موظف','prompt':'أريد تعديل بيانات موظف','icon':'edit','kind':'action','url':'/employees/edit-data'},
+            {'label':'حذف موظف','prompt':'أريد حذف موظف','icon':'delete','kind':'action','url':'/employees'},
+            {'label':'الموظفون المستقيلون','prompt':'اعرض الموظفين المستقيلين','icon':'restore','kind':'query','url':'/employees/resigned'},
         ]})
     if can('manage_structure'):
         assistant_options.append({'group':'الإدارة التنظيمية','items':[
-            {'label':'المحافظات','prompt':'أريد إدارة المحافظات','icon':'🗺️','kind':'action','url':'/governorates'},
+            {'label':'المحافظات','prompt':'أريد إدارة المحافظات','icon':'map','kind':'action','url':'/governorates'},
             {'label':'الفروع','prompt':'أريد إدارة الفروع','icon':'🏬','kind':'action','url':'/branches'},
             {'label':'المدخل الأول','prompt':'أريد إدارة المدخلين الأوائل','icon':'👥','kind':'action','url':'/structure'},
             {'label':'الاستبدال','prompt':'أريد تنفيذ الاستبدال','icon':'🔁','kind':'action','url':'/replacement'},
         ]})
     if can('manage_users'):
         assistant_options.append({'group':'المستخدمون والصلاحيات','items':[
-            {'label':'المستخدمون','prompt':'أريد إدارة المستخدمين','icon':'👤','kind':'action','url':'/users'},
+            {'label':'المستخدمون','prompt':'أريد إدارة المستخدمين','icon':'person','kind':'action','url':'/users'},
             {'label':'الأدوار والصلاحيات','prompt':'أريد إدارة الأدوار والصلاحيات','icon':'🔐','kind':'action','url':'/users'},
-            {'label':'تفويض المشرفين','prompt':'أريد إدارة تفويضات المشرفين','icon':'🤝','kind':'action','url':'/delegations'},
+            {'label':'تفويض المشرفين','prompt':'أريد إدارة تفويضات المشرفين','icon':'delegation','kind':'action','url':'/delegations'},
         ]})
     if can('delete_movements'):
         assistant_options.append({'group':'حذف الحركات','items':[
-            {'label':'حذف حركة','prompt':'أريد حذف حركة','icon':'🗑️','kind':'action','url':'/movements'},
+            {'label':'حذف حركة','prompt':'أريد حذف حركة','icon':'delete','kind':'action','url':'/movements'},
         ]})
     if can('view_reports'):
         assistant_options.append({'group':'التقارير والطباعة','items':[
             {'label':'تقرير الإجازات','prompt':'أريد تقرير الإجازات','icon':'🌿','kind':'report','url':'/reports/leaves'},
-            {'label':'تقرير الانتدابات','prompt':'أريد تقرير الانتدابات','icon':'↔️','kind':'report','url':'/reports/assignments'},
-            {'label':'تقرير الأذونات','prompt':'أريد تقرير الأذونات','icon':'🕒','kind':'report','url':'/reports/permissions'},
+            {'label':'تقرير الانتدابات','prompt':'أريد تقرير الانتدابات','icon':'assignment','kind':'report','url':'/reports/assignments'},
+            {'label':'تقرير الأذونات','prompt':'أريد تقرير الأذونات','icon':'permission','kind':'report','url':'/reports/permissions'},
             {'label':'طباعة المأموريات','prompt':'أريد طباعة المأموريات','icon':'🖨️','kind':'report','url':'/reports/assignments/print-missions'},
         ]})
     if can('view_audit'):
         assistant_options.append({'group':'المتابعة','items':[
             {'label':'سجل العمليات','prompt':'أريد سجل العمليات','icon':'🧾','kind':'query','url':'/audit'},
-            {'label':'القوائم الأساسية','prompt':'أريد إدارة القوائم الأساسية','icon':'⚙️','kind':'action','url':'/lookups'},
+            {'label':'القوائم الأساسية','prompt':'أريد إدارة القوائم الأساسية','icon':'settings','kind':'action','url':'/lookups'},
         ]})
     # Flatten for the existing template while retaining grouping metadata.
     assistant_option_groups=assistant_options

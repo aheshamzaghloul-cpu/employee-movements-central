@@ -1,30 +1,30 @@
 {% extends 'base.html' %}
 {% block title %}الاستبدال الإداري{% endblock %}
 {% block content %}
-<div class="toolbar"><div><h1>الاستبدال الإداري</h1><p class="subtitle">نقل المسؤولية من شخص حالي إلى بديل مع الحفاظ على بيانات الموظف القديم وتاريخه.</p></div></div>
-<div class="admin-replace-grid">
-  <section class="box replace-card">
-    <div class="section-title"><div><h3>استبدال مشرف محافظة</h3><small class="hint">ينقل المحافظات والارتباطات والمدخلين المرتبطين بالمشرف إلى البديل، ثم يزيل دور المشرف من الشخص القديم فقط.</small></div></div>
-    <form method="post" class="grid">
+<div class="ds-toolbar"><div><h1>الاستبدال الإداري</h1><p class="ds-subtitle">نقل المسؤولية من شخص حالي إلى بديل مع الحفاظ على بيانات الموظف القديم وتاريخه.</p></div></div>
+<div class="ds-admin-replace-grid">
+  <section class="ds-card replace-card">
+    <div class="ds-section-title"><div><h3>استبدال مشرف محافظة</h3><small class="ds-hint">ينقل المحافظات والارتباطات والمدخلين المرتبطين بالمشرف إلى البديل، ثم يزيل دور المشرف من الشخص القديم فقط.</small></div></div>
+    <form method="post" class="ds-grid">
       <input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="mode" value="supervisor">
       <label>المشرف الحالي<select name="old_supervisor_id" required><option value="">اختر المشرف الحالي</option>{% for u in supervisors %}<option value="{{u.id}}">{{u.full_name}} — {{u.username}}</option>{% endfor %}</select></label>
       <label>المشرف البديل<select name="new_supervisor_id" required><option value="">اختر الشخص البديل</option>{% for u in supervisor_targets %}<option value="{{u.id}}">{{u.full_name}} — {{u.username}}</option>{% endfor %}</select></label>
       <div class="replace-note">✓ تنتقل المحافظات المرتبطة<br>✓ تنتقل المدخلون التابعون<br>✓ تنتقل التفويضات النشطة<br>✓ لا يُحذف الموظف أو تاريخه</div>
-      <button class="btn" data-confirm="سيتم نقل مسؤوليات المشرف إلى البديل وإزالة دوره من الشخص القديم. هل تريد المتابعة؟">تنفيذ الاستبدال</button>
+      <button class="ds-btn" data-confirm="سيتم نقل مسؤوليات المشرف إلى البديل وإزالة دوره من الشخص القديم. هل تريد المتابعة؟">تنفيذ الاستبدال</button>
     </form>
   </section>
-  <section class="box replace-card">
-    <div class="section-title"><div><h3>استبدال المدخل الأول</h3><small class="hint">المدخل الأول دور تنظيمي؛ تنتقل الفروع والمسؤولية إلى الموظف البديل دون إنشاء حساب دخول.</small></div></div>
-    <form method="post" class="grid">
+  <section class="ds-card replace-card">
+    <div class="ds-section-title"><div><h3>استبدال المدخل الأول</h3><small class="ds-hint">المدخل الأول دور تنظيمي؛ تنتقل الفروع والمسؤولية إلى الموظف البديل دون إنشاء حساب دخول.</small></div></div>
+    <form method="post" class="ds-grid">
       <input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="mode" value="entry">
       <label>المدخل الأول الحالي<select name="old_entry_employee_id" required><option value="">اختر المدخل الأول</option>{% for e in entry_employees %}<option value="{{e.id}}">{{e.full_name}} — {{e.branch.name if e.branch else ''}}</option>{% endfor %}</select></label>
       <label>الموظف البديل<select name="new_entry_employee_id" required><option value="">اختر الموظف البديل</option>{% for e in entry_targets %}<option value="{{e.id}}">{{e.full_name}} — {{e.branch.name if e.branch else ''}}</option>{% endfor %}</select></label>
       <div class="replace-note">✓ تنتقل فروع المسؤولية<br>✓ يبقى المشرف المسؤول نفسه<br>✓ لا يُحذف الموظف القديم أو حركاته<br>✓ لا يُنشأ حساب للمدخل الأول</div>
-      <button class="btn" data-confirm="سيتم نقل مسؤولية المدخل الأول وفروعه إلى الموظف البديل. هل تريد المتابعة؟">تنفيذ الاستبدال</button>
+      <button class="ds-btn" data-confirm="سيتم نقل مسؤولية المدخل الأول وفروعه إلى الموظف البديل. هل تريد المتابعة؟">تنفيذ الاستبدال</button>
     </form>
   </section>
 </div>
 <style>
-.admin-replace-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:16px}.replace-card{padding:20px}.replace-card .section-title h3{margin:0 0 5px;color:#244f6b}.replace-card .grid{grid-template-columns:1fr;gap:12px}.replace-note{background:#f4faf8;border:1px solid #cfe7df;border-radius:12px;padding:12px;line-height:1.9;color:#496b68;font-size:13px}.replace-card .btn{width:100%;padding:12px;font-size:15px}@media(max-width:800px){.admin-replace-grid{grid-template-columns:1fr}}
+.ds-admin-replace-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:16px}.replace-card{padding:20px}.replace-card .section-title h3{margin:0 0 5px;color:#244f6b}.replace-card .grid{grid-template-columns:1fr;gap:12px}.replace-note{background:#f4faf8;border:1px solid #cfe7df;border-radius:12px;padding:12px;line-height:1.9;color:#496b68;font-size:13px}.replace-card .btn{width:100%;padding:12px;font-size:15px}@media(max-width:800px){.ds-admin-replace-grid{grid-template-columns:1fr}}
 </style>
 {% endblock %}

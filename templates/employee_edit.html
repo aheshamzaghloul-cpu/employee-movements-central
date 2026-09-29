@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
 {% block title %}تعديل الموظف{% endblock %}
 {% block content %}
-<div class="toolbar"><div><h1>تعديل الموظف</h1><p class="subtitle">جميع بيانات الموظف إجبارية.</p></div><div><a class="btn secondary" href="/employees">رجوع</a>{% if has_role('مسؤول التطبيق') %} <a class="btn" href="{{url_for('employee_convert_role',i=e.id)}}">تغيير الصفة: موظف / مدخل أول</a>{% endif %}</div></div>
-<div class="box"><form method="post" class="grid wide">
+<div class="ds-toolbar"><div><h1>تعديل الموظف</h1><p class="ds-subtitle">جميع بيانات الموظف إجبارية.</p></div><div><a class="ds-btn ds-btn-secondary" href="/employees">رجوع</a>{% if has_role('مسؤول التطبيق') %} <a class="ds-btn" href="{{url_for('employee_convert_role',i=e.id)}}">تغيير الصفة: موظف / مدخل أول</a>{% endif %}</div></div>
+<div class="ds-card"><form method="post" class="ds-grid wide">
 <input type="hidden" name="_csrf" value="{{csrf}}">
 <label>اسم الموظف<input name="full_name" value="{{e.full_name}}" required></label>
 <label>البريد الإلكتروني<input name="email" type="email" value="{{e.email or ""}}" required autocomplete="email"></label>
@@ -13,6 +13,6 @@
 <label>تاريخ التعيين<input type="date" name="hire_date" value="{{e.hire_date or ''}}" required></label>
 <label>هاتف الشركة<input name="company_phone" value="{{e.company_phone or ''}}" required></label>
 <label>الهاتف الشخصي<input name="personal_phone" value="{{e.personal_phone or ''}}" required></label>
-<div class="form-actions"><button>حفظ التعديلات</button></div>
+<div class="ds-form-actions"><button>حفظ التعديلات</button></div>
 </form></div>
 {% endblock %}

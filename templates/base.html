@@ -1,20 +1,66 @@
-<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#10233f"><title>{% block title %}نظام إدارة حركات الموظفين{% endblock %}</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="{{url_for('static',filename='app.css')}}"><link rel="stylesheet" href="{{url_for('static',filename='enterprise.css')}}"></head><body class="{% if request.args.get('embed')=='1' %}assistant-embed-body{% endif %}"><div class="app-shell{% if request.args.get('embed')=='1' %} assistant-host{% endif %}">{% if me and request.args.get('embed')!='1' %}
-<header class="enterprise-header">
-  <div class="enterprise-brand"><div class="enterprise-logo">م</div><div><b>حركات الموظفين</b><span>منصة الإدارة المركزية</span></div></div>
-  <nav class="enterprise-nav" aria-label="التنقل الرئيسي">
-    <a href="/" class="{% if request.path=='/' %}active{% endif %}"><span>⌂</span>الرئيسية</a>
-    <a href="/employees" class="{% if request.path.startswith('/employees') %}active{% endif %}"><span>♙</span>الموظفون</a>
-    <a href="/movements" class="{% if request.path.startswith('/movements') %}active{% endif %}"><span>↔</span>الحركات</a>
-    {% if can('view_reports') or can('manage_movements') %}<a href="/reports-missions" class="{% if request.path.startswith('/reports') %}active{% endif %}"><span>▤</span>تقارير ومأموريات</a>{% endif %}
-    {% if 'مشرف محافظة' in roles and 'مسؤول التطبيق' not in roles %}<a href="/delegations" class="{% if request.path.startswith('/delegations') %}active{% endif %}"><span>⇄</span>تفويض</a>{% endif %}
-    {% if 'مسؤول التطبيق' in roles %}<a href="/structure" class="{% if request.path.startswith('/structure') %}active{% endif %}"><span>⚙</span>الإدارة</a>{% endif %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1930">
+<title>{% block title %}نظام إدارة حركات الموظفين{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{url_for('static',filename='app.css')}}"><link rel="stylesheet" href="{{url_for('static',filename='enterprise.css')}}">
+</head>
+<body class="{% if request.args.get('embed')=='1' %}assistant-embed-body{% endif %}">
+<div class="app-shell{% if request.args.get('embed')=='1' %} assistant-host{% endif %}">
+{% if me and request.args.get('embed')!='1' %}
+<aside class="app-sidebar v39-sidebar" id="appSidebar">
+  <div class="v39-brand">
+    <div class="v39-brand-icon">م</div>
+    <div><strong>نظام إدارة حركات الموظفين</strong><span>المنصة المركزية</span></div>
+    <button class="v39-collapse" type="button" aria-label="تصغير القائمة">‹</button>
+  </div>
+  <div class="v39-nav-title">مساحة العمل</div>
+  <nav class="v39-nav" aria-label="التنقل الرئيسي">
+    <a href="/" class="{% if request.path=='/' %}active{% endif %}"><span class="v39-nav-ico">⌂</span><span>الرئيسية</span></a>
+    <a href="/employees" class="{% if request.path.startswith('/employees') %}active{% endif %}"><span class="v39-nav-ico">♙</span><span>الموظفون</span></a>
+    <a href="/movements" class="{% if request.path.startswith('/movements') %}active{% endif %}"><span class="v39-nav-ico">↔</span><span>حركات الموظفين</span></a>
+    {% if can('view_reports') or can('manage_movements') %}<a href="/reports-missions" class="{% if request.path.startswith('/reports') or request.path.startswith('/mission') %}active{% endif %}"><span class="v39-nav-ico">▤</span><span>تقارير ومأموريات</span></a>{% endif %}
+    {% if 'مشرف محافظة' in roles and 'مسؤول التطبيق' not in roles %}<a href="/delegations" class="{% if request.path.startswith('/delegations') %}active{% endif %}"><span class="v39-nav-ico">⇄</span><span>تفويض</span></a>{% endif %}
   </nav>
-  <div class="enterprise-user">
-    {% if real_roles|length > 1 %}<form method="post" action="/switch-role" class="enterprise-role"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="next" value="{{request.path}}"><select name="active_role" onchange="this.form.submit()">{% for r in ['مسؤول التطبيق','مشرف محافظة','Manager Application Support','المدخل الأول'] if r in real_roles %}<option value="{{r}}" {% if active_role==r or (not active_role and loop.first) %}selected{% endif %}>{{r}}</option>{% endfor %}</select></form>{% endif %}
-    <a href="/change-password" class="enterprise-account" title="حسابي"><span class="enterprise-avatar">{{(me.full_name or 'م')[:1]}}</span><span><b>{{me.full_name}}</b><small>{% if active_role %}{{active_role}}{% elif roles %}{{roles|join(' · ')}}{% endif %}</small></span></a>
-    <a class="enterprise-logout" href="/logout" title="تسجيل الخروج">↪</a>
+  {% if 'مسؤول التطبيق' in roles %}
+  <div class="v39-nav-title v39-admin-title">الإدارة</div>
+  <nav class="v39-nav"><a href="/structure" class="{% if request.path.startswith('/structure') %}active{% endif %}"><span class="v39-nav-ico">⚙</span><span>الإدارة</span></a></nav>
+  {% endif %}
+  <div class="v39-side-spacer"></div>
+  <a href="/assistant?embed=1" class="v39-help-card" target="_blank"><span class="v39-help-icon">✦</span><span><b>المساعد الذكي</b><small>اسأل عن أي شيء في النظام</small></span><i>↗</i></a>
+  <div class="v39-side-links"><a href="/change-password">حسابي</a><a href="/logout">خروج</a></div>
+  <div class="v39-version">نظام إدارة حركات الموظفين · الإصدار 39.0</div>
+</aside>
+<header class="app-topbar v39-topbar">
+  <button class="sidebar-toggle v39-menu" id="sidebarToggle" type="button" aria-label="القائمة">☰</button>
+  <div class="v39-userbox">
+    <div class="v39-user-avatar">{{(me.full_name or 'م')[:1]}}</div>
+    <div><strong>{{me.full_name}}</strong><small>{% if active_role %}{{active_role}}{% elif roles %}{{roles|join(' · ')}}{% endif %}</small></div>
+    <span class="v39-user-caret">⌄</span>
+  </div>
+  <div class="v39-top-search">
+    <span>⌕</span><input id="v39-global-search" type="search" placeholder="ابحث عن موظف بالاسم أو كود شئون العاملين أو أي بيانات أخرى..." autocomplete="off"><kbd>⌘ K</kbd>
+  </div>
+  <div class="v39-top-actions">
+    {% if scope_required %}
+    <form method="get" action="/" class="v39-scope-form"><span>⌖</span><select name="governorate_id" aria-label="المحافظة" onchange="this.form.submit()"><option value="">{% if scope_selected %}محافظة: {{scope_governorate.name}}{% else %}اختر المحافظة{% endif %}</option>{% for g in scope_governorates %}{% if not scope_selected or g.id!=scope_selected %}<option value="{{g.id}}">محافظة: {{g.name}}</option>{% endif %}{% endfor %}</select></form>
+    {% elif scope_selected and scope_governorate %}<div class="v39-scope-chip">⌖ {{scope_governorate.name}}</div>{% endif %}
+    <button class="v39-icon-button" type="button" title="الإشعارات">♢<i></i></button>
+    <button class="v39-icon-button" type="button" title="الإعدادات">⚙</button>
+    {% if real_roles|length > 1 %}<form method="post" action="/switch-role" class="v39-role-form"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="next" value="{{request.path}}"><select name="active_role" onchange="this.form.submit()">{% for r in ['مسؤول التطبيق','مشرف محافظة','Manager Application Support','المدخل الأول'] if r in real_roles %}<option value="{{r}}" {% if active_role==r or (not active_role and loop.first) %}selected{% endif %}>{{r}}</option>{% endfor %}</select></form>{% endif %}
   </div>
 </header>
-{% if scope_required %}<div class="enterprise-scope"><div class="scope-mark">⌖</div><div class="scope-copy"><small>نطاق التشغيل</small><strong>{% if scope_selected %}{{scope_governorate.name}}{% else %}لم يتم اختيار محافظة{% endif %}</strong><span>{% if scope_selected %}كل العمليات التشغيلية تعمل الآن داخل هذا النطاق{% else %}اختر المحافظة لبدء العمل التشغيلي{% endif %}</span></div><form method="get" action="{{request.path}}"><select name="governorate_id" onchange="this.form.submit()"><option value="">اختيار المحافظة</option>{% for g in scope_governorates %}<option value="{{g.id}}" {% if scope_selected==g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></form></div>{% endif %}
-{% endif %}<main{% if request.args.get('embed')=='1' %} class="assistant-embed-main"{% endif %}>{% if not me %}<main class="login">{% endif %}{% for x in get_flashed_messages() %}<div class="enterprise-alert">{{x}}</div>{% endfor %}{% block content %}{% endblock %}{% if not me %}</main>{% endif %}</main></div>
-{% if me and request.args.get('embed')!='1' %}<button type="button" class="enterprise-assistant-fab" id="assistantFab" title="فتح المساعد الذكي" aria-label="فتح المساعد الذكي"><span>✦</span></button><div class="assistant-modal" id="assistantModal" hidden aria-hidden="true"><div class="assistant-window" id="assistantWindow" role="dialog" aria-modal="true" aria-label="المساعد الذكي"><div class="assistant-window-bar" id="assistantDragBar"><div class="assistant-window-title"><span class="assistant-window-mark">✦</span><span>المساعد الذكي</span><small>مساعدك التشغيلي</small></div></div><iframe id="assistantFrame" src="/assistant?embed=1" title="المساعد الذكي" loading="eager"></iframe></div></div>{% endif %}<script src="{{url_for('static',filename='app.js')}}"></script></body></html>
+{% endif %}
+<main class="app-main{% if me and request.args.get('embed')!='1' %} with-sidebar{% endif %}{% if request.args.get('embed')=='1' %} assistant-embed-main{% endif %}">
+{% if not me %}<div class="login">{% endif %}
+{% for x in get_flashed_messages() %}<div class="enterprise-alert">{{x}}</div>{% endfor %}
+{% block content %}{% endblock %}
+{% if not me %}</div>{% endif %}
+</main></div>
+{% if me and request.args.get('embed')!='1' %}<button type="button" class="enterprise-assistant-fab" id="assistantFab" title="فتح المساعد الذكي" aria-label="فتح المساعد الذكي"><span>✦</span></button><div class="assistant-modal" id="assistantModal" hidden aria-hidden="true"><div class="assistant-window" id="assistantWindow" role="dialog" aria-modal="true" aria-label="المساعد الذكي"><div class="assistant-window-bar" id="assistantDragBar"><div class="assistant-window-title"><span class="assistant-window-mark">✦</span><span>المساعد الذكي</span><small>مساعدك التشغيلي</small></div></div><iframe id="assistantFrame" src="/assistant?embed=1" title="المساعد الذكي" loading="eager"></iframe></div></div>{% endif %}
+<script src="{{url_for('static',filename='app.js')}}"></script>
+<script>document.addEventListener('DOMContentLoaded',()=>{const b=document.getElementById('sidebarToggle'),s=document.getElementById('appSidebar');b?.addEventListener('click',()=>s?.classList.toggle('open'));});</script>
+</body></html>

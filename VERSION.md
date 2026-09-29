@@ -1,5 +1,1 @@
-# VERSION
-
-**v39.0 — Full Product UI Rebuild**
-
-واجهة النظام أعيد بناؤها بصريًا من الصفر حول Design System مؤسسي عربي RTL حديث، مع الحفاظ على منطق النظام والصلاحيات ونطاق التشغيل والبحث العالمي.
+v40.0 — FULL VISUAL REBUILD / precise screenshot corrections

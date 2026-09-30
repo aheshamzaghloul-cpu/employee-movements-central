@@ -16,6 +16,7 @@ elif DATABASE_URL.startswith('postgresql://'): DATABASE_URL=DATABASE_URL.replace
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or 'dev-only-change-me',SQLALCHEMY_DATABASE_URI=DATABASE_URL,SQLALCHEMY_TRACK_MODIFICATIONS=False,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','0')=='1',MAX_CONTENT_LENGTH=2*1024*1024)
 db=SQLAlchemy(app)
 ROLES=['مسؤول التطبيق','مشرف محافظة','المدخل الأول','Manager Application Support']
+LOGIN_ROLES=['مسؤول التطبيق','مشرف محافظة','Manager Application Support']
 MOVEMENT_TYPES=['إجازة','انتداب','إذن']
 LEAVE_TYPES=['سنوية','عارضة','مصيف','وضع']
 STATUSES=['مسجلة']
@@ -515,7 +516,7 @@ def switch_role():
     selected = request.form.get('active_role', '').strip()
     if len(real_roles) <= 1:
         session.pop('active_role', None)
-    elif selected in real_roles:
+    elif selected in real_roles and selected in LOGIN_ROLES:
         old_role = session.get('active_role')
         session['active_role'] = selected
         if old_role != selected:
@@ -748,6 +749,7 @@ def home():
     # بيانات إضافة المدخل الأول التنظيمي في الصفحة الرئيسية يجب أن تُبنى داخل
     # نفس نطاق المستخدم؛ لا تعتمد على متغيرات غير مُمررة للقالب.
     available_entry_employees=[]
+    available_entry_employee_is_supervisor={}
     entry_supervisors=[]
     available_entry_branches=[]
     if 'مسؤول التطبيق' in effective or 'مشرف محافظة' in effective or is_manager_support:
@@ -757,7 +759,15 @@ def home():
                 Employee.is_active==True,
                 Employee.branch_id.in_(allowed_branch_set)
             ).order_by(Employee.full_name.asc()).all()
-            available_entry_employees=[e for e in candidates if not entry_role_exists(e)]
+            # إذا منح مسؤول التطبيق المشرف دور «المدخل الأول» من إدارة الحساب،
+            # يصبح المشرف مؤهلًا للظهور هنا أيضًا. لا ننشئ له حسابًا جديدًا؛
+            # نستخدم سجل الموظف المرتبط بحسابه. الاستثناء الوحيد هو وجود
+            # EntryAssignment تنظيمي فعّال بالفعل، حتى لا يظهر كخيار مكرر.
+            available_entry_employees=[e for e in candidates if not organizational_entry_for_employee(e)]
+            available_entry_employee_is_supervisor={
+                e.id: bool(e.user_id and 'مشرف محافظة' in actual_roles(db.session.get(User,e.user_id)))
+                for e in available_entry_employees
+            }
             occupied_entry_branch_ids=set()
             for oa in EntryAssignment.query.filter_by(is_active=True).all():
                 occupied_entry_branch_ids.update(x.branch_id for x in EntryAssignmentBranch.query.filter_by(entry_assignment_id=oa.id).all())
@@ -807,6 +817,7 @@ def home():
         current_status_rows=current_status_rows,
         current_status_summary=current_status_summary,
         available_entry_employees=available_entry_employees,
+        available_entry_employee_is_supervisor=available_entry_employee_is_supervisor,
         available_entry_branches=available_entry_branches,
         entry_directory_branches=entry_directory_branches,
         entry_supervisors=entry_supervisors,
@@ -872,6 +883,9 @@ def sync_role_accounts(u):
         if role not in real:
             db.session.delete(existing[role])
     for role in real:
+        # المدخل الأول دور تنظيمي للموظف وليس حساب دخول مستقلًا.
+        if role not in LOGIN_ROLES:
+            continue
         x=existing.get(role)
         if not x:
             db.session.add(RoleAccount(user_id=u.id,role=role,username=u.username,password_hash=u.password_hash))
@@ -998,16 +1012,37 @@ def structure():
         tree.append((g,bs,supervisors,entries,counts))
     govs_all=Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all() if (is_admin or is_manager_support) else govs
     admin_stats = None
+    admin_audit = []
     if is_admin or is_manager_support:
+        active_gov_count=Governorate.query.filter_by(is_active=True).count()
+        active_branch_count=Branch.query.filter_by(is_active=True).count()
+        active_employee_count=Employee.query.filter_by(is_active=True).count()
+        active_users=User.query.filter_by(is_active=True).all()
+        inactive_users=User.query.filter_by(is_active=False).count()
+        supervisors_count=sum(1 for u in active_users if 'مشرف محافظة' in actual_roles(u))
+        support_count=sum(1 for u in active_users if 'Manager Application Support' in actual_roles(u))
+        entry_assignments=EntryAssignment.query.filter_by(is_active=True).all()
+        entry_assignment_ids={a.id for a in entry_assignments}
+        assigned_entry_branch_ids={x.branch_id for x in EntryAssignmentBranch.query.filter(EntryAssignmentBranch.entry_assignment_id.in_(entry_assignment_ids)).all()} if entry_assignment_ids else set()
+        unassigned_branch_count=max(0, active_branch_count-len(assigned_entry_branch_ids))
+        role_account_count=RoleAccount.query.count()
         admin_stats = {
-            'governorates': Governorate.query.filter_by(is_active=True).count(),
-            'branches': Branch.query.filter_by(is_active=True).count(),
-            'employees': Employee.query.filter_by(is_active=True).count(),
-            'users': User.query.filter_by(is_active=True).count(),
-            'supervisors': sum(1 for u in User.query.filter_by(is_active=True).all() if 'مشرف محافظة' in actual_roles(u)),
-            'entries': sum(1 for u in User.query.filter_by(is_active=True).all() if 'المدخل الأول' in actual_roles(u)),
+            'governorates': active_gov_count,
+            'branches': active_branch_count,
+            'employees': active_employee_count,
+            'users': len(active_users),
+            'inactive_users': inactive_users,
+            'supervisors': supervisors_count,
+            'support': support_count,
+            'entries': len(entry_assignments),
+            'entry_branches': len(assigned_entry_branch_ids),
+            'unassigned_branches': unassigned_branch_count,
+            'role_accounts': role_account_count,
             'movements': Movement.query.filter_by(is_active=True).count(),
+            'delegations': ApprovalDelegation.query.filter_by(is_active=True).count(),
         }
+        if is_admin:
+            admin_audit=Audit.query.order_by(Audit.created_at.desc()).limit(8).all()
     available_entry_employees=[]
     if is_admin or is_supervisor or is_manager_support:
         allowed_branch_set=set(bids())
@@ -1025,6 +1060,7 @@ def structure():
         govs_all=govs_all,
         selected_governorate=selected_gov,
         admin_stats=admin_stats,
+        admin_audit=admin_audit,
         available_entry_employees=available_entry_employees, entry_supervisors=entry_supervisors
     )
 
@@ -1820,7 +1856,32 @@ def users():
     # حتى يكون واضحًا أن كل دور إضافي له حسابه الداخلي المستقل بنفس بيانات الدخول.
     role_accounts_by_user={u.id: RoleAccount.query.filter_by(user_id=u.id).order_by(RoleAccount.role.asc()).all() for u in visible}
     supervisor_choices=[x for x in User.query.filter_by(is_active=True).order_by(User.full_name).all() if 'مشرف محافظة' in actual_roles(x)]
-    return render_template('users.html',rows=visible,gs=gs,bs=bs,role_default_permissions=role_default_permissions,role_accounts_by_user=role_accounts_by_user,supervisor_choices=supervisor_choices)
+    # مركز التحكم بالشخص: يجمع الهوية، الأدوار، النطاقات، الحسابات الموازية، وتكليف المدخل الأول في بطاقة واحدة.
+    people_control=[]
+    for person in visible:
+        person_roles=actual_roles(person)
+        govs_for_person=[g for g in gs if g.id in user_gov_ids(person)] if 'مشرف محافظة' in person_roles else []
+        branches_for_person=[b for b in bs if b.id in user_branch_ids(person)] if 'المدخل الأول' in person_roles else []
+        linked_employee=Employee.query.filter_by(user_id=person.id).first()
+        entry_assignment=EntryAssignment.query.filter_by(employee_id=linked_employee.id,is_active=True).first() if linked_employee else None
+        entry_branches=[]
+        entry_supervisor=None
+        if entry_assignment:
+            entry_supervisor=entry_assignment.supervisor
+            entry_branch_ids={x.branch_id for x in EntryAssignmentBranch.query.filter_by(entry_assignment_id=entry_assignment.id).all()}
+            entry_branches=[b for b in Branch.query.filter(Branch.id.in_(entry_branch_ids),Branch.is_active==True).order_by(Branch.name).all()] if entry_branch_ids else []
+        people_control.append({
+            'user': person,
+            'roles': person_roles,
+            'governorates': govs_for_person,
+            'branches': branches_for_person,
+            'employee': linked_employee,
+            'entry_assignment': entry_assignment,
+            'entry_branches': entry_branches,
+            'entry_supervisor': entry_supervisor,
+            'role_accounts': role_accounts_by_user.get(person.id,[]),
+        })
+    return render_template('users.html',rows=visible,gs=gs,bs=bs,role_default_permissions=role_default_permissions,role_accounts_by_user=role_accounts_by_user,supervisor_choices=supervisor_choices,people_control=people_control)
 @app.route('/users/<int:i>/edit',methods=['GET','POST'])
 @req
 def user_edit(i):
@@ -4354,6 +4415,17 @@ with app.app_context():
         db.session.flush()
         sync_role_accounts(u)
         db.session.add(Lookup(kind='system_migration',name=restore_key,is_active=True))
+        db.session.commit()
+    # v49.19 — المدخل الأول ليس دور دخول لمسؤول التطبيق؛ هو تصنيف تنظيمي فقط.
+    # إزالة هذا الدور من حساب مسؤول التطبيق إذا أضيف بالخطأ، مع الإبقاء على أي
+    # سجل موظف/مدخل تنظيمي موجود. ويظل دور مشرف المحافظة الموازي لمسؤول التطبيق قائمًا.
+    entry_cleanup_key='migration:admin-remove-organizational-entry-login-v49.19'
+    entry_cleanup_done=Lookup.query.filter_by(kind='system_migration',name=entry_cleanup_key).first()
+    if not entry_cleanup_done:
+        UserRole.query.filter_by(user_id=u.id,role='المدخل الأول').delete()
+        RoleAccount.query.filter_by(user_id=u.id,role='المدخل الأول').delete()
+        sync_role_accounts(u)
+        db.session.add(Lookup(kind='system_migration',name=entry_cleanup_key,is_active=True))
         db.session.commit()
     # Destructive legacy cleanup is intentionally never run at startup.
 

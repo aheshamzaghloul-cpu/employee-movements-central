@@ -706,3 +706,167 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none!important}
   .entry-role-home-card-merged .ds-card-head{align-items:flex-start;}
   .entry-role-home-card-merged .ds-entry-head-actions{justify-content:flex-start;}
 }
+
+/* v49.27 — homepage visual rebalance + explicit first-entrant eligibility in Administration */
+:root{--ds-heading:#214f8e;}
+
+/* Titles, field captions and item titles inside cards share the same deep blue as the welcome hero. */
+.ds-card .ds-section-title h3,
+.ds-card .ds-admin-section-head h3,
+.ds-card .ds-card-head h2,
+.ds-card .ds-entry-manage-item>summary b,
+.ds-card .ds-entry-manage-item>summary strong,
+.ds-card .ds-entry-action>summary,
+.ds-card .ds-entry-branch-list span,
+.ds-card .ds-quick-inline a b,
+.ds-card .ds-table-head span,
+.ds-card .ds-status-stats .ds-stat span,
+.ds-card .ds-alert span,
+.ds-card label>span:first-child,
+.ds-card label>.ds-text-9,
+.ds-card .ds-text-9,
+.ds-card .ds-search-main-field>span,
+.ds-card .ds-search-field>span{color:var(--ds-heading)!important;}
+.ds-card .ds-hint,
+.ds-card .ds-card-head p,
+.ds-card .ds-quick-inline a small,
+.ds-card label small{color:var(--ds-muted)!important;}
+
+/* Fix the homepage quick-action grid that was being overridden by the generic 3-column rule. */
+.ds-quick.ds-quick-inline{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;padding:14px 18px 18px!important;}
+.ds-quick.ds-quick-inline>a{min-height:66px!important;grid-template-columns:36px minmax(0,1fr)!important;padding:10px 11px!important;}
+.ds-quick.ds-quick-inline>a b{font-size:11px!important;white-space:normal!important;}
+.ds-quick.ds-quick-inline>a small{font-size:8px!important;}
+
+/* The merged first-entrant module must remain one card, but its title should never be ellipsized. */
+.entry-role-home-card-merged .ds-card-head h2{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.45;}
+.entry-role-home-card-merged .ds-card-head{align-items:flex-start!important;}
+.entry-role-home-card-merged .ds-entry-head-actions{align-self:flex-start;}
+.entry-role-home-card-merged .ds-entry-management-list{padding:12px 18px 18px;}
+.entry-role-home-card-merged .ds-entry-manage-item>summary{min-height:58px!important;}
+.entry-role-home-card-merged .ds-entry-manage-item>summary>strong{color:var(--ds-heading)!important;}
+
+/* Balanced desktop proportions: status remains the largest operational panel, while the two management cards breathe. */
+.ds-home-layout{grid-template-columns:minmax(0,1.32fr) minmax(300px,1fr) minmax(270px,.9fr)!important;gap:18px!important;}
+.ds-home-layout .ds-column{min-width:0;}
+@media(max-width:1180px){.ds-home-layout{grid-template-columns:minmax(0,1.25fr) minmax(280px,.95fr)!important;}.ds-home-layout .ds-column:last-child{grid-column:1/-1;grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:820px){.ds-home-layout{grid-template-columns:1fr!important;}.ds-home-layout .ds-column:last-child{grid-template-columns:1fr;}}
+
+/* Administration: make the first-entrant role visible again in the roles editor. */
+[data-choice-group="roles"] .choice-item:has(input[value="المدخل الأول"]){border-color:#cdddf0;background:#f7fbff;}
+
+/* v49.28 — homepage card titles: one consistent heading color */
+:root{--ds-heading:#214f8e;}
+
+/* Any heading/title/field caption that identifies content inside a homepage card
+   uses the same deep blue as the welcome hero. Values, statuses and icons keep
+   their semantic colors. */
+.ds-home-search .ds-card-head h2,
+.ds-home-search .ds-card-head .ds-eyebrow,
+.ds-home-search .ds-search-main-field>span,
+.ds-home-search .ds-search-field>span,
+.ds-kpis .ds-kpi>div:nth-child(2) small,
+.ds-home-layout .ds-card .ds-card-head h2,
+.ds-home-layout .ds-card .ds-card-head .ds-eyebrow,
+.ds-home-layout .ds-card .ds-table-head,
+.ds-home-layout .ds-card .ds-table-head span,
+.ds-home-layout .ds-card .ds-status-stats .ds-stat span,
+.ds-home-layout .ds-card .ds-entry-manage-item>summary b,
+.ds-home-layout .ds-card .ds-entry-manage-item>summary strong,
+.ds-home-layout .ds-card .ds-entry-action>summary,
+.ds-home-layout .ds-card .ds-entry-branch-list span,
+.ds-home-layout .ds-card .ds-quick-inline a b,
+.ds-home-layout .ds-card .ds-alert span,
+.ds-home-layout .ds-card .ds-recent b,
+.ds-home-layout .ds-card .ds-focus-movements article>span,
+.ds-home-layout .ds-card .ds-focus-head h2,
+.ds-home-layout .ds-card .ds-result b,
+.ds-home-layout .ds-card .ds-person b,
+.ds-home-layout .ds-card label>span:first-child,
+.ds-home-layout .ds-card label>.ds-text-9,
+.ds-home-layout .ds-card .ds-search-main-field>span,
+.ds-home-layout .ds-card .ds-search-field>span,
+.ds-scope-card small,
+.ds-scope-card strong{color:var(--ds-heading)!important;}
+
+/* Keep secondary explanatory text neutral rather than mixing it with headings. */
+.ds-home-layout .ds-card .ds-entry-manage-item>summary small,
+.ds-home-layout .ds-card .ds-entry-branch-list small,
+.ds-home-layout .ds-card .ds-recent span small,
+.ds-home-layout .ds-card .ds-person small,
+.ds-home-layout .ds-card .ds-focus-movements article small,
+.ds-home-layout .ds-card .ds-alert small,
+.ds-home-layout .ds-card .ds-card-head p,
+.ds-home-search .ds-card-head p{color:var(--ds-muted)!important;}
+
+/* v49.29 — explicit title boxes: the agreed deep-blue title block */
+:root{--ds-heading:#214f8e;}
+
+/* Every main title INSIDE a card gets its own dedicated title box.
+   The agreed color is used for the box; the title text is white for contrast. */
+.ds-card-head h2,
+.ds-card > h2,
+.ds-card .ds-section-title h3,
+.ds-card .ds-admin-section-head h3,
+.ds-card .ds-section-title > h3,
+.ds-home-layout .ds-card .ds-focus-head h2{
+  display:inline-flex!important;
+  align-items:center;
+  width:max-content;
+  max-width:100%;
+  box-sizing:border-box;
+  margin:0!important;
+  padding:8px 14px!important;
+  border-radius:10px;
+  background:#214f8e!important;
+  color:#fff!important;
+  border:1px solid #214f8e;
+  box-shadow:0 3px 8px rgba(33,79,142,.14);
+  line-height:1.45;
+  font-weight:800;
+}
+
+/* Keep the title box readable on narrow screens and for long Arabic titles. */
+.ds-card-head h2,
+.ds-card .ds-section-title h3,
+.ds-card .ds-admin-section-head h3{
+  white-space:normal!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+}
+
+/* Card headers stay clean around the dedicated title box. */
+.ds-card-head > div:first-child,
+.ds-section-title > div:first-child,
+.ds-admin-section-head > div{
+  min-width:0;
+}
+
+/* The welcome hero already uses the agreed color; do not add a second title box there. */
+.ds-welcome h1,
+.ds-home-hero h1,
+.ds-hero h1{
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  padding:0!important;
+  color:#fff!important;
+}
+
+@media(max-width:600px){
+  .ds-card-head h2,
+  .ds-card > h2,
+  .ds-card .ds-section-title h3,
+  .ds-card .ds-admin-section-head h3,
+  .ds-home-layout .ds-card .ds-focus-head h2{
+    padding:7px 11px!important;
+    font-size:16px!important;
+    width:auto;
+    max-width:100%;
+  }
+}
+/* v49.30 — roles must all remain visible, including the organizational First Entrant role */
+.ds-role-choice-grid{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px!important;width:100%;}
+.ds-role-choice-grid .ds-role-choice{min-width:0!important;width:100%;justify-content:flex-start;box-sizing:border-box;}
+@media(max-width:900px){.ds-role-choice-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:520px){.ds-role-choice-grid{grid-template-columns:1fr;}}

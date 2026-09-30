@@ -16,11 +16,12 @@
       <label>كلمة المرور<input name="password" type="password" minlength="8" required autocomplete="new-password"></label>
     </div>
     <div class="ds-section-title ds-mt-14"><div><h3>الأدوار التقنية والتشغيلية</h3><span class="ds-hint">يمكن للشخص الجمع بين أكثر من دور. «المدخل الأول» تكليف تنظيمي ولا يحتاج حساب دخول مستقل.</span></div></div>
-    <div class="choice-list ds-choice-list compact ds-flex-wrap-8">
-      {% for r in ['مسؤول التطبيق','مشرف محافظة','Manager Application Support'] %}
-      <label class="choice-item ds-choice-item ds-min-220"><input type="checkbox" name="roles" value="{{r}}" {% if r=='Manager Application Support' %}data-create-role-manager{% endif %}>{{r}}</label>
+    <div class="choice-list ds-choice-list compact ds-flex-wrap-8 ds-role-choice-grid">
+      {% for r in ['مسؤول التطبيق','مشرف محافظة','المدخل الأول','Manager Application Support'] %}
+      <label class="choice-item ds-choice-item ds-min-220 ds-role-choice"><input type="checkbox" name="roles" value="{{r}}" {% if r=='Manager Application Support' %}data-create-role-manager{% endif %}>{{r}}</label>
       {% endfor %}
     </div>
+    <div class="ds-hint ds-mt-8">«المدخل الأول» أهلية تنظيمية فقط. إذا اختيرت مع «مشرف محافظة»، فلن يتم إنشاء حساب دخول إضافي؛ سيظهر المشرف المؤهل في خانة الموظف عند إضافة المدخل الأول من الرئيسية.</div>
     <div class="ds-grid ds-mt-14">
       <div data-create-scope="supervisor">
         <label>المحافظات للمشرف</label>
@@ -46,7 +47,7 @@
       {% if 'مسؤول التطبيق' in roles %}<label class="ds-mt-10">المشرف المسؤول<select name="supervisor_id"><option value="">تلقائي حسب المحافظة</option>{% for sup in gs and [] %}{% endfor %}{% for sup in supervisor_choices %}<option value="{{sup.id}}">{{sup.full_name}} — {{sup.job_title or '—'}}</option>{% endfor %}</select></label>{% endif %}
     </div>
     <div class="ds-section-title ds-mt-14"><div><h3>الصلاحيات</h3><span class="ds-hint">تُضاف الصلاحيات الافتراضية للدور تلقائيًا، ويمكن لمسؤول التطبيق تعديلها.</span></div></div>
-    <div class="choice-list ds-choice-list compact ds-flex-wrap-8">
+    <div class="choice-list ds-choice-list compact ds-flex-wrap-8 ds-role-choice-grid">
       {% for key,label in PERMISSIONS.items() %}{% if 'مسؤول التطبيق' in roles or key in ['manage_employees','manage_movements','view_reports'] %}<label class="choice-item ds-choice-item ds-min-240"><input type="checkbox" name="permissions" value="{{key}}">{{label}}</label>{% endif %}{% endfor %}
     </div>
     <button class="ds-mt-14">إضافة المستخدم</button>
@@ -63,8 +64,9 @@
   function update(){
     const sup=has('مشرف محافظة'), entry=has('المدخل الأول');
     if(scopes.supervisor) scopes.supervisor.style.display=sup?'block':'none';
-    if(scopes.entry) scopes.entry.style.display=entry?'block':'none';
-    if(entryBox){entryBox.style.display=entry?'block':'none'; entryInputs.forEach(x=>x.required=entry);}
+    const eligibilityOnly=entry && sup;
+    if(scopes.entry) scopes.entry.style.display=(entry && !eligibilityOnly)?'block':'none';
+    if(entryBox){entryBox.style.display=(entry && !eligibilityOnly)?'block':'none'; entryInputs.forEach(x=>x.required=entry && !eligibilityOnly);}
   }
   roles.forEach(x=>x.addEventListener('change',update)); update();
 })();

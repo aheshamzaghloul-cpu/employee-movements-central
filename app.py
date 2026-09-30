@@ -1813,6 +1813,9 @@ def users():
         selected_roles=[r for r in request.form.getlist('roles') if r in ROLES] or ([request.form.get('role')] if request.form.get('role') in ROLES else [])
         username=request.form.get('username','').strip(); full=request.form.get('full_name','').strip(); email=request.form.get('email','').strip(); job_title=request.form.get('job_title','').strip(); job_code=request.form.get('job_code','').strip(); password=request.form.get('password','')
         if not selected_roles or any(not allowed_create_user(r) for r in selected_roles): abort(403)
+        if 'المدخل الأول' in selected_roles and 'مشرف محافظة' not in selected_roles:
+            flash('«المدخل الأول» أهلية تنظيمية وليست حساب دخول مستقلًا. عند منحها لشخص، اختر معها «مشرف محافظة»، ثم يتم تكليف الفروع من الصفحة الرئيسية.')
+            return redirect('/users')
         if not username or not full or not email or not valid_email(email) or not job_title or not job_code or not valid_password(password) or User.query.filter_by(username=username).first() or User.query.filter_by(email=email).first(): flash('جميع بيانات الحساب مطلوبة، واسم المستخدم فريد وكلمة المرور 8 أحرف على الأقل.')
         else:
             nu=User(username=username,full_name=full,email=email,job_title=job_title,job_code=job_code,password_hash=generate_password_hash(password)); db.session.add(nu); db.session.flush()
@@ -1833,7 +1836,7 @@ def users():
                 if not chosen:
                     db.session.rollback(); flash('يجب إسناد محافظة واحدة على الأقل لمشرف المحافظة.'); return redirect('/users')
                 for gid in chosen: db.session.add(UserGovernorate(user_id=nu.id,governorate_id=gid))
-            if 'المدخل الأول' in selected_roles:
+            if 'المدخل الأول' in selected_roles and 'مشرف محافظة' not in selected_roles:
                 chosen={int(x) for x in request.form.getlist('branch_id') if x.isdigit()} & set(bids())
                 if not chosen:
                     db.session.rollback(); flash('يجب إسناد فرع واحد على الأقل ضمن فروع مسؤولية المدخل الأول.'); return redirect('/users')
@@ -1948,7 +1951,7 @@ def user_edit(i):
                 if not chosen:
                     db.session.rollback(); flash('يجب إسناد محافظة واحدة على الأقل لمشرف المحافظة.'); return redirect(url_for('user_edit',i=i))
                 for gid in chosen: db.session.add(UserGovernorate(user_id=i,governorate_id=gid))
-            if 'المدخل الأول' in selected:
+            if 'المدخل الأول' in selected and 'مشرف محافظة' not in selected:
                 allowed_branches={b.id for b in Branch.query.filter_by(is_active=True).all()} if 'مسؤول التطبيق' in roles() else set(bids())
                 chosen={int(x) for x in request.form.getlist('branch_id') if x.isdigit()} & allowed_branches
                 if not chosen:
@@ -1961,7 +1964,7 @@ def user_edit(i):
                 for bid in chosen: db.session.add(UserBranch(user_id=i,branch_id=bid))
             # Explicitly keep the simple hierarchy link: first-level user -> responsible supervisor.
             SupervisorEntry.query.filter_by(entry_id=i).delete()
-            if 'المدخل الأول' in selected:
+            if 'المدخل الأول' in selected and 'مشرف محافظة' not in selected:
                 chosen_gids={db.session.get(Branch,bid).governorate_id for bid in chosen if db.session.get(Branch,bid)}
                 sid=request.form.get('supervisor_id','').strip()
                 sup=db.session.get(User,int(sid)) if sid.isdigit() else None

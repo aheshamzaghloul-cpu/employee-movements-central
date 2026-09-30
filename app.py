@@ -312,7 +312,7 @@ def inject_context():
     active_role=session.get('active_role') if u else None
     if active_role not in real_roles:
         active_role=None
-    return {'me':u,'roles':roles(),'real_roles':real_roles,'active_role':active_role,'csrf':csrf_token(),'user_roles':user_roles,'user_permissions':user_permissions,'can':can,'has_role':has_role,'PERMISSIONS':PERMISSIONS,'user_gov_ids':user_gov_ids,'user_branch_ids':user_branch_ids,'assignment_state':assignment_state,'current_assignment_for_employee':current_assignment_for_employee,'assignment_supervisor':assignment_supervisor,'supervisor_for_entry':supervisor_for_entry,'entries_for_supervisor':entries_for_supervisor,'branch_entry':branch_entry,'can_manage_employee':can_manage_employee,'can_manage_movement':can_manage_movement,'ASSIGNMENT_STATES':ASSIGNMENT_STATES,'ASSIGNMENT_ALERT_DAYS':ASSIGNMENT_ALERT_DAYS,'scope_required':bool(u and (('مسؤول التطبيق' in roles(u) or 'Manager Application Support' in roles(u)) and is_scope_required_endpoint())),'scope_selected':scope_governorate_id() if u and is_scope_required_endpoint() else None,'scope_governorates':scope_governorates_for_user(u),'scope_governorate':(db.session.get(Governorate,scope_governorate_id()) if u and scope_governorate_id() else None)}
+    return {'me':u,'roles':roles(),'real_roles':real_roles,'login_real_roles':real_roles & set(LOGIN_ROLES),'active_role':active_role,'csrf':csrf_token(),'user_roles':user_roles,'user_permissions':user_permissions,'can':can,'has_role':has_role,'PERMISSIONS':PERMISSIONS,'user_gov_ids':user_gov_ids,'user_branch_ids':user_branch_ids,'assignment_state':assignment_state,'current_assignment_for_employee':current_assignment_for_employee,'assignment_supervisor':assignment_supervisor,'supervisor_for_entry':supervisor_for_entry,'entries_for_supervisor':entries_for_supervisor,'branch_entry':branch_entry,'can_manage_employee':can_manage_employee,'can_manage_movement':can_manage_movement,'ASSIGNMENT_STATES':ASSIGNMENT_STATES,'ASSIGNMENT_ALERT_DAYS':ASSIGNMENT_ALERT_DAYS,'scope_required':bool(u and (('مسؤول التطبيق' in roles(u) or 'Manager Application Support' in roles(u)) and is_scope_required_endpoint())),'scope_selected':scope_governorate_id() if u and is_scope_required_endpoint() else None,'scope_governorates':scope_governorates_for_user(u),'scope_governorate':(db.session.get(Governorate,scope_governorate_id()) if u and scope_governorate_id() else None)}
 
 @app.after_request
 def security_headers(resp):
@@ -763,7 +763,15 @@ def home():
             # يصبح المشرف مؤهلًا للظهور هنا أيضًا. لا ننشئ له حسابًا جديدًا؛
             # نستخدم سجل الموظف المرتبط بحسابه. الاستثناء الوحيد هو وجود
             # EntryAssignment تنظيمي فعّال بالفعل، حتى لا يظهر كخيار مكرر.
-            available_entry_employees=[e for e in candidates if not organizational_entry_for_employee(e)]
+            available_entry_employees=[]
+            for e in candidates:
+                if organizational_entry_for_employee(e):
+                    continue
+                linked_user=db.session.get(User,e.user_id) if e.user_id else None
+                # المشرف لا يصبح متاحًا كمدخل أول إلا بعد أن يمنحه مسؤول التطبيق أهلية الدور صراحةً.
+                if linked_user and 'مشرف محافظة' in actual_roles(linked_user) and 'المدخل الأول' not in actual_roles(linked_user):
+                    continue
+                available_entry_employees.append(e)
             available_entry_employee_is_supervisor={
                 e.id: bool(e.user_id and 'مشرف محافظة' in actual_roles(db.session.get(User,e.user_id)))
                 for e in available_entry_employees
@@ -1046,9 +1054,16 @@ def structure():
     available_entry_employees=[]
     if is_admin or is_supervisor or is_manager_support:
         allowed_branch_set=set(bids())
-        available_entry_employees=Employee.query.filter(Employee.is_active==True,Employee.branch_id.in_(allowed_branch_set)).order_by(Employee.full_name).all() if allowed_branch_set else []
-        available_entry_employees=[e for e in available_entry_employees if not entry_role_exists(e)]
+        candidates=Employee.query.filter(Employee.is_active==True,Employee.branch_id.in_(allowed_branch_set)).order_by(Employee.full_name).all() if allowed_branch_set else []
+        for e in candidates:
+            if entry_role_exists(e):
+                continue
+            linked_user=db.session.get(User,e.user_id) if e.user_id else None
+            if linked_user and 'مشرف محافظة' in actual_roles(linked_user) and 'المدخل الأول' not in actual_roles(linked_user):
+                continue
+            available_entry_employees.append(e)
     entry_supervisors=[u for u in User.query.filter_by(is_active=True).order_by(User.full_name).all() if 'مشرف محافظة' in actual_roles(u)]
+    entry_supervisor_admin_choices=entry_supervisors if is_admin else []
     return render_template(
         'structure.html',
         tree=tree,
@@ -1061,7 +1076,7 @@ def structure():
         selected_governorate=selected_gov,
         admin_stats=admin_stats,
         admin_audit=admin_audit,
-        available_entry_employees=available_entry_employees, entry_supervisors=entry_supervisors
+        available_entry_employees=available_entry_employees, entry_supervisors=entry_supervisors, entry_supervisor_admin_choices=entry_supervisor_admin_choices
     )
 
 
@@ -2064,6 +2079,45 @@ def ub(i):
         flash('تم تحديث فروع المسؤولية. سجل الموظف غير مكتمل، يرجى فتح تعديل المدخل لاستكمال بيانات الموظف.')
     log('ASSIGN','User',i,'فروع المسؤولية'); db.session.commit(); return redirect('/structure')
 
+
+@app.post('/users/<int:i>/grant-entry-role')
+@req
+@only('مسؤول التطبيق')
+def grant_entry_role(i):
+    u=db.session.get(User,i)
+    if not u or not u.is_active:
+        abort(404)
+    if 'مشرف محافظة' not in actual_roles(u):
+        flash('يمكن منح أهلية المدخل الأول من خلال هذا الإجراء للمشرفين فقط.')
+        return redirect('/users')
+    linked=Employee.query.filter_by(user_id=u.id,is_active=True).first()
+    if not linked:
+        flash('لا يمكن منح الدور للمشرف قبل وجود سجل موظف مرتبط بحسابه.')
+        return redirect(url_for('user_edit',i=i))
+    if 'المدخل الأول' not in actual_roles(u):
+        db.session.add(UserRole(user_id=u.id,role='المدخل الأول'))
+        log('ROLE_CHANGE','User',i,'منح أهلية دور المدخل الأول للمشرف')
+        db.session.commit()
+        flash(f'تم منح {u.full_name} أهلية دور المدخل الأول. سيظهر الآن في خانة الموظف عند إضافة مدخل أول من الرئيسية.')
+    else:
+        flash(f'{u.full_name} لديه بالفعل أهلية دور المدخل الأول.')
+    return redirect('/structure')
+
+@app.post('/users/<int:i>/revoke-entry-role')
+@req
+@only('مسؤول التطبيق')
+def revoke_entry_role(i):
+    u=db.session.get(User,i)
+    if not u: abort(404)
+    if 'المدخل الأول' in actual_roles(u):
+        if EntryAssignment.query.join(Employee,EntryAssignment.employee_id==Employee.id).filter(Employee.user_id==u.id,EntryAssignment.is_active==True).first():
+            flash('لا يمكن إزالة أهلية الدور أثناء وجود تكليف مدخل أول فعال. أزل التكليف أولًا.')
+            return redirect('/structure')
+        UserRole.query.filter_by(user_id=i,role='المدخل الأول').delete()
+        log('ROLE_CHANGE','User',i,'إزالة أهلية دور المدخل الأول للمشرف')
+        db.session.commit()
+        flash(f'تمت إزالة أهلية دور المدخل الأول من {u.full_name}.')
+    return redirect('/structure')
 
 @app.route('/users/<int:i>/entry-management',methods=['GET','POST'])
 @req

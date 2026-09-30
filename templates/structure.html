@@ -15,10 +15,122 @@
 </form>
 {% endif %}
 {% if admin_view %}
-<section class="ds-page-shell ds-admin-shell ds-admin-control-center{% if is_supervisor and not is_admin %} ds-supervisor-admin{% endif %}">
+<section class="ds-page-shell ds-admin-shell ds-admin-control-center">
   <div class="ds-admin-hero ds-admin-hero-detailed">
     <div>
-      <span class="eyebrow">{% if is_manager_support %}مركز إدارة التشغيل{% else %}مركز تحكم مسؤول التطبيق{% endif %}</span>
+      <span class="eyebrow">مركز تحكم مسؤول التطبيق</span>
+      <h2>الإدارة</h2>
+      <p>هنا توجد فقط الأدوات التي يحتاجها مسؤول التطبيق لإدارة بنية النظام والحسابات والأدوار والبيانات المرجعية والاستيراد والتدقيق. أما تشغيل الموظفين والحركات والتقارير فيتم من القوائم الرئيسية.</p>
+    </div>
+    <div class="ds-admin-hero-actions">
+      <a class="ds-btn ds-btn-primary" href="/users">إدارة الحسابات والأدوار</a>
+      <a class="ds-btn ds-btn-secondary" href="/audit">سجل التدقيق</a>
+    </div>
+  </div>
+
+  <div class="ds-admin-stat-strip">
+    <a href="/governorates" class="ds-admin-stat"><b>{{admin_stats.governorates}}</b><span>المحافظات</span><small>إضافة وتعديل وتعطيل</small></a>
+    <a href="/branches" class="ds-admin-stat"><b>{{admin_stats.branches}}</b><span>الفروع</span><small>{{admin_stats.unassigned_branches}} بلا مدخل أول</small></a>
+    <a href="/users" class="ds-admin-stat"><b>{{admin_stats.users}}</b><span>الحسابات</span><small>{{admin_stats.inactive_users}} معطلة</small></a>
+    <a href="#entry-role-admin" class="ds-admin-stat"><b>{{admin_stats.entries}}</b><span>المدخلون الأوائل</span><small>{{admin_stats.entry_branches}} فرعًا مرتبطًا</small></a>
+    <a href="/audit" class="ds-admin-stat"><b>{{admin_stats.role_accounts}}</b><span>الحسابات الموازية</span><small>مرتبطة بالأدوار التقنية</small></a>
+  </div>
+
+  <section class="ds-admin-guide">
+    <div class="ds-admin-guide-head"><div><span class="eyebrow">مساحة مسؤول التطبيق فقط</span><h3>اختر المهمة الإدارية</h3></div><small>لا نكرر هنا وظائف الموظفين والحركات والتقارير؛ هذه موجودة في القوائم الرئيسية.</small></div>
+    <div class="ds-admin-task-grid">
+      <a href="/governorates" class="ds-admin-task"><span class="ds-admin-task-icon"><svg class="ds-icon" viewBox="0 0 24 24"><path d="m21 8-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8M12 13v8"/></svg></span><div><b>إدارة المحافظات والفروع</b><small>إنشاء المحافظات والفروع وتعديلها وتعطيلها وربطها بالهيكل.</small></div><strong>فتح</strong></a>
+      <a href="/users" class="ds-admin-task"><span class="ds-admin-task-icon"><svg class="ds-icon" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1M16 5.5a3 3 0 0 1 0 5.8M18 14a5 5 0 0 1 3 5v1"/></svg></span><div><b>إدارة الحسابات والأدوار</b><small>إنشاء الحسابات وتعديل الأدوار والمحافظات والصلاحيات والحسابات الموازية.</small></div><strong>فتح</strong></a>
+      <a href="#entry-role-admin" class="ds-admin-task"><span class="ds-admin-task-icon"><svg class="ds-icon" viewBox="0 0 24 24"><circle cx="12" cy="7" r="3"/><path d="M5 21a7 7 0 0 1 14 0M19 8v6M16 11h6"/></svg></span><div><b>إدارة دور المدخل الأول</b><small>منح أهلية الدور للمشرف أولًا، ثم متابعة تكليف الفروع من الرئيسية.</small></div><strong>انتقل</strong></a>
+      <a href="/excel-import/employees" class="ds-admin-task"><span class="ds-admin-task-icon"><svg class="ds-icon" viewBox="0 0 24 24"><path d="M5 3h10l4 4v14H5z"/><path d="M15 3v5h5M8 12h8M8 16h8"/></svg></span><div><b>استيراد الموظفين من Excel</b><small>رفع ملف الموظفين ومطابقة الأعمدة ومراجعة التغييرات قبل اعتمادها.</small></div><strong>فتح</strong></a>
+      <a href="/excel-import/branches" class="ds-admin-task"><span class="ds-admin-task-icon"><svg class="ds-icon" viewBox="0 0 24 24"><path d="M4 20V6l8-3 8 3v14"/><path d="M8 10h2M14 10h2M8 14h2M14 14h2"/></svg></span><div><b>استيراد الفروع من Excel</b><small>إضافة أو تحديث الفروع من ملف Excel بعد مراجعة المطابقة.</small></div><strong>فتح</strong></a>
+      <a href="/lookups" class="ds-admin-task"><span class="ds-admin-task-icon"><svg class="ds-icon" viewBox="0 0 24 24"><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/><circle cx="12" cy="12" r="4"/></svg></span><div><b>القوائم والإعدادات المرجعية</b><small>إدارة أنواع الإجازات والحركات والقيم التي تظهر في نماذج النظام.</small></div><strong>فتح</strong></a>
+    </div>
+  </section>
+
+  <div class="ds-admin-control-grid">
+    <section class="ds-module-card ds-admin-control-card">
+      <div class="ds-admin-section-head"><span><svg class="ds-icon" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1M16 5.5a3 3 0 0 1 0 5.8M18 14a5 5 0 0 1 3 5v1"/></svg></span><div><h3>الحسابات والأدوار</h3><small>إدارة الأشخاص من الناحية التقنية فقط.</small></div></div>
+      <div class="ds-admin-checklist">
+        <a href="/users"><b>الحسابات</b><span>إنشاء · تعديل · تعطيل · إعادة كلمة المرور</span></a>
+        <a href="/users"><b>الأدوار التقنية</b><span>مسؤول التطبيق · مشرف محافظة · Manager Application Support</span></a>
+        <a href="/users"><b>نطاق المشرف</b><span>تحديد المحافظات المسندة لكل مشرف</span></a>
+        <a href="/users"><b>الحسابات الموازية</b><span>عرض الأدوار الموازية للشخص الواحد</span></a>
+      </div>
+    </section>
+
+    <section class="ds-module-card ds-admin-control-card" id="entry-role-admin">
+      <div class="ds-admin-section-head"><span><svg class="ds-icon" viewBox="0 0 24 24"><circle cx="12" cy="7" r="3"/><path d="M5 21a7 7 0 0 1 14 0M19 8v6M16 11h6"/></svg></span><div><h3>دور المدخل الأول</h3><small>هذا دور تنظيمي، وليس حساب دخول.</small></div></div>
+      <div class="ds-hint ds-mb-12">مسؤول التطبيق يمنح المشرف <b>أهلية دور المدخل الأول</b> من هنا. بعد ذلك يظهر المشرف في خانة «الموظف» داخل إضافة مدخل أول في الرئيسية، حيث يتم إنشاء التكليف وربط الفروع.</div>
+      <div class="ds-admin-entry-supervisors">
+        {% for sup in entry_supervisor_admin_choices %}
+        <div class="ds-admin-entry-supervisor">
+          <div><b>{{sup.full_name}}</b><small>{{sup.job_title or 'مشرف محافظة'}}{% if sup.job_code %} · {{sup.job_code}}{% endif %}</small></div>
+          <div class="ds-actions">
+            <a class="ds-btn ds-btn-secondary ds-btn-mini" href="{{url_for('user_edit',i=sup.id)}}">تعديل المشرف</a>
+            {% if 'المدخل الأول' in actual_roles(sup) %}
+              <span class="ds-tag">مؤهل كمدخل أول</span>
+              <form method="post" action="/users/{{sup.id}}/revoke-entry-role" class="ds-inline" onsubmit="return confirm('إزالة أهلية دور المدخل الأول من هذا المشرف؟')"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="ds-btn ds-btn-danger ds-btn-mini">إزالة الأهلية</button></form>
+            {% else %}
+              <form method="post" action="/users/{{sup.id}}/grant-entry-role" class="ds-inline"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="ds-btn ds-btn-primary ds-btn-mini">منح دور مدخل أول</button></form>
+            {% endif %}
+          </div>
+        </div>
+        {% else %}<div class="ds-empty">لا يوجد مشرفون نشطون حاليًا.</div>{% endfor %}
+      </div>
+      <div class="ds-form-actions ds-mt-12"><a class="ds-btn ds-btn-secondary" href="/#entry-directory">فتح إضافة المدخل الأول من الرئيسية</a></div>
+    </section>
+
+    <section class="ds-module-card ds-admin-control-card">
+      <div class="ds-admin-section-head"><span><svg class="ds-icon" viewBox="0 0 24 24"><path d="M5 3h10l4 4v14H5z"/><path d="M15 3v5h5M8 12h8M8 16h8"/></svg></span><div><h3>استيراد البيانات</h3><small>أدوات إدخال البيانات التي يديرها مسؤول التطبيق.</small></div></div>
+      <div class="ds-admin-checklist">
+        <a href="/excel-import/employees"><b>موظفون من Excel</b><span>إضافة وتحديث جماعي مع مراجعة قبل الحفظ</span></a>
+        <a href="/excel-import/branches"><b>فروع من Excel</b><span>إضافة وتحديث الفروع وربطها بالمحافظات</span></a>
+      </div>
+    </section>
+
+    <section class="ds-module-card ds-admin-control-card">
+      <div class="ds-admin-section-head"><span><svg class="ds-icon" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h6M8 17h4"/></svg></span><div><h3>المراجعة والإعدادات</h3><small>أدوات الإدارة الخلفية فقط.</small></div></div>
+      <div class="ds-admin-checklist">
+        <a href="/audit"><b>سجل التدقيق</b><span>من نفذ ماذا ومتى وعلى أي عنصر</span></a>
+        <a href="/lookups"><b>القوائم الأساسية</b><span>القيم المرجعية المستخدمة في النظام</span></a>
+      </div>
+    </section>
+  </div>
+
+  {% if admin_stats.unassigned_branches or admin_stats.inactive_users %}
+  <section class="ds-admin-health">
+    <div class="ds-admin-section-head"><span><svg class="ds-icon" viewBox="0 0 24 24"><path d="M12 3 2.8 20h18.4L12 3Z"/><path d="M12 9v5M12 17h.01"/></svg></span><div><h3>نقاط إدارية تحتاج مراجعة</h3><small>مؤشرات مرتبطة بإدارة النظام، وليست وظائف تشغيلية.</small></div></div>
+    <div class="ds-admin-health-grid">
+      <div class="ds-health-item {% if admin_stats.unassigned_branches %}is-attention{% endif %}"><b>{{admin_stats.unassigned_branches}}</b><span>فروع بلا مدخل أول</span><small>يمكن منح الأهلية للمشرف ثم تعيينه من الرئيسية.</small></div>
+      <div class="ds-health-item"><b>{{admin_stats.inactive_users}}</b><span>حسابات معطلة</span><small>راجعها من إدارة الحسابات عند الحاجة.</small></div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if admin_audit %}
+  <section class="ds-admin-recent">
+    <div class="ds-admin-section-head"><span><svg class="ds-icon" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h6M8 17h4"/></svg></span><div><h3>آخر العمليات الإدارية</h3><small>مراجعة سريعة لأعمال مسؤول التطبيق.</small></div><a href="/audit">فتح السجل الكامل</a></div>
+    <div class="ds-admin-audit-list">{% for row in admin_audit %}<div><b>{{row.action}}</b><span>{{row.entity or '—'}}{% if row.entity_id %} #{{row.entity_id}}{% endif %}</span><time>{{row.created_at.strftime('%Y-%m-%d %H:%M') if row.created_at else '—'}}</time></div>{% endfor %}</div>
+  </section>
+  {% endif %}
+
+  {% if selected_governorate %}
+  <section class="ds-module-card ds-admin-control-card" id="structure-preview">
+    <div class="ds-admin-section-head"><span><svg class="ds-icon" viewBox="0 0 24 24"><path d="m21 8-9-5-9 5 9 5-9-5Z"/><path d="M3 8v8l9 5 9-5V8M12 13v8"/></svg></span><div><h3>عرض الهيكل الإداري</h3><small>عرض المحافظات والفروع والمشرفين والمدخلين لأغراض الإدارة فقط.</small></div></div>
+    <div class="ds-hint">المحافظة المحددة: <b>{{selected_governorate}}</b></div>
+  </section>
+  {% else %}
+  <section class="ds-module-card ds-admin-control-card">
+    <div class="ds-admin-section-head"><span><svg class="ds-icon" viewBox="0 0 24 24"><path d="m21 8-9-5-9 5 9 5-9-5Z"/><path d="M3 8v8l9 5 9-5V8M12 13v8"/></svg></span><div><h3>عرض الهيكل الإداري</h3><small>اختياري: اختر محافظة لعرض تفاصيلها دون خلطها بوظائف التشغيل.</small></div></div>
+    <form method="get" class="ds-admin-scope-select no-print"><label>المحافظة<select name="governorate_id" onchange="this.form.submit()"><option value="">اختر المحافظة</option>{% for g in govs_all %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label></form>
+  </section>
+  {% endif %}
+
+  <div class="ds-admin-governance-note"><b>حدود صفحة الإدارة:</b><span>الحسابات والأدوار · المحافظات والفروع · استيراد Excel · دور المدخل الأول · القوائم المرجعية · سجل التدقيق. الموظفون والحركات والتقارير تبقى في القوائم الرئيسية.</span></div>
+</section>
+
+{% else %}مركز تحكم مسؤول التطبيق{% endif %}</span>
       <h2>إدارة التطبيق</h2>
       <p>{% if is_manager_support %}إدارة الهيكل والبيانات التشغيلية من مكان واحد ضمن نطاق الدور.{% else %}صفحة التحكم الرئيسية لمسؤول التطبيق: أنشئ وعدّل الحسابات، اضبط الهيكل، عيّن المشرفين والمدخلين الأوائل، وراجع ما يحدث في النظام خطوة بخطوة.{% endif %}</p>
     </div>

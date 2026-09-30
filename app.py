@@ -124,6 +124,10 @@ def actual_roles(u=None):
     u=u or me()
     return {x.role for x in UserRole.query.filter_by(user_id=u.id).all()} if u else set()
 
+# Expose role helpers explicitly to Jinja templates.
+# actual_roles() is used by the App Admin structure page for per-supervisor eligibility.
+app.jinja_env.globals['actual_roles'] = actual_roles
+
 def roles(u=None):
     # For the logged-in user, an optional session role is the active UI role.
     # For any other user, always return the real stored roles.

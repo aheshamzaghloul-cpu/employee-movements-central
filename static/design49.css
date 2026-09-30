@@ -647,3 +647,62 @@ button:disabled{opacity:.55;cursor:not-allowed;transform:none!important}
 .ds-admin-entry-supervisor small{color:var(--ds-text-muted);font-size:12px}
 .ds-admin-entry-supervisor .ds-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-start}
 @media(max-width:760px){.ds-admin-entry-supervisor{align-items:flex-start;flex-direction:column}.ds-admin-entry-supervisor .ds-actions{width:100%}.ds-admin-entry-supervisor .ds-actions .ds-btn{flex:1}}
+
+/* v49.26 — unified heading color + slimmer sidebar + merged first-entrant homepage module */
+:root{--ds-heading:#214f8e;}
+
+/* All box/item headings use the same deep blue family as the welcome hero. */
+.ds-card-head h2,
+.ds-card>h2,
+.ds-card h3,
+.ds-section-title h3,
+.ds-admin-section-head h3,
+.ds-page-head h1,
+.ds-toolbar h1,
+.employees-page-head h1,
+.reports-page-head h1,
+.admin-page h1,
+.structure-page h1,
+.movement-section-head h2,
+.reports-group-head h3,
+.ds-entry-manage-item>summary b,
+.ds-entry-list summary b,
+.ds-quick>a b,
+.ds-kpi>div:nth-child(2) small,
+.ds-table-head,
+.ds-focus-head h2,
+.ds-alert span,
+.ds-result b{color:var(--ds-heading)!important;}
+
+.ds-card-head p,
+.ds-section-title p,
+.ds-admin-section-head small{color:#6f8297!important;}
+
+/* Slightly narrower desktop sidebar. */
+.ds-sidebar{width:260px;}
+.ds-topbar{right:260px;}
+.ds-main{width:calc(100% - 260px);margin-right:260px;}
+@media(max-width:1100px){
+  .ds-sidebar{width:250px;}
+  .ds-topbar{right:250px;}
+  .ds-main{width:calc(100% - 250px);margin-right:250px;}
+}
+@media(max-width:820px){
+  .ds-sidebar{width:260px;}
+  .ds-topbar{right:0;}
+  .ds-main{width:100%;margin-right:0;}
+}
+
+/* The first-entrant area is now one complete homepage module. */
+.entry-role-home-card-merged{overflow:hidden;}
+.entry-role-home-card-merged .ds-card-head{align-items:center;}
+.entry-role-home-card-merged .ds-entry-head-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+.entry-role-home-card-merged .entry-role-inline-panel{margin:0 18px 12px;padding:14px;border:1px solid var(--ds-line);border-radius:13px;background:#f8fbff;}
+.entry-role-home-card-merged .ds-entry-management-list{padding:14px 18px 18px;}
+.entry-role-home-card-merged .ds-entry-manage-item{border-color:#dce6ef;}
+.entry-role-home-card-merged .ds-entry-manage-item>summary{color:var(--ds-heading);}
+.entry-role-home-card-merged .ds-entry-action>summary{color:var(--ds-heading);}
+@media(max-width:720px){
+  .entry-role-home-card-merged .ds-card-head{align-items:flex-start;}
+  .entry-role-home-card-merged .ds-entry-head-actions{justify-content:flex-start;}
+}

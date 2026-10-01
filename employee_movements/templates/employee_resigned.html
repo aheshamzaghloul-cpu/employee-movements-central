@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}الموظفون المستقيلون{% endblock %}
+{% block content %}
+<div class="ds-toolbar">
+  <div><h1>الموظفون المستقيلون</h1><p class="ds-subtitle">الموظفون الذين انتهت خدمتهم بالاستقالة. السجل والحركات السابقة محفوظة بالكامل ويمكن إعادة التعيين بتاريخ محدد.</p></div>
+  <div class="ds-actions"><a class="ds-btn ds-btn-secondary" href="/employees">عودة للموظفين</a></div>
+</div>
+<div class="notice"><b>السجل محفوظ:</b> الموظف المستقيل لا يظهر ضمن الموظفين النشطين، وتظل بياناته وحركاته السابقة محفوظة. عند العودة للعمل استخدم «إعادة التعيين» وحدد التاريخ.</div>
+<div class="ds-card ds-table-wrap">
+  <table>
+    <thead><tr><th>الموظف</th><th>الكود الوظيفي</th><th>فرع التعيين السابق</th><th>تاريخ الاستقالة</th><th>تاريخ إعادة التعيين</th><th>الحالة</th><th>إجراءات</th></tr></thead>
+    <tbody>
+    {% for e in rows %}
+      <tr>
+        <td><a href="/employee/{{e.id}}"><b>{{e.full_name}}</b></a><br><small>{{e.job_title or '—'}}</small></td>
+        <td>{{e.job_code or '—'}}</td>
+        <td>{{e.branch.name if e.branch else '—'}}</td>
+        <td><b>{{e.resignation_date.strftime('%Y-%m-%d') if e.resignation_date else (e.deleted_at.strftime('%Y-%m-%d') if e.deleted_at else '—')}}</b></td>
+        <td>{{e.rehire_date.strftime('%Y-%m-%d') if e.rehire_date else '—'}}</td>
+        <td><span class="employee-deleted-badge">مستقيل</span></td>
+        <td>
+          <form class="ds-inline resignation-inline" method="post" action="/employees/{{e.id}}/reactivate">
+            <input type="hidden" name="_csrf" value="{{csrf}}">
+            <input class="mini-date" type="date" name="rehire_date" required title="تاريخ إعادة التعيين">
+            <button class="ds-tone-green ds-btn-mini" data-confirm="هل تريد إعادة تعيين الموظف بهذا التاريخ؟">إعادة التعيين</button>
+          </form>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7" class="ds-empty">لا توجد سجلات موظفين مستقيلين.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends 'base.html' %}{% block title %}{{title}}{% endblock %}{% block content %}
+{% if scope_required and not scope_selected %}<div class="scope-empty-state"><div class="scope-empty-icon"><svg class="ds-icon ds-icon-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18"/></svg></div><span class="home-kicker">اختيار نطاق العمل</span><h1>اختر المحافظة أولًا</h1><p>حدد المحافظة التي تريد العمل عليها قبل عرض التقرير.</p></div>{% else %}
+<div class="ds-report-result-head no-print"><div><h1>{{title}}</h1><p class="ds-muted">النتيجة تظهر مباشرة داخل التطبيق. يمكنك الطباعة أو التحميل اختياريًا.</p></div><div class="ds-actions"><button type="button" class="ds-btn" onclick="window.print()"><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="M18 12h.01"/></svg>️ طباعة التقرير</button><a class="ds-btn ds-btn-secondary" href="/reports">العودة للتقارير</a></div></div>
+<div class="print-header"><h1>{{title}}</h1><div>نظام حركات الموظفين المركزي</div><div class="print-meta">تاريخ الطباعة: {{ now().strftime("%Y-%m-%d") if now is defined else "" }}</div></div>
+<div class="ds-card ds-report-filter-card no-print"><form method="get" class="ds-grid ds-report-filter-grid" id="reportFilterForm">
+<div><label>المحافظة</label>
+<select name="governorate_id" id="reportGovernorate" onchange="this.form.branch_id.value=''; this.form.employee_id.value=''; this.form.submit()">
+<option value="">كل المحافظات</option>
+{% for g in report_governorates %}<option value="{{g.id}}" {% if selected_governorate == g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}
+</select></div>
+<div><label>الفرع</label>
+<select name="branch_id" id="reportBranch" onchange="this.form.employee_id.value=''; this.form.submit()" {% if not selected_governorate %}disabled{% endif %}>
+<option value="">كل الفروع</option>
+{% for b in report_branches %}<option value="{{b.id}}" {% if selected_branch == b.id|string %}selected{% endif %}>{{b.name}}</option>{% endfor %}
+</select></div>
+<div><label>اسم الموظف</label>
+<select name="employee_id" id="reportEmployee" {% if not selected_branch %}disabled{% endif %}>
+<option value="">كل الموظفين</option>
+{% for e in employees %}<option value="{{e.id}}" {% if selected_employee == e.id|string %}selected{% endif %}>{{e.full_name}} — {{e.job_code or "—"}}</option>{% endfor %}
+</select></div>
+<div><label>الحالة</label><select name="status"><option value="">كل الحالات</option>{% for x in statuses %}<option value="{{x}}" {% if status==x %}selected{% endif %}>{{x}}</option>{% endfor %}</select></div>
+<div><label>من يوم</label><input type="date" name="date_from" value="{{date_from}}"></div>
+<div><label>إلى يوم</label><input type="date" name="date_to" value="{{date_to}}"></div>
+<div class="ds-actions">
+<button>تطبيق</button>
+<a class="ds-btn ds-btn-secondary" href="/reports/{{report_type}}">مسح</a>
+<a class="ds-btn" href="/reports/{{report_type}}.xlsx?status={{status|urlencode}}&employee_id={{selected_employee|urlencode}}&governorate_id={{selected_governorate|urlencode}}&branch_id={{selected_branch|urlencode}}&date_from={{date_from|urlencode}}&date_to={{date_to|urlencode}}">تصدير Excel</a>
+</div>
+</form></div>
+<div class="ds-card ds-report-results report-print-area">
+{% if rows %}
+{% for group in rows %}<div class="ds-report-employee"><div class="ds-report-employee-head"><strong>{{group.employee.full_name}}</strong><span>{{group.employee.job_code or "—"}}</span><span>{{group.employee.branch.name}}</span></div>
+<table><tr><th>النوع</th>{% if report_type=='leaves' %}<th>نوع الإجازة</th><th>من</th><th>إلى</th><th>المدة</th>{% elif report_type=='assignments' %}<th>الفرع المنتدب إليه</th><th>من</th><th>إلى</th><th>حالة المأمورية</th>{% else %}<th>تاريخ الإذن</th><th>الحالة</th>{% endif %}<th>حالة الحركة</th><th>التفاصيل</th>{% if report_type=='assignments' %}<th class="no-print">المأمورية</th>{% endif %}</tr>
+{% for m in group.rows %}<tr><td>{{m.movement_type}}</td>{% if report_type=='leaves' %}<td>{{m.leave_type or '—'}}</td><td>{{m.from_date or '—'}}</td><td>{{m.to_date or '—'}}</td><td>{% if m.from_date and m.to_date %}{{(m.to_date-m.from_date).days+1}} يوم{% else %}—{% endif %}</td>{% elif report_type=='assignments' %}<td>{{m.destination.name if m.destination else '—'}}</td><td>{{m.from_date or '—'}}</td><td>{{m.to_date or '—'}}</td><td>{{assignment_state(m)}}</td>{% else %}<td>{{m.permission_date or '—'}}</td><td>{{m.status}}</td>{% endif %}<td>{{m.status}}</td><td><a class="ds-btn ds-btn-mini" href="/movements/{{m.id}}/history">التفاصيل</a></td>{% if report_type=='assignments' %}{% endif %}</tr>{% endfor %}</table></div>{% endfor %}
+{% else %}<div class="ds-empty">لا توجد بيانات ضمن نطاق التقرير المحدد.</div>{% endif %}
+</div>{% endif %}{% endblock %}

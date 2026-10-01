@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}التقارير{% endblock %}
+{% block content %}
+<div class="ds-report-page-head">
+  <div><span class="home-kicker">مركز التقارير</span><h1>التقارير</h1><p class="ds-subtitle">اختر التقرير المطلوب، ثم استخدم الفلاتر داخل التقرير للوصول إلى البيانات.</p></div>
+  <a class="ds-btn ds-tone-teal" href="/reports/assignments/print-missions"><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h6"/></svg> طباعة المأموريات PDF</a>
+</div>
+
+<div class="ds-report-catalog" id="reports-card-workspace">
+<section class="ds-report-group-grid">
+  <div class="ds-report-group ds-module-card" data-free-card-id="reports-movements">
+    <div class="ds-report-group-head"><span class="ds-report-group-icon"><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5V3h6v1.5M9 10h6M9 14h6"/></svg></span><div><h3>تقارير الحركات</h3><small>اختر نوع الحركة لعرض التفاصيل والفلاتر</small></div></div>
+    <div class="ds-report-link-grid">
+      <a href="/reports/leaves"><span><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>️</span><b>الإجازات</b><small>حسب المحافظة والفرع والموظف والفترة</small></a>
+      <a href="/reports/assignments"><span><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg></span><b>الانتدابات</b><small>متابعة الجهات والمواعيد والحالات</small></a>
+      <a href="/reports/permissions"><span><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><b>الأذونات</b><small>عرض الأذونات وتصفية النتائج</small></a>
+    </div>
+  </div>
+  <div class="ds-report-group ds-module-card" data-free-card-id="reports-missions">
+    <div class="ds-report-group-head"><span class="ds-report-group-icon"><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="M18 12h.01"/></svg>️</span><div><h3>المأموريات والطباعة</h3><small>الوصول المباشر إلى النماذج الرسمية</small></div></div>
+    <div class="ds-report-link-grid ds-report-link-grid-single"><a href="/reports/assignments/print-missions"><span><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h6"/></svg></span><b>طباعة المأموريات PDF</b><small>اختيار المأمورية وفتح النموذج الرسمي للطباعة</small></a></div>
+  </div>
+</section>
+</div>
+
+<div class="ds-report-stat-grid">
+  {% for label, value, cls in [('إجمالي الحركات', summary.values()|sum, 'total'), ('إجازات', by_type.get('إجازة',0), 'leave'), ('انتدابات', by_type.get('انتداب',0), 'assignment'), ('أذونات', by_type.get('إذن',0), 'permission')] %}
+  <div class="ds-report-stat ds-summary-card {{cls}}"><span>{{label}}</span><b>{{value}}</b></div>
+  {% endfor %}
+</div>
+
+<div class="ds-card ds-report-launch-card">
+  <div class="ds-section-title"><div><h3>تصفية سريعة</h3><small>اختياري — يمكنك أيضًا الدخول إلى أي بطاقة تقرير مباشرة.</small></div></div>
+  <form method="get" class="ds-report-launch-form" onsubmit="this.action='/reports/'+this.report_type.value; return true;">
+    <label>نوع التقرير<select name="report_type" required><option value="">اختر نوع التقرير</option><option value="leaves">تقرير الإجازات</option><option value="assignments">تقرير الانتدابات</option><option value="permissions">تقرير الأذونات</option></select></label>
+    <button class="ds-btn ds-tone-teal">عرض التقرير</button>
+  </form>
+</div>
+{% endblock %}

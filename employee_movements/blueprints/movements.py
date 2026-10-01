@@ -1,0 +1,356 @@
+"""Movement registration, editing and history."""
+
+from datetime import date, datetime, timedelta
+
+from flask import abort, Blueprint, flash, redirect, render_template, request, url_for
+
+from ..access import bids, branch_ok, can, can_manage_movement, gids, log, me, req, roles
+from ..constants import ASSIGNMENT_ALERT_DAYS
+from ..extensions import db
+from ..models import Branch, Employee, Governorate, Movement, MovementHistory, User
+from ..validation import (
+    active_leave_types,
+    active_movement_types,
+    movement_overlaps,
+    parse_date,
+    record_movement_history,
+    validate_movement_fields,
+)
+
+bp = Blueprint('movements', __name__)
+
+
+@bp.get('/api/movement-employees')
+@req
+def movement_employees_api():
+    """بحث موظفين عام من الصفحة الرئيسية؛ المحافظة والفرع فلاتر اختيارية."""
+    gid = request.args.get('governorate_id', '').strip()
+    bid = request.args.get('branch_id', '').strip()
+    q = (request.args.get('q') or '').strip()
+    gov = None
+    if gid:
+        if not gid.isdigit():
+            return {'results': [], 'branches': []}
+        gov = db.session.get(Governorate, int(gid))
+        if not gov or not gov.is_active:
+            return {'results': [], 'branches': []}
+    branch_rows = (
+        (
+            Branch.query.filter(Branch.governorate_id == gov.id, Branch.is_active == True)
+            .order_by(Branch.name.asc())
+            .all()
+        )
+        if gov
+        else Branch.query.filter_by(is_active=True).order_by(Branch.name.asc()).all()
+    )
+    branch_ids = [b.id for b in branch_rows]
+    if bid.isdigit():
+        bid_int = int(bid)
+        if bid_int not in branch_ids:
+            return {
+                'results': [],
+                'branches': [
+                    {'id': b.id, 'name': b.name, 'governorate_id': b.governorate_id}
+                    for b in branch_rows
+                ],
+            }
+        branch_ids = [bid_int]
+    if not q and (not bid.isdigit()):
+        return {
+            'results': [],
+            'branches': [
+                {'id': b.id, 'name': b.name, 'governorate_id': b.governorate_id}
+                for b in branch_rows
+            ],
+        }
+    filters = [Employee.is_active == True]
+    if branch_ids:
+        filters.append(Employee.branch_id.in_(branch_ids))
+    if q:
+        like = f'%{q}%'
+        filters.append(db.or_(Employee.full_name.ilike(like), Employee.job_code.ilike(like)))
+    rows = Employee.query.filter(*filters).order_by(Employee.full_name.asc()).limit(20).all()
+    return {
+        'results': [
+            {'id': e.id, 'name': e.full_name, 'code': e.job_code or '', 'branch': e.branch.name if e.branch else '', 'governorate': e.branch.governorate.name if e.branch and e.branch.governorate else ''}
+            for e in rows
+        ],
+        'branches': [
+            {'id': b.id, 'name': b.name, 'governorate_id': b.governorate_id}
+            for b in branch_rows
+        ],
+    }
+
+
+@bp.get('/api/movements-page-filters')
+@req
+def movements_page_filters_api():
+    """فلاتر صفحة الحركات: المحافظات ضمن النطاق ثم الفروع ثم موظفو الفرع فقط."""
+    allowed_gids = set(gids())
+    allowed_bids = set(bids())
+    gid_raw = (request.args.get('governorate_id') or '').strip()
+    bid_raw = (request.args.get('branch_id') or '').strip()
+    gid = int(gid_raw) if gid_raw.isdigit() else None
+    bid = int(bid_raw) if bid_raw.isdigit() else None
+    if gid is not None and gid not in allowed_gids:
+        return {'branches': [], 'employees': []}
+    branch_q = Branch.query.filter(Branch.is_active == True, Branch.id.in_(allowed_bids))
+    if gid is not None:
+        branch_q = branch_q.filter(Branch.governorate_id == gid)
+    branches = branch_q.order_by(Branch.name.asc()).all()
+    branch_ids = [b.id for b in branches]
+    if bid is not None and bid not in branch_ids:
+        return {
+            'branches': [
+                {'id': b.id, 'name': b.name, 'governorate_id': b.governorate_id}
+                for b in branches
+            ],
+            'employees': [],
+        }
+    employees = []
+    if bid is not None:
+        employees = (
+            Employee.query.filter(Employee.is_active == True, Employee.branch_id == bid)
+            .order_by(Employee.full_name.asc())
+            .all()
+        )
+    return {
+        'branches': [
+            {'id': b.id, 'name': b.name, 'governorate_id': b.governorate_id}
+            for b in branches
+        ],
+        'employees': [
+            {'id': e.id, 'name': e.full_name, 'code': e.job_code or '', 'branch_id': e.branch_id}
+            for e in employees
+        ],
+    }
+
+
+@bp.get('/movements')
+@req
+def movements():
+    # صفحة الحركات للمتابعة والسجل فقط؛ تسجيل الحركة يتم من الرئيسية.
+    bs = bids()
+    scoped_branches = (
+        (
+            Branch.query.filter(Branch.id.in_(bs), Branch.is_active == True)
+            .order_by(Branch.name.asc())
+            .all()
+        )
+        if bs
+        else []
+    )
+    rows = (
+        (
+            Movement.query.join(Employee)
+            .filter(Employee.branch_id.in_(bs), Movement.is_active == True)
+            .order_by(Movement.created_at.desc())
+            .all()
+        )
+        if bs
+        else []
+    )
+    today = date.today()
+    tomorrow = today + timedelta(days=ASSIGNMENT_ALERT_DAYS)
+
+    def is_current(m):
+        if m.movement_type == 'إذن':
+            return bool(m.permission_date == today)
+        if not m.from_date or m.from_date > today:
+            return False
+        return m.to_date is None or m.to_date >= today
+
+    current_rows = [m for m in rows if is_current(m)]
+    followup_rows = [
+        m
+        for m in rows
+        if m.movement_type in ('إجازة', 'انتداب') and m.to_date is not None and (m.to_date <= tomorrow)
+    ]
+    followup_rows.sort(key=lambda m: (m.to_date or date.max, m.id))
+    return render_template(
+        'movements.html',
+        rows=rows,
+        current_rows=current_rows,
+        followup_rows=followup_rows,
+        today=today,
+        tomorrow=tomorrow,
+        bs=scoped_branches,
+        movement_filter_governorates=(
+            (
+                Governorate.query.filter(Governorate.id.in_(gids()), Governorate.is_active == True)
+                .order_by(Governorate.name.asc())
+                .all()
+            )
+            if gids()
+            else []
+        ),
+    )
+
+
+@bp.route('/movements/<int:i>/edit', methods=['GET', 'POST'])
+@req
+def movement_edit(i):
+    m = db.session.get(Movement, i)
+    if not m or not branch_ok(m.employee.branch_id):
+        abort(403)
+    # الحركات معلومات تشغيلية مباشرة ويمكن تعديلها دون انتظار اعتماد.
+    if not can_manage_movement(m) or not can('manage_movements'):
+        abort(403)
+    if request.method == 'POST':
+        f = request.form
+        mt = f.get('movement_type')
+        dest = (
+            int(f['destination_branch_id'])
+            if f.get('destination_branch_id', '').isdigit()
+            else None
+        )
+        fd = f.get('from_date')
+        td = f.get('to_date')
+        pd = f.get('permission_date')
+        if mt == 'انتداب' and f.get('open_assignment') == '1':
+            td = None
+        err = validate_movement_fields(mt, f.get('leave_type') or None, dest, fd, td, pd)
+        if err:
+            flash(err)
+            return redirect(url_for('movements.movement_edit', i=i))
+        overlap = movement_overlaps(m.employee_id, mt, fd, td, pd, i)
+        if overlap:
+            flash(overlap)
+            return redirect(url_for('movements.movement_edit', i=i))
+        old_status = m.status
+        m.movement_type = mt
+        m.leave_type = f.get('leave_type') or None
+        m.destination_branch_id = dest
+        m.from_date = parse_date(fd)
+        m.to_date = parse_date(td)
+        m.permission_date = parse_date(pd)
+        m.assignment_state = 'ساري' if mt == 'انتداب' else 'ساري'
+        m.notes = None
+        m.modified_by = me().id
+        m.modified_at = datetime.utcnow()
+        m.status = 'مسجلة'
+        record_movement_history(m, old_status, 'مسجلة', 'EDIT', 'تعديل بيانات الحركة مباشرة')
+        log('EDIT', 'Movement', i, 'تعديل الحركة')
+        db.session.commit()
+        flash('تم تعديل الحركة وحفظها مباشرة.')
+        return redirect('/movements')
+    return render_template(
+        'movement_edit.html',
+        m=m,
+        emps=(
+            Employee.query.filter(Employee.branch_id.in_(bids()), Employee.is_active == True)
+            .order_by(Employee.full_name)
+            .all()
+        ),
+        bs=Branch.query.filter(Branch.id.in_(bids()), Branch.is_active == True).all(),
+        leave_types=active_leave_types(),
+        movement_types=active_movement_types(),
+    )
+
+
+@bp.post('/movements/<int:i>/submit')
+@req
+def movement_submit(i):
+    m = db.session.get(Movement, i)
+    if not m or not branch_ok(m.employee.branch_id) or (not can_manage_movement(m)):
+        abort(403)
+    old_status = m.status
+    m.status = 'مسجلة'
+    m.modified_by = me().id
+    m.modified_at = datetime.utcnow()
+    record_movement_history(m, old_status, 'مسجلة', 'SUBMIT', 'تثبيت الحركة كسجل تشغيلي')
+    log('SUBMIT', 'Movement', i, 'الحركة مسجلة مباشرة')
+    db.session.commit()
+    flash('الحركة مسجلة مباشرة.')
+    return redirect('/movements')
+
+
+@bp.post('/movements/<int:i>/close-assignment')
+@req
+def close_assignment(i):
+    m = db.session.get(Movement, i)
+    if (
+        not m
+        or m.movement_type != 'انتداب'
+        or not m.is_active
+        or not branch_ok(m.employee.branch_id)
+    ):
+        abort(403)
+    if not can('manage_movements') or not can_manage_movement(m):
+        abort(403)
+    if m.assignment_state == 'مغلق':
+        flash('الانتداب مغلق بالفعل.')
+        return redirect('/movements')
+    close_date = parse_date(request.form.get('close_date') or '') or date.today()
+    if m.from_date and close_date < m.from_date:
+        flash('تاريخ الإغلاق لا يجوز أن يسبق بداية الانتداب.')
+        return redirect('/movements')
+    m.assignment_state = 'مغلق'
+    m.to_date = close_date
+    m.closed_by = me().id
+    m.closed_at = datetime.utcnow()
+    m.closure_reason = (request.form.get('reason') or 'إغلاق الانتداب وعودة الموظف لفرعه الأصلي').strip()
+    m.modified_by = me().id
+    m.modified_at = datetime.utcnow()
+    record_movement_history(m, m.status, m.status, 'CLOSE_ASSIGNMENT', m.closure_reason)
+    log('CLOSE_ASSIGNMENT', 'Movement', m.id, m.closure_reason)
+    db.session.commit()
+    flash('تم إنهاء الانتداب، وعاد الموظف لفرعه الأصلي.')
+    return redirect('/movements')
+
+
+@bp.get('/movements/<int:i>/assignment-form')
+@req
+def assignment_form(i):
+    m = db.session.get(Movement, i)
+    if not m or m.movement_type != 'انتداب' or (not branch_ok(m.employee.branch_id)):
+        abort(403)
+    return render_template('assignment_form.html', m=m, today=date.today())
+
+
+@bp.post('/movements/<int:i>/delete')
+@req
+def movement_delete(i):
+    m = db.session.get(Movement, i)
+    if not m or not branch_ok(m.employee.branch_id):
+        abort(403)
+    if not can('delete_movements'):
+        flash('لا تملك صلاحية حذف المأموريات والحركات.')
+    elif not can_manage_movement(m) and 'مسؤول التطبيق' not in roles():
+        flash('لا تملك صلاحية حذف هذه الحركة ضمن نطاقك.')
+    elif not m.is_active:
+        flash('الحركة محذوفة بالفعل.')
+    else:
+        old_status = m.status
+        m.is_active = False
+        m.deleted_by = me().id
+        m.deleted_at = datetime.utcnow()
+        record_movement_history(m, old_status, old_status, 'DELETE', 'حذف/إخفاء الحركة')
+        log('DELETE', 'Movement', i, f'حذف الحركة؛ الحالة قبل الحذف: {old_status}')
+        db.session.commit()
+        flash('تم حذف الحركة بنجاح.')
+    return redirect('/movements')
+
+
+@bp.get('/movements/<int:i>/history')
+@req
+def movement_history(i):
+    m = db.session.get(Movement, i)
+    if not m or not branch_ok(m.employee.branch_id):
+        abort(403)
+    if not can('view_audit'):
+        abort(403)
+    rows = (
+        MovementHistory.query.filter_by(movement_id=i)
+        .order_by(MovementHistory.created_at.desc())
+        .all()
+    )
+    users = (
+        {
+            u.id: u.full_name
+            for u in User.query.filter(User.id.in_([x.user_id for x in rows if x.user_id])).all()
+        }
+        if rows
+        else {}
+    )
+    return render_template('movement_history.html', m=m, rows=rows, history_users=users)

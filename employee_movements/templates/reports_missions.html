@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}تقارير ومأموريات{% endblock %}
+{% block content %}
+{% if scope_required and not scope_selected %}
+<div class="scope-empty-state"><div class="scope-empty-icon"><svg class="ds-icon ds-icon-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18"/></svg></div><span class="home-kicker">اختيار نطاق العمل</span><h1>اختر المحافظة أولًا</h1><p>حدد المحافظة التي تريد العمل عليها. بعد الاختيار ستتعامل مع هذه الصفحة بصلاحيات مشرف المحافظة داخل المحافظة المحددة.</p></div>
+{% else %}
+<div class="ds-page-head ds-page-shell-head">
+  <div><span class="home-kicker">مركز البيانات والتشغيل</span><h1>تقارير ومأموريات</h1><p class="ds-muted">التقارير والمأموريات داخل نطاق العمل الحالي للمحافظة المختارة.</p></div>
+</div>
+
+<div class="ds-report-group-grid ds-mt-18">
+  {% if can('view_reports') %}
+  <section class="ds-report-group ds-module-card">
+    <div class="ds-report-group-head"><span class="ds-report-group-icon"><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h17"/><path d="m7 15 4-5 3 3 5-7"/></svg></span><div><h3>التقارير</h3><small>تحليل الحركات وتصفية النتائج ثم تصديرها إلى Excel.</small></div></div>
+    <div class="ds-report-link-grid">
+      <a href="/reports/leaves"><span><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>️</span><b>الإجازات</b><small>المحافظة · الفرع · الموظف · الفترة</small></a>
+      <a href="/reports/assignments"><span><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg></span><b>الانتدابات</b><small>الجهة · المدة · الحالة · الموظف</small></a>
+      <a href="/reports/permissions"><span><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><b>الأذونات</b><small>التاريخ · الموظف · الفرع</small></a>
+    </div>
+  </section>
+  <section class="ds-report-group ds-module-card">
+    <div class="ds-report-group-head"><span class="ds-report-group-icon"><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h6"/></svg></span><div><h3>المأموريات</h3><small>عرض وطباعة المأموريات من جميع المحافظات.</small></div></div>
+    <div class="ds-report-link-grid">
+      <a href="/reports/assignments/print-missions"><span><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/></svg></span><b>المأموريات المفتوحة</b><small>الانتدابات المفتوحة بلا تاريخ نهاية.</small></a>
+      <a href="/reports/assignments/print-missions?duration=dated"><span><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></span><b>المأموريات محددة المدة</b><small>الانتدابات التي لها تاريخ نهاية.</small></a>
+    </div>
+  </section>
+  {% endif %}
+</div>
+
+<div class="ds-card ds-report-rule-card ds-mt-18-pad-18">
+  <div class="ds-section-title"><div><h3>قاعدة المأمورية المفتوحة</h3><small>عدم وجود تاريخ نهاية ليس خطأ في البيانات.</small></div><span class="ds-tag">مفتوحة المدة</span></div>
+  <p class="ds-muted ds-mt-8">الانتداب المفتوح يُسجل بدون تاريخ نهاية، ويظل مفتوحًا حتى يتم تحديد نهاية فعلية أو تعديل مدته. عند الطباعة يمكن استخدام تاريخ مؤقت للنموذج دون تغييره في بيانات الحركة.</p>
+</div>
+{% endif %}
+{% endblock %}

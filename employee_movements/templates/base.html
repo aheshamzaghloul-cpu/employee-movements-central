@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#102b50">
+<title>{% block title %}نظام إدارة حركات الموظفين{% endblock %}</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{url_for('static',filename='css/app.css')}}">
+</head>
+<body class="{% if request.args.get('embed')=='1' %}assistant-embed-body{% endif %}">
+<a class="skip-link" href="#main">تخطي إلى المحتوى</a>
+<div class="ds-shell{% if request.args.get('embed')=='1' %} assistant-host{% endif %}">
+{% if me and request.args.get('embed')!='1' %}
+<aside class="ds-sidebar" id="appSidebar">
+  <div class="ds-brand">
+    <div class="ds-brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 4h12v4H9v4h7v4H9v4H6V4Z"/></svg></div>
+    <div class="ds-brand-copy"><strong>نظام إدارة حركات<br>الموظفين</strong><span>المنصة المركزية</span></div>
+    <button class="ds-collapse" id="sidebarCollapse" type="button" aria-label="تصغير القائمة"><svg viewBox="0 0 24 24"><path d="m14 7-5 5 5 5"/></svg></button>
+  </div>
+  <div class="ds-caption">مساحة العمل</div>
+  <nav class="ds-nav" aria-label="التنقل الرئيسي">
+    <a href="/" class="{% if request.path=='/' %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="m4 10 8-6 8 6v9h-5v-6H9v6H4v-9Z"/></svg><span>الرئيسية</span></a>
+    <a href="/employees" class="{% if request.path.startswith('/employees') %}active{% endif %}"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M3.5 19c.6-3 2.5-4.5 5.5-4.5s4.9 1.5 5.5 4.5M14 15c2.7-.7 5.5.5 6.5 4"/></svg><span>الموظفون</span></a>
+    <a href="/movements" class="{% if request.path.startswith('/movements') %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M5 7h11l-3-3M19 17H8l3 3"/><path d="m16 4 3 3-3 3M8 14l-3 3 3 3"/></svg><span>حركات الموظفين</span></a>
+    {% if can('view_reports') or can('manage_movements') %}<a href="/reports-missions" class="{% if request.path.startswith('/reports') or request.path.startswith('/mission') %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6V3Z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg><span>تقارير ومأموريات</span></a>{% endif %}
+    {% if 'مشرف محافظة' in roles and 'مسؤول التطبيق' not in roles %}<a href="/delegations" class="{% if request.path.startswith('/delegations') %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M7 7h12M17 4l3 3-3 3M17 17H5M7 14l-3 3 3 3"/></svg><span>تفويض</span></a>{% endif %}
+  </nav>
+  {% if 'مسؤول التطبيق' in roles %}<div class="ds-caption admin">الإدارة</div><nav class="ds-nav"><a href="/structure" class="{% if request.path.startswith('/structure') %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.8 2.8M15 15l2.7 2.7M17.7 6.3 15 9M9 15l-2.7 2.7"/><circle cx="12" cy="12" r="3.5"/></svg><span>الإدارة</span></a></nav>{% endif %}
+  <div class="ds-spacer"></div>
+  <button class="ds-ai-card" type="button" id="sidebarAssistantOpen" aria-label="فتح المساعد الذكي"><span class="ds-ai-mark"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg></span><span><b>المساعد الذكي</b><small>اسأل عن أي شيء في النظام</small></span><svg class="ds-ai-arrow" viewBox="0 0 24 24"><path d="m8 16 8-8M9 8h7v7"/></svg></button>
+  <div class="ds-account"><a href="/change-password"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20c.7-3.5 3-5 7-5s6.3 1.5 7 5"/></svg><span>حسابي</span></a><a href="/logout"><svg viewBox="0 0 24 24"><path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10"/></svg><span>خروج</span></a></div>
+  <div class="ds-version">نظام إدارة حركات الموظفين · الإصدار {{app_version}}</div>
+</aside>
+<header class="ds-topbar">
+  <button class="ds-mobile-menu" id="sidebarToggle" type="button" aria-label="القائمة"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  <div class="ds-user"><div class="ds-avatar">{{(me.full_name or 'م')[:1]}}</div><div class="ds-user-copy"><strong>{{me.full_name}}</strong><small>{% if active_role %}{{active_role}}{% elif roles %}{{roles|join(' · ')}}{% endif %}</small></div><svg viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></div>
+  <div class="ds-top-actions">
+    {% if scope_required %}<form method="get" action="/" class="ds-scope-form"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg><select name="governorate_id" aria-label="المحافظة" onchange="this.form.submit()"><option value="">{% if scope_selected %}محافظة: {{scope_governorate.name}}{% else %}اختر المحافظة{% endif %}</option>{% for g in scope_governorates %}{% if not scope_selected or g.id!=scope_selected %}<option value="{{g.id}}">محافظة: {{g.name}}</option>{% endif %}{% endfor %}</select></form>{% elif scope_selected and scope_governorate %}<div class="ds-scope-chip"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg>محافظة: {{scope_governorate.name}}</div>{% elif 'مشرف محافظة' in roles %}<div class="ds-scope-chip ds-scope-info"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg>صلاحيات المشرف: {{scope_governorates|length}} محافظات</div>{% endif %}
+    {% if login_real_roles|length > 1 %}<form method="post" action="/switch-role" class="ds-role-switch prominent-role-switch"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="next" value="{{request.path}}"><span>تغيير الدور</span><select name="active_role" aria-label="تغيير الدور" onchange="this.form.submit()">{% for r in ['مسؤول التطبيق','مشرف محافظة','Manager Application Support'] if r in real_roles %}<option value="{{r}}" {% if active_role==r or (not active_role and loop.first) %}selected{% endif %}>{{r}}</option>{% endfor %}</select></form>{% endif %}
+  </div>
+</header>
+{% endif %}
+<main id="main" class="ds-main{% if me and request.args.get('embed')!='1' %} with-shell{% endif %}{% if not me %} auth-main{% endif %}{% if request.args.get('embed')=='1' %} assistant-embed-main{% endif %}">
+{% if not me %}<div class="login">{% endif %}
+{% for x in get_flashed_messages() %}<div class="enterprise-alert" role="status">{{x}}</div>{% endfor %}
+{% block content %}{% endblock %}
+{% if not me %}</div>{% endif %}
+</main></div>
+{% if me and request.args.get('embed')!='1' %}<button type="button" class="ds-fab" id="assistantFab" title="فتح المساعد الذكي" aria-label="فتح المساعد الذكي" onclick="window.__openAssistant&&window.__openAssistant();return false;"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg></button><div class="assistant-modal" id="assistantModal" hidden aria-hidden="true"><div class="assistant-window" id="assistantWindow" role="dialog" aria-modal="true" aria-label="المساعد الذكي"><div class="assistant-window-bar" id="assistantDragBar"><div class="assistant-window-title"><span class="assistant-window-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg></span><span>المساعد الذكي</span><small>مساعدك التشغيلي</small></div><button type="button" class="assistant-close" id="assistantClose" aria-label="إغلاق المساعد">×</button></div><iframe id="assistantFrame" src="/assistant?embed=1" title="المساعد الذكي" loading="eager"></iframe></div></div>{% endif %}
+<script src="{{url_for('static',filename='js/app.js')}}"></script>
+<script src="{{url_for('static',filename='js/shell.js')}}"></script>
+</body></html>

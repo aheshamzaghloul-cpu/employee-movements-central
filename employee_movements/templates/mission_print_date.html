@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}تاريخ نهاية المأمورية للطباعة{% endblock %}
+{% block content %}
+<div class="ds-page-head">
+  <div>
+    <h1>طباعة المأمورية</h1>
+    <p class="ds-muted">هذه مأمورية <strong>انتداب مفتوح</strong> ولا يوجد لها تاريخ «إلى» مسجل. أدخل التاريخ المطلوب للـPDF فقط.</p>
+  </div>
+  <div class="ds-actions"><a class="ds-btn ds-btn-secondary" href="/reports/assignments/print-missions"><svg class="ds-icon ds-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6 3 12l6 6"/><path d="M4 12h11a5 5 0 0 1 5 5v1"/></svg> العودة للمأموريات</a></div>
+</div>
+<div class="ds-card ds-max-720">
+  <div class="ds-grid ds-grid-2-gap-16">
+    <div><label>الموظف</label><input value="{{m.employee.full_name}} — {{m.employee.job_code or '—'}}" disabled></div>
+    <div><label>تاريخ من</label><input value="{{m.from_date.strftime('%Y-%m-%d') if m.from_date else '—'}}" disabled></div>
+    <div class="ds-grid-full">
+      <label>إلى تاريخ <span class="ds-text-danger">*</span></label>
+      <input type="date" name="print_to_date" form="missionPrintDateForm" min="{{m.from_date.isoformat() if m.from_date else ''}}" required autofocus>
+      <small class="ds-muted">سيُستخدم هذا التاريخ داخل ملف الـPDF لهذه الطباعة فقط، ولن يتم حفظه على الانتداب ولن يغلق الانتداب.</small>
+    </div>
+  </div>
+  <form method="post" id="missionPrintDateForm" class="ds-actions ds-mt-18">
+    <input type="hidden" name="_csrf" value="{{csrf}}">
+    <button class="ds-btn ds-tone-teal" type="submit"><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="M18 12h.01"/></svg>️ طباعة المأمورية</button>
+    <a class="ds-btn ds-btn-secondary" href="/reports/assignments/print-missions">إلغاء</a>
+  </form>
+</div>
+{% endblock %}

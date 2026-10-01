@@ -1,0 +1,9 @@
+<details class="ds-movement-action-menu movement-action-menu">
+  <summary title="إجراءات الحركة" aria-label="إجراءات الحركة"><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></summary>
+  <div class="ds-movement-action-popover movement-action-popover">
+    {% if can_manage_movement(m) and can('manage_movements') %}<a href="/movements/{{m.id}}/edit">تعديل الحركة</a>{% endif %}
+    {% if m.movement_type=='انتداب' and m.is_active and m.assignment_state!='مغلق' and can_manage_movement(m) and can('manage_movements') %}<form method="post" action="/movements/{{m.id}}/close-assignment" onsubmit="return confirm('إنهاء انتداب {{m.employee.full_name|e}} بتاريخ اليوم؟ سيتم حفظ الإنهاء ضمن سجل الحركة.');"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="close_date" value="{{today}}"><button type="submit">إنهاء الانتداب</button></form>{% endif %}
+    {% if can('view_audit') %}<a href="/movements/{{m.id}}/history">سجل التعديلات</a>{% endif %}
+    {% if can('delete_movements') and (can_manage_movement(m) or 'مسؤول التطبيق' in roles) and m.is_active %}<form method="post" action="/movements/{{m.id}}/delete" onsubmit="return confirm('حذف هذه الحركة؟ ستختفي من العرض التشغيلي، مع الاحتفاظ بسجل العملية.');"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="danger" type="submit">حذف الحركة</button></form>{% endif %}
+  </div>
+</details>

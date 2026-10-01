@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+{% block title %}الرئيسية — نظام إدارة حركات الموظفين{% endblock %}
+{% block content %}
+{% if scope_required and not scope_selected %}
+<section class="ds-scope-screen">
+  <div class="ds-scope-icon"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg></div>
+  <span class="ds-eyebrow">بدء مساحة العمل</span>
+  <h1>اختر المحافظة للبدء</h1>
+  <p>اختيار المحافظة يحدد نطاق التشغيل فقط. لن يتم عرض الموظفين أو الحركات تلقائيًا حتى تبدأ البحث أو تختار إجراءً.</p>
+  <form method="get" action="/" class="ds-scope-start">
+    <label><span>المحافظة</span><select name="governorate_id" required><option value="">اختر المحافظة</option>{% for g in scope_governorates %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
+    <button class="ds-primary" type="submit">دخول مساحة العمل <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+  </form>
+  <div class="ds-scope-note"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg><span>البحث العالمي عن الموظفين يظل متاحًا من الصفحة الرئيسية عبر جميع المحافظات.</span></div>
+</section>
+{% else %}
+<div class="ds-content">
+  <section class="ds-hero">
+    <div class="ds-hero-grid"></div>
+    <div class="ds-hero-copy"><span class="ds-eyebrow">لوحة التشغيل اليومية</span><h1>مرحبًا بك، {{me.full_name.split(' ')[0]}}</h1><p>نظام إدارة حركات الموظفين · المنصة المركزية</p></div>
+    <div class="ds-scope-card">
+      <div class="ds-scope-icon"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg></div>
+      <div><small>نطاق العمل الحالي</small><strong>{% if scope_selected %}محافظة {{scope_governorate.name}}{% elif 'مشرف محافظة' in roles %}المحافظات المسندة للمشرف{% else %}نطاق التشغيل{% endif %}</strong></div>
+      {% if scope_required %}<form method="get" action="/"><select name="governorate_id" onchange="this.form.submit()"><option value="">تغيير المحافظة</option>{% for g in scope_governorates %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></form>{% endif %}
+    </div>
+  </section>
+
+  <section class="ds-card ds-home-search" aria-labelledby="home-search-title">
+    <header class="ds-card-head ds-search-head">
+      <div>
+        <span class="ds-eyebrow">بحث الموظفين</span>
+        <h2 id="home-search-title">ابحث عن أي موظف</h2>
+        <p>البحث متاح عبر جميع المحافظات، ولا يعتمد على محافظة نطاق التشغيل.</p>
+      </div>
+      <span class="ds-search-badge">بحث عام</span>
+    </header>
+    <form method="get" action="/" class="ds-home-search-form" id="homeEmployeeSearchForm">
+      <label class="ds-search-main-field">
+        <span>اسم الموظف أو كود شئون العاملين</span>
+        <div class="ds-search-input-wrap">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.2"/><path d="m16 16 4 4"/></svg>
+          <input name="movement_name" value="{{movement_name_query or ''}}" type="search" placeholder="اكتب الاسم أو الكود..." autocomplete="off">
+        </div>
+      </label>
+      <label class="ds-search-field">
+        <span>المحافظة <small>اختياري</small></span>
+        <select name="movement_governorate_id" id="homeSearchGovernorate">
+          <option value="">كل المحافظات</option>
+          {% for g in movement_search_governorates %}<option value="{{g.id}}" {% if movement_governorate_id and movement_governorate_id|int==g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="ds-search-field">
+        <span>الفرع <small>اختياري</small></span>
+        <select name="movement_branch_id" id="homeSearchBranch">
+          <option value="">كل الفروع</option>
+          {% for b in movement_search_all_branches %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}" {% if movement_branch_id and movement_branch_id|int==b.id %}selected{% endif %}>{{b.name}}</option>{% endfor %}
+        </select>
+      </label>
+      <button class="ds-primary ds-search-button" type="submit">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.2"/><path d="m16 16 4 4"/></svg>
+        <span>بحث</span>
+      </button>
+    </form>
+  </section>
+
+  <section class="ds-kpis">
+    <article class="ds-kpi ds-tone-blue"><div class="ds-kpi-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M3.5 19c.6-3 2.5-4.5 5.5-4.5s4.9 1.5 5.5 4.5M14 15c2.7-.7 5.5.5 6.5 4"/></svg></div><div><small>حركات الموظفين الآن</small><strong>{{current_status_summary.leave + current_status_summary.assignment + current_status_summary.open_assignment + current_status_summary.permission}}</strong><span>موظفون لديهم حركة</span></div><a href="/employees">عرض <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></a></article>
+    <article class="ds-kpi ds-tone-amber"><div class="ds-kpi-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20c.7-4 3-6 7-6s6.3 2 7 6"/></svg></div><div><small>الموظفون</small><strong>{{e}}</strong><span>إجمالي الموظفين</span></div><a href="/employees">عرض <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></a></article>
+    <article class="ds-kpi ds-tone-green"><div class="ds-kpi-icon"><svg viewBox="0 0 24 24"><path d="M5 7h11l-3-3M19 17H8l3 3"/><path d="m16 4 3 3-3 3M8 14l-3 3 3 3"/></svg></div><div><small>حركات الموظفين</small><strong>{{current_status_summary.leave + current_status_summary.assignment + current_status_summary.permission}}</strong><span>حركات نشطة اليوم</span></div><a href="/movements">عرض <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></a></article>
+  </section>
+
+  <section class="ds-home-layout">
+    <div class="ds-column">
+      <section class="ds-card">
+        <header class="ds-card-head"><div><span class="ds-eyebrow">المتابعة المباشرة</span><h2>حالة الموظفين الآن</h2></div><div><span class="ds-count">{{current_status_rows|length}} موظف</span> <a class="ds-head-link" href="/employees">عرض الكل</a></div></header>
+        <div class="ds-status-stats"><div class="ds-stat ds-tone-amber"><b>{{current_status_summary.leave}}</b><span>إجازة</span></div><div class="ds-stat ds-tone-blue"><b>{{current_status_summary.assignment}}</b><span>انتداب محدد</span></div><div class="ds-stat ds-tone-violet"><b>{{current_status_summary.open_assignment}}</b><span>انتداب مفتوح</span></div><div class="ds-stat ds-tone-green"><b>{{current_status_summary.permission}}</b><span>إذن اليوم</span></div></div>
+        <div class="ds-filters"><select id="current-status-branch-filter" class="ds-filter"><option value="">كل الفروع</option>{% for row in current_status_rows|unique(attribute='display_branch') %}{% if row.display_branch %}<option value="{{row.display_branch.id}}">{{row.display_branch.name}}</option>{% endif %}{% endfor %}</select><select id="current-status-employee-filter" class="ds-filter"><option value="">كل الموظفين</option>{% for row in current_status_rows %}<option value="{{row.employee.id}}">{{row.employee.full_name}}</option>{% endfor %}</select></div>
+        <div class="ds-table"><div class="ds-table-head"><span>الموظف</span><span>الفرع</span><span>الحالة</span><span>تاريخ النهاية</span><span></span></div><div id="current-status-list">{% for row in current_status_rows[:20] %}<a class="ds-row" data-status-branch="{{row.display_branch.id if row.display_branch else ''}}" data-status-employee="{{row.employee.id}}" href="/employee/{{row.employee.id}}"><span class="ds-person"><i>{{(row.employee.full_name or 'م')[:1]}}</i><span><b>{{row.employee.full_name}}</b><small>{{row.employee.job_title or 'موظف'}}</small></span></span><span>{{row.display_branch.name if row.display_branch else '—'}}</span><span><em class="ds-status {% if row.state=='إجازة' %}leave{% elif row.state=='انتداب' or row.state=='انتداب مفتوح' %}assign{% elif row.state=='إذن' %}permit{% else %}present{% endif %}">{{row.state}}</em></span><span>{{row.to_date or '—'}}</span><span class="ds-more" aria-hidden="true"><svg class="ds-icon" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></span></a>{% else %}<div class="ds-empty"><b>لا توجد بيانات للعرض</b><span>ابدأ بإضافة موظفين أو تسجيل حركة.</span></div>{% endfor %}<div class="ds-empty" id="current-status-filter-empty" hidden><b>لا توجد نتائج مطابقة</b><span>غيّر الفلاتر وحاول مرة أخرى.</span></div></div></div>
+      </section>
+      <section class="ds-card"><header class="ds-card-head"><div><span class="ds-eyebrow">آخر النشاط</span><h2>حركات الموظفين الأخيرة</h2></div><a class="ds-head-link" href="/movements">عرض الكل</a></header><div class="ds-recent">{% for row in current_status_rows[:6] %}<a href="/employee/{{row.employee.id}}"><i class="ds-recent-icon {% if row.state=='إجازة' %}amber{% elif row.state=='انتداب' or row.state=='انتداب مفتوح' %}blue{% elif row.state=='إذن' %}violet{% else %}green{% endif %}"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></i><span><b>{{row.employee.full_name}}</b><small>{{row.display_branch.name if row.display_branch else '—'}}</small></span><em>{{row.state}}</em><small>{{row.to_date or '—'}}</small></a>{% else %}<div class="ds-empty"><b>لا توجد حركات حديثة</b></div>{% endfor %}</div></section>
+    </div>
+
+    <div class="ds-column">
+      <section class="ds-card entry-role-home-card entry-role-home-card-merged" id="entry-role-section"><header class="ds-card-head"><div><span class="ds-eyebrow">الإدارة التنظيمية</span><h2>المدخل الأول والفروع التابعة له</h2><p>كل ما يخص أهلية المدخل الأول، إضافة التكليف، الفروع، التعديل، الاستبدال والإزالة في مكان واحد.</p></div><div class="ds-entry-head-actions">{% if is_admin or is_manager_support or 'مشرف محافظة' in roles %}<button class="ds-primary entry-role-add-btn" type="button" id="toggle-entry-role-add">إضافة مدخل أول</button>{% endif %}<span class="ds-count">{{entry_rows|length}} مدخل</span></div></header>
+        <div id="entry-role-inline-panel" hidden class="entry-role-inline-panel"><form method="post" action="/entry-role/add" id="entry-role-inline-form" class="ds-stack-10"><input type="hidden" name="_csrf" value="{{csrf}}"><label class="ds-text-9">الموظف<input id="inline-entry-employee-search" list="inline-entry-employees" placeholder="اكتب اسم الموظف..." autocomplete="off" required class="inline-entry-input"><input type="hidden" name="employee_id" id="inline-entry-employee"><datalist id="inline-entry-employees">{% for e in available_entry_employees %}<option value="{{e.full_name}}{% if available_entry_employee_is_supervisor.get(e.id) %} — مشرف محافظة{% endif %}{% if e.branch %} — {{e.branch.name}}{% endif %}" data-id="{{e.id}}"></option>{% endfor %}</datalist></label>{% if is_admin %}<label class="ds-text-9">المشرف المسؤول<select name="supervisor_id" required class="inline-entry-select"><option value="">اختر المشرف</option>{% for s in entry_supervisors %}<option value="{{s.id}}">{{s.full_name}}</option>{% endfor %}</select></label>{% endif %}<div><b class="ds-text-9">فروع المسؤولية</b><div id="inline-entry-branch-grid" class="inline-entry-branch-grid">{% for b in available_entry_branches %}<label class="inline-entry-branch-option"><input type="checkbox" name="branch_id" value="{{b.id}}"> {{b.name}}</label>{% endfor %}</div></div><button class="ds-primary" type="submit">حفظ الدور</button></form></div>
+        <div class="ds-entry-management-list">{% for row in entry_rows %}<details class="ds-entry-manage-item"><summary><i>{{(row.employee.full_name or 'م')[:1]}}</i><span><b>{{row.employee.full_name}}</b><small>{{row.supervisor.full_name if row.supervisor else '—'}} · {{row.branches|length}} فروع</small></span><strong>{{row.employee.job_title or 'مدخل أول'}}</strong><svg viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></summary><div class="ds-entry-manage-body"><div class="ds-entry-branch-list">{% for bg in row.branches %}<div><span>{{bg.branch.name}}</span><small>{{bg.employees|length}} موظف</small></div>{% endfor %}</div><div class="ds-entry-actions"><details class="ds-entry-action"><summary>تعديل الفروع</summary><form method="post" action="/entry-role/{{row.employee.id}}/branches"><input type="hidden" name="_csrf" value="{{csrf}}"><div class="ds-entry-checks">{% for b in row.available_branches %}<label><input type="checkbox" name="branch_id" value="{{b.id}}" {% if b.id in row.assignment_branch_ids %}checked{% endif %}><span>{{b.name}}</span></label>{% endfor %}</div><button class="ds-primary ds-btn-mini" type="submit">حفظ الفروع</button></form></details><details class="ds-entry-action"><summary>استبدال المدخل</summary><form method="post" action="/entry-role/{{row.employee.id}}/replace"><input type="hidden" name="_csrf" value="{{csrf}}"><select name="new_entry_employee_id" required><option value="">اختر الموظف البديل</option>{% for e in row.replace_targets %}<option value="{{e.id}}">{{e.full_name}}{% if e.branch %} — {{e.branch.name}}{% endif %}</option>{% endfor %}</select><button class="ds-primary ds-btn-mini" type="submit">تنفيذ الاستبدال</button></form></details><form method="post" action="/entry-role/{{row.employee.id}}/remove" onsubmit="return confirm('هل تريد إزالة دور المدخل الأول من هذا الموظف؟ ستظل بيانات الموظف والحركات محفوظة.');"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="ds-danger-outline ds-btn-mini" type="submit">إزالة دور المدخل الأول</button></form></div></div></details>{% else %}<div class="ds-empty"><b>لا يوجد مدخلون أوائل حاليًا</b><span>امنح المشرف الأهلية من الإدارة، ثم أضف التكليف والفروع من هنا.</span></div>{% endfor %}</div>
+      </section>
+      <section class="ds-card"><header class="ds-card-head"><div><span class="ds-eyebrow">مؤشرات فورية</span><h2>نبض التشغيل</h2></div><a class="ds-head-link" href="/reports-missions">عرض الكل</a></header><div class="ds-alerts"><div class="ds-alert ds-btn-danger"><i><svg viewBox="0 0 24 24"><path d="M12 4 3 20h18L12 4Z"/><path d="M12 9v5M12 17h.01"/></svg></i><b>{{current_status_summary.follow_up or 0}}</b><span>حالات تحتاج متابعة</span></div><div class="ds-alert ds-tone-amber"><i><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M8 3v4M16 3v4M5 10h14"/></svg></i><b>{{current_status_summary.leave}}</b><span>إجازات نشطة</span></div><div class="ds-alert ds-tone-violet"><i><svg viewBox="0 0 24 24"><path d="M6 4h12v16H6zM9 8h6M9 12h6M9 16h3"/></svg></i><b>{{current_status_summary.open_assignment}}</b><span>انتدابات مفتوحة</span></div><div class="ds-alert ds-tone-blue"><i><svg viewBox="0 0 24 24"><path d="M5 20V9M12 20V4M19 20v-7"/></svg></i><b>{{current_status_summary.assignment}}</b><span>انتدابات نشطة</span></div></div></section>
+    </div>
+
+    <div class="ds-column">
+      <section class="ds-card"><header class="ds-card-head"><div><span class="ds-eyebrow">الوصول السريع</span><h2>إجراءات سريعة</h2></div></header><div class="ds-quick ds-quick-inline"><a href="/employees"><i class="ds-tone-blue"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 20c.7-3.6 2.6-5.5 5.5-5.5s4.8 1.9 5.5 5.5M17 12v6M14 15h6"/></svg></i><span><b>إضافة موظف</b><small>سجل جديد</small></span></a><a href="/movements"><i class="ds-tone-green"><svg viewBox="0 0 24 24"><path d="M5 7h11l-3-3M19 17H8l3 3"/><path d="m16 4 3 3-3 3M8 14l-3 3 3 3"/></svg></i><span><b>تسجيل انتداب</b><small>حركة جديدة</small></span></a><a href="/movements"><i class="ds-tone-amber"><svg viewBox="0 0 24 24"><rect x="5" y="6" width="14" height="14" rx="2"/><path d="M8 4v4M16 4v4M5 10h14"/></svg></i><span><b>تسجيل إجازة</b><small>حركة جديدة</small></span></a><a href="/movements"><i class="ds-tone-violet"><svg viewBox="0 0 24 24"><path d="M6 4h12v16H6zM9 8h6M9 12h6M9 16h3"/></svg></i><span><b>تسجيل إذن</b><small>حركة جديدة</small></span></a><a href="/reports-missions"><i class="ds-tone-blue"><svg viewBox="0 0 24 24"><path d="M5 20V9M12 20V4M19 20v-7"/></svg></i><span><b>تقرير الحركات</b><small>عرض وتصدير</small></span></a><a href="/reports-missions"><i class="ds-tone-green"><svg viewBox="0 0 24 24"><path d="M6 4h9l3 3v13H6zM14 4v4h4M9 13h6M9 16h4"/></svg></i><span><b>طباعة مأمورية</b><small>مستند رسمي</small></span></a></div></section>
+
+    </div>
+  </section>
+
+  <section class="ds-ai-strip"><span class="ds-ai-strip-mark"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg></span><div><b>المساعد الذكي</b><small>اسأل عن موظف، فرع، حركة أو تقرير وسأساعدك داخل نطاق صلاحياتك.</small></div><button type="button" id="assistantInlineOpen">ابدأ المحادثة</button></section>
+
+  <section id="home-employee-search" class="ds-results">
+    {% if movement_employee_matches and not movement_employee %}<div class="ds-card"><header class="ds-card-head"><div><span class="ds-eyebrow">نتائج البحث</span><h2>{{movement_employee_matches|length}} موظف مطابق</h2></div></header>{% for emp in movement_employee_matches %}<a class="ds-result" href="/?{% if movement_governorate_id %}movement_governorate_id={{movement_governorate_id}}&{% endif %}{% if movement_branch_id %}movement_branch_id={{movement_branch_id}}&{% endif %}employee_id={{emp.id}}#home-employee-search"><i>{{(emp.full_name or 'م')[:1]}}</i><span><b>{{emp.full_name}}</b><small>{{emp.job_title or 'موظف'}} · {{emp.branch.name if emp.branch else '—'}} · {{emp.branch.governorate.name if emp.branch and emp.branch.governorate else '—'}}</small></span><em>←</em></a>{% endfor %}</div>{% elif (movement_branch_id or movement_name_query) and not movement_employee %}<div class="ds-card search-empty-state"><b>لم نعثر على موظف مطابق</b><span>جرّب اسمًا آخر.</span></div>{% endif %}
+    {% if movement_employee %}<div class="ds-card"><div class="ds-focus-head"><i class="ds-focus-avatar">{{(movement_employee.full_name or 'م')[:1]}}</i><div><span class="ds-eyebrow">ملف الموظف</span><h2><a href="/employee/{{movement_employee.id}}">{{movement_employee.full_name}}</a></h2><p>{{movement_employee.job_title or 'موظف'}} · {{movement_employee.job_code or 'بدون كود'}}</p></div><aside class="ds-focus-branch"><b>{{movement_employee.branch.name if movement_employee.branch else '—'}}</b><small>{{movement_employee.branch.governorate.name if movement_employee.branch and movement_employee.branch.governorate else '—'}}</small></aside></div><div class="ds-focus-movements">{% for k,t in [('إجازة','آخر إجازة'),('انتداب','آخر انتداب'),('إذن','آخر إذن')] %}{% set m=movement_employee_last[k] %}<article><span>{{t}}</span>{% if m %}<b>{{m.from_date or m.permission_date or '—'}}{% if m.to_date %} → {{m.to_date }}{% endif %}</b><small>{{m.leave_type or (m.destination.name if m.destination else m.movement_type)}}</small>{% else %}<b>لا توجد بيانات</b><small>—</small>{% endif %}</article>{% endfor %}</div></div>{% endif %}
+  </section>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded',()=>{
+  const searchGov=document.getElementById('homeSearchGovernorate');
+  const searchBranch=document.getElementById('homeSearchBranch');
+  if(searchGov && searchBranch){
+    const syncBranches=()=>{
+      const gov=searchGov.value;
+      [...searchBranch.options].forEach((opt,i)=>{
+        if(i===0){opt.hidden=false;return;}
+        opt.hidden=!!gov && opt.dataset.governorate!==gov;
+      });
+      const current=searchBranch.options[searchBranch.selectedIndex];
+      if(current && current.hidden) searchBranch.value='';
+    };
+    searchGov.addEventListener('change',syncBranches);
+    syncBranches();
+  }
+  const branch=document.getElementById('current-status-branch-filter'),emp=document.getElementById('current-status-employee-filter'),rows=[...document.querySelectorAll('#current-status-list .ds-row')],empty=document.getElementById('current-status-filter-empty');
+  function filter(){const b=branch?.value||'',e=emp?.value||'';let n=0;rows.forEach(r=>{const ok=(!b||r.dataset.statusBranch===b)&&(!e||r.dataset.statusEmployee===e);r.hidden=!ok;if(ok)n++});if(empty)empty.hidden=n!==0} branch?.addEventListener('change',filter);emp?.addEventListener('change',filter);
+  const add=document.getElementById('toggle-entry-role-add'),panel=document.getElementById('entry-role-inline-panel');add?.addEventListener('click',()=>{if(panel)panel.hidden=!panel.hidden});
+  const entrySearch=document.getElementById('inline-entry-employee-search'),entryId=document.getElementById('inline-entry-employee'),entryList=document.getElementById('inline-entry-employees');
+  if(entrySearch && entryId && entryList){
+    const syncEntryId=()=>{const value=entrySearch.value.trim();const option=[...entryList.options].find(o=>o.value===value);entryId.value=option?.dataset.id||'';};
+    entrySearch.addEventListener('input',syncEntryId);
+    entrySearch.addEventListener('change',syncEntryId);
+  }
+});
+</script>
+{% endif %}
+{% endblock %}

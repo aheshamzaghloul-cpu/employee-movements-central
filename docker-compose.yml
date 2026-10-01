@@ -18,16 +18,11 @@ services:
     build: .
     restart: unless-stopped
     environment:
-      APP_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-movements_app}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-movements}
-      SECRET_KEY: ${SECRET_KEY:?ضع SECRET_KEY عشوائيًا (32 حرفًا على الأقل) في ملف .env}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-movements_app}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-movements}
+      SECRET_KEY: ${SECRET_KEY:?ضع SECRET_KEY عشوائيًا طويلًا في ملف .env}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ضع كلمة مرور المسؤول الأولية في ملف .env}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       COOKIE_SECURE: ${COOKIE_SECURE:-1}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_MODEL: ${GEMINI_MODEL:-}
-      GEMINI_TIMEOUT: ${GEMINI_TIMEOUT:-20}
     depends_on:
       db:
         condition: service_healthy

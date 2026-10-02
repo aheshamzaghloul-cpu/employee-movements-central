@@ -16,6 +16,7 @@ from .intents import detect_employee_field, greeting_reply, parse_intent
 from .llm import llm_parse
 from ..ratelimit import RateLimiter
 from .menu import capability_groups
+from .manager import plan as manager_plan, execute as manager_execute
 from .render import render_branch_entry, render_read, topic_options
 
 bp = Blueprint('assistant', __name__)
@@ -56,12 +57,27 @@ def answer_prompt(prompt, prior_chat):
     result = None
     # ابدأ ببيانات التطبيق الحية أولاً. هذا يجعل الاستفسارات الشائعة فورية ولا تنتظر نموذجًا خارجيًا.
     local_a = parse_intent(prompt)
-    needs_semantic = local_a.get('intent') in ('help', 'topic_options', 'employee_topic')
+    # استخدم Gemini خصوصًا في الطلبات التنفيذية؛ هذا يسمح بفهم الصياغات الحرة
+    # مثل «اعمل لأحمد إجازة...» حتى عندما لا تطابق قواعد الاستخراج المحلية حرفيًا.
+    # الاستعلامات المباشرة تظل محلية أولًا لتقليل التأخير وعدم إرسال بيانات حية إلى النموذج.
+    semantic_intents = {'help', 'topic_options', 'employee_topic', 'register_movement', 'employee_add', 'employee_create', 'user_create', 'user_edit', 'user_toggle', 'user_delete', 'user_password_reset', 'user_set_governorates', 'user_set_branches', 'entry_assign', 'entry_remove', 'entry_replace', 'delegation_create', 'delegation_revoke', 'governorate_create', 'governorate_edit', 'governorate_toggle', 'branch_create', 'branch_edit', 'branch_toggle', 'employee_edit', 'employee_delete', 'employee_restore', 'role_grant', 'role_revoke', 'lookup_create', 'lookup_edit', 'lookup_toggle', 'lookup_delete', 'movement_edit', 'movement_delete', 'movement_close'}
+    read_only_local = {'greeting', 'employee_status', 'employee_info', 'employee_movements', 'branch_status', 'branch_info', 'branch_entry', 'governorate_employees', 'governorate_assignments_today', 'movement_people_today'}
+    manager_markers = ('امنح دور','منح دور','اسحب دور','إزالة دور','ازالة دور','عدّل حساب','عدل حساب','أضف حساب','اضف حساب','احذف حساب','أوقف حساب','أنشئ تفويض','انشئ تفويض','أضف محافظة','اضف محافظة','عدّل محافظة','عدل محافظة','أضف فرع','اضف فرع','عدّل فرع','عدل فرع','احذف موظف','احذف الموظف','استرجع موظف','استرجع الموظف','عيّن مدخل','عين مدخل','أزل دور المدخل','أزل المدخل','أضف نوع','اضف نوع','عطّل','عطل','فعّل','فعل','غيّر محافظات','غير محافظات','غيّر فروع','غير فروع','احذف حركة','حذف حركة','عدّل حركة','عدل حركة','تعديل حركة','أنهى الانتداب','انهاء الانتداب','أغلق الانتداب','اغلاق الانتداب')
+    has_manager_marker = any(x in prompt for x in manager_markers)
+    # مدير التطبيق يحتاج فهمًا دلاليًا حتى للطلبات الإدارية التي لا توجد لها
+    # قاعدة كلمات محلية. الاستعلامات التي حلّها المسار المحلي بشكل يقيني تبقى محلية
+    # ما لم تحمل صياغة صريحة لعملية إدارية.
+    needs_semantic = local_a.get('intent') not in read_only_local or has_manager_marker
     llm_a = llm_parse(prompt, prior_chat) if needs_semantic else None
-    # استخدم الفهم الدلالي فقط عندما تكون الصياغة غير محددة محليًا؛ أما طلبات البيانات المباشرة
-    # فتعتمد على قاعدة البيانات الحالية حتى لا تتأخر بسبب الشبكة.
     if llm_a:
-        a = llm_a
+        a = local_a if local_a.get('intent') in read_only_local and not has_manager_marker else llm_a
+        # إذا فهم Gemini طلبًا تنفيذيًا بشكل أوضح، نستخدمه ثم نحل الكيانات محليًا.
+        # أما في الاستعلامات العامة، يبقى التعرف المحلي هو مصدر الحقيقة.
+        if (
+            local_a.get('intent') not in ('register_movement', 'employee_add')
+            and a.get('intent') in ('help', 'topic_options', 'employee_topic')
+        ):
+            a = local_a
         # إذا أعاد النموذج تصنيفاً عاماً جداً (help) بينما يستطيع التطبيق
         # التعرف على النص مباشرة من بياناته، نستخدم التعرف المحلي الدقيق بدلاً
         # من مطالبة المستخدم بإعادة صياغة كلامه. هذا ليس قاموس كلمات؛ بل بحث فعلي
@@ -119,7 +135,23 @@ def answer_prompt(prompt, prior_chat):
             ce = db.session.get(Employee, session.get('assistant_context_employee_id'))
             if ce and ce.is_active and branch_ok(ce.branch_id):
                 a['employee_id'] = ce.id
-    if a.get('intent') == 'greeting':
+    manager_intents = {
+        'governorate_create', 'governorate_edit', 'governorate_toggle',
+        'branch_create', 'branch_edit', 'branch_toggle',
+        'employee_create', 'employee_edit', 'employee_delete', 'employee_restore',
+        'user_create', 'user_edit', 'user_toggle', 'user_delete', 'user_password_reset',
+        'user_set_governorates', 'user_set_branches',
+        'role_grant', 'role_revoke', 'entry_assign', 'entry_remove', 'entry_replace',
+        'delegation_create', 'delegation_revoke',
+        'lookup_create', 'lookup_edit', 'lookup_toggle', 'lookup_delete', 'movement_edit', 'movement_delete', 'movement_close',
+    }
+    if a.get('intent') in manager_intents:
+        result = manager_plan(a)
+        if result and result.get('plan'):
+            session['assistant_manager_pending'] = result['plan']
+        if result is None:
+            result = {'title': 'مدير التطبيق', 'error': 'لم أستطع تحديد العملية الإدارية.'}
+    elif a.get('intent') == 'greeting':
         result = {
             'title': 'المساعد الذكي',
             'answer': a.get('reply') or greeting_reply(prompt),
@@ -388,6 +420,7 @@ def assistant():
 def assistant_clear():
     session.pop('assistant_chat', None)
     session.pop('assistant_pending', None)
+    session.pop('assistant_manager_pending', None)
     return redirect('/assistant?embed=1' if request.form.get('embed') == '1' else '/assistant')
 
 
@@ -396,12 +429,22 @@ def assistant_clear():
 def assistant_confirm():
     embed = request.form.get('embed') == '1'
     back = '/assistant?embed=1' if embed else '/assistant'
-    a = session.pop('assistant_pending', None)
     if request.form.get('cancel'):
-        flash('تم إلغاء الحركة ولم يُسجَّل أي شيء.')
+        session.pop('assistant_pending', None)
+        session.pop('assistant_manager_pending', None)
+        flash('تم إلغاء العملية ولم يُنفذ أي تغيير.')
         return redirect(back)
+    manager_pending = session.pop('assistant_manager_pending', None)
+    if manager_pending:
+        ok, message = manager_execute(manager_pending)
+        if ok:
+            flash(message)
+        else:
+            flash(message)
+        return redirect(back)
+    a = session.pop('assistant_pending', None)
     if not a:
-        flash('لا توجد حركة معلقة للتأكيد.')
+        flash('لا توجد عملية معلقة للتأكيد.')
         return redirect(back)
     if not can('manage_movements'):
         abort(403)

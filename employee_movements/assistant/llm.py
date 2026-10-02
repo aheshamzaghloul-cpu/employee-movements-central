@@ -31,7 +31,10 @@ INTENT_SCHEMA = {
         'intent': {
             'type': 'string',
             'enum': [
-                'employee_add', 'employee_status', 'employee_info', 'employee_movements',
+                'employee_add', 'employee_create', 'employee_status', 'employee_info', 'employee_movements',
+                'governorate_create', 'governorate_edit', 'governorate_toggle',
+                'branch_create', 'branch_edit', 'branch_toggle',
+                'employee_edit', 'employee_delete', 'employee_restore', 'user_create', 'user_edit', 'user_toggle', 'user_delete', 'user_password_reset', 'user_set_governorates', 'user_set_branches', 'role_grant', 'role_revoke', 'entry_assign', 'entry_remove', 'entry_replace', 'delegation_create', 'delegation_revoke', 'lookup_create', 'lookup_edit', 'lookup_toggle', 'lookup_delete', 'movement_edit', 'movement_delete', 'movement_close',
                 'branch_status', 'branch_info', 'branch_entry', 'governorate_employees',
                 'governorate_assignments_today', 'movement_people_today', 'employee_topic',
                 'register_movement', 'topic_options', 'navigate', 'help',
@@ -45,11 +48,44 @@ INTENT_SCHEMA = {
             ],
         },
         'employee_name': {'type': ['string', 'null']},
+        'full_name': {'type': ['string', 'null']},
+        'employee_code': {'type': ['string', 'null']},
+        'hire_date': {'type': ['string', 'null']},
+        'company_phone': {'type': ['string', 'null']},
+        'personal_phone': {'type': ['string', 'null']},
+        'username': {'type': ['string', 'null']},
+        'email': {'type': ['string', 'null']},
+        'job_title': {'type': ['string', 'null']},
+        'job_code': {'type': ['string', 'null']},
+        'password': {'type': ['string', 'null']},
+        'roles': {'type': 'array', 'items': {'type': 'string'}},
+        'governorate_ids': {'type': 'array', 'items': {'type': 'integer'}},
+        'governorate_names': {'type': 'array', 'items': {'type': 'string'}},
+        'branch_names': {'type': 'array', 'items': {'type': 'string'}},
+        'supervisor_name': {'type': ['string', 'null']},
+        'delegate_name': {'type': ['string', 'null']},
+        'starts_at': {'type': ['string', 'null']},
+        'ends_at': {'type': ['string', 'null']},
+        'new_name': {'type': ['string', 'null']},
+        'branch_code': {'type': ['string', 'null']},
+        'role': {'type': ['string', 'null']},
         'employee_id': {'type': ['integer', 'null']},
         'branch_name': {'type': ['string', 'null']},
         'branch_id': {'type': ['integer', 'null']},
         'governorate_id': {'type': ['integer', 'null']},
+        'user_id': {'type': ['integer', 'null']},
+        'supervisor_id': {'type': ['integer', 'null']},
+        'delegate_id': {'type': ['integer', 'null']},
+        'delegation_id': {'type': ['integer', 'null']},
+        'reason': {'type': ['string', 'null']},
+        'new_employee_id': {'type': ['integer', 'null']},
+        'new_employee_name': {'type': ['string', 'null']},
         'governorate_name': {'type': ['string', 'null']},
+        'lookup_id': {'type': ['integer', 'null']},
+        'lookup_name': {'type': ['string', 'null']},
+        'lookup_kind': {'type': ['string', 'null'], 'enum': ['movement', 'leave', None]},
+        'movement_id': {'type': ['integer', 'null']},
+        'close_date': {'type': ['string', 'null']},
         'candidate_ids': {'type': 'array', 'items': {'type': 'integer'}},
         'movement_type': {'type': ['string', 'null'], 'enum': ['إجازة', 'انتداب', 'إذن', None]},
         'leave_type': {'type': ['string', 'null']},
@@ -73,7 +109,7 @@ INTENT_SCHEMA = {
         'intent', 'topic', 'employee_name', 'employee_id', 'branch_name', 'branch_id',
         'governorate_id', 'governorate_name', 'candidate_ids', 'movement_type', 'leave_type',
         'destination_name', 'from_date', 'to_date', 'permission_date', 'open_assignment',
-        'navigate_url', 'reply', 'employee_field',
+        'navigate_url', 'reply', 'employee_field', 'new_name', 'full_name', 'employee_code', 'hire_date', 'company_phone', 'personal_phone', 'user_id', 'supervisor_id', 'delegate_id', 'delegation_id', 'reason', 'new_employee_id', 'new_employee_name', 'branch_code', 'role', 'username', 'email', 'job_title', 'job_code', 'password', 'roles', 'supervisor_name', 'delegate_name', 'starts_at', 'ends_at', 'new_employee_name', 'lookup_id', 'lookup_name', 'lookup_kind', 'movement_id', 'close_date',
     ],
 }
 
@@ -87,7 +123,9 @@ SYSTEM_INSTRUCTION = """
 - لا تملك قاعدة البيانات ولا كتالوج الموظفين أو الفروع أو المحافظات.
 - لا تخترع أي اسم أو رقم أو معرف أو تاريخ غير موجود في رسالة المستخدم أو سياق المحادثة المرسل لك.
 - employee_id و branch_id و governorate_id و candidate_ids يجب أن تبقى فارغة ما لم يذكر المستخدم الرقم صراحة؛ التطبيق هو الذي يحل الأسماء إلى سجلات حقيقية.
-- إذا ذكر المستخدم اسم موظف أو فرع أو محافظة، أعد الاسم النصي في الحقل المناسب فقط.
+- إذا ذكر المستخدم اسم موظف أو فرع أو محافظة، أعد الاسم النصي في الحقل المناسب فقط. عند ذكر عدة فروع أو محافظات بالاسم، استخدم branch_names أو governorate_names.
+- يمكن أن يطلب المستخدم عمليات إدارية: إضافة/تعديل/تعطيل محافظة أو فرع، تعديل/إخفاء/استعادة موظف، ومنح/إزالة دور. استخرج العملية والحقول المذكورة فقط.
+- لا تستخرج كلمات مرور أو أسرار API؛ إذا طلب المستخدم إنشاء حساب بكلمة مرور فدع التطبيق يفتح شاشة الحساب.
 - لا تضع URL من عندك. استخدم navigate_url فقط إذا أعطاك التطبيق رابطًا في السياق، وإلا اتركه فارغًا.
 - افهم العربية الفصحى والعامية المصرية والأخطاء الإملائية والصياغات المختصرة.
 - إذا كان المستخدم يطلب تسجيل حركة، استخرج نوع الحركة والتواريخ واسم الموظف والوجهة إن ذكرها.
@@ -175,6 +213,11 @@ def llm_parse(text, chat=None, live_context=''):
         parsed['employee_id'] = None
         parsed['branch_id'] = None
         parsed['governorate_id'] = None
+        parsed['user_id'] = None
+        parsed['supervisor_id'] = None
+        parsed['delegate_id'] = None
+        parsed['new_employee_id'] = None
+        parsed['password'] = None
         parsed['candidate_ids'] = []
         return parsed
     except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, ValueError, KeyError) as exc:

@@ -46,7 +46,10 @@ ROLE_DEFAULT_PERMISSIONS = {
         'view_reports',
     },
     'المدخل الأول': {'manage_employees', 'manage_movements', 'view_reports'},
-    'Manager Application Support': {'manage_employees', 'manage_movements', 'view_reports'},
+    # نفس الصلاحيات التشغيلية للمشرف، لكن النطاق يُحدد باختيار محافظة العمل ولا يظهر كاسم مشرف.
+    'Manager Application Support': {
+        'manage_users', 'manage_structure', 'manage_employees', 'manage_movements', 'view_reports',
+    },
 }
 
 

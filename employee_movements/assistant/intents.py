@@ -161,6 +161,62 @@ def parse_intent(text):
         'تعيين',
     )
     employee_words = ('موظف', 'الموظف', 'الموظفين', 'الموظفون', 'موظفة', 'موظفات')
+    # أوامر مدير التطبيق الأساسية يمكن فهمها محليًا حتى لو تعذر Gemini مؤقتًا.
+    # أوامر إدارة الحسابات/التكليفات الإدارية.
+    if has_any('عدل حساب', 'عدّل حساب', 'تعديل حساب'):
+        return {'intent': 'user_edit'}
+    if has_any('أنشئ حساب', 'انشئ حساب', 'أضف حساب', 'اضف حساب', 'إنشاء حساب', 'انشاء حساب'):
+        return {'intent': 'user_create', 'username': None, 'employee_name': None, 'role': None}
+    if has_any('احذف حساب', 'حذف حساب', 'اوقف حساب نهائيا', 'أوقف حساب نهائيًا'):
+        m = re.search(r'(?:احذف|حذف|اوقف|أوقف)\s+(?:الحساب\s+)?(.+)$', t, re.I)
+        return {'intent': 'user_delete', 'employee_name': m.group(1).strip() if m else None}
+    if has_any('غيّر محافظات المستخدم', 'غير محافظات المستخدم', 'حدد محافظات المستخدم', 'عيّن محافظات المستخدم'):
+        return {'intent': 'user_set_governorates'}
+    if has_any('غيّر فروع المستخدم', 'غير فروع المستخدم', 'حدد فروع المستخدم', 'عيّن فروع المستخدم'):
+        return {'intent': 'user_set_branches'}
+    if has_any('اضف نوع اجازة', 'أضف نوع إجازة', 'إضافة نوع إجازة'):
+        m=re.search(r'(?:اضف|أضف|إضافة)\s+(?:نوع\s+)?(?:إجازة|اجازة)\s+(.+)$',t,re.I)
+        return {'intent':'lookup_create','lookup_kind':'leave','lookup_name':m.group(1).strip() if m else None}
+    if has_any('اضف نوع حركة', 'أضف نوع حركة', 'إضافة نوع حركة'):
+        m=re.search(r'(?:اضف|أضف|إضافة)\s+(?:نوع\s+)?حركة\s+(.+)$',t,re.I)
+        return {'intent':'lookup_create','lookup_kind':'movement','lookup_name':m.group(1).strip() if m else None}
+    if has_any('عطل حساب', 'عطّل حساب', 'أوقف حساب', 'اوقف حساب', 'فعّل حساب', 'فعل حساب'):
+        m = re.search(r'(?:عطل|عطّل|أوقف|اوقف|فعّل|فعل)\s+الحساب\s+(.+)$', t, re.I)
+        return {'intent': 'user_toggle', 'employee_name': m.group(1).strip() if m else None}
+    if has_any('غير كلمة مرور', 'غيّر كلمة المرور', 'تغيير كلمة المرور', 'اعادة كلمة المرور', 'إعادة كلمة المرور'):
+        m = re.search(r'(?:للحساب|للمستخدم|للموظف)?\s*(.+?)\s*(?:إلى|الى)\s*(\S+)$', t, re.I)
+        return {'intent': 'user_password_reset', 'employee_name': m.group(1).strip() if m else None, 'password': m.group(2).strip() if m else None}
+    if has_any('عين مدخل أول', 'عيّن مدخل أول', 'اضف مدخل أول', 'أضف مدخل أول', 'اجعل الموظف مدخل أول', 'أضف دور المدخل الأول', 'اضف دور المدخل الاول'):
+        m = re.search(r'(?:مدخل أول|مدخل الاول)\s+(.+?)(?:\s+(?:على|لفروع|للفروع)\s+(.+))?$', t, re.I)
+        return {'intent': 'entry_assign', 'employee_name': m.group(1).strip() if m else None, 'branch_name': m.group(2).strip() if m and m.group(2) else None}
+    if has_any('ازالة مدخل أول', 'إزالة مدخل أول', 'أزل دور المدخل الأول', 'شيل دور المدخل الأول'):
+        m = re.search(r'(?:مدخل أول|المدخل الأول)\s+(.+)$', t, re.I)
+        return {'intent': 'entry_remove', 'employee_name': m.group(1).strip() if m else None}
+    if has_any('اعمل تفويض', 'أنشئ تفويض', 'انشئ تفويض', 'أضف تفويض', 'اضف تفويض'):
+        return {'intent': 'delegation_create'}
+    if has_any('اضف محافظة', 'أضف محافظة', 'إضافة محافظة', 'انشئ محافظة', 'أنشئ محافظة'):
+        m = re.search(r'(?:اضف|أضف|إضافة|انشئ|أنشئ)\s+محافظة\s+(.+)$', t, re.I)
+        return {'intent': 'governorate_create', 'governorate_name': m.group(1).strip() if m else None}
+    if has_any('عطل المحافظة', 'عطّل المحافظة', 'الغاء تفعيل المحافظة', 'إلغاء تفعيل المحافظة', 'فعل المحافظة', 'فعّل المحافظة'):
+        m = re.search(r'(?:عطل|عطّل|الغاء تفعيل|إلغاء تفعيل|فعل|فعّل)\s+(?:المحافظة\s+)?(.+)$', t, re.I)
+        return {'intent': 'governorate_toggle', 'governorate_name': m.group(1).strip() if m else None}
+    if has_any('عدل محافظة', 'عدّل محافظة', 'تعديل محافظة'):
+        m = re.search(r'(?:عدل|عدّل|تعديل)\s+محافظة\s+(.+?)\s+(?:الى|إلى)\s+(.+)$', t, re.I)
+        return {'intent': 'governorate_edit', 'governorate_name': m.group(1).strip() if m else None, 'new_name': m.group(2).strip() if m else None}
+    if has_any('اضف فرع', 'أضف فرع', 'إضافة فرع', 'انشئ فرع', 'أنشئ فرع'):
+        m = re.search(r'(?:اضف|أضف|إضافة|انشئ|أنشئ)\s+فرع\s+(.+?)(?:\s+(?:في|بمحافظة|بمحافظه|تابع لمحافظة|تابع لمحافظه)\s+)(.+)$', t, re.I)
+        if m:
+            return {'intent': 'branch_create', 'branch_name': m.group(1).strip(), 'governorate_name': m.group(2).strip()}
+    if has_any('عطل الفرع', 'عطّل الفرع', 'فعل الفرع', 'فعّل الفرع'):
+        m = re.search(r'(?:عطل|عطّل|فعل|فعّل)\s+الفرع\s+(.+)$', t, re.I)
+        return {'intent': 'branch_toggle', 'branch_name': m.group(1).strip() if m else None}
+    if has_any('احذف الموظف', 'حذف الموظف', 'اخفي الموظف', 'أخفي الموظف'):
+        m = re.search(r'(?:احذف|حذف|اخفي|أخفي)\s+(?:الموظف\s+)?(.+)$', t, re.I)
+        return {'intent': 'employee_delete', 'employee_name': m.group(1).strip() if m else None}
+    if has_any('استرجع الموظف', 'استعادة الموظف', 'اعادة الموظف', 'إعادة الموظف'):
+        m = re.search(r'(?:استرجع|استعادة|اعادة|إعادة)\s+(?:الموظف\s+)?(.+)$', t, re.I)
+        return {'intent': 'employee_restore', 'employee_name': m.group(1).strip() if m else None}
+
     employee_add_words = (
         'جديد',
         'جديدة',

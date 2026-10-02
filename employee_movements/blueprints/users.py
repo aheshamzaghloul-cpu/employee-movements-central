@@ -91,6 +91,7 @@ def users():
                 job_title=job_title,
                 job_code=job_code,
                 password_hash=generate_password_hash(password),
+                must_change_password=False,
             )
             db.session.add(nu)
             db.session.flush()

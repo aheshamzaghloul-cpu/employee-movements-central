@@ -12,7 +12,7 @@ APP_ENV=production
 SECRET_KEY=<قيمة عشوائية طويلة>
 DATABASE_URL=<رابط PostgreSQL الخاص ببيئة الإنتاج>
 GEMINI_API_KEY=<مفتاح Google AI Studio>
-GEMINI_MODEL=gemini-3.6-flash
+GEMINI_MODEL=gemini-3.8-flash
 COOKIE_SECURE=1
 ```
 

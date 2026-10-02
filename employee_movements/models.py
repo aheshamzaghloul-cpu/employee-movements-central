@@ -16,7 +16,7 @@ class User(db.Model):
     job_code = db.Column(db.String(100))
     password_hash = db.Column(db.Text, nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
-    must_change_password = db.Column(db.Boolean, default=True, nullable=False)
+    must_change_password = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime)
 

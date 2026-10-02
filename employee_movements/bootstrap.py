@@ -193,6 +193,7 @@ def ensure_admin_account(app):
             full_name=ADMIN_ROLE,
             email=email,
             password_hash=generate_password_hash(password),
+            must_change_password=False,
         )
         db.session.add(admin)
         db.session.flush()

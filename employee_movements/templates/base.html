@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{url_for('static',filename='css/app.css')}}">
-<link rel="stylesheet" href="{{url_for('static',filename='css/professional-v55.css')}}">
+<link rel="stylesheet" href="{{url_for('static',filename='css/professional-v56.css')}}">
 </head>
 <body class="{% if request.args.get('embed')=='1' %}assistant-embed-body{% endif %}">
 <a class="skip-link" href="#main">تخطي إلى المحتوى</a>
@@ -87,5 +87,5 @@
 {% if me and request.args.get('embed')!='1' %}<button type="button" class="ds-fab" id="assistantFab" title="فتح المساعد الذكي" aria-label="فتح المساعد الذكي" onclick="window.__openAssistant&&window.__openAssistant();return false;"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg></button><div class="assistant-modal" id="assistantModal" hidden aria-hidden="true"><div class="assistant-window" id="assistantWindow" role="dialog" aria-modal="true" aria-label="المساعد الذكي"><div class="assistant-window-bar" id="assistantDragBar"><div class="assistant-window-title"><span class="assistant-window-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg></span><span>المساعد الذكي</span><small>{% if 'مسؤول التطبيق' in roles %}مدير التطبيق — كل أدوات النظام{% else %}مساعدك التشغيلي{% endif %}</small></div><div class="assistant-window-tools"><button type="button" class="assistant-minimize" id="assistantMinimize" aria-label="تصغير المساعد">−</button></div></div><iframe id="assistantFrame" src="/assistant?embed=1" title="المساعد الذكي" loading="eager"></iframe></div></div>{% endif %}
 <script src="{{url_for('static',filename='js/app.js')}}"></script>
 <script src="{{url_for('static',filename='js/shell.js')}}"></script>
-<script src="{{url_for('static',filename='js/professional-v54.js')}}"></script>
+<script src="{{url_for('static',filename='js/professional-v56.js')}}"></script>
 </body></html>

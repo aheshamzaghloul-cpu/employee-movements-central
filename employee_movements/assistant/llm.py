@@ -18,9 +18,9 @@ from ..access import me, roles
 logger = logging.getLogger(__name__)
 
 GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent'
-DEFAULT_MODEL = 'gemini-3.6-flash'
+DEFAULT_MODEL = 'gemini-3.8-flash'
 REQUEST_TIMEOUT_SECONDS = 20
-MAX_HISTORY_MESSAGES = 60
+MAX_HISTORY_MESSAGES = 50
 MAX_HISTORY_TEXT_CHARS = 1800
 
 
@@ -115,9 +115,10 @@ INTENT_SCHEMA = {
 
 
 SYSTEM_INSTRUCTION = """
-أنت محلل لغوي فقط لمساعد إداري عربي داخل نظام إدارة حركات الموظفين.
-مهمتك استخراج نية المستخدم والحقول التي ذكرها في كلامه، ولا تنفذ أي إجراء ولا
-تخمن بيانات قاعدة البيانات.
+أنت العقل اللغوي لمساعد إداري عربي داخل نظام إدارة حركات الموظفين.
+افهم الحوار كحوار مستمر، وليس كرسائل منفصلة. استخرج نية المستخدم والحقول التي ذكرها،
+وافهم الإشارات مثل «هو»، «له»، «نفس الموظف»، «تمام»، «نفّذ»، و«عدّلها» من سياق الحوار.
+لا تنفذ أي إجراء ولا تخمن بيانات قاعدة البيانات.
 
 قواعد مهمة:
 - لا تملك قاعدة البيانات ولا كتالوج الموظفين أو الفروع أو المحافظات.
@@ -130,20 +131,22 @@ SYSTEM_INSTRUCTION = """
 - افهم العربية الفصحى والعامية المصرية والأخطاء الإملائية والصياغات المختصرة.
 - إذا كان المستخدم يطلب تسجيل حركة، استخرج نوع الحركة والتواريخ واسم الموظف والوجهة إن ذكرها.
 - إذا كانت المعلومة ناقصة، لا تخترعها؛ اترك الحقل فارغًا ودع التطبيق يطلبها.
-- reply اختياري ومختصر، وهو ليس مصدرًا للبيانات ولا لتنفيذ الصلاحيات.
+- في الأسئلة العامة أو الكلام الاجتماعي، اكتب reply طبيعيًا بالعربية المصرية الخفيفة. وفي الطلبات الإجرائية اترك reply مختصرًا ولا تضع فيه بيانات غير مؤكدة. reply ليس مصدرًا للبيانات ولا لتنفيذ الصلاحيات.
 - لا تتخذ قرار صلاحية أو وصول؛ التطبيق سيتحقق من ذلك محليًا.
 """.strip()
 
 
 def _history_for_language(chat):
-    """Keep only recent user utterances; never send DB-generated assistant cards back to Gemini."""
+    """Keep recent user/assistant turns so follow-up phrases retain their meaning."""
     history = []
     for item in (chat or [])[-MAX_HISTORY_MESSAGES:]:
-        if item.get('role') != 'user' or not item.get('text'):
+        role = item.get('role')
+        text = str(item.get('text') or '').strip()
+        if role not in ('user', 'assistant') or not text:
             continue
         history.append({
-            'role': 'user',
-            'parts': [{'text': str(item['text'])[:MAX_HISTORY_TEXT_CHARS]}],
+            'role': role,
+            'parts': [{'text': text[:MAX_HISTORY_TEXT_CHARS]}],
         })
     return history
 
@@ -182,8 +185,8 @@ def llm_parse(text, chat=None, live_context=''):
         'generationConfig': {
             'responseMimeType': 'application/json',
             'responseSchema': INTENT_SCHEMA,
-            'temperature': 0.1,
-            'maxOutputTokens': 700,
+            'maxOutputTokens': 900,
+            'thinkingConfig': {'thinkingLevel': 'medium'},
         },
     }
     endpoint = GEMINI_URL.format(model=urllib.parse.quote(model, safe=''))
@@ -220,6 +223,14 @@ def llm_parse(text, chat=None, live_context=''):
         parsed['password'] = None
         parsed['candidate_ids'] = []
         return parsed
-    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, ValueError, KeyError) as exc:
+    except urllib.error.HTTPError as exc:
+        body = ''
+        try:
+            body = exc.read().decode('utf-8', errors='ignore')[:800]
+        except Exception:
+            pass
+        logger.warning('Gemini intent request failed (%s): %s', exc.code, body or exc)
+        return None
+    except (urllib.error.URLError, TimeoutError, ValueError, KeyError) as exc:
         logger.warning('Gemini intent request failed: %s', exc)
         return None

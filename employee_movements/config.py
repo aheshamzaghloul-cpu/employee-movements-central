@@ -53,7 +53,7 @@ def load_config(overrides=None):
         'ADMIN_PASSWORD': os.getenv('ADMIN_PASSWORD', ''),
         'ADMIN_EMAIL': os.getenv('ADMIN_EMAIL', '').strip(),
         'GEMINI_API_KEY': os.getenv('GEMINI_API_KEY', '').strip(),
-        'GEMINI_MODEL': os.getenv('GEMINI_MODEL', '').strip(),
+        'GEMINI_MODEL': (os.getenv('GEMINI_MODEL', '').strip() or 'gemini-3.8-flash'),
         'GEMINI_TIMEOUT': int(os.getenv('GEMINI_TIMEOUT', '20')),
         'ASSISTANT_RATE_LIMIT': int(os.getenv('ASSISTANT_RATE_LIMIT', '30')),
         'LOGIN_RATE_LIMIT': int(os.getenv('LOGIN_RATE_LIMIT', '10')),

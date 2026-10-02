@@ -280,6 +280,20 @@ class Audit(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class AssistantMessage(db.Model):
+    """Server-side assistant conversation history.
+
+    Keeping chat text here instead of Flask's signed cookie allows a long,
+    continuous conversation without making the session cookie oversized.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    role = db.Column(db.String(20), nullable=False)
+    text = db.Column(db.Text, nullable=False)
+    title = db.Column(db.String(120))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
 class Lookup(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     kind = db.Column(db.String(30), nullable=False)

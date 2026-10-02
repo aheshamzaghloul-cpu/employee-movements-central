@@ -1,7 +1,7 @@
 {% extends 'base.html' %}{% block title %}المستخدمون والصلاحيات{% endblock %}{% block content %}
 <div class="ds-toolbar"><div><h1>{% if 'مسؤول التطبيق' in roles %}المستخدمون والصلاحيات{% else %}المدخلون الأوائل{% endif %}</h1><p class="ds-subtitle">إنشاء الحساب وتحديد الدور والنطاق والصلاحيات. جميع بيانات الحساب الأساسية إجبارية.</p></div></div>
 
-<div class="ds-module-card ds-card ds-mb-18">
+<div class="ds-module-card ds-card ds-mb-18" id="user-add">
   <div class="ds-section-title">
     <div><h3>إضافة مستخدم جديد</h3><span class="ds-hint">إنشاء حساب جديد وتحديد الدور والصلاحيات والنطاق من نفس الصفحة.</span></div>
   </div>

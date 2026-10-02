@@ -29,54 +29,74 @@ bp = Blueprint('dashboard', __name__)
 
 
 def current_employee_status_rows(branch_ids, today):
-    """بناء لوحة الحالة التشغيلية: متواجد في الفرع، إجازة، انتداب، انتداب مفتوح، إذن اليوم."""
+    """Build the live status board with one employee query and one movement query.
+
+    Priority is: leave -> dated assignment -> open assignment -> today's permission ->
+    present in branch.  The last state is important: a normal employee must appear in
+    the board as "متواجد في الفرع" rather than disappearing because they have no movement.
+    """
     if not branch_ids:
         return []
 
     employees = employees_effectively_in_branches(branch_ids, today)
+    if not employees:
+        return []
+
+    employee_ids = [e.id for e in employees]
+    moves = (
+        Movement.query.filter(Movement.employee_id.in_(employee_ids), Movement.is_active == True)
+        .order_by(Movement.created_at.desc(), Movement.id.desc())
+        .all()
+    )
+    by_employee = {}
+    for movement in moves:
+        by_employee.setdefault(movement.employee_id, []).append(movement)
+
     rows = []
     for e in employees:
-        moves = (
-            Movement.query.filter_by(employee_id=e.id, is_active=True)
-            .order_by(Movement.created_at.desc(), Movement.id.desc())
-            .all()
-        )
-
-        # الأولوية في لوحة الحالة: الإجازة، ثم الانتداب المحدد، ثم المفتوح، ثم إذن اليوم.
+        employee_moves = by_employee.get(e.id, [])
         leave = next(
             (
-                m
-                for m in moves
-                if m.movement_type == 'إجازة' and m.from_date and m.to_date and (m.from_date <= today <= m.to_date)
+                m for m in employee_moves
+                if m.movement_type == 'إجازة'
+                and m.from_date and m.to_date
+                and m.from_date <= today <= m.to_date
             ),
             None,
         )
         assignment = next(
             (
-                m
-                for m in moves
-                if m.movement_type == 'انتداب' and m.assignment_state != 'مغلق' and m.from_date and (m.from_date <= today) and (m.to_date is not None) and (today <= m.to_date)
+                m for m in employee_moves
+                if m.movement_type == 'انتداب'
+                and m.assignment_state != 'مغلق'
+                and m.from_date
+                and m.from_date <= today
+                and m.to_date is not None
+                and today <= m.to_date
             ),
             None,
         )
         open_assignment = next(
             (
-                m
-                for m in moves
-                if m.movement_type == 'انتداب' and m.assignment_state != 'مغلق' and m.from_date and (m.from_date <= today) and (m.to_date is None)
+                m for m in employee_moves
+                if m.movement_type == 'انتداب'
+                and m.assignment_state != 'مغلق'
+                and m.from_date
+                and m.from_date <= today
+                and m.to_date is None
             ),
             None,
         )
         permission = next(
-            (m for m in moves if m.movement_type == 'إذن' and m.permission_date == today),
+            (m for m in employee_moves if m.movement_type == 'إذن' and m.permission_date == today),
             None,
         )
 
         current = None
-        state = None
-        place = ''
+        state = 'متواجد في الفرع'
+        place = e.branch.name if e.branch else '—'
         until = None
-        detail = ''
+        detail = 'متواجد في الفرع'
         display_branch = e.branch
 
         if leave:
@@ -84,32 +104,18 @@ def current_employee_status_rows(branch_ids, today):
             state = 'إجازة'
             place = leave.leave_type or 'إجازة'
             until = leave.to_date
-            detail = 'من {} إلى {}'.format(
-                leave.from_date.strftime('%d/%m/%Y'),
-                leave.to_date.strftime('%d/%m/%Y'),
-            )
+            detail = 'من {} إلى {}'.format(leave.from_date.strftime('%d/%m/%Y'), leave.to_date.strftime('%d/%m/%Y'))
         elif assignment:
             current = assignment
             state = 'انتداب'
-            place = (
-                assignment.destination.name
-                if assignment.destination
-                else 'جهة الانتداب غير محددة'
-            )
+            place = assignment.destination.name if assignment.destination else 'جهة الانتداب غير محددة'
             until = assignment.to_date
-            detail = 'من {} إلى {}'.format(
-                assignment.from_date.strftime('%d/%m/%Y'),
-                assignment.to_date.strftime('%d/%m/%Y'),
-            )
+            detail = 'من {} إلى {}'.format(assignment.from_date.strftime('%d/%m/%Y'), assignment.to_date.strftime('%d/%m/%Y'))
             display_branch = assignment.destination or e.branch
         elif open_assignment:
             current = open_assignment
             state = 'انتداب مفتوح'
-            place = (
-                open_assignment.destination.name
-                if open_assignment.destination
-                else 'جهة الانتداب غير محددة'
-            )
+            place = open_assignment.destination.name if open_assignment.destination else 'جهة الانتداب غير محددة'
             until = None
             detail = 'من {} — مفتوح'.format(open_assignment.from_date.strftime('%d/%m/%Y'))
             display_branch = open_assignment.destination or e.branch
@@ -119,11 +125,6 @@ def current_employee_status_rows(branch_ids, today):
             place = e.branch.name if e.branch else '—'
             until = permission.permission_date
             detail = 'بتاريخ {}'.format(permission.permission_date.strftime('%d/%m/%Y'))
-
-        # لوحة «حالة الموظفين الآن» مخصصة للحالات التي لديها حركة فعلية فقط.
-        # الموظفون المتواجدون بشكل طبيعي لا يظهرون في القائمة، لأن وجودهم لا يمثل حركة.
-        if not current:
-            continue
 
         remaining = (until - today).days if until else None
         rows.append(
@@ -151,15 +152,8 @@ def current_employee_status_rows(branch_ids, today):
         )
 
     def status_rank(r):
-        if r['state'] == 'متواجد في الفرع':
-            return 0
-        if r['state'] == 'إجازة':
-            return 1
-        if r['state'] == 'انتداب':
-            return 2
-        if r['state'] == 'انتداب مفتوح':
-            return 3
-        return 4
+        order = {'متواجد في الفرع': 0, 'إجازة': 1, 'انتداب': 2, 'انتداب مفتوح': 3, 'إذن': 4}
+        return order.get(r['state'], 9)
 
     rows.sort(key=lambda r: (status_rank(r), r['until'] or date.max, r['employee'].full_name))
     return rows
@@ -233,6 +227,8 @@ def home():
                 movement_employee = candidate
     elif len(movement_employee_matches) == 1:
         movement_employee = movement_employee_matches[0]
+    movement_employee_in_scope = bool(movement_employee and branch_ok(movement_employee.branch_id)) if movement_employee else False
+
     if movement_employee:
         movement_employee_moves = (
             Movement.query.filter_by(employee_id=movement_employee.id, is_active=True)
@@ -615,6 +611,7 @@ def home():
             .all()
         ),
         movement_employee=movement_employee,
+        movement_employee_in_scope=movement_employee_in_scope,
         movement_employee_moves=movement_employee_moves,
         movement_employee_last=movement_employee_last,
         movement_employee_matches=movement_employee_matches,

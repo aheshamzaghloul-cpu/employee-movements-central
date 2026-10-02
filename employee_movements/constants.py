@@ -47,8 +47,10 @@ ROLE_DEFAULT_PERMISSIONS = {
     },
     'المدخل الأول': {'manage_employees', 'manage_movements', 'view_reports'},
     # نفس الصلاحيات التشغيلية للمشرف، لكن النطاق يُحدد باختيار محافظة العمل ولا يظهر كاسم مشرف.
+    # يعمل كنطاق دعم تشغيلي: نفس تشغيل مشرف المحافظة داخل المحافظة المختارة،
+    # ولا يفتح إدارة الحسابات/الهيكل الإداري لمسؤول التطبيق.
     'Manager Application Support': {
-        'manage_users', 'manage_structure', 'manage_employees', 'manage_movements', 'view_reports',
+        'manage_employees', 'manage_movements', 'view_reports',
     },
 }
 

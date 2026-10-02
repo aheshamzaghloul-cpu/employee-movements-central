@@ -4,7 +4,7 @@ import logging
 
 from flask import Flask
 
-__version__ = '52.2.0'
+__version__ = '54.0.0'
 
 
 def create_app(overrides=None):

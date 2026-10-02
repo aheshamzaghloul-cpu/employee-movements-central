@@ -28,8 +28,7 @@
   </section>
   {% endif %}
 
-  <!-- البحث السريع عن الموظف موجود في الصفحة الرئيسية؛ لا نكرره هنا. -->
-  <section class="employee-dashboard-panel employee-search-panel" hidden>
+    <section class="ds-module-card ds-employee-module employee-dashboard-panel employee-search-panel" id="employee-search">
     <div class="ds-module-head employee-panel-head"><div><span class="home-kicker">بحث ذكي</span><h2><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 5 5"/></svg> البحث عن موظف</h2><p>المحافظة ← الفرع ← اسم الموظف أو الكود الوظيفي.</p></div><span class="ds-icon-tile employee-panel-icon"><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 5 5"/></svg></span></div>
     <form method="get" action="/employees" id="employees-search-form" class="employee-search-grid">
       <label>المحافظة<select name="governorate_id" id="employee_governorate_filter"><option value="">كل المحافظات</option>{% for g in govs %}<option value="{{g.id}}" {% if gov_filter|int == g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>
@@ -40,7 +39,7 @@
     <div class="employee-search-hint">بعد اختيار المحافظة والفرع، تظهر أسماء الموظفين المطابقة في خانة البحث. ويمكن البحث بالاسم أو الكود الوظيفي.</div>
   </section>
 
-  <section class="ds-module-card ds-employee-module employee-dashboard-panel employee-tools-panel">
+  <section class="ds-module-card ds-employee-module employee-dashboard-panel employee-tools-panel" id="employee-tools">
     <div class="ds-card-grid ds-employee-tools employee-tools-grid employee-tools-grid-clean">
       {% if can('manage_employees') %}<a class="ds-tool-card employee-tool-card" href="/employees/resigned"><span class="ds-icon-tile"><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2-5"/><path d="M4 5v5h5"/></svg></span><div><b>الموظفون المستقيلون</b><small>سجل مستقل محفوظ بالكامل وإعادة التعيين بتاريخ محدد</small></div><strong>عرض</strong></a>{% endif %}
     </div>

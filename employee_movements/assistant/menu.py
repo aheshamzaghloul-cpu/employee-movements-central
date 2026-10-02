@@ -1,6 +1,6 @@
 """Capability menu shown in the assistant: only actions the current role may perform."""
 
-from ..access import can
+from ..access import can, has_role
 
 
 def capability_groups():
@@ -111,41 +111,39 @@ def capability_groups():
             },
         )
     if can('manage_structure'):
-        groups.append(
+        structure_items = [
             {
-                'group': 'الإدارة التنظيمية',
-                'items': [
-                    {
-                        'label': 'المحافظات',
-                        'prompt': 'أريد إدارة المحافظات',
-                        'icon': 'map',
-                        'kind': 'action',
-                        'url': '/governorates',
-                    },
-                    {
-                        'label': 'الفروع',
-                        'prompt': 'أريد إدارة الفروع',
-                        'icon': '🏬',
-                        'kind': 'action',
-                        'url': '/branches',
-                    },
-                    {
-                        'label': 'المدخل الأول',
-                        'prompt': 'أريد إدارة المدخلين الأوائل',
-                        'icon': '👥',
-                        'kind': 'action',
-                        'url': '/structure',
-                    },
-                    {
-                        'label': 'الاستبدال',
-                        'prompt': 'أريد تنفيذ الاستبدال',
-                        'icon': '🔁',
-                        'kind': 'action',
-                        'url': '/replacement',
-                    },
-                ],
+                'label': 'الفروع',
+                'prompt': 'أريد إدارة الفروع',
+                'icon': '🏬',
+                'kind': 'action',
+                'url': '/branches',
             },
-        )
+            {
+                'label': 'المدخل الأول',
+                'prompt': 'أريد إدارة المدخلين الأوائل',
+                'icon': '👥',
+                'kind': 'action',
+                'url': '/structure',
+            },
+            {
+                'label': 'الاستبدال',
+                'prompt': 'أريد تنفيذ الاستبدال',
+                'icon': '🔁',
+                'kind': 'action',
+                'url': '/replacement',
+            },
+        ]
+        if has_role('مسؤول التطبيق'):
+            structure_items.insert(0, {
+                'label': 'المحافظات',
+                'prompt': 'أريد إدارة المحافظات',
+                'icon': 'map',
+                'kind': 'action',
+                'url': '/governorates',
+            })
+        if structure_items:
+            groups.append({'group': 'الإدارة التنظيمية', 'items': structure_items})
     if can('manage_users'):
         groups.append(
             {

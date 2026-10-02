@@ -62,6 +62,7 @@ def delegations():
         supervisors=supervisors,
         govs=govs,
         delegates=delegates,
+        today=date.today(),
     )
 
 

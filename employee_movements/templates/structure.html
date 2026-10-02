@@ -1,8 +1,9 @@
 {% extends 'base.html' %}
 {% block title %}الهيكل الإداري{% endblock %}
 {% block content %}
-<div class="ds-toolbar supervisor-toolbar">
-  <div><h1>الإدارة</h1>{% if is_manager_support %}<div class="section-caption"><b>مركز الإدارة</b><span>نفس واجهة إدارة التطبيق، مع إخفاء وظائف الحسابات والصلاحيات الخاصة بمسؤول التطبيق.</span></div>{% elif is_supervisor %}<div class="section-caption"><b>لوحة إدارة المشرف</b><span>{% if govs_all %}نطاق الإدارة مقصور على: <strong>{{ govs_all|map(attribute='name')|join(' — ') }}</strong>. لا تظهر محافظات أخرى في خيارات الإدارة أو الإسناد.{% else %}لا توجد محافظة مسجلة لهذا المشرف حتى الآن.{% endif %}</span></div>{% elif is_entry %}<div class="section-caption"><b>إدارة فروعك</b><span>تظهر هنا فقط الفروع والموظفون الذين تتولى إدارتهم.</span></div>{% endif %}</div>
+<div class="v55-page admin-workspace">
+<div class="ds-toolbar supervisor-toolbar v55-legacy-head">
+  <div><h1>الإدارة</h1>{% if is_manager_support %}<div class="section-caption"><b>نطاق الدعم التشغيلي</b><span>يعمل Manager Application Support من خلال نطاق المحافظة المختارة، ولا يدخل إلى إدارة التطبيق.</span></div>{% elif is_supervisor %}<div class="section-caption"><b>لوحة إدارة المشرف</b><span>{% if govs_all %}نطاق الإدارة مقصور على: <strong>{{ govs_all|map(attribute='name')|join(' — ') }}</strong>. لا تظهر محافظات أخرى في خيارات الإدارة أو الإسناد.{% else %}لا توجد محافظة مسجلة لهذا المشرف حتى الآن.{% endif %}</span></div>{% elif is_entry %}<div class="section-caption"><b>إدارة فروعك</b><span>تظهر هنا فقط الفروع والموظفون الذين تتولى إدارتهم.</span></div>{% endif %}</div>
 </div>
 {% if is_supervisor and not is_admin and govs_all|length > 1 %}
 <form method="get" class="ds-admin-scope-select no-print">
@@ -20,7 +21,7 @@
     <div>
       <span class="eyebrow">مركز تحكم مسؤول التطبيق</span>
       <h2>الإدارة</h2>
-      <p>هنا توجد فقط الأدوات التي يحتاجها مسؤول التطبيق لإدارة بنية النظام والحسابات والأدوار والبيانات المرجعية والاستيراد والتدقيق. أما تشغيل الموظفين والحركات والتقارير فيتم من القوائم الرئيسية.</p>
+      <p>مركز التحكم الكامل: من إنشاء الحساب والفرع والمحافظة إلى الاستيراد، المدخل الأول، الاستبدال، الأدوار، التدقيق، وحالة النظام. التنفيذ الشائع متاح مباشرة من هذه الصفحة.</p>
     </div>
     <div class="ds-admin-hero-actions">
       <a class="ds-btn ds-btn-primary" href="/users">إدارة الحسابات والأدوار</a>
@@ -129,7 +130,7 @@
   </form>
 </div>
 
-<section class="ds-admin-role-card" id="entry-role-chain">
+<section class="ds-admin-role-card" id="entry-role">
   <div><span class="eyebrow">السلسلة الوظيفية</span><h3>إضافة دور «المدخل الأول»</h3><p>المدخل الأول هنا دور تنظيمي فقط لترتيب الموظفين في مجموعات. لا يتم إنشاء حساب أو اسم مستخدم له.</p></div>
   <form method="post" action="/entry-role/add" class="entry-role-picker">
     <input type="hidden" name="_csrf" value="{{csrf}}">
@@ -191,4 +192,5 @@
 </div>
 {% endif %}
 {% endif %}
+</div>
 {% endblock %}

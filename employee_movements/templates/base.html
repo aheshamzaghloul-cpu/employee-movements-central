@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{url_for('static',filename='css/app.css')}}">
+<link rel="stylesheet" href="{{url_for('static',filename='css/professional-v55.css')}}">
 </head>
 <body class="{% if request.args.get('embed')=='1' %}assistant-embed-body{% endif %}">
 <a class="skip-link" href="#main">تخطي إلى المحتوى</a>
@@ -36,19 +37,55 @@
 <header class="ds-topbar">
   <button class="ds-mobile-menu" id="sidebarToggle" type="button" aria-label="القائمة"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   <div class="ds-user"><div class="ds-avatar">{{(me.full_name or 'م')[:1]}}</div><div class="ds-user-copy"><strong>{{me.full_name}}</strong><small>{% if active_role %}{{active_role}}{% elif roles %}{{roles|join(' · ')}}{% endif %}</small></div><svg viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></div>
+  <div class="v54-top-direct"><button type="button" class="v54-direct-trigger" id="directActionOpen" aria-haspopup="dialog">إنجاز سريع <span class="v54-shortcut">Ctrl K</span></button></div>
   <div class="ds-top-actions">
     {% if scope_required %}<form method="get" action="/" class="ds-scope-form"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg><select name="governorate_id" aria-label="المحافظة" onchange="this.form.submit()"><option value="">{% if scope_selected %}محافظة: {{scope_governorate.name}}{% else %}اختر المحافظة{% endif %}</option>{% for g in scope_governorates %}{% if not scope_selected or g.id!=scope_selected %}<option value="{{g.id}}">محافظة: {{g.name}}</option>{% endif %}{% endfor %}</select></form>{% elif scope_selected and scope_governorate %}<div class="ds-scope-chip"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg>محافظة: {{scope_governorate.name}}</div>{% elif 'مشرف محافظة' in roles %}<div class="ds-scope-chip ds-scope-info"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg>صلاحيات المشرف: {{scope_governorates|length}} محافظات</div>{% endif %}
     {% if login_real_roles|length > 1 %}<form method="post" action="/switch-role" class="ds-role-switch prominent-role-switch"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="next" value="{{request.path}}"><span>تغيير الدور</span><select name="active_role" aria-label="تغيير الدور" onchange="this.form.submit()">{% for r in ['مسؤول التطبيق','مشرف محافظة','Manager Application Support'] if r in real_roles %}<option value="{{r}}" {% if active_role==r or (not active_role and loop.first) %}selected{% endif %}>{{r}}</option>{% endfor %}</select></form>{% endif %}
   </div>
 </header>
 {% endif %}
+<div class="v54-direct-modal" id="directActionModal" hidden aria-hidden="true">
+  <section class="v54-direct-panel" role="dialog" aria-modal="true" aria-labelledby="directActionTitle">
+    <header class="v54-direct-head"><div><h2 id="directActionTitle">مركز الإنجاز السريع</h2><p>نفّذ المهمة المطلوبة مباشرة من أي صفحة، بدون البحث في القوائم.</p></div><button type="button" id="directActionClose" class="v54-direct-close" aria-label="إغلاق">×</button></header>
+    <label class="v54-direct-search"><span aria-hidden="true">⌕</span><input id="directActionSearch" type="search" placeholder="ابحث عن مهمة: موظف، حركة، فرع، حساب، تقرير..." autocomplete="off"></label>
+    <div class="v54-direct-groups">
+      <div class="v54-direct-group" data-direct-group><h3>التشغيل اليومي</h3><div class="v54-direct-grid">
+        <a data-direct-item href="/?#employee-command"><span class="v54-direct-icon">⌕</span><span><b>بحث عن موظف</b><small>بحث شامل ثم تنفيذ الحركة</small></span></a>
+        {% if can('manage_employees') %}<a data-direct-item href="/employees#employee-add"><span class="v54-direct-icon">＋</span><span><b>إضافة موظف</b><small>فتح نموذج الإضافة مباشرة</small></span></a>{% endif %}
+        {% if can('manage_movements') %}<a data-direct-item href="/?#employee-command"><span class="v54-direct-icon">↔</span><span><b>تسجيل حركة</b><small>اختر الموظف ثم إجازة / انتداب / إذن</small></span></a>{% endif %}
+        <a data-direct-item href="/movements"><span class="v54-direct-icon">▤</span><span><b>سجل الحركات</b><small>عرض وتعديل ومتابعة</small></span></a>
+        {% if can('view_reports') %}<a data-direct-item href="/reports-missions"><span class="v54-direct-icon">▥</span><span><b>تقارير ومأموريات</b><small>التقارير والطباعة</small></span></a>{% endif %}
+      </div></div>
+      {% if can('manage_structure') or 'مسؤول التطبيق' in roles %}<div class="v54-direct-group" data-direct-group><h3>الهيكل والموظفون</h3><div class="v54-direct-grid">
+        {% if can('manage_structure') %}<a data-direct-item href="/branches#branch-add"><span class="v54-direct-icon">⌂</span><span><b>إضافة / إدارة فرع</b><small>الفروع والتفعيل والتعديل</small></span></a>{% endif %}
+        {% if 'مسؤول التطبيق' in roles %}<a data-direct-item href="/governorates#governorate-add"><span class="v54-direct-icon">◎</span><span><b>إضافة / إدارة محافظة</b><small>البنية الأساسية</small></span></a>{% endif %}
+        {% if can('manage_structure') %}<a data-direct-item href="/structure#entry-role"><span class="v54-direct-icon">◉</span><span><b>المدخل الأول</b><small>تكليف واستبدال وإدارة الفروع</small></span></a>{% endif %}
+        {% if can('manage_structure') %}<a data-direct-item href="/replacement"><span class="v54-direct-icon">⇄</span><span><b>الاستبدال الإداري</b><small>نقل المسؤولية مباشرة</small></span></a>{% endif %}
+      </div></div>{% endif %}
+      {% if 'مشرف محافظة' in roles %}<div class="v54-direct-group" data-direct-group><h3>التفويض</h3><div class="v54-direct-grid"><a data-direct-item href="/delegations#delegation-new"><span class="v54-direct-icon">⇄</span><span><b>تفويض مشرف</b><small>إنشاء أو إدارة التفويض من نفس الصفحة</small></span></a></div></div>{% endif %}
+      {% if 'مسؤول التطبيق' in roles %}<div class="v54-direct-group" data-direct-group><h3>إدارة التطبيق</h3><div class="v54-direct-grid">
+        <a data-direct-item href="/users#user-add"><span class="v54-direct-icon">◌</span><span><b>حساب / مستخدم جديد</b><small>دور ونطاق وصلاحيات</small></span></a>
+        <a data-direct-item href="/excel-import/employees"><span class="v54-direct-icon">⇩</span><span><b>استيراد الموظفين</b><small>Excel مع معاينة ومطابقة</small></span></a>
+        <a data-direct-item href="/excel-import/branches"><span class="v54-direct-icon">⇩</span><span><b>استيراد الفروع</b><small>Excel مع معاينة ومطابقة</small></span></a>
+        <a data-direct-item href="/lookups#lookup-add"><span class="v54-direct-icon">⚙</span><span><b>القوائم الأساسية</b><small>أنواع الحركات والإجازات</small></span></a>
+        <a data-direct-item href="/delegations#delegation-new"><span class="v54-direct-icon">⇄</span><span><b>تفويض المشرفين</b><small>إنشاء أو إلغاء مباشر</small></span></a>
+        <a data-direct-item href="/audit"><span class="v54-direct-icon">▧</span><span><b>سجل العمليات</b><small>مراجعة كاملة</small></span></a>
+      </div></div>{% endif %}
+      <div class="v54-direct-group" data-direct-group><h3>المساعد الذكي</h3><div class="v54-direct-grid">
+        <a data-direct-item class="ai" href="#" onclick="window.__openAssistant&&window.__openAssistant();return false;"><span class="v54-direct-icon">✦</span><span><b>مدير التطبيق بالمحادثة</b><small>نفّذ المهمة بالكلام الطبيعي مع حفظ السياق</small></span></a>
+      </div></div>
+    </div>
+  </section>
+</div>
 <main id="main" class="ds-main{% if me and request.args.get('embed')!='1' %} with-shell{% endif %}{% if not me %} auth-main{% endif %}{% if request.args.get('embed')=='1' %} assistant-embed-main{% endif %}">
 {% if not me %}<div class="login">{% endif %}
 {% for x in get_flashed_messages() %}<div class="enterprise-alert" role="status">{{x}}</div>{% endfor %}
+{% if me and request.args.get('embed')!='1' %}{% include 'workspace_actions.html' %}{% endif %}
 {% block content %}{% endblock %}
 {% if not me %}</div>{% endif %}
 </main></div>
-{% if me and request.args.get('embed')!='1' %}<button type="button" class="ds-fab" id="assistantFab" title="فتح المساعد الذكي" aria-label="فتح المساعد الذكي" onclick="window.__openAssistant&&window.__openAssistant();return false;"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg></button><div class="assistant-modal" id="assistantModal" hidden aria-hidden="true"><div class="assistant-window" id="assistantWindow" role="dialog" aria-modal="true" aria-label="المساعد الذكي"><div class="assistant-window-bar" id="assistantDragBar"><div class="assistant-window-title"><span class="assistant-window-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg></span><span>المساعد الذكي</span><small>مساعدك التشغيلي</small></div><button type="button" class="assistant-close" id="assistantClose" aria-label="إغلاق المساعد">×</button></div><iframe id="assistantFrame" src="/assistant?embed=1" title="المساعد الذكي" loading="eager"></iframe></div></div>{% endif %}
+{% if me and request.args.get('embed')!='1' %}<button type="button" class="ds-fab" id="assistantFab" title="فتح المساعد الذكي" aria-label="فتح المساعد الذكي" onclick="window.__openAssistant&&window.__openAssistant();return false;"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg></button><div class="assistant-modal" id="assistantModal" hidden aria-hidden="true"><div class="assistant-window" id="assistantWindow" role="dialog" aria-modal="true" aria-label="المساعد الذكي"><div class="assistant-window-bar" id="assistantDragBar"><div class="assistant-window-title"><span class="assistant-window-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg></span><span>المساعد الذكي</span><small>{% if 'مسؤول التطبيق' in roles %}مدير التطبيق — كل أدوات النظام{% else %}مساعدك التشغيلي{% endif %}</small></div><div class="assistant-window-tools"><button type="button" class="assistant-minimize" id="assistantMinimize" aria-label="تصغير المساعد">−</button></div></div><iframe id="assistantFrame" src="/assistant?embed=1" title="المساعد الذكي" loading="eager"></iframe></div></div>{% endif %}
 <script src="{{url_for('static',filename='js/app.js')}}"></script>
 <script src="{{url_for('static',filename='js/shell.js')}}"></script>
+<script src="{{url_for('static',filename='js/professional-v54.js')}}"></script>
 </body></html>

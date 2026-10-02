@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent'
 DEFAULT_MODEL = 'gemini-3.6-flash'
 REQUEST_TIMEOUT_SECONDS = 20
-MAX_HISTORY_MESSAGES = 8
-MAX_HISTORY_TEXT_CHARS = 800
+MAX_HISTORY_MESSAGES = 60
+MAX_HISTORY_TEXT_CHARS = 1800
 
 
 INTENT_SCHEMA = {

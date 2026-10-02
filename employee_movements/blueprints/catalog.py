@@ -93,7 +93,7 @@ def governorate_delete(i):
 @bp.route('/branches', methods=['GET', 'POST'])
 @req
 def branches():
-    if not can('manage_structure') or not has_role('مسؤول التطبيق', 'مشرف محافظة'):
+    if not can('manage_structure') or not has_role('مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'):
         abort(403)
     if request.method == 'GET':
         # صفحة الفروع مستقلة لمسؤول التطبيق والمشرف، وتحتوي على نموذج إضافة الفرع.
@@ -170,7 +170,7 @@ def branches():
 @bp.post('/branches/<int:i>/edit')
 @req
 def branch_edit(i):
-    if not can('manage_structure') or not has_role('مسؤول التطبيق', 'مشرف محافظة'):
+    if not can('manage_structure') or not has_role('مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'):
         abort(403)
     x = db.session.get(Branch, i)
     g = db.session.get(Governorate, int(request.form.get('governorate_id', '0')))
@@ -203,7 +203,7 @@ def branch_edit(i):
 @bp.post('/branches/<int:i>/toggle')
 @req
 def branch_toggle(i):
-    if not can('manage_structure') or not has_role('مسؤول التطبيق', 'مشرف محافظة'):
+    if not can('manage_structure') or not has_role('مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'):
         abort(403)
     x = db.session.get(Branch, i)
     if not x:
@@ -219,7 +219,7 @@ def branch_toggle(i):
 @bp.post('/branches/<int:i>/delete')
 @req
 def branch_delete(i):
-    if not can('manage_structure') or not has_role('مسؤول التطبيق', 'مشرف محافظة'):
+    if not can('manage_structure') or not has_role('مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'):
         abort(403)
     x = db.session.get(Branch, i)
     if not x:

@@ -126,6 +126,82 @@ def movements_page_filters_api():
     }
 
 
+@bp.post('/movements/create')
+@req
+def movement_create():
+    """Create an operational movement directly from the home employee card."""
+    employee_id = request.form.get('employee_id', '').strip()
+    return_to = (request.form.get('return_to') or '/').strip()
+    if not return_to.startswith('/') or return_to.startswith('//'):
+        return_to = '/'
+    if not employee_id.isdigit():
+        flash('اختر موظفًا أولًا.')
+        return redirect('/')
+
+    employee = db.session.get(Employee, int(employee_id))
+    if not employee or not employee.is_active or not branch_ok(employee.branch_id):
+        abort(403)
+    if not can('manage_movements') or not can_manage_movement():
+        abort(403)
+
+    form = request.form
+    movement_type = (form.get('movement_type') or '').strip()
+    leave_type = (form.get('leave_type') or '').strip() or None
+    destination = (
+        db.session.get(Branch, int(form.get('destination_branch_id')))
+        if (form.get('destination_branch_id') or '').isdigit()
+        else None
+    )
+    from_date = (form.get('leave_from_date') if movement_type == 'إجازة' else form.get('assignment_from_date')) or None
+    to_date = None if (movement_type == 'انتداب' and form.get('open_assignment') == '1') else ((form.get('leave_to_date') if movement_type == 'إجازة' else form.get('assignment_to_date')) or None)
+    permission_date = form.get('permission_date') or None
+    destination_id = destination.id if destination else None
+
+    error = validate_movement_fields(
+        movement_type, leave_type, destination_id, from_date, to_date, permission_date
+    )
+    if error:
+        flash(error)
+        return redirect(return_to)
+
+    overlap = movement_overlaps(employee.id, movement_type, from_date, to_date, permission_date)
+    if overlap:
+        flash(overlap)
+        return redirect(return_to)
+
+    try:
+        parsed_from = parse_date(from_date) if from_date else None
+        parsed_to = parse_date(to_date) if to_date else None
+        parsed_permission = parse_date(permission_date) if permission_date else None
+    except ValueError:
+        flash('التاريخ غير صحيح.')
+        return redirect(return_to)
+
+    movement = Movement(
+        employee_id=employee.id,
+        movement_type=movement_type,
+        leave_type=leave_type,
+        destination_branch_id=destination_id,
+        from_date=parsed_from,
+        to_date=parsed_to,
+        permission_date=parsed_permission,
+        status='مسجلة',
+        notes=None,
+        is_active=True,
+        created_by=me().id,
+        created_at=datetime.utcnow(),
+        assignment_state='ساري',
+        mission_state='تحت التحرير',
+    )
+    db.session.add(movement)
+    db.session.flush()
+    record_movement_history(movement, None, 'مسجلة', 'ADD', 'تسجيل حركة مباشرة من واجهة التشغيل')
+    log('ADD', 'Movement', movement.id, f'تسجيل {movement_type} للموظف {employee.full_name}')
+    db.session.commit()
+    flash(f'تم تسجيل {movement_type} للموظف «{employee.full_name}» بنجاح.')
+    return redirect(return_to)
+
+
 @bp.get('/movements')
 @req
 def movements():
@@ -175,6 +251,13 @@ def movements():
         today=today,
         tomorrow=tomorrow,
         bs=scoped_branches,
+        movement_governorates=(
+            Governorate.query.filter(Governorate.id.in_(set(gids())), Governorate.is_active == True)
+            .order_by(Governorate.name.asc()).all()
+            if gids() else []
+        ),
+        movement_leave_types=active_leave_types(),
+        movement_types=active_movement_types(),
         movement_filter_governorates=(
             (
                 Governorate.query.filter(Governorate.id.in_(gids()), Governorate.is_active == True)

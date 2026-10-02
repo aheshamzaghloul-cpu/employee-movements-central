@@ -4,7 +4,7 @@ from flask import abort, Blueprint, current_app, flash, redirect, render_templat
 
 from ..access import branch_ok, can, log, me, req
 from ..extensions import db
-from ..models import Branch, Employee, Governorate, Movement
+from ..models import AssistantMessage, Branch, Employee, Governorate, Movement
 from ..validation import (
     movement_overlaps,
     parse_date,
@@ -22,9 +22,9 @@ from .render import render_branch_entry, render_read, topic_options
 bp = Blueprint('assistant', __name__)
 
 
-MAX_PROMPT_CHARS = 1000
-MAX_HISTORY = 16
-MAX_HISTORY_TEXT_CHARS = 600
+MAX_PROMPT_CHARS = 4000
+MAX_HISTORY = 60
+MAX_HISTORY_TEXT_CHARS = 1800
 _assistant_limiter = None
 
 
@@ -52,9 +52,99 @@ def history_text(result):
     return str(text)[:MAX_HISTORY_TEXT_CHARS]
 
 
+
+def _load_chat(limit=MAX_HISTORY):
+    """Load the current user's conversation from the database."""
+    user = me()
+    if not user:
+        return []
+    rows = (
+        AssistantMessage.query
+        .filter_by(user_id=user.id)
+        .order_by(AssistantMessage.created_at.desc(), AssistantMessage.id.desc())
+        .limit(limit)
+        .all()
+    )
+    rows.reverse()
+    return [
+        {'role': row.role, 'text': row.text, 'title': row.title}
+        for row in rows
+    ]
+
+
+def _save_chat_message(role, text, title=None):
+    user = me()
+    if not user or not text:
+        return
+    db.session.add(AssistantMessage(
+        user_id=user.id,
+        role=role,
+        text=str(text)[:MAX_HISTORY_TEXT_CHARS],
+        title=(title or None),
+    ))
+    db.session.flush()
+
+
+def _trim_chat():
+    """Keep a useful but bounded server-side history per user."""
+    user = me()
+    if not user:
+        return
+    ids = [
+        x.id for x in (
+            AssistantMessage.query
+            .filter_by(user_id=user.id)
+            .order_by(AssistantMessage.created_at.desc(), AssistantMessage.id.desc())
+            .limit(MAX_HISTORY)
+            .all()
+        )
+    ]
+    if ids:
+        AssistantMessage.query.filter(
+            AssistantMessage.user_id == user.id,
+            ~AssistantMessage.id.in_(ids),
+        ).delete(synchronize_session=False)
+
+
+def _is_confirmation(text):
+    normalized = str(text or '').strip().lower()
+    return normalized in {
+        'نعم', 'ايوه', 'أيوه', 'اه', 'آه', 'تمام', 'موافق', 'موافقة',
+        'نفذ', 'نفّذ', 'نفذه', 'نفذها', 'اعتمد', 'اعتمدها', 'موافق نفذ',
+        'yes', 'ok', 'okay', 'do it',
+    }
+
+
+def _is_cancellation(text):
+    normalized = str(text or '').strip().lower()
+    return normalized in {
+        'لا', 'لأ', 'مش دلوقتي', 'الغاء', 'إلغاء', 'الغِ', 'الغيها',
+        'إلغائها', 'cancel', 'no',
+    }
+
+
+def _execute_pending_naturally(prompt):
+    """Allow natural-language confirmation/cancellation of the last pending action."""
+    if _is_cancellation(prompt):
+        had = bool(session.pop('assistant_manager_pending', None) or session.pop('assistant_pending', None))
+        return ({'title': 'المساعد الذكي', 'answer': 'تم إلغاء العملية المعلقة.'} if had else None)
+    if not _is_confirmation(prompt):
+        return None
+    manager_pending = session.pop('assistant_manager_pending', None)
+    if manager_pending:
+        ok, message = manager_execute(manager_pending)
+        return {'title': 'تم التنفيذ' if ok else 'تعذر التنفيذ', 'answer': message}
+    movement_pending = session.pop('assistant_pending', None)
+    if movement_pending:
+        ok, message = _execute_movement_plan(movement_pending)
+        return {'title': 'تم التنفيذ' if ok else 'تعذر التنفيذ', 'answer': message}
+    return None
+
 def answer_prompt(prompt, prior_chat):
     """Understand ``prompt`` (local rules first, LLM only when needed) and build the reply."""
-    result = None
+    result = _execute_pending_naturally(prompt)
+    if result:
+        return result
     # ابدأ ببيانات التطبيق الحية أولاً. هذا يجعل الاستفسارات الشائعة فورية ولا تنتظر نموذجًا خارجيًا.
     local_a = parse_intent(prompt)
     # استخدم Gemini خصوصًا في الطلبات التنفيذية؛ هذا يسمح بفهم الصياغات الحرة
@@ -374,12 +464,62 @@ def answer_prompt(prompt, prior_chat):
     return result
 
 
+def _execute_movement_plan(a):
+    """Execute an assistant-created movement after rechecking scope and overlap."""
+    if not can('manage_movements'):
+        return False, 'لا تملك صلاحية تسجيل الحركات.'
+    e = db.session.get(Employee, a.get('employee_id'))
+    dest = db.session.get(Branch, a.get('destination_branch_id')) if a.get('destination_branch_id') else None
+    if not e or not e.is_active or not branch_ok(e.branch_id):
+        return False, 'الموظف خارج نطاق صلاحياتك أو لم يعد نشطًا.'
+    err = validate_movement_fields(
+        a.get('movement_type'),
+        a.get('leave_type'),
+        dest.id if dest else None,
+        a.get('from_date'),
+        None if a.get('open_assignment') else a.get('to_date'),
+        a.get('permission_date'),
+    )
+    if err:
+        return False, err
+    if a.get('movement_type') == 'انتداب' and (not dest or not branch_ok(dest.id)):
+        return False, 'فرع الانتداب غير مسموح داخل نطاق الصلاحيات.'
+    overlap = movement_overlaps(
+        e.id,
+        a.get('movement_type'),
+        a.get('from_date'),
+        None if a.get('open_assignment') else a.get('to_date'),
+        a.get('permission_date'),
+    )
+    if overlap:
+        return False, overlap
+    m = Movement(
+        employee_id=e.id,
+        movement_type=a['movement_type'],
+        leave_type=a.get('leave_type'),
+        destination_branch_id=dest.id if dest else None,
+        from_date=parse_date(a.get('from_date')),
+        to_date=parse_date(a.get('to_date')),
+        permission_date=parse_date(a.get('permission_date')),
+        notes=None,
+        created_by=me().id,
+        status='مسجلة',
+        assignment_state='ساري',
+    )
+    db.session.add(m)
+    db.session.flush()
+    record_movement_history(m, None, 'مسجلة', 'AI_ASSISTANT_ADD', 'تسجيل الحركة من المساعد الذكي')
+    log('AI_ASSISTANT_ADD', 'Movement', m.id, f'{m.movement_type} — {e.full_name}')
+    db.session.commit()
+    return True, f'تم تسجيل {m.movement_type} للموظف «{e.full_name}» بنجاح.'
+
+
 @bp.route('/assistant', methods=['GET', 'POST'])
 @req
 def assistant():
     result = None
     prompt = ''
-    chat = session.get('assistant_chat', [])
+    chat = _load_chat()
     if request.method == 'POST':
         prompt = (request.form.get('prompt') or '').strip()[:MAX_PROMPT_CHARS]
         if not prompt:
@@ -387,21 +527,17 @@ def assistant():
         elif not assistant_limiter().allow(f'{me().id}'):
             result = {
                 'title': 'المساعد الذكي',
-                'error': 'عدد الطلبات كبير. انتظر دقيقة ثم حاول مرة أخرى.',
+                'error': 'عدد الطلبات كبير. حاول مرة أخرى بعد قليل.',
             }
         else:
             prior_chat = list(chat)
-            chat.append({'role': 'user', 'text': prompt})
+            _save_chat_message('user', prompt)
+            db.session.commit()
             result = answer_prompt(prompt, prior_chat)
         if prompt and result:
-            chat.append(
-                {
-                    'role': 'assistant',
-                    'text': history_text(result),
-                    'title': result.get('title', 'المساعد الذكي'),
-                },
-            )
-            session['assistant_chat'] = chat[-MAX_HISTORY:]
+            _save_chat_message('assistant', history_text(result), result.get('title', 'المساعد الذكي'))
+            _trim_chat()
+            db.session.commit()
     groups = capability_groups()
     embed = request.args.get('embed') == '1'
     return render_template(
@@ -411,16 +547,18 @@ def assistant():
         assistant_options=[item for group in groups for item in group['items']],
         assistant_option_groups=groups,
         embed=embed,
-        chat=session.get('assistant_chat', []),
+        chat=_load_chat(),
     )
-
 
 @bp.post('/assistant/clear')
 @req
 def assistant_clear():
-    session.pop('assistant_chat', None)
+    if me():
+        AssistantMessage.query.filter_by(user_id=me().id).delete(synchronize_session=False)
+        db.session.commit()
     session.pop('assistant_pending', None)
     session.pop('assistant_manager_pending', None)
+    session.pop('assistant_context_employee_id', None)
     return redirect('/assistant?embed=1' if request.form.get('embed') == '1' else '/assistant')
 
 
@@ -446,58 +584,6 @@ def assistant_confirm():
     if not a:
         flash('لا توجد عملية معلقة للتأكيد.')
         return redirect(back)
-    if not can('manage_movements'):
-        abort(403)
-    e = db.session.get(Employee, a.get('employee_id'))
-    dest = (
-        db.session.get(Branch, a.get('destination_branch_id'))
-        if a.get('destination_branch_id')
-        else None
-    )
-    if not e or not e.is_active or (not branch_ok(e.branch_id)):
-        flash('الموظف خارج نطاق صلاحياتك.')
-        return redirect(back)
-    err = validate_movement_fields(
-        a.get('movement_type'),
-        a.get('leave_type'),
-        dest.id if dest else None,
-        a.get('from_date'),
-        None if a.get('open_assignment') else a.get('to_date'),
-        a.get('permission_date'),
-    )
-    if err:
-        flash(err)
-        return redirect(back)
-    if a.get('movement_type') == 'انتداب' and (not dest or not branch_ok(dest.id)):
-        flash('فرع الانتداب غير مسموح.')
-        return redirect(back)
-    overlap = movement_overlaps(
-        e.id,
-        a['movement_type'],
-        a.get('from_date'),
-        None if a.get('open_assignment') else a.get('to_date'),
-        a.get('permission_date'),
-    )
-    if overlap:
-        flash(overlap)
-        return redirect(back)
-    m = Movement(
-        employee_id=e.id,
-        movement_type=a['movement_type'],
-        leave_type=a.get('leave_type'),
-        destination_branch_id=dest.id if dest else None,
-        from_date=parse_date(a.get('from_date')),
-        to_date=parse_date(a.get('to_date')),
-        permission_date=parse_date(a.get('permission_date')),
-        notes=None,
-        created_by=me().id,
-        status='مسجلة',
-        assignment_state='ساري',
-    )
-    db.session.add(m)
-    db.session.flush()
-    record_movement_history(m, None, 'مسجلة', 'AI_ASSISTANT_ADD', 'تسجيل الحركة من المساعد الذكي')
-    log('AI_ASSISTANT_ADD', 'Movement', m.id, f'{m.movement_type} — {e.full_name}')
-    db.session.commit()
-    flash('تم تسجيل الحركة بنجاح من خلال المساعد الذكي.')
+    ok, message = _execute_movement_plan(a)
+    flash(message)
     return redirect(back)

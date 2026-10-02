@@ -2,35 +2,27 @@
 {% block title %}تقارير ومأموريات{% endblock %}
 {% block content %}
 {% if scope_required and not scope_selected %}
-<div class="scope-empty-state"><div class="scope-empty-icon"><svg class="ds-icon ds-icon-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18"/></svg></div><span class="home-kicker">اختيار نطاق العمل</span><h1>اختر المحافظة أولًا</h1><p>حدد المحافظة التي تريد العمل عليها. بعد الاختيار ستتعامل مع هذه الصفحة بصلاحيات مشرف المحافظة داخل المحافظة المحددة.</p></div>
+<div class="scope-empty-state v55-scope-state"><div class="scope-empty-icon"><svg class="ds-icon ds-icon-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18"/></svg></div><span class="home-kicker">اختيار نطاق العمل</span><h1>اختر المحافظة أولًا</h1><p>حدد المحافظة قبل عرض التقارير والمأموريات.</p></div>
 {% else %}
-<div class="ds-page-head ds-page-shell-head">
-  <div><span class="home-kicker">مركز البيانات والتشغيل</span><h1>تقارير ومأموريات</h1><p class="ds-muted">التقارير والمأموريات داخل نطاق العمل الحالي للمحافظة المختارة.</p></div>
-</div>
+<div class="v55-page reports-workspace">
+  <header class="v55-page-head"><div><span class="v55-eyebrow">مركز القراءة والقرار</span><h1>تقارير ومأموريات</h1><p>ابدأ من المهمة مباشرة: تقرير، مأمورية، طباعة أو متابعة.</p></div><div class="v55-head-stats"><span><b>{{report_stats.total}}</b> حركة</span><span><b>{{report_stats.open_assignments}}</b> مأمورية مفتوحة</span></div></header>
 
-<div class="ds-report-group-grid ds-mt-18">
-  {% if can('view_reports') %}
-  <section class="ds-report-group ds-module-card">
-    <div class="ds-report-group-head"><span class="ds-report-group-icon"><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h17"/><path d="m7 15 4-5 3 3 5-7"/></svg></span><div><h3>التقارير</h3><small>تحليل الحركات وتصفية النتائج ثم تصديرها إلى Excel.</small></div></div>
-    <div class="ds-report-link-grid">
-      <a href="/reports/leaves"><span><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>️</span><b>الإجازات</b><small>المحافظة · الفرع · الموظف · الفترة</small></a>
-      <a href="/reports/assignments"><span><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg></span><b>الانتدابات</b><small>الجهة · المدة · الحالة · الموظف</small></a>
-      <a href="/reports/permissions"><span><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><b>الأذونات</b><small>التاريخ · الموظف · الفرع</small></a>
-    </div>
+  <section class="v55-report-launch-grid">
+    {% if can('view_reports') %}
+    <a class="v55-report-launch leave" href="/reports/leaves"><span class="v55-launch-icon">◷</span><div><b>الإجازات</b><small>{{report_stats.leave}} حركة · الموظف · الفرع · الفترة</small></div><strong>فتح التقرير ←</strong></a>
+    <a class="v55-report-launch assignment" href="/reports/assignments"><span class="v55-launch-icon">↔</span><div><b>الانتدابات</b><small>{{report_stats.assignment}} حركة · الجهة · المدة · الحالة</small></div><strong>فتح التقرير ←</strong></a>
+    <a class="v55-report-launch permission" href="/reports/permissions"><span class="v55-launch-icon">◷</span><div><b>الأذونات</b><small>{{report_stats.permission}} حركة · التاريخ · الموظف · الفرع</small></div><strong>فتح التقرير ←</strong></a>
+    {% endif %}
+    <a class="v55-report-launch mission" href="/reports/assignments/print-missions"><span class="v55-launch-icon">▣</span><div><b>مركز المأموريات</b><small>المفتوحة والمحددة المدة، مع التعديل والطباعة.</small></div><strong>فتح المركز ←</strong></a>
+    {% if can('view_reports') %}<a class="v55-report-launch summary" href="/reports"><span class="v55-launch-icon">▤</span><div><b>ملخص التقارير</b><small>مؤشرات الحركة مع التصفية السريعة.</small></div><strong>فتح الملخص ←</strong></a>{% endif %}
   </section>
-  <section class="ds-report-group ds-module-card">
-    <div class="ds-report-group-head"><span class="ds-report-group-icon"><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h6"/></svg></span><div><h3>المأموريات</h3><small>عرض وطباعة المأموريات من جميع المحافظات.</small></div></div>
-    <div class="ds-report-link-grid">
-      <a href="/reports/assignments/print-missions"><span><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/></svg></span><b>المأموريات المفتوحة</b><small>الانتدابات المفتوحة بلا تاريخ نهاية.</small></a>
-      <a href="/reports/assignments/print-missions?duration=dated"><span><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></span><b>المأموريات محددة المدة</b><small>الانتدابات التي لها تاريخ نهاية.</small></a>
-    </div>
-  </section>
-  {% endif %}
-</div>
 
-<div class="ds-card ds-report-rule-card ds-mt-18-pad-18">
-  <div class="ds-section-title"><div><h3>قاعدة المأمورية المفتوحة</h3><small>عدم وجود تاريخ نهاية ليس خطأ في البيانات.</small></div><span class="ds-tag">مفتوحة المدة</span></div>
-  <p class="ds-muted ds-mt-8">الانتداب المفتوح يُسجل بدون تاريخ نهاية، ويظل مفتوحًا حتى يتم تحديد نهاية فعلية أو تعديل مدته. عند الطباعة يمكن استخدام تاريخ مؤقت للنموذج دون تغييره في بيانات الحركة.</p>
+  <section class="v55-work-card v55-report-flow">
+    <div class="v55-card-head compact"><div><span class="v55-eyebrow">طريقة العمل</span><h2>من التقرير إلى الإجراء</h2></div></div>
+    <div class="v55-flow-grid"><div><b>01</b><strong>اختيار النوع</strong><small>إجازة / انتداب / إذن / مأمورية</small></div><div><b>02</b><strong>تصفية النتيجة</strong><small>المحافظة، الفرع، الموظف، الفترة</small></div><div><b>03</b><strong>تنفيذ مباشر</strong><small>طباعة PDF أو Excel أو فتح الحركة</small></div></div>
+  </section>
+
+  <section class="v55-work-card v55-report-note"><b>المأمورية المفتوحة</b><span>عدم وجود تاريخ نهاية لا يعني خطأ؛ تبقى الحركة مفتوحة حتى إغلاقها أو تعديل مدتها. عند الطباعة يمكن تحديد تاريخ مؤقت للنموذج دون تغيير بيانات الحركة.</span></section>
 </div>
 {% endif %}
 {% endblock %}

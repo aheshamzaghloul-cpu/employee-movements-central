@@ -31,7 +31,19 @@ def audit():
 def reports_missions():
     if not (can('view_reports') or can('manage_movements')):
         abort(403)
-    return render_template('reports_missions.html')
+    bs = bids()
+    movement_q = (
+        Movement.query.join(Employee).filter(Employee.branch_id.in_(bs), Movement.is_active == True)
+        if bs else Movement.query.filter(False)
+    )
+    stats = {
+        'total': movement_q.count(),
+        'leave': movement_q.filter(Movement.movement_type == 'إجازة').count(),
+        'assignment': movement_q.filter(Movement.movement_type == 'انتداب').count(),
+        'permission': movement_q.filter(Movement.movement_type == 'إذن').count(),
+        'open_assignments': movement_q.filter(Movement.movement_type == 'انتداب', Movement.to_date.is_(None)).count(),
+    }
+    return render_template('reports_missions.html', report_stats=stats)
 
 
 @bp.get('/reports')

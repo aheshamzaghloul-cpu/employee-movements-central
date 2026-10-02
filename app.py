@@ -1,9 +1,5 @@
-"""Compatibility WSGI entry point for hosts that start Gunicorn with ``app:app``.
+"""Compatibility WSGI entry point for hosts configured as ``gunicorn app:app``."""
 
-The canonical application factory lives in ``employee_movements`` and the
-canonical WSGI entry point is ``wsgi.py``. This wrapper keeps compatibility
-with hosting platforms configured for ``app:app``.
-"""
-from wsgi import app
+from employee_movements import create_app
 
-__all__ = ["app"]
+app = create_app()

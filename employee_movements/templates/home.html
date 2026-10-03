@@ -27,11 +27,12 @@
     {% endif %}
   </header>
 
-  <section class="home-workspace-card" id="employee-command">
+  <section class="home-workspace-card" id="employee-search">
     <div class="home-workspace-head">
       <div>
-        <span class="home-kicker">أهم إجراء</span>
-        <h2>البحث عن موظف وتسجيل الحركة</h2>
+        <span class="home-kicker">المهمة الأولى</span>
+        <h2>البحث عن موظف</h2>
+        <p class="home-task-note">ابحث بالاسم أو كود شئون العاملين لاستعراض الملف والحالة.</p>
       </div>
       <span class="home-live-pill">بحث شامل</span>
     </div>
@@ -50,7 +51,7 @@
     <div class="home-search-results">
       <div class="home-results-head"><b>{{movement_employee_matches|length}} نتيجة</b><span>اختر الموظف المطلوب</span></div>
       {% for emp in movement_employee_matches %}
-      <a class="home-result-row" href="/?{% if movement_governorate_id %}movement_governorate_id={{movement_governorate_id}}&{% endif %}{% if movement_branch_id %}movement_branch_id={{movement_branch_id}}&{% endif %}employee_id={{emp.id}}#employee-command">
+      <a class="home-result-row" href="/?{% if movement_governorate_id %}movement_governorate_id={{movement_governorate_id}}&{% endif %}{% if movement_branch_id %}movement_branch_id={{movement_branch_id}}&{% endif %}employee_id={{emp.id}}#employee-search">
         <i>{{(emp.full_name or 'م')[:1]}}</i>
         <span><b>{{emp.full_name}}</b><small>{{emp.job_title or 'موظف'}} · كود {{emp.job_code or '—'}}</small></span>
         <em>{{emp.branch.name if emp.branch else '—'}} · {{emp.branch.governorate.name if emp.branch and emp.branch.governorate else '—'}}</em>
@@ -73,17 +74,31 @@
         </div>
         <div class="home-employee-meta"><b>{{movement_employee.branch.name if movement_employee.branch else '—'}}</b><span>{{movement_employee.branch.governorate.name if movement_employee.branch and movement_employee.branch.governorate else '—'}}</span></div>
       </div>
-
       <div class="home-employee-history">
         {% for k,t,icon in [('إجازة','آخر إجازة','leave'),('انتداب','آخر انتداب','assign'),('إذن','آخر إذن','permit')] %}
         {% set m=movement_employee_last[k] %}
         <article class="home-history-card {{icon}}"><span>{{t}}</span>{% if m %}<b>{{m.from_date or m.permission_date or '—'}}{% if m.to_date %} → {{m.to_date}}{% endif %}</b><small>{{m.leave_type or (m.destination.name if m.destination else 'إذن')}}</small>{% else %}<b>لا توجد</b><small>—</small>{% endif %}</article>
         {% endfor %}
       </div>
+    </div>
+    {% endif %}
+  </section>
 
-      {% if can('manage_movements') %}
-      <div class="home-register-zone">
-        <div class="home-register-title"><span>تسجيل حركة جديدة</span><small>اختر نوع الحركة ثم أدخل البيانات المطلوبة</small></div>
+  {% if can('manage_movements') %}
+  <section class="home-workspace-card home-register-card" id="movement-register">
+    <div class="home-workspace-head">
+      <div>
+        <span class="home-kicker">المهمة الثانية</span>
+        <h2>تسجيل حركة</h2>
+        <p class="home-task-note">مهمة مستقلة عن البحث: إجازة أو انتداب أو إذن للموظف المحدد.</p>
+      </div>
+      <span class="home-live-pill home-live-pill-amber">تسجيل تشغيلي</span>
+    </div>
+
+    {% if movement_employee %}
+      {% if movement_employee_in_scope %}
+      <div class="home-register-zone home-register-zone-open">
+        <div class="home-register-title"><span>تسجيل حركة جديدة لـ {{movement_employee.full_name}}</span><small>اختر نوع الحركة ثم أدخل البيانات المطلوبة</small></div>
         <form method="post" action="/movements/create" class="home-movement-form" id="homeMovementForm">
           <input type="hidden" name="_csrf" value="{{csrf}}">
           <input type="hidden" name="employee_id" value="{{movement_employee.id}}">
@@ -114,15 +129,22 @@
           <div class="home-movement-submit"><span id="homeMovementHint">تسجيل إجازة للموظف المحدد</span><button class="ui-btn ui-btn-primary" type="submit">تسجيل الحركة</button></div>
         </form>
       </div>
-      {% elif can('manage_movements') and not movement_employee_in_scope %}
+      {% else %}
       <div class="home-out-of-scope">
         <b>الموظف تم العثور عليه خارج محافظة العمل الحالية.</b>
         <span>يمكنك متابعة بياناته، ولتسجيل إجازة أو انتداب أو إذن غيّر «محافظة العمل» إلى محافظة الموظف أولًا.</span>
       </div>
       {% endif %}
-    </div>
+    {% else %}
+      <div class="home-register-empty">
+        <b>حدّد الموظف أولًا من مهمة البحث أعلاه.</b>
+        <span>بعد اختيار الموظف يظهر هنا نموذج تسجيل الإجازة أو الانتداب أو الإذن بشكل مستقل.</span>
+        <a class="ui-btn ui-btn-secondary" href="#employee-search">الذهاب إلى البحث</a>
+      </div>
     {% endif %}
   </section>
+  {% endif %}
+
 
   {% if is_admin or is_manager_support or 'مشرف محافظة' in roles %}
   <section class="home-section" id="entry-directory">
@@ -185,7 +207,14 @@
     <div class="home-mini-card"><div class="home-section-head"><div><span class="home-kicker">الوصول السريع</span><h2>أدوات العمل</h2></div></div><div class="home-tools">{% if can('manage_employees') %}<a href="/employees"><b>الموظفون</b><small>إضافة وتعديل</small></a>{% endif %}<a href="/movements"><b>حركات الموظفين</b><small>متابعة السجل</small></a>{% if can('view_reports') %}<a href="/reports-missions"><b>تقارير ومأموريات</b><small>عرض وطباعة</small></a>{% endif %}{% if 'مسؤول التطبيق' in roles %}<a href="/structure"><b>الإدارة</b><small>الهيكل والحسابات</small></a>{% endif %}</div></div>
   </section>
 
-  <section class="home-assistant-strip"><span class="home-assistant-mark"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg></span><div><b>{% if 'مسؤول التطبيق' in roles %}مدير التطبيق{% else %}المساعد الذكي{% endif %}</b><small>{% if 'مسؤول التطبيق' in roles %}تنفيذ وإدارة كاملة لأدوات النظام بعد التأكيد والتحقق الأمني.{% else %}اسأل عن الموظفين والحركات والتقارير داخل نطاق صلاحياتك.{% endif %}</small></div><button type="button" id="assistantInlineOpen">فتح المساعد</button></section>
+  <section class="home-assistant-room">
+    <span class="home-assistant-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg></span>
+    <div>
+      <b>{% if 'مسؤول التطبيق' in roles %}غرفة المساعد الاحترافي{% else %}المساعد الذكي{% endif %}</b>
+      <small>مكانه هنا وفي القائمة الجانبية فقط — وليس أعلى كل صفحة. محادثة كاملة تفهم الصفحة والصلاحيات.</small>
+    </div>
+    <a class="ui-btn ui-btn-primary" href="/assistant">فتح غرفة المساعد</a>
+  </section>
 </div>
 <script>
 document.addEventListener('DOMContentLoaded',()=>{

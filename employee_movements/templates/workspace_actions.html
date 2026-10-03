@@ -1,17 +1,17 @@
 <div class="ui-actionbar" role="toolbar" aria-label="إجراءات الصفحة">
   <span class="ui-actionbar-label">وصول مباشر</span>
   {% if request.path == '/' %}
-    <a class="primary" href="/#employee-command">⌕ بحث عن موظف</a>
-    {% if can('manage_movements') %}<a href="/#employee-command">＋ إجازة / انتداب / إذن</a>{% endif %}
+    <a class="primary" href="/#employee-search">بحث عن موظف</a>
+    {% if can('manage_movements') %}<a href="/#movement-register">تسجيل حركة</a>{% endif %}
     <a href="/#entry-directory">المدخلون الأوائل</a>
     <a href="/#employee-status">حالة الموظفين</a>
   {% elif request.path.startswith('/employees') %}
-    {% if can('manage_employees') %}<a class="primary" href="#employee-add">＋ إضافة موظف</a>{% endif %}
-    <a href="#employee-search">⌕ بحث سريع</a>
+    {% if can('manage_employees') %}<a class="primary" href="#employee-add">إضافة موظف</a>{% endif %}
+    <a href="#employee-search">بحث سريع</a>
     {% if 'مسؤول التطبيق' in roles %}<a href="/excel-import/employees">استيراد Excel</a>{% endif %}
     <a href="/employees/resigned">المستقيلون</a>
   {% elif request.path.startswith('/movements') %}
-    {% if can('manage_movements') %}<a class="primary" href="#movement-create">＋ تسجيل حركة</a>{% endif %}
+    {% if can('manage_movements') %}<a class="primary" href="#movement-create">تسجيل حركة</a>{% endif %}
     <a href="#movement-current">الحركات الحالية</a>
     <a href="#movement-followup">تحتاج متابعة</a>
     <a href="#movement-log">السجل الكامل</a>
@@ -22,17 +22,20 @@
     <a href="/reports/permissions">الأذونات</a>
     <a href="/reports/assignments/print-missions">المأموريات</a>
   {% elif request.path.startswith('/delegations') %}
-    <a class="primary" href="#delegation-new">＋ تفويض جديد</a>
+    <a class="primary" href="#delegation-new">تفويض جديد</a>
     <a href="#delegation-active">السارية</a>
     <a href="#delegation-history">السجل</a>
   {% elif request.path.startswith('/audit') %}
     {% if can('view_audit') %}<a class="primary" href="/audit">سجل التدقيق</a>{% endif %}
     <a href="/">الرئيسية</a>
+  {% elif request.path.startswith('/assistant') %}
+    <a class="primary" href="/assistant">غرفة المساعد</a>
+    <a href="/">العودة للرئيسية</a>
   {% elif request.path.startswith('/structure') or request.path.startswith('/users') or request.path.startswith('/branches') or request.path.startswith('/governorates') or request.path.startswith('/lookups') or request.path.startswith('/excel-import') or request.path.startswith('/replacement') %}
-    {% if 'مسؤول التطبيق' in roles %}<a class="primary" href="/users#user-add">＋ مستخدم</a>{% endif %}
-    {% if 'مسؤول التطبيق' in roles %}<a href="/employees#employee-add">＋ موظف</a>{% endif %}
-    {% if 'مسؤول التطبيق' in roles %}<a href="/branches#branch-add">＋ فرع</a>{% endif %}
-    {% if 'مسؤول التطبيق' in roles %}<a href="/governorates#governorate-add">＋ محافظة</a>{% endif %}
+    {% if 'مسؤول التطبيق' in roles %}<a class="primary" href="/users#user-add">مستخدم</a>{% endif %}
+    {% if 'مسؤول التطبيق' in roles %}<a href="/employees#employee-add">موظف</a>{% endif %}
+    {% if 'مسؤول التطبيق' in roles %}<a href="/branches#branch-add">فرع</a>{% endif %}
+    {% if 'مسؤول التطبيق' in roles %}<a href="/governorates#governorate-add">محافظة</a>{% endif %}
     {% if 'مسؤول التطبيق' in roles %}<a href="/structure#entry-role-admin">مدخل أول</a>{% endif %}
     {% if 'مسؤول التطبيق' in roles %}<a href="/excel-import/employees">استيراد الموظفين</a>{% endif %}
     {% if 'مسؤول التطبيق' in roles %}<a href="/excel-import/branches">استيراد الفروع</a>{% endif %}
@@ -40,5 +43,4 @@
     {% if 'مسؤول التطبيق' in roles %}<a href="/delegations">إدارة التفويضات</a>{% endif %}
     {% if can('view_audit') %}<a href="/audit">سجل التدقيق</a>{% endif %}
   {% endif %}
-  <button type="button" class="ai" onclick="window.__toggleAssistantDock&&window.__toggleAssistantDock();return false;">✦ المساعد</button>
 </div>

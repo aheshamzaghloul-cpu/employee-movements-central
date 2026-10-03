@@ -2,11 +2,11 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#102b50">
+<meta name="theme-color" content="#0e3558">
 <title>{% block title %}نظام إدارة حركات الموظفين{% endblock %}</title>
 <meta name="robots" content="noindex,nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{url_for('static',filename='css/app.css')}}">
 </head>
 <body class="{% if request.args.get('embed')=='1' %}assistant-embed-body{% endif %}">
@@ -26,6 +26,7 @@
     <a href="/movements" class="{% if request.path.startswith('/movements') %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M5 7h11l-3-3M19 17H8l3 3"/><path d="m16 4 3 3-3 3M8 14l-3 3 3 3"/></svg><span>حركات الموظفين</span></a>
     {% if can('view_reports') or can('manage_movements') %}<a href="/reports-missions" class="{% if request.path.startswith('/reports') or request.path.startswith('/mission') %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6V3Z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg><span>تقارير ومأموريات</span></a>{% endif %}
     {% if 'مشرف محافظة' in roles and 'مسؤول التطبيق' not in roles %}<a href="/delegations" class="{% if request.path.startswith('/delegations') %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M7 7h12M17 4l3 3-3 3M17 17H5M7 14l-3 3 3 3"/></svg><span>تفويض</span></a>{% endif %}
+    <a href="/assistant" class="{% if request.path.startswith('/assistant') %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg><span>المساعد الذكي</span></a>
   </nav>
   {% if 'مسؤول التطبيق' in roles %}<div class="ui-caption admin">الإدارة</div><nav class="ui-nav"><a href="/structure" class="{% if request.path.startswith('/structure') %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.8 2.8M15 15l2.7 2.7M17.7 6.3 15 9M9 15l-2.7 2.7"/><circle cx="12" cy="12" r="3.5"/></svg><span>الإدارة</span></a></nav>{% endif %}
   <div class="ui-spacer"></div>
@@ -34,7 +35,7 @@
 </aside>
 <header class="ui-topbar">
   <button class="ui-mobile-menu" id="sidebarToggle" type="button" aria-label="القائمة"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-  <div class="ui-user"><div class="ui-avatar">{{(me.full_name or 'م')[:1]}}</div><div class="ui-user-copy"><strong>{{me.full_name}}</strong><small>{% if active_role %}{{active_role}}{% elif roles %}{{roles|join(' · ')}}{% endif %}</small></div><svg viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></div> <button type="button" class="ui-assistant-focus" id="assistantFocus" aria-label="الانتقال إلى المساعد الذكي">✦ المساعد</button>
+  <div class="ui-user"><div class="ui-avatar">{{(me.full_name or 'م')[:1]}}</div><div class="ui-user-copy"><strong>{{me.full_name}}</strong><small>{% if active_role %}{{active_role}}{% elif roles %}{{roles|join(' · ')}}{% endif %}</small></div></div>
   <div class="ui-top-actions">
     {% if scope_required %}<form method="get" action="/" class="ui-scope-form"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg><select name="governorate_id" aria-label="المحافظة" onchange="this.form.submit()"><option value="">{% if scope_selected %}محافظة: {{scope_governorate.name}}{% else %}اختر المحافظة{% endif %}</option>{% for g in scope_governorates %}{% if not scope_selected or g.id!=scope_selected %}<option value="{{g.id}}">محافظة: {{g.name}}</option>{% endif %}{% endfor %}</select></form>{% elif scope_selected and scope_governorate %}<div class="ui-scope-chip"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg>محافظة: {{scope_governorate.name}}</div>{% elif 'مشرف محافظة' in roles %}<div class="ui-scope-chip ui-scope-info"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg>صلاحيات المشرف: {{scope_governorates|length}} محافظات</div>{% endif %}
     {% if login_real_roles|length > 1 %}<form method="post" action="/switch-role" class="ui-role-switch prominent-role-switch"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="next" value="{{request.path}}"><span>تغيير الدور</span><select name="active_role" aria-label="تغيير الدور" onchange="this.form.submit()">{% for r in ['مسؤول التطبيق','مشرف محافظة','Manager Application Support'] if r in real_roles %}<option value="{{r}}" {% if active_role==r or (not active_role and loop.first) %}selected{% endif %}>{{r}}</option>{% endfor %}</select></form>{% endif %}
@@ -45,9 +46,11 @@
 {% if not me %}<div class="login">{% endif %}
 {% for x in get_flashed_messages() %}<div class="enterprise-alert" role="status">{{x}}</div>{% endfor %}
 {% if me and request.args.get('embed')!='1' %}{% include 'workspace_actions.html' %}{% endif %}
-{% if me and request.args.get('embed')!='1' %}{% include 'assistant_dock.html' %}{% endif %}
 {% block content %}{% endblock %}
 {% if not me %}</div>{% endif %}
 </main></div>
 <script src="{{url_for('static',filename='js/app.js')}}"></script>
+<script src="{{url_for('static',filename='js/shell.js')}}"></script>
+<script src="{{url_for('static',filename='js/workspace.js')}}"></script>
+<script src="{{url_for('static',filename='js/assistant_dock.js')}}"></script>
 </body></html>

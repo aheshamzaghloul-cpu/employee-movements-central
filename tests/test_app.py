@@ -10,7 +10,12 @@ from .conftest import ADMIN_PASSWORD, csrf_from
 def test_healthz(client):
     resp = client.get('/healthz')
     assert resp.status_code == 200
-    assert resp.get_json() == {'status': 'ok'}
+    payload = resp.get_json()
+    assert payload['status'] == 'ok'
+    assert payload['version'] == '61.0.1'
+    assert payload['app_env'] == 'testing'
+    assert payload['database_backend'] == 'sqlite'
+    assert payload['database_url_configured'] is True
 
 
 def test_login_page_has_csrf_field_and_security_headers(client):

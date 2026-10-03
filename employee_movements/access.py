@@ -20,7 +20,14 @@ from .models import (
 
 
 def me():
-    return db.session.get(User, session.get('uid'))
+    uid = session.get('uid')
+    if not uid:
+        return None
+    try:
+        return db.session.get(User, int(uid))
+    except (TypeError, ValueError):
+        session.pop('uid', None)
+        return None
 
 
 def actual_roles(u=None):

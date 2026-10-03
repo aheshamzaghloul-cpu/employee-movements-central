@@ -67,6 +67,18 @@ def load_config(overrides=None):
     return cfg
 
 
+def database_backend(uri):
+    """Return a non-sensitive database backend label for diagnostics."""
+    uri = (uri or '').lower()
+    if uri.startswith(('postgresql://', 'postgres://', 'postgresql+')):
+        return 'postgresql'
+    if uri.startswith('sqlite'):
+        return 'sqlite'
+    if uri.startswith('mysql'):
+        return 'mysql'
+    return 'other'
+
+
 def validate_config(cfg):
     production = cfg['APP_ENV'] == 'production'
     if is_placeholder(cfg['SECRET_KEY']) or len(cfg['SECRET_KEY']) < MIN_SECRET_KEY_LENGTH:
@@ -82,5 +94,12 @@ def validate_config(cfg):
         logger.warning('COOKIE_SECURE=0 في وضع الإنتاج: فعّله (COOKIE_SECURE=1) عند التشغيل عبر HTTPS.')
     if production and not cfg.get('DATABASE_URL_CONFIGURED'):
         raise ConfigError('DATABASE_URL مطلوب في الإنتاج لمنع فقدان قاعدة البيانات والحسابات عند إعادة النشر. استخدم PostgreSQL ثابتة.')
-    if production and cfg['SQLALCHEMY_DATABASE_URI'].startswith('sqlite'):
-        raise ConfigError('لا يُسمح باستخدام SQLite في الإنتاج. اضبط DATABASE_URL على قاعدة PostgreSQL ثابتة.')
+    backend = database_backend(cfg['SQLALCHEMY_DATABASE_URI'])
+    if production and backend != 'postgresql':
+        raise ConfigError('لا يُسمح إلا بقاعدة PostgreSQL في الإنتاج. اضبط DATABASE_URL على قاعدة PostgreSQL ثابتة.')
+    logger.info(
+        'تهيئة قاعدة البيانات: backend=%s, DATABASE_URL=%s, APP_ENV=%s',
+        backend,
+        'configured' if cfg.get('DATABASE_URL_CONFIGURED') else 'missing',
+        cfg['APP_ENV'],
+    )

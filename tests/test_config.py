@@ -1,6 +1,6 @@
 import pytest
 
-from employee_movements.config import ConfigError, load_config, normalize_database_url
+from employee_movements.config import ConfigError, database_backend, load_config, normalize_database_url
 
 
 @pytest.mark.parametrize(
@@ -53,3 +53,9 @@ def test_development_generates_ephemeral_secret(monkeypatch):
     monkeypatch.setenv('APP_ENV', 'development')
     monkeypatch.delenv('SECRET_KEY', raising=False)
     assert len(load_config()['SECRET_KEY']) >= 32
+
+
+def test_database_backend_labels_are_safe():
+    assert database_backend('postgresql+psycopg2://u:p@host/db') == 'postgresql'
+    assert database_backend('sqlite:///local.db') == 'sqlite'
+    assert database_backend('https://example.invalid') == 'other'

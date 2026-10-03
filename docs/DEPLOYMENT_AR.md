@@ -48,6 +48,8 @@ OneDrive ليس قاعدة البيانات ولا يشغل التطبيق. يم
 
 ## Railway وما يشابهه
 - يُقبل `DATABASE_URL` بصيغة `postgres://` أو `postgresql://` ويُحوَّل تلقائيًا.
+
+> **مهم:** في الإنتاج `DATABASE_URL` إلزامي ويجب أن تشير إلى PostgreSQL ثابتة. لا يستخدم التطبيق SQLite في الإنتاج حتى لا تضيع الحسابات والبيانات عند إعادة النشر.
 - يستمع التطبيق على المتغير `PORT` إن وُجد، ويوفّر `/healthz` لفحص الصحة.
 - اضبط `SECRET_KEY` و`ADMIN_PASSWORD` و`COOKIE_SECURE=1` (و`GEMINI_API_KEY` و`GEMINI_MODEL` اختياريًا) في متغيرات البيئة.
 

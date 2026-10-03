@@ -1,12 +1,12 @@
 {% extends 'base.html' %}
 {% block title %}الموظفون المحذوفون{% endblock %}
 {% block content %}
-<div class="ds-toolbar">
-  <div><h1>الموظفون المحذوفون</h1><p class="ds-subtitle">السجلات محذوفة منطقيًا فقط؛ بيانات الموظف وحركاته محفوظة بالكامل.</p></div>
-  <div class="ds-actions"><a class="ds-btn ds-btn-secondary" href="/employees">عودة للموظفين</a></div>
+<div class="ui-toolbar">
+  <div><h1>الموظفون المحذوفون</h1><p class="ui-subtitle">السجلات محذوفة منطقيًا فقط؛ بيانات الموظف وحركاته محفوظة بالكامل.</p></div>
+  <div class="ui-actions"><a class="ui-btn ui-btn-secondary" href="/employees">عودة للموظفين</a></div>
 </div>
 <div class="notice"><b>مهم:</b> الحذف هنا لا يمسح السجل من قاعدة البيانات، وإنما يضع الموظف في حالة <b>محذوف</b>. ويمكن استعادته لاحقًا.</div>
-<div class="ds-card ds-table-wrap">
+<div class="ui-card ui-table-wrap">
   <table>
     <thead><tr><th>الموظف</th><th>البريد الإلكتروني</th><th>الكود الوظيفي</th><th>الفرع</th><th>تاريخ الحذف</th><th>الحالة</th><th>إجراء</th></tr></thead>
     <tbody>
@@ -19,14 +19,14 @@
         <td>{{e.deleted_at.strftime('%Y-%m-%d %H:%M') if e.deleted_at else '—'}}</td>
         <td><span class="employee-deleted-badge">محذوف</span></td>
         <td>
-          <form class="ds-inline" method="post" action="/employees/{{e.id}}/restore">
+          <form class="ui-inline" method="post" action="/employees/{{e.id}}/restore">
             <input type="hidden" name="_csrf" value="{{csrf}}">
-            <button class="ds-tone-green ds-btn-mini" data-confirm="هل تريد استعادة الموظف؟">استعادة</button>
+            <button class="ui-tone-green ui-btn-mini" data-confirm="هل تريد استعادة الموظف؟">استعادة</button>
           </form>
         </td>
       </tr>
     {% else %}
-      <tr><td colspan="7" class="ds-empty">لا توجد سجلات موظفين محذوفة.</td></tr>
+      <tr><td colspan="7" class="ui-empty">لا توجد سجلات موظفين محذوفة.</td></tr>
     {% endfor %}
     </tbody>
   </table>

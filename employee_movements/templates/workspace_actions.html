@@ -1,5 +1,5 @@
-<div class="v55-actionbar" role="toolbar" aria-label="إجراءات الصفحة">
-  <span class="v55-actionbar-label">وصول مباشر</span>
+<div class="ui-actionbar" role="toolbar" aria-label="إجراءات الصفحة">
+  <span class="ui-actionbar-label">وصول مباشر</span>
   {% if request.path == '/' %}
     <a class="primary" href="/#employee-command">⌕ بحث عن موظف</a>
     {% if can('manage_movements') %}<a href="/#employee-command">＋ إجازة / انتداب / إذن</a>{% endif %}
@@ -37,6 +37,7 @@
     {% if 'مسؤول التطبيق' in roles %}<a href="/excel-import/employees">استيراد الموظفين</a>{% endif %}
     {% if 'مسؤول التطبيق' in roles %}<a href="/excel-import/branches">استيراد الفروع</a>{% endif %}
     {% if 'مسؤول التطبيق' in roles %}<a href="/replacement">استبدال</a>{% endif %}
+    {% if 'مسؤول التطبيق' in roles %}<a href="/delegations">إدارة التفويضات</a>{% endif %}
     {% if can('view_audit') %}<a href="/audit">سجل التدقيق</a>{% endif %}
   {% endif %}
   <button type="button" class="ai" onclick="window.__toggleAssistantDock&&window.__toggleAssistantDock();return false;">✦ المساعد</button>

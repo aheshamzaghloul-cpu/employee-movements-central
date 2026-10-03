@@ -8,13 +8,13 @@
   <h1>اختر المحافظة للبدء</h1>
   <form method="get" action="/" class="home-scope-form">
     <label><span>المحافظة</span><select name="governorate_id" required><option value="">اختر المحافظة</option>{% for g in scope_governorates %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
-    <button class="ds-btn ds-btn-primary" type="submit">دخول مساحة العمل <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+    <button class="ui-btn ui-btn-primary" type="submit">دخول مساحة العمل <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
   </form>
 </section>
 {% else %}
-<div class="home-v53">
-  <header class="home-header-v53">
-    <div class="home-title-v53">
+<div class="home">
+  <header class="home-header">
+    <div class="home-title">
       <span class="home-kicker">لوحة التشغيل</span>
       <h1>مرحبًا، {{me.full_name.split(' ')[0]}}</h1>
       <div class="home-context-line">
@@ -36,14 +36,14 @@
       <span class="home-live-pill">بحث شامل</span>
     </div>
 
-    <form method="get" action="/" class="home-search-v53" id="homeEmployeeSearchForm">
+    <form method="get" action="/" class="home-search" id="homeEmployeeSearchForm">
       <label class="home-search-primary">
         <span>اسم الموظف أو كود شئون العاملين</span>
         <div class="home-search-field-wrap"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.2"/><path d="m16 16 4 4"/></svg><input name="movement_name" value="{{movement_name_query or ''}}" type="search" placeholder="اكتب الاسم أو الكود ثم اضغط بحث" autocomplete="off"></div>
       </label>
       <label><span>المحافظة</span><select name="movement_governorate_id" id="homeSearchGovernorate"><option value="">كل المحافظات</option>{% for g in movement_search_governorates %}<option value="{{g.id}}" {% if movement_governorate_id and movement_governorate_id|int==g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>
       <label><span>الفرع</span><select name="movement_branch_id" id="homeSearchBranch"><option value="">كل الفروع</option>{% for b in movement_search_all_branches %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}" {% if movement_branch_id and movement_branch_id|int==b.id %}selected{% endif %}>{{b.name}}</option>{% endfor %}</select></label>
-      <button class="ds-btn ds-btn-primary home-search-submit" type="submit"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.2"/><path d="m16 16 4 4"/></svg>بحث</button>
+      <button class="ui-btn ui-btn-primary home-search-submit" type="submit"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.2"/><path d="m16 16 4 4"/></svg>بحث</button>
     </form>
 
     {% if movement_employee_matches and not movement_employee %}
@@ -111,11 +111,11 @@
             <label><span>تاريخ الإذن</span><input type="date" name="permission_date"></label>
           </div>
 
-          <div class="home-movement-submit"><span id="homeMovementHint">تسجيل إجازة للموظف المحدد</span><button class="ds-btn ds-btn-primary" type="submit">تسجيل الحركة</button></div>
+          <div class="home-movement-submit"><span id="homeMovementHint">تسجيل إجازة للموظف المحدد</span><button class="ui-btn ui-btn-primary" type="submit">تسجيل الحركة</button></div>
         </form>
       </div>
       {% elif can('manage_movements') and not movement_employee_in_scope %}
-      <div class="home-out-of-scope-v53">
+      <div class="home-out-of-scope">
         <b>الموظف تم العثور عليه خارج محافظة العمل الحالية.</b>
         <span>يمكنك متابعة بياناته، ولتسجيل إجازة أو انتداب أو إذن غيّر «محافظة العمل» إلى محافظة الموظف أولًا.</span>
       </div>
@@ -125,46 +125,46 @@
   </section>
 
   {% if is_admin or is_manager_support or 'مشرف محافظة' in roles %}
-  <section class="home-section-v53" id="entry-directory">
-    <div class="home-section-head-v53"><div><span class="home-kicker">الإدارة التنظيمية</span><h2>المدخلون الأوائل</h2></div><div class="home-section-actions"><span class="home-count-pill">{{entry_rows|length}} مدخل</span>{% if is_admin or is_manager_support or 'مشرف محافظة' in roles %}<button class="ds-btn ds-btn-secondary ds-btn-mini" type="button" id="toggle-entry-role-add">إضافة مدخل أول</button>{% endif %}</div></div>
-    <div id="entry-role-inline-panel" hidden class="entry-role-inline-panel-v53">
+  <section class="home-section" id="entry-directory">
+    <div class="home-section-head"><div><span class="home-kicker">الإدارة التنظيمية</span><h2>المدخلون الأوائل</h2></div><div class="home-section-actions"><span class="home-count-pill">{{entry_rows|length}} مدخل</span>{% if is_admin or is_manager_support or 'مشرف محافظة' in roles %}<button class="ui-btn ui-btn-secondary ui-btn-mini" type="button" id="toggle-entry-role-add">إضافة مدخل أول</button>{% endif %}</div></div>
+    <div id="entry-role-inline-panel" hidden class="entry-role-inline-panel">
       <form method="post" action="/entry-role/add" id="entry-role-inline-form" class="home-entry-form">
         <input type="hidden" name="_csrf" value="{{csrf}}">
         <label><span>الموظف</span><input id="inline-entry-employee-search" list="inline-entry-employees" placeholder="ابحث بالاسم" autocomplete="off" required><input type="hidden" name="employee_id" id="inline-entry-employee"><datalist id="inline-entry-employees">{% for e in available_entry_employees %}<option value="{{e.full_name}} — {{e.branch.name if e.branch else '—'}}" data-id="{{e.id}}"></option>{% endfor %}</datalist></label>
         {% if is_admin %}<label><span>المشرف المسؤول</span><select name="supervisor_id" required><option value="">اختر المشرف</option>{% for s in entry_supervisors %}<option value="{{s.id}}">{{s.full_name}}</option>{% endfor %}</select></label>{% endif %}
         <div><span>فروع المسؤولية</span><div class="home-entry-branch-grid">{% for b in available_entry_branches %}<label><input type="checkbox" name="branch_id" value="{{b.id}}"><span>{{b.name}}</span></label>{% endfor %}</div></div>
-        <button class="ds-btn ds-btn-primary" type="submit">حفظ التكليف</button>
+        <button class="ui-btn ui-btn-primary" type="submit">حفظ التكليف</button>
       </form>
     </div>
-    <div class="home-entry-grid-v53">
+    <div class="home-entry-grid">
       {% for row in entry_rows %}
-      <details class="home-entry-card-v53">
+      <details class="home-entry-card">
         <summary><i>{{(row.employee.full_name or 'م')[:1]}}</i><div><b>{{row.employee.full_name}}</b><small>{{row.supervisor.full_name if row.supervisor else '—'}} · {{row.branches|length}} فروع · {{row.employee_count}} موظف</small></div><span>{{row.alert_count}} متابعة</span><svg viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></summary>
-        <div class="home-entry-card-body-v53">
-          <div class="home-entry-branches-v53">{% for bg in row.branches %}<div><b>{{bg.branch.name}}</b><span>{{bg.employees|length}} موظف</span></div>{% else %}<span>لا توجد فروع مسندة.</span>{% endfor %}</div>
-          <div class="home-entry-actions-v53">
-            <details><summary>تعديل الفروع</summary><form method="post" action="/entry-role/{{row.employee.id}}/branches"><input type="hidden" name="_csrf" value="{{csrf}}"><div class="home-entry-checks">{% for b in row.available_branches %}<label><input type="checkbox" name="branch_id" value="{{b.id}}" {% if b.id in row.assignment_branch_ids %}checked{% endif %}><span>{{b.name}}</span></label>{% endfor %}</div><button class="ds-btn ds-btn-secondary ds-btn-mini" type="submit">حفظ</button></form></details>
-            <details><summary>استبدال</summary><form method="post" action="/entry-role/{{row.employee.id}}/replace"><input type="hidden" name="_csrf" value="{{csrf}}"><select name="new_entry_employee_id" required><option value="">اختر البديل</option>{% for e in row.replace_targets %}<option value="{{e.id}}">{{e.full_name}}{% if e.branch %} — {{e.branch.name}}{% endif %}</option>{% endfor %}</select><button class="ds-btn ds-btn-secondary ds-btn-mini" type="submit">استبدال</button></form></details>
-            <form method="post" action="/entry-role/{{row.employee.id}}/remove" onsubmit="return confirm('هل تريد إزالة دور المدخل الأول؟ ستظل بيانات الموظف والحركات محفوظة.');"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="ds-btn ds-btn-danger ds-btn-mini" type="submit">إزالة الدور</button></form>
+        <div class="home-entry-card-body">
+          <div class="home-entry-branches">{% for bg in row.branches %}<div><b>{{bg.branch.name}}</b><span>{{bg.employees|length}} موظف</span></div>{% else %}<span>لا توجد فروع مسندة.</span>{% endfor %}</div>
+          <div class="home-entry-actions">
+            <details><summary>تعديل الفروع</summary><form method="post" action="/entry-role/{{row.employee.id}}/branches"><input type="hidden" name="_csrf" value="{{csrf}}"><div class="home-entry-checks">{% for b in row.available_branches %}<label><input type="checkbox" name="branch_id" value="{{b.id}}" {% if b.id in row.assignment_branch_ids %}checked{% endif %}><span>{{b.name}}</span></label>{% endfor %}</div><button class="ui-btn ui-btn-secondary ui-btn-mini" type="submit">حفظ</button></form></details>
+            <details><summary>استبدال</summary><form method="post" action="/entry-role/{{row.employee.id}}/replace"><input type="hidden" name="_csrf" value="{{csrf}}"><select name="new_entry_employee_id" required><option value="">اختر البديل</option>{% for e in row.replace_targets %}<option value="{{e.id}}">{{e.full_name}}{% if e.branch %} — {{e.branch.name}}{% endif %}</option>{% endfor %}</select><button class="ui-btn ui-btn-secondary ui-btn-mini" type="submit">استبدال</button></form></details>
+            <form method="post" action="/entry-role/{{row.employee.id}}/remove" onsubmit="return confirm('هل تريد إزالة دور المدخل الأول؟ ستظل بيانات الموظف والحركات محفوظة.');"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="ui-btn ui-btn-danger ui-btn-mini" type="submit">إزالة الدور</button></form>
           </div>
         </div>
       </details>
-      {% else %}<div class="home-empty-v53">لا يوجد مدخلون أوائل حاليًا.</div>{% endfor %}
+      {% else %}<div class="home-empty">لا يوجد مدخلون أوائل حاليًا.</div>{% endfor %}
     </div>
   </section>
   {% endif %}
 
-  <section class="home-section-v53 home-status-section" id="employee-status">
-    <div class="home-section-head-v53"><div><span class="home-kicker">المتابعة المباشرة</span><h2>حالة الموظفين الآن</h2></div><div class="home-section-actions"><span class="home-count-pill">{{current_status_rows|length}} موظف</span><a class="ds-btn ds-btn-secondary ds-btn-mini" href="/employees">عرض الموظفين</a></div></div>
-    <div class="home-status-metrics-v53">
+  <section class="home-section home-status-section" id="employee-status">
+    <div class="home-section-head"><div><span class="home-kicker">المتابعة المباشرة</span><h2>حالة الموظفين الآن</h2></div><div class="home-section-actions"><span class="home-count-pill">{{current_status_rows|length}} موظف</span><a class="ui-btn ui-btn-secondary ui-btn-mini" href="/employees">عرض الموظفين</a></div></div>
+    <div class="home-status-metrics">
       <div class="home-status-metric present"><b>{{current_status_summary.present}}</b><span>متواجد في الفرع</span></div>
       <div class="home-status-metric leave"><b>{{current_status_summary.leave}}</b><span>إجازة</span></div>
       <div class="home-status-metric assign"><b>{{current_status_summary.assignment}}</b><span>انتداب محدد</span></div>
       <div class="home-status-metric open"><b>{{current_status_summary.open_assignment}}</b><span>انتداب مفتوح</span></div>
       <div class="home-status-metric permit"><b>{{current_status_summary.permission}}</b><span>إذن اليوم</span></div>
     </div>
-    <div class="home-filter-line-v53"><select id="current-status-branch-filter"><option value="">كل الفروع</option>{% for row in current_status_rows|unique(attribute='display_branch') %}{% if row.display_branch %}<option value="{{row.display_branch.id}}">{{row.display_branch.name}}</option>{% endif %}{% endfor %}</select><select id="current-status-employee-filter"><option value="">كل الموظفين</option>{% for row in current_status_rows %}<option value="{{row.employee.id}}">{{row.employee.full_name}}</option>{% endfor %}</select></div>
-    <div class="home-status-table-v53">
+    <div class="home-filter-line"><select id="current-status-branch-filter"><option value="">كل الفروع</option>{% for row in current_status_rows|unique(attribute='display_branch') %}{% if row.display_branch %}<option value="{{row.display_branch.id}}">{{row.display_branch.name}}</option>{% endif %}{% endfor %}</select><select id="current-status-employee-filter"><option value="">كل الموظفين</option>{% for row in current_status_rows %}<option value="{{row.employee.id}}">{{row.employee.full_name}}</option>{% endfor %}</select></div>
+    <div class="home-status-table">
       <div class="home-status-table-head"><span>الموظف</span><span>الفرع الحالي</span><span>الحالة</span><span>حتى</span></div>
       <div id="current-status-list">
       {% for row in current_status_rows[:30] %}
@@ -174,18 +174,18 @@
           <span><em class="home-status-chip {% if row.state=='إجازة' %}leave{% elif row.state in ['انتداب','انتداب مفتوح'] %}assign{% elif row.state=='إذن' %}permit{% else %}present{% endif %}">{{row.state}}</em></span>
           <span>{{row.to_date or row.until or '—'}}</span>
         </a>
-      {% else %}<div class="home-empty-v53">لا توجد بيانات للعرض.</div>{% endfor %}
-      <div class="home-empty-v53" id="current-status-filter-empty" hidden>لا توجد نتائج مطابقة للفلاتر الحالية.</div>
+      {% else %}<div class="home-empty">لا توجد بيانات للعرض.</div>{% endfor %}
+      <div class="home-empty" id="current-status-filter-empty" hidden>لا توجد نتائج مطابقة للفلاتر الحالية.</div>
       </div>
     </div>
   </section>
 
-  <section class="home-bottom-grid-v53">
-    <div class="home-mini-card-v53"><div class="home-section-head-v53"><div><span class="home-kicker">آخر النشاط</span><h2>المتابعة الحالية</h2></div><a href="/movements">عرض الكل</a></div><div class="home-recent-list-v53">{% for row in current_status_rows[:6] %}<a href="/employee/{{row.employee.id}}"><i class="{{'leave' if row.state=='إجازة' else 'assign' if row.state in ['انتداب','انتداب مفتوح'] else 'permit' if row.state=='إذن' else 'present'}}"></i><span><b>{{row.employee.full_name}}</b><small>{{row.state}} · {{row.display_branch.name if row.display_branch else '—'}}</small></span><em>{{row.to_date or row.until or '—'}}</em></a>{% else %}<div class="home-empty-v53">لا توجد حالات تشغيلية حالية.</div>{% endfor %}</div></div>
-    <div class="home-mini-card-v53"><div class="home-section-head-v53"><div><span class="home-kicker">الوصول السريع</span><h2>أدوات العمل</h2></div></div><div class="home-tools-v53">{% if can('manage_employees') %}<a href="/employees"><b>الموظفون</b><small>إضافة وتعديل</small></a>{% endif %}<a href="/movements"><b>حركات الموظفين</b><small>متابعة السجل</small></a>{% if can('view_reports') %}<a href="/reports-missions"><b>تقارير ومأموريات</b><small>عرض وطباعة</small></a>{% endif %}{% if 'مسؤول التطبيق' in roles %}<a href="/structure"><b>الإدارة</b><small>الهيكل والحسابات</small></a>{% endif %}</div></div>
+  <section class="home-bottom-grid">
+    <div class="home-mini-card"><div class="home-section-head"><div><span class="home-kicker">آخر النشاط</span><h2>المتابعة الحالية</h2></div><a href="/movements">عرض الكل</a></div><div class="home-recent-list">{% for row in current_status_rows[:6] %}<a href="/employee/{{row.employee.id}}"><i class="{{'leave' if row.state=='إجازة' else 'assign' if row.state in ['انتداب','انتداب مفتوح'] else 'permit' if row.state=='إذن' else 'present'}}"></i><span><b>{{row.employee.full_name}}</b><small>{{row.state}} · {{row.display_branch.name if row.display_branch else '—'}}</small></span><em>{{row.to_date or row.until or '—'}}</em></a>{% else %}<div class="home-empty">لا توجد حالات تشغيلية حالية.</div>{% endfor %}</div></div>
+    <div class="home-mini-card"><div class="home-section-head"><div><span class="home-kicker">الوصول السريع</span><h2>أدوات العمل</h2></div></div><div class="home-tools">{% if can('manage_employees') %}<a href="/employees"><b>الموظفون</b><small>إضافة وتعديل</small></a>{% endif %}<a href="/movements"><b>حركات الموظفين</b><small>متابعة السجل</small></a>{% if can('view_reports') %}<a href="/reports-missions"><b>تقارير ومأموريات</b><small>عرض وطباعة</small></a>{% endif %}{% if 'مسؤول التطبيق' in roles %}<a href="/structure"><b>الإدارة</b><small>الهيكل والحسابات</small></a>{% endif %}</div></div>
   </section>
 
-  <section class="home-assistant-strip-v53"><span class="home-assistant-mark-v53"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg></span><div><b>{% if 'مسؤول التطبيق' in roles %}مدير التطبيق{% else %}المساعد الذكي{% endif %}</b><small>{% if 'مسؤول التطبيق' in roles %}تنفيذ وإدارة كاملة لأدوات النظام بعد التأكيد والتحقق الأمني.{% else %}اسأل عن الموظفين والحركات والتقارير داخل نطاق صلاحياتك.{% endif %}</small></div><button type="button" id="assistantInlineOpen">فتح المساعد</button></section>
+  <section class="home-assistant-strip"><span class="home-assistant-mark"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg></span><div><b>{% if 'مسؤول التطبيق' in roles %}مدير التطبيق{% else %}المساعد الذكي{% endif %}</b><small>{% if 'مسؤول التطبيق' in roles %}تنفيذ وإدارة كاملة لأدوات النظام بعد التأكيد والتحقق الأمني.{% else %}اسأل عن الموظفين والحركات والتقارير داخل نطاق صلاحياتك.{% endif %}</small></div><button type="button" id="assistantInlineOpen">فتح المساعد</button></section>
 </div>
 <script>
 document.addEventListener('DOMContentLoaded',()=>{

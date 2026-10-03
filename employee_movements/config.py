@@ -42,6 +42,7 @@ def load_config(overrides=None):
     cfg = {
         'APP_ENV': env,
         'SQLALCHEMY_DATABASE_URI': normalize_database_url(os.getenv('DATABASE_URL') or DEV_DATABASE_URL),
+        'DATABASE_URL_CONFIGURED': bool(os.getenv('DATABASE_URL', '').strip()),
         'SQLALCHEMY_TRACK_MODIFICATIONS': False,
         'SQLALCHEMY_ENGINE_OPTIONS': {'pool_pre_ping': True},
         'SESSION_COOKIE_HTTPONLY': True,
@@ -79,5 +80,7 @@ def validate_config(cfg):
         logger.warning('SECRET_KEY غير مضبوط: استُخدم مفتاح مؤقت للتطوير فقط (تنتهي الجلسات عند إعادة التشغيل).')
     if production and not cfg['SESSION_COOKIE_SECURE']:
         logger.warning('COOKIE_SECURE=0 في وضع الإنتاج: فعّله (COOKIE_SECURE=1) عند التشغيل عبر HTTPS.')
+    if production and not cfg.get('DATABASE_URL_CONFIGURED'):
+        raise ConfigError('DATABASE_URL مطلوب في الإنتاج لمنع فقدان قاعدة البيانات والحسابات عند إعادة النشر. استخدم PostgreSQL ثابتة.')
     if production and cfg['SQLALCHEMY_DATABASE_URI'].startswith('sqlite'):
-        logger.warning('يعمل النظام على SQLite في وضع الإنتاج؛ يُنصح باستخدام PostgreSQL.')
+        raise ConfigError('لا يُسمح باستخدام SQLite في الإنتاج. اضبط DATABASE_URL على قاعدة PostgreSQL ثابتة.')

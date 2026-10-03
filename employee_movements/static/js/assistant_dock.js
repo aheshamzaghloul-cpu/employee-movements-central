@@ -90,6 +90,8 @@
     window.__toggleAssistantDock=()=>setOpen(dock.dataset.open!=='1');
     toggle?.addEventListener('click',()=>setOpen(dock.dataset.open!=='1'));
     expand?.addEventListener('click',()=>setOpen(dock.dataset.open!=='1'));
+    document.getElementById('assistantInlineOpen')?.addEventListener('click',()=>{setOpen(true); input?.focus();});
+    window.__focusAssistant=()=>{setOpen(true); input?.focus();};
     sync();
   });
 })();

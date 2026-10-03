@@ -1,15 +1,15 @@
 {% extends 'base.html' %}
 {% block title %}تعديل المستخدم{% endblock %}
 {% block content %}
-<div class="ds-toolbar">
-  <div><h1>تعديل المستخدم</h1><p class="ds-subtitle">{{u.full_name}} — {{u.username}}</p></div>
-  <a class="ds-btn ds-btn-secondary" href="/users">رجوع</a>
+<div class="ui-toolbar">
+  <div><h1>تعديل المستخدم</h1><p class="ui-subtitle">{{u.full_name}} — {{u.username}}</p></div>
+  <a class="ui-btn ui-btn-secondary" href="/users">رجوع</a>
 </div>
 
-<div class="ds-card">
+<div class="ui-card">
   <form method="post">
     <input type="hidden" name="_csrf" value="{{csrf}}">
-    <div class="ds-grid wide">
+    <div class="ui-grid wide">
       <label>الاسم الكامل<input name="full_name" value="{{u.full_name}}" required></label>
       <label>البريد الإلكتروني<input name="email" type="email" value="{{u.email or ''}}" required autocomplete="email"></label>
       <label>الوظيفة<input name="job_title" value="{{u.job_title or ''}}" required></label>
@@ -18,41 +18,41 @@
     </div>
 
     {% if 'مسؤول التطبيق' in roles %}
-    <div class="ds-section-title ds-mt-18"><h3>أدوار تسجيل الدخول</h3></div>
-    <div class="multi-dropdown ds-multi-select" data-multi-dropdown>
+    <div class="ui-section-title ui-mt-18"><h3>أدوار تسجيل الدخول</h3></div>
+    <div class="multi-dropdown ui-multi-select" data-multi-dropdown>
       <details open>
         <summary><span>الأدوار</span><b data-multi-summary="roles">{{selected_roles|length}} محدد</b></summary>
-        <div class="multi-dropdown-menu ds-multi-select-menu">
+        <div class="multi-dropdown-menu ui-multi-select-menu">
           <div class="choice-tools">
-            <button type="button" class="ds-tone-gray ds-btn-mini" data-choice-all="roles">تحديد الكل</button>
-            <button type="button" class="ds-tone-gray ds-btn-mini" data-choice-none="roles">إلغاء الكل</button>
+            <button type="button" class="ui-tone-gray ui-btn-mini" data-choice-all="roles">تحديد الكل</button>
+            <button type="button" class="ui-tone-gray ui-btn-mini" data-choice-none="roles">إلغاء الكل</button>
           </div>
-          <div class="choice-list ds-choice-list compact ds-role-choice-grid" data-choice-group="roles" data-required="1">
+          <div class="choice-list ui-choice-list compact ui-role-choice-grid" data-choice-group="roles" data-required="1">
             {% for r in ['مسؤول التطبيق','مشرف محافظة','Manager Application Support'] %}
-            <label class="choice-item ds-choice-item ds-role-choice"><input type="checkbox" name="roles" value="{{r}}" {% if r in selected_roles %}checked{% endif %}>{{r}}</label>
+            <label class="choice-item ui-choice-item ui-role-choice"><input type="checkbox" name="roles" value="{{r}}" {% if r in selected_roles %}checked{% endif %}>{{r}}</label>
             {% endfor %}
           </div>
         </div>
       </details>
     </div>
-    <div class="ds-hint ds-mt-8">«المدخل الأول» تكليف تنظيمي على موظف موجود، ويُدار من الصفحة الرئيسية، وليس دور تسجيل دخول.</div>
+    <div class="ui-hint ui-mt-8">«المدخل الأول» تكليف تنظيمي على موظف موجود، ويُدار من الصفحة الرئيسية، وليس دور تسجيل دخول.</div>
     {% endif %}
 
-    <div class="ds-section-title ds-mt-18"><h3>نطاق العمل</h3></div>
+    <div class="ui-section-title ui-mt-18"><h3>نطاق العمل</h3></div>
     {% if 'مسؤول التطبيق' in roles %}
     <div data-role-scope="supervisor">
       <label>المحافظات للمشرف</label>
-      <div class="multi-dropdown ds-multi-select" data-multi-dropdown>
+      <div class="multi-dropdown ui-multi-select" data-multi-dropdown>
         <details>
           <summary><span>المحافظات للمشرف</span><b data-multi-summary="governorate_id">{{user_gov_ids(u)|length}} محدد</b></summary>
-          <div class="multi-dropdown-menu ds-multi-select-menu">
+          <div class="multi-dropdown-menu ui-multi-select-menu">
             <div class="choice-tools">
-              <button type="button" class="ds-tone-gray ds-btn-mini" data-choice-all="governorate_id">تحديد الكل</button>
-              <button type="button" class="ds-tone-gray ds-btn-mini" data-choice-none="governorate_id">إلغاء الكل</button>
+              <button type="button" class="ui-tone-gray ui-btn-mini" data-choice-all="governorate_id">تحديد الكل</button>
+              <button type="button" class="ui-tone-gray ui-btn-mini" data-choice-none="governorate_id">إلغاء الكل</button>
             </div>
-            <div class="choice-list ds-choice-list" data-choice-group="governorate_id" data-required-role="مشرف محافظة">
+            <div class="choice-list ui-choice-list" data-choice-group="governorate_id" data-required-role="مشرف محافظة">
               {% for g in gs %}
-              <label class="choice-item ds-choice-item"><input type="checkbox" name="governorate_id" value="{{g.id}}" {% if g.id in user_gov_ids(u) %}checked{% endif %}>{{g.name}}</label>
+              <label class="choice-item ui-choice-item"><input type="checkbox" name="governorate_id" value="{{g.id}}" {% if g.id in user_gov_ids(u) %}checked{% endif %}>{{g.name}}</label>
               {% endfor %}
             </div>
           </div>
@@ -62,25 +62,25 @@
     {% endif %}
 
     {% if 'Manager Application Support' in selected_roles %}
-    <div class="ds-hint ds-mt-8">Manager Application Support يعمل على مستوى المحافظات بعد اختيار محافظة العمل من الواجهة التشغيلية، ولا يكتسب صلاحيات إدارة الحسابات أو المحافظات من هذا الدور.</div>
+    <div class="ui-hint ui-mt-8">Manager Application Support يعمل على مستوى المحافظات بعد اختيار محافظة العمل من الواجهة التشغيلية، ولا يكتسب صلاحيات إدارة الحسابات أو المحافظات من هذا الدور.</div>
     {% endif %}
 
-    <div class="ds-section-title ds-mt-18">
-      <div><h3>الصلاحيات</h3><span class="ds-hint">يمكن لمسؤول التطبيق زيادة أو تقليل الصلاحيات.</span></div>
+    <div class="ui-section-title ui-mt-18">
+      <div><h3>الصلاحيات</h3><span class="ui-hint">يمكن لمسؤول التطبيق زيادة أو تقليل الصلاحيات.</span></div>
     </div>
-    <div class="ds-card">
-      <div class="multi-dropdown ds-multi-select" data-multi-dropdown>
+    <div class="ui-card">
+      <div class="multi-dropdown ui-multi-select" data-multi-dropdown>
         <details>
           <summary><span>الصلاحيات</span><b data-multi-summary="permissions">{{selected_permissions|length}} محدد</b></summary>
-          <div class="multi-dropdown-menu ds-multi-select-menu">
+          <div class="multi-dropdown-menu ui-multi-select-menu">
             <div class="choice-tools">
-              <button type="button" class="ds-tone-gray ds-btn-mini" data-choice-all="permissions">تحديد الكل</button>
-              <button type="button" class="ds-tone-gray ds-btn-mini" data-choice-none="permissions">إلغاء الكل</button>
+              <button type="button" class="ui-tone-gray ui-btn-mini" data-choice-all="permissions">تحديد الكل</button>
+              <button type="button" class="ui-tone-gray ui-btn-mini" data-choice-none="permissions">إلغاء الكل</button>
             </div>
-            <div class="choice-list ds-choice-list" data-choice-group="permissions">
+            <div class="choice-list ui-choice-list" data-choice-group="permissions">
               {% for key,label in PERMISSIONS.items() %}
               {% if 'مسؤول التطبيق' in roles or key in ['manage_employees','manage_movements','view_reports'] %}
-              <label class="choice-item ds-choice-item"><input type="checkbox" name="permissions" value="{{key}}" {% if key in selected_permissions %}checked{% endif %}>{{label}}</label>
+              <label class="choice-item ui-choice-item"><input type="checkbox" name="permissions" value="{{key}}" {% if key in selected_permissions %}checked{% endif %}>{{label}}</label>
               {% endif %}
               {% endfor %}
             </div>

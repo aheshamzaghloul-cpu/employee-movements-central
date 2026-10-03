@@ -33,10 +33,20 @@ def test_production_rejects_placeholder_secret(monkeypatch):
         load_config()
 
 
-def test_production_accepts_strong_secret(monkeypatch):
+def test_production_requires_persistent_database(monkeypatch):
     monkeypatch.setenv('APP_ENV', 'production')
     monkeypatch.setenv('SECRET_KEY', 'a' * 48)
+    monkeypatch.delenv('DATABASE_URL', raising=False)
+    with pytest.raises(ConfigError):
+        load_config()
+
+
+def test_production_accepts_strong_secret_and_postgres(monkeypatch):
+    monkeypatch.setenv('APP_ENV', 'production')
+    monkeypatch.setenv('SECRET_KEY', 'a' * 48)
+    monkeypatch.setenv('DATABASE_URL', 'postgresql://u:p@h:5432/db')
     assert load_config()['SECRET_KEY'] == 'a' * 48
+    assert load_config()['SQLALCHEMY_DATABASE_URI'].startswith('postgresql+psycopg2://')
 
 
 def test_development_generates_ephemeral_secret(monkeypatch):

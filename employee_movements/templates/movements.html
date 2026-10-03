@@ -2,24 +2,24 @@
 {% block title %}حركات الموظفين{% endblock %}
 {% block content %}
 {% if scope_required and not scope_selected %}
-<div class="scope-empty-state v55-scope-state"><div class="scope-empty-icon"><svg class="ds-icon ds-icon-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18"/></svg></div><span class="home-kicker">اختيار نطاق العمل</span><h1>اختر المحافظة أولًا</h1><p>حدد محافظة العمل قبل تسجيل أو متابعة الحركات.</p></div>
+<div class="scope-empty-state ui-scope-state"><div class="scope-empty-icon"><svg class="ui-icon ui-icon-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18"/></svg></div><span class="home-kicker">اختيار نطاق العمل</span><h1>اختر المحافظة أولًا</h1><p>حدد محافظة العمل قبل تسجيل أو متابعة الحركات.</p></div>
 {% else %}
-<div class="v55-page movement-workspace">
-  <header class="v55-page-head">
-    <div><span class="v55-eyebrow">التشغيل اليومي</span><h1>حركات الموظفين</h1><p>تسجيل الحركة، متابعة الساري، ثم مراجعة السجل — في شاشة واحدة.</p></div>
-    <div class="v55-head-stats"><span><b>{{ current_rows|length }}</b> سارية الآن</span><span><b>{{ followup_rows|length }}</b> تحتاج متابعة</span><span><b>{{ rows|length }}</b> في السجل</span></div>
+<div class="ui-page movement-workspace">
+  <header class="ui-page-head">
+    <div><span class="ui-eyebrow">التشغيل اليومي</span><h1>حركات الموظفين</h1><p>تسجيل الحركة، متابعة الساري، ثم مراجعة السجل — في شاشة واحدة.</p></div>
+    <div class="ui-head-stats"><span><b>{{ current_rows|length }}</b> سارية الآن</span><span><b>{{ followup_rows|length }}</b> تحتاج متابعة</span><span><b>{{ rows|length }}</b> في السجل</span></div>
   </header>
 
   {% if can('manage_movements') %}
-  <section class="v55-work-card movement-create-card" id="movement-create">
-    <div class="v55-card-head"><div><span class="v55-eyebrow">تنفيذ مباشر</span><h2>تسجيل حركة جديدة</h2><p>اختر الموظف ثم نوع الحركة، وستتغير الحقول تلقائيًا حسب الاختيار.</p></div><span class="v55-card-icon">＋</span></div>
-    <form method="post" action="/movements/create" class="v55-form" id="movementCreateForm">
+  <section class="ui-work-card movement-create-card" id="movement-create">
+    <div class="ui-card-head"><div><span class="ui-eyebrow">تنفيذ مباشر</span><h2>تسجيل حركة جديدة</h2><p>اختر الموظف ثم نوع الحركة، وستتغير الحقول تلقائيًا حسب الاختيار.</p></div><span class="ui-card-icon">＋</span></div>
+    <form method="post" action="/movements/create" class="ui-form" id="movementCreateForm">
       <input type="hidden" name="_csrf" value="{{csrf}}">
       <input type="hidden" name="return_to" value="/movements#movement-current">
-      <div class="v55-form-row movement-create-top">
+      <div class="ui-form-row movement-create-top">
         <label>المحافظة<select id="movementCreateGovernorate"><option value="">اختر المحافظة</option>{% for g in movement_governorates %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
         <label>الفرع<select id="movementCreateBranch" disabled><option value="">اختر المحافظة أولًا</option></select></label>
-        <label class="v55-grow">الموظف<select id="movementCreateEmployee" name="employee_id" required disabled><option value="">اختر الفرع أولًا</option></select></label>
+        <label class="ui-grow">الموظف<select id="movementCreateEmployee" name="employee_id" required disabled><option value="">اختر الفرع أولًا</option></select></label>
         <label>نوع الحركة<select id="movementCreateType" name="movement_type" required>{% for t in movement_types %}<option value="{{t}}">{{t}}</option>{% endfor %}</select></label>
       </div>
 
@@ -33,21 +33,21 @@
         <label>الجهة المنتدب إليها<select name="destination_branch_id" id="movementDestinationBranch"><option value="">اختر الفرع</option>{% for b in bs %}<option value="{{b.id}}">{{b.name}} — {{b.governorate.name if b.governorate else ''}}</option>{% endfor %}</select></label>
         <label>من<input type="date" name="assignment_from_date"></label>
         <label>إلى<input type="date" name="assignment_to_date" id="assignmentToDate"></label>
-        <label class="v55-check"><input type="checkbox" name="open_assignment" value="1" id="openAssignment"> انتداب مفتوح بلا تاريخ نهاية</label>
+        <label class="ui-check"><input type="checkbox" name="open_assignment" value="1" id="openAssignment"> انتداب مفتوح بلا تاريخ نهاية</label>
       </div>
 
       <div class="movement-type-panel" id="movementPermissionPanel" hidden>
         <label>تاريخ الإذن<input type="date" name="permission_date"></label>
       </div>
 
-      <div class="v55-form-actions"><button class="v55-primary-btn" type="submit">تسجيل الحركة الآن</button><span>سيتم رفض أي حركة متعارضة تلقائيًا قبل الحفظ.</span></div>
+      <div class="ui-form-actions"><button class="ui-primary-btn" type="submit">تسجيل الحركة الآن</button><span>سيتم رفض أي حركة متعارضة تلقائيًا قبل الحفظ.</span></div>
     </form>
   </section>
   {% endif %}
 
-  <section class="v55-work-card movement-filter-card">
-    <div class="v55-card-head compact"><div><span class="v55-eyebrow">بحث ومتابعة</span><h2>تصفية سجل الحركات</h2></div><button type="button" class="v55-link-btn" id="movementFilterReset">مسح</button></div>
-    <div class="v55-filter-grid">
+  <section class="ui-work-card movement-filter-card">
+    <div class="ui-card-head compact"><div><span class="ui-eyebrow">بحث ومتابعة</span><h2>تصفية سجل الحركات</h2></div><button type="button" class="ui-link-btn" id="movementFilterReset">مسح</button></div>
+    <div class="ui-filter-grid">
       <label>المحافظة<select id="movementGovernorateFilter"><option value="">كل المحافظات</option>{% for g in movement_filter_governorates %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
       <label>الفرع<select id="movementBranchFilter" disabled><option value="">اختر المحافظة أولًا</option></select></label>
       <label>الموظف<select id="movementEmployeeFilter" disabled><option value="">اختر الفرع أولًا</option></select></label>
@@ -56,53 +56,53 @@
     </div>
   </section>
 
-  <div class="v55-section-grid">
-    <section class="v55-work-card movement-list-card" id="movement-current">
-      <div class="v55-card-head compact"><div><span class="v55-eyebrow">تشغيل الآن</span><h2>الحركات السارية</h2><p>كل ما يؤثر على حالة الموظف اليوم.</p></div><b class="v55-counter">{{ current_rows|length }}</b></div>
-      <div class="v55-list" id="movementCurrentList">
+  <div class="ui-section-grid">
+    <section class="ui-work-card movement-list-card" id="movement-current">
+      <div class="ui-card-head compact"><div><span class="ui-eyebrow">تشغيل الآن</span><h2>الحركات السارية</h2><p>كل ما يؤثر على حالة الموظف اليوم.</p></div><b class="ui-counter">{{ current_rows|length }}</b></div>
+      <div class="ui-list" id="movementCurrentList">
       {% for m in current_rows %}
-        <article class="v55-movement-item" data-movement-filter-row data-employee-id="{{m.employee.id}}" data-branch-id="{{m.employee.branch_id}}" data-governorate-id="{{m.employee.branch.governorate_id if m.employee.branch else ''}}" data-name="{{m.employee.full_name|lower}}" data-code="{{(m.employee.job_code or '')|lower}}" data-type="{{m.movement_type}}">
-          <div class="v55-movement-main"><a href="/employee/{{m.employee.id}}"><strong>{{m.employee.full_name}}</strong></a><small>{{m.employee.job_code or 'بدون كود'}} · {{m.employee.branch.name if m.employee.branch else '—'}}</small></div>
-          <span class="v55-status-chip {{'leave' if m.movement_type=='إجازة' else 'assignment' if m.movement_type=='انتداب' else 'permission'}}">{{m.movement_type}}</span>
-          <div class="v55-movement-detail">
+        <article class="ui-movement-item" data-movement-filter-row data-employee-id="{{m.employee.id}}" data-branch-id="{{m.employee.branch_id}}" data-governorate-id="{{m.employee.branch.governorate_id if m.employee.branch else ''}}" data-name="{{m.employee.full_name|lower}}" data-code="{{(m.employee.job_code or '')|lower}}" data-type="{{m.movement_type}}">
+          <div class="ui-movement-main"><a href="/employee/{{m.employee.id}}"><strong>{{m.employee.full_name}}</strong></a><small>{{m.employee.job_code or 'بدون كود'}} · {{m.employee.branch.name if m.employee.branch else '—'}}</small></div>
+          <span class="ui-status-chip {{'leave' if m.movement_type=='إجازة' else 'assignment' if m.movement_type=='انتداب' else 'permission'}}">{{m.movement_type}}</span>
+          <div class="ui-movement-detail">
             {% if m.movement_type=='إجازة' %}{{m.leave_type or 'إجازة'}} · {{m.from_date or '—'}} → {{m.to_date or '—'}}
             {% elif m.movement_type=='انتداب' %}منتدب إلى: <b>{{m.destination.name if m.destination else '—'}}</b> · {{m.from_date or '—'}}{% if m.to_date %} → {{m.to_date}}{% else %} · <b>مفتوح</b>{% endif %}
             {% else %}إذن يوم {{m.permission_date or '—'}}{% endif %}
           </div>
-          <div class="v55-item-actions"><a href="/movements/{{m.id}}/edit">تعديل</a><a href="/movements/{{m.id}}/history">السجل</a></div>
+          <div class="ui-item-actions"><a href="/movements/{{m.id}}/edit">تعديل</a><a href="/movements/{{m.id}}/history">السجل</a></div>
         </article>
-      {% else %}<div class="v55-empty">لا توجد حركات سارية اليوم.</div>{% endfor %}
+      {% else %}<div class="ui-empty">لا توجد حركات سارية اليوم.</div>{% endfor %}
       </div>
     </section>
 
-    <section class="v55-work-card movement-list-card" id="movement-followup">
-      <div class="v55-card-head compact"><div><span class="v55-eyebrow">تنبيه</span><h2>تحتاج متابعة</h2><p>الحركات التي اقتربت من نهايتها.</p></div><b class="v55-counter warm">{{ followup_rows|length }}</b></div>
-      <div class="v55-list" id="movementFollowupList">
+    <section class="ui-work-card movement-list-card" id="movement-followup">
+      <div class="ui-card-head compact"><div><span class="ui-eyebrow">تنبيه</span><h2>تحتاج متابعة</h2><p>الحركات التي اقتربت من نهايتها.</p></div><b class="ui-counter warm">{{ followup_rows|length }}</b></div>
+      <div class="ui-list" id="movementFollowupList">
       {% for m in followup_rows %}
-        <article class="v55-movement-item" data-movement-filter-row data-employee-id="{{m.employee.id}}" data-branch-id="{{m.employee.branch_id}}" data-governorate-id="{{m.employee.branch.governorate_id if m.employee.branch else ''}}" data-name="{{m.employee.full_name|lower}}" data-code="{{(m.employee.job_code or '')|lower}}" data-type="{{m.movement_type}}">
-          <div class="v55-movement-main"><a href="/employee/{{m.employee.id}}"><strong>{{m.employee.full_name}}</strong></a><small>{{m.employee.branch.name if m.employee.branch else '—'}}</small></div>
-          <span class="v55-status-chip assignment">{{m.movement_type}}</span>
-          <div class="v55-movement-detail">ينتهي في <b>{{m.to_date}}</b>{% if m.movement_type=='انتداب' and m.destination %} · إلى {{m.destination.name}}{% endif %}</div>
-          <div class="v55-item-actions"><a href="/movements/{{m.id}}/edit">تعديل</a><a href="/movements/{{m.id}}/assignment-form">المأمورية</a></div>
+        <article class="ui-movement-item" data-movement-filter-row data-employee-id="{{m.employee.id}}" data-branch-id="{{m.employee.branch_id}}" data-governorate-id="{{m.employee.branch.governorate_id if m.employee.branch else ''}}" data-name="{{m.employee.full_name|lower}}" data-code="{{(m.employee.job_code or '')|lower}}" data-type="{{m.movement_type}}">
+          <div class="ui-movement-main"><a href="/employee/{{m.employee.id}}"><strong>{{m.employee.full_name}}</strong></a><small>{{m.employee.branch.name if m.employee.branch else '—'}}</small></div>
+          <span class="ui-status-chip assignment">{{m.movement_type}}</span>
+          <div class="ui-movement-detail">ينتهي في <b>{{m.to_date}}</b>{% if m.movement_type=='انتداب' and m.destination %} · إلى {{m.destination.name}}{% endif %}</div>
+          <div class="ui-item-actions"><a href="/movements/{{m.id}}/edit">تعديل</a><a href="/movements/{{m.id}}/assignment-form">المأمورية</a></div>
         </article>
-      {% else %}<div class="v55-empty">لا توجد حركات تحتاج متابعة قريبًا.</div>{% endfor %}
+      {% else %}<div class="ui-empty">لا توجد حركات تحتاج متابعة قريبًا.</div>{% endfor %}
       </div>
     </section>
   </div>
 
-  <section class="v55-work-card movement-log-card" id="movement-log">
-    <div class="v55-card-head compact"><div><span class="v55-eyebrow">السجل</span><h2>سجل الحركات الكامل</h2><p>عرض مختصر، مع فتح التفاصيل والتاريخ عند الحاجة.</p></div><b class="v55-counter">{{ rows|length }}</b></div>
-    <div class="v55-table-wrap"><table class="v55-table"><thead><tr><th>الموظف</th><th>الحركة</th><th>من</th><th>إلى / التاريخ</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>
+  <section class="ui-work-card movement-log-card" id="movement-log">
+    <div class="ui-card-head compact"><div><span class="ui-eyebrow">السجل</span><h2>سجل الحركات الكامل</h2><p>عرض مختصر، مع فتح التفاصيل والتاريخ عند الحاجة.</p></div><b class="ui-counter">{{ rows|length }}</b></div>
+    <div class="ui-table-wrap"><table class="ui-table"><thead><tr><th>الموظف</th><th>الحركة</th><th>من</th><th>إلى / التاريخ</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>
     {% for m in rows %}
       <tr data-movement-filter-row data-employee-id="{{m.employee.id}}" data-branch-id="{{m.employee.branch_id}}" data-governorate-id="{{m.employee.branch.governorate_id if m.employee.branch else ''}}" data-name="{{m.employee.full_name|lower}}" data-code="{{(m.employee.job_code or '')|lower}}" data-type="{{m.movement_type}}">
         <td><a href="/employee/{{m.employee.id}}"><b>{{m.employee.full_name}}</b></a><small>{{m.employee.job_code or '—'}} · {{m.employee.branch.name if m.employee.branch else '—'}}</small></td>
-        <td><span class="v55-status-chip {{'leave' if m.movement_type=='إجازة' else 'assignment' if m.movement_type=='انتداب' else 'permission'}}">{{m.movement_type}}</span></td>
+        <td><span class="ui-status-chip {{'leave' if m.movement_type=='إجازة' else 'assignment' if m.movement_type=='انتداب' else 'permission'}}">{{m.movement_type}}</span></td>
         <td>{{m.from_date or '—'}}</td>
-        <td>{% if m.movement_type=='إذن' %}{{m.permission_date or '—'}}{% elif m.to_date %}{{m.to_date}}{% else %}<span class="v55-inline-state">مفتوح</span>{% endif %}</td>
+        <td>{% if m.movement_type=='إذن' %}{{m.permission_date or '—'}}{% elif m.to_date %}{{m.to_date}}{% else %}<span class="ui-inline-state">مفتوح</span>{% endif %}</td>
         <td>{{m.status}}</td>
-        <td><div class="v55-row-actions"><a href="/movements/{{m.id}}/edit">تعديل</a><a href="/movements/{{m.id}}/history">التاريخ</a>{% if m.movement_type=='انتداب' %}<a href="/reports/assignments/print-mission/{{m.id}}">مأمورية</a>{% endif %}</div></td>
+        <td><div class="ui-row-actions"><a href="/movements/{{m.id}}/edit">تعديل</a><a href="/movements/{{m.id}}/history">التاريخ</a>{% if m.movement_type=='انتداب' %}<a href="/reports/assignments/print-mission/{{m.id}}">مأمورية</a>{% endif %}</div></td>
       </tr>
-    {% else %}<tr><td colspan="6" class="v55-empty">لا توجد حركات مسجلة.</td></tr>{% endfor %}
+    {% else %}<tr><td colspan="6" class="ui-empty">لا توجد حركات مسجلة.</td></tr>{% endfor %}
     </tbody></table></div>
   </section>
 </div>

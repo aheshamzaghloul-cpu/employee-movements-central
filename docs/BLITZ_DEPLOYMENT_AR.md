@@ -11,6 +11,8 @@
 APP_ENV=production
 SECRET_KEY=<قيمة عشوائية طويلة>
 DATABASE_URL=<رابط PostgreSQL الخاص ببيئة الإنتاج>
+
+> **مهم:** في الإنتاج `DATABASE_URL` إلزامي ويجب أن تشير إلى PostgreSQL ثابتة. لا يستخدم التطبيق SQLite في الإنتاج حتى لا تضيع الحسابات والبيانات عند إعادة النشر.
 GEMINI_API_KEY=<مفتاح Google AI Studio>
 GEMINI_MODEL=gemini-3.8-flash
 COOKIE_SECURE=1

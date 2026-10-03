@@ -1,51 +1,51 @@
 {% extends 'base.html' %}
 {% block title %}بطاقة الموظف — {{e.full_name}}{% endblock %}
 {% block content %}
-<div class="ds-toolbar">
-  <div class="ds-employee-head employee-head">
-    <div><h1>{{e.full_name}} {% if e.resignation_date %}<span class="employee-deleted-badge">مستقيل</span>{% endif %}</h1><p class="ds-subtitle">الكود الوظيفي: <b>{{e.job_code or "—"}}</b> — محافظة {{current_branch.governorate.name if current_branch and current_branch.governorate else (e.branch.governorate.name if e.branch and e.branch.governorate else '—')}} — <b>الفرع الحالي: {{current_branch.name if current_branch else '—'}}</b>{% if current_assignment and current_assignment.to_date is none %} — <span class="ds-badge"><svg class="ds-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/></svg> انتداب مفتوح</span>{% endif %}<br><small>فرع التعيين الأساسي: {{e.branch.name if e.branch else '—'}}{% if e.resignation_date %} — تاريخ الاستقالة: <b>{{e.resignation_date}}</b>{% endif %}{% if e.rehire_date %} — تاريخ إعادة التعيين: <b>{{e.rehire_date}}</b>{% endif %}</small></p></div>
+<div class="ui-toolbar">
+  <div class="ui-employee-head employee-head">
+    <div><h1>{{e.full_name}} {% if e.resignation_date %}<span class="employee-deleted-badge">مستقيل</span>{% endif %}</h1><p class="ui-subtitle">الكود الوظيفي: <b>{{e.job_code or "—"}}</b> — محافظة {{current_branch.governorate.name if current_branch and current_branch.governorate else (e.branch.governorate.name if e.branch and e.branch.governorate else '—')}} — <b>الفرع الحالي: {{current_branch.name if current_branch else '—'}}</b>{% if current_assignment and current_assignment.to_date is none %} — <span class="ui-badge"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/></svg> انتداب مفتوح</span>{% endif %}<br><small>فرع التعيين الأساسي: {{e.branch.name if e.branch else '—'}}{% if e.resignation_date %} — تاريخ الاستقالة: <b>{{e.resignation_date}}</b>{% endif %}{% if e.rehire_date %} — تاريخ إعادة التعيين: <b>{{e.rehire_date}}</b>{% endif %}</small></p></div>
   </div>
-  <div class="ds-actions">{% if not e.deleted_at and can_manage_employee(e) and can('manage_movements') %}<a class="ds-btn ds-tone-teal" href="/movements?employee_id={{e.id}}">+ تسجيل حركة للموظف</a>{% endif %}{% if not e.deleted_at and can_manage_employee(e) and can('manage_employees') %}<a class="ds-btn ds-btn-secondary" href="/employees/{{e.id}}/edit">تعديل البيانات</a>{% endif %}<a class="ds-btn ds-btn-secondary" href="/employees">عودة للموظفين</a></div>
+  <div class="ui-actions">{% if not e.deleted_at and can_manage_employee(e) and can('manage_movements') %}<a class="ui-btn ui-tone-teal" href="/movements?employee_id={{e.id}}">+ تسجيل حركة للموظف</a>{% endif %}{% if not e.deleted_at and can_manage_employee(e) and can('manage_employees') %}<a class="ui-btn ui-btn-secondary" href="/employees/{{e.id}}/edit">تعديل البيانات</a>{% endif %}<a class="ui-btn ui-btn-secondary" href="/employees">عودة للموظفين</a></div>
 </div>
 
-<div class="ds-card ds-employee-profile employee-profile">
-  <div class="ds-grid wide">
-    <div><b>الوظيفة</b><div class="ds-hint">{{e.job_title or 'لا توجد بيانات'}}</div></div>
-    <div><b>كود الموظف</b><div class="ds-hint">{{e.job_code or 'لا توجد بيانات'}}</div></div>
-    <div><b>تاريخ التعيين</b><div class="ds-hint">{{e.hire_date or 'لا توجد بيانات'}}</div></div>
-    <div><b>هاتف الشركة</b><div class="ds-hint">{{e.company_phone or 'لا توجد بيانات'}}</div></div>
-    <div><b>الهاتف الشخصي</b><div class="ds-hint">{{e.personal_phone or 'لا توجد بيانات'}}</div></div>
+<div class="ui-card ui-employee-profile employee-profile">
+  <div class="ui-grid wide">
+    <div><b>الوظيفة</b><div class="ui-hint">{{e.job_title or 'لا توجد بيانات'}}</div></div>
+    <div><b>كود الموظف</b><div class="ui-hint">{{e.job_code or 'لا توجد بيانات'}}</div></div>
+    <div><b>تاريخ التعيين</b><div class="ui-hint">{{e.hire_date or 'لا توجد بيانات'}}</div></div>
+    <div><b>هاتف الشركة</b><div class="ui-hint">{{e.company_phone or 'لا توجد بيانات'}}</div></div>
+    <div><b>الهاتف الشخصي</b><div class="ui-hint">{{e.personal_phone or 'لا توجد بيانات'}}</div></div>
   </div>
 </div>
 
-<section class="ds-card-grid ds-employee-last-cards employee-last-cards">
+<section class="ui-card-grid ui-employee-last-cards employee-last-cards">
 {% for k,t in [('إجازة','آخر إجازة'),('انتداب','آخر انتداب'),('إذن','آخر إذن')] %}
-  <div class="ds-card ds-employee-last-card last-card last-{{loop.index}}">
-    <div class="ds-employee-last-head last-card-head"><h3>{{t}}</h3><span class="ds-badge last-badge">{{k}}</span></div>
+  <div class="ui-card ui-employee-last-card last-card last-{{loop.index}}">
+    <div class="ui-employee-last-head last-card-head"><h3>{{t}}</h3><span class="ui-badge last-badge">{{k}}</span></div>
     {% if last[k] %}
       {% set m=last[k] %}
-      <div class="ds-employee-last-main last-main">{% if k=='إذن' %}{{m.permission_date}}{% else %}{{m.from_date}} <span>→</span> {{m.to_date}}{% endif %}</div>
-      {% if m.leave_type %}<div class="ds-hint">نوع الإجازة: <b>{{m.leave_type}}</b></div>{% endif %}
-      {% if m.destination %}<div class="ds-hint">الفرع المنتدب إليه: <b>{{m.destination.name}}</b></div>{% endif %}
-      <div class="ds-employee-last-footer last-footer"><span class="ds-tag">{{m.status}}</span><a href="/movements/{{m.id}}/history">فتح تفاصيل الحركة</a></div>
-    {% else %}<p class="ds-hint">لا توجد بيانات</p>{% endif %}
+      <div class="ui-employee-last-main last-main">{% if k=='إذن' %}{{m.permission_date}}{% else %}{{m.from_date}} <span>→</span> {{m.to_date}}{% endif %}</div>
+      {% if m.leave_type %}<div class="ui-hint">نوع الإجازة: <b>{{m.leave_type}}</b></div>{% endif %}
+      {% if m.destination %}<div class="ui-hint">الفرع المنتدب إليه: <b>{{m.destination.name}}</b></div>{% endif %}
+      <div class="ui-employee-last-footer last-footer"><span class="ui-tag">{{m.status}}</span><a href="/movements/{{m.id}}/history">فتح تفاصيل الحركة</a></div>
+    {% else %}<p class="ui-hint">لا توجد بيانات</p>{% endif %}
   </div>
 {% endfor %}
 </section>
 
-<div class="ds-card ds-table-wrap ds-employee-history employee-history">
-  <div class="ds-section-title">
-    <div><h3>سجل حركات الموظف</h3><div class="ds-hint">الأحدث أولًا — اختر نوع الحركة لتصفية السجل.</div></div>
-    {% if not e.deleted_at and can_manage_employee(e) and can('manage_movements') %}<a class="ds-btn ds-tone-teal ds-btn-mini" href="/movements?employee_id={{e.id}}">+ حركة جديدة</a>{% endif %}
+<div class="ui-card ui-table-wrap ui-employee-history employee-history">
+  <div class="ui-section-title">
+    <div><h3>سجل حركات الموظف</h3><div class="ui-hint">الأحدث أولًا — اختر نوع الحركة لتصفية السجل.</div></div>
+    {% if not e.deleted_at and can_manage_employee(e) and can('manage_movements') %}<a class="ui-btn ui-tone-teal ui-btn-mini" href="/movements?employee_id={{e.id}}">+ حركة جديدة</a>{% endif %}
   </div>
-  <div class="ds-employee-history-tools history-tools">
-    <div class="ds-filter-group history-filters" role="group" aria-label="تصفية الحركات">
-      <button type="button" class="ds-btn ds-filter-pill is-active" data-history-filter="all">الكل <span>{{ms|length}}</span></button>
-      <button type="button" class="ds-btn ds-filter-pill" data-history-filter="إجازة">إجازات</button>
-      <button type="button" class="ds-btn ds-filter-pill" data-history-filter="انتداب">انتدابات</button>
-      <button type="button" class="ds-btn ds-filter-pill" data-history-filter="إذن">أذون</button>
+  <div class="ui-employee-history-tools history-tools">
+    <div class="ui-filter-group history-filters" role="group" aria-label="تصفية الحركات">
+      <button type="button" class="ui-btn ui-filter-pill is-active" data-history-filter="all">الكل <span>{{ms|length}}</span></button>
+      <button type="button" class="ui-btn ui-filter-pill" data-history-filter="إجازة">إجازات</button>
+      <button type="button" class="ui-btn ui-filter-pill" data-history-filter="انتداب">انتدابات</button>
+      <button type="button" class="ui-btn ui-filter-pill" data-history-filter="إذن">أذون</button>
     </div>
-    <input id="employee_history_search" class="ds-search-input history-search" type="search" placeholder="بحث داخل سجل الحركات...">
+    <input id="employee_history_search" class="ui-search-input history-search" type="search" placeholder="بحث داخل سجل الحركات...">
   </div>
   <table id="employee_history_table">
     <thead><tr><th>التاريخ</th><th>نوع الحركة</th><th>التفصيل</th><th>من</th><th>إلى</th><th>الحالة</th><th></th></tr></thead>
@@ -56,12 +56,12 @@
         <td><span class="movement-chip {{ 'leave' if m.movement_type=='إجازة' else 'assign' if m.movement_type=='انتداب' else 'permit' }}">{{m.movement_type}}</span></td>
         <td>{% if m.leave_type %}{{m.leave_type}}{% elif m.destination %}إلى {{m.destination.name}}{% else %}إذن{% endif %}</td>
         <td>{{m.from_date or '-'}}</td><td>{{m.to_date or '-'}}</td>
-        <td><span class="ds-tag">{{m.status}}</span></td>
+        <td><span class="ui-tag">{{m.status}}</span></td>
         <td><a class="table-link" href="/movements/{{m.id}}/edit">فتح الحركة</a></td>
       </tr>
-    {% else %}<tr><td colspan="7" class="ds-empty">لا توجد حركات مسجلة لهذا الموظف.</td></tr>{% endfor %}
+    {% else %}<tr><td colspan="7" class="ui-empty">لا توجد حركات مسجلة لهذا الموظف.</td></tr>{% endfor %}
     </tbody>
   </table>
-  <div id="history_no_match" class="ds-empty" hidden>لا توجد حركات مطابقة للبحث أو التصفية.</div>
+  <div id="history_no_match" class="ui-empty" hidden>لا توجد حركات مطابقة للبحث أو التصفية.</div>
 </div>
 {% endblock %}

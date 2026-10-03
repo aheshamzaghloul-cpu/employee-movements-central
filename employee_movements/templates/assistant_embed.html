@@ -28,9 +28,28 @@
   {% if can('manage_employees') %}<button type="button" data-prompt="أضف موظف جديد">إضافة موظف</button>{% endif %}
   {% if 'مسؤول التطبيق' in roles %}<button type="button" data-prompt="افتح إدارة المستخدمين">إدارة الحسابات</button>{% endif %}
 </div>
-<form method="post" action="/assistant?embed=1" class="assistant-chat-input"><input type="hidden" name="_csrf" value="{{csrf}}"><textarea name="prompt" rows="1" placeholder="اكتب طلبك هنا... مثال: أريد إدخال إجازة لأحمد">{{'' if result else prompt}}</textarea><button type="submit" title="إرسال" aria-label="إرسال"><svg class="ds-icon" viewBox="0 0 24 24"><path d="m4 4 16 8-16 8 3-8-3-8Z"/><path d="M7 12h13"/></svg></button></form>
+<form method="post" action="/assistant?embed=1" class="assistant-chat-input"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="workspace_context" value=""><textarea name="prompt" rows="1" placeholder="اكتب طلبك هنا... مثال: أريد إدخال إجازة لأحمد">{{'' if result else prompt}}</textarea><button type="submit" title="إرسال" aria-label="إرسال"><svg class="ds-icon" viewBox="0 0 24 24"><path d="m4 4 16 8-16 8 3-8-3-8Z"/><path d="M7 12h13"/></svg></button></form>
 </section>
 <script>
+function collectWorkspaceContext(){
+  try{
+    const p=(window.parent&&window.parent!==window)?window.parent:window;
+    const d=p.document;
+    const path=p.location?.pathname||'/';
+    const hash=p.location?.hash||'';
+    const title=d?.title||'';
+    const heading=(d?.querySelector('h1')?.innerText||'').trim().slice(0,160);
+    const ctx={path,hash,title,heading,selected:{}};
+    const m=path.match(/\/(?:employee|employees\/)?(\d+)(?:\/|$)/); if(m)ctx.selected.employee_id=Number(m[1]);
+    const mm=path.match(/\/(?:movement|movements)\/(\d+)/); if(mm)ctx.selected.movement_id=Number(mm[1]);
+    const b=p.document?.querySelector('select[name="governorate_id"]'); if(b&&b.value)ctx.scope_governorate_id=Number(b.value);
+    const active=p.document?.querySelector('[data-assistant-context-active="1"]');
+    if(active){
+      for(const k of ['employee','movement','branch','governorate','delegation','user']){const v=active.getAttribute('data-'+k+'-id');if(v)ctx.selected[k+'_id']=Number(v);}
+    }
+    return JSON.stringify(ctx);
+  }catch(e){return '{}';}
+}
 (function(){
   const shell=document.querySelector('.assistant-chat-shell');
   let body=document.getElementById('assistantChatBody');
@@ -38,7 +57,8 @@
   let ta=form?.querySelector('textarea');
   let send=form?.querySelector('button[type=submit]');
   const csrf=form?.querySelector('input[name="_csrf"]')?.value||'';
-  function autoGrow(){if(!ta)return;ta.style.height='auto';ta.style.height=Math.min(150,Math.max(54,ta.scrollHeight))+'px';}
+  function setWorkspaceContext(){const i=document.querySelector('input[name="workspace_context"]');if(i)i.value=collectWorkspaceContext();}
+function autoGrow(){if(!ta)return;ta.style.height='auto';ta.style.height=Math.min(150,Math.max(54,ta.scrollHeight))+'px';}
   function scrollBottom(){if(body) requestAnimationFrame(()=>{body.scrollTop=body.scrollHeight;});}
   function bindSuggestions(){
     document.querySelectorAll('[data-prompt]').forEach(b=>b.onclick=()=>{if(ta){ta.value=b.dataset.prompt||'';autoGrow();ta.focus();}});
@@ -48,7 +68,7 @@
     body=document.getElementById('assistantChatBody'); form=document.querySelector('.assistant-chat-input'); ta=form?.querySelector('textarea'); send=form?.querySelector('button[type=submit]');
     bindSuggestions(); autoGrow(); scrollBottom();
     if(ta){ta.oninput=autoGrow;ta.onkeydown=(e)=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();if(!sending)submitFast();}};}
-    form?.addEventListener('submit',e=>{e.preventDefault();if(!sending)submitFast();});
+    setWorkspaceContext();form?.addEventListener('submit',e=>{e.preventDefault();if(!sending)submitFast();});
   }
   let sending=false;
   async function submitFast(){

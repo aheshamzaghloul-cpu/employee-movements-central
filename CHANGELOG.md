@@ -1,3 +1,30 @@
+# v59.0.0
+- تحويل المساعد إلى Application Agent يعتمد على أدوات محلية حقيقية بدل قائمة intents مغلقة فقط.
+- إضافة سياق مساحة العمل الحالية: الصفحة، المسار، السجل المحدد، المحافظة المختارة والدور النشط.
+- إضافة أدوات بحث الموظفين والفروع والمحافظات والحركات وقراءة ملف الموظف.
+- إضافة أداة تجهيز العمليات الكتابية عبر طبقة الصلاحيات المحلية مع معاينة وتأكيد قبل التنفيذ.
+- إضافة الانتقال المباشر للصفحات من المحادثة.
+- استمرار دعم المحادثة متعددة الجولات مع تاريخ الخادم، مع تمرير سياق الصفحة في كل رسالة.
+- استخدام Function Calling في Gemini مع بقاء التنفيذ والتحقق داخل التطبيق.
+
+## v58.0.0 — Unified professional redesign
+
+- Replaced the multi-layer legacy visual stack with one unified application design system in `static/css/app.css`.
+- Removed legacy `professional-v55.css`, `professional-v56.css`, and `professional-v57.css` from the application.
+- Standardized shell, sidebar, topbar, cards, forms, tables, statuses, reports, administration, employees, movements, delegations, and assistant UI.
+- Added strict overflow-safe layout rules and responsive breakpoints so wide tables scroll inside their containers instead of expanding the page.
+- Preserved existing functional class names while removing their legacy visual styling dependencies.
+
+
+## v57.0.0 — توحيد الواجهة وإصلاح خروج المحتوى عن الشاشة
+
+- إضافة طبقة تصميم موحدة نهائية `professional-v57.css`.
+- توحيد البطاقات والنماذج والجداول والأزرار في الصفحات التشغيلية والإدارية.
+- إصلاح تمدد شبكات CSS بسبب `min-width:auto` ووضع حواجز عرض للـviewport.
+- توحيد الاستجابة عند 1180/900/640px.
+- وضع الجداول العريضة داخل تمرير داخلي بدل خروج الصفحة عن الشاشة.
+- استعادة تنسيق مركز الإنجاز السريع وإصلاح إظهاره بعد إزالة `hidden`.
+- ضبط الـtopbar والـsidebar والـmain على قياسات مرنة.
 ### v56.0.0
 - إصلاح طبقة التصميم لجميع صفحات v55 التي كانت تستخدم أسماء CSS غير معرّفة.
 - توحيد البطاقات والجداول والحقول والفواصل والألوان والأحجام للعرض والتنفيذ.
@@ -116,3 +143,11 @@ OneDrive ليس قاعدة البيانات ولا يشغل التطبيق. يم
 - يستمع التطبيق على المتغير `PORT` إن وُجد، ويوفّر `/healthz` لفحص الصحة.
 - اضبط `SECRET_KEY` و`ADMIN_PASSWORD` و`COOKIE_SECURE=1` (و`GEMINI_API_KEY` و`GEMINI_MODEL` اختياريًا) في متغيرات البيئة.
 
+
+
+## v60.0.0 — Integrated workspace assistant
+- Removed the floating assistant window and iframe shell from the main application.
+- Added an inline assistant workspace dock that expands within the page flow instead of covering content.
+- Added live workspace context (page, heading, selected record hints, governorate scope) to every assistant turn.
+- Kept the main workspace width fluid and tightened shell spacing to maximize usable screen area.
+- Simplified the shell JavaScript so assistant behavior is isolated from sidebar behavior.

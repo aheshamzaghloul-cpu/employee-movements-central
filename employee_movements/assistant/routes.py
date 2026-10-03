@@ -14,6 +14,7 @@ from ..validation import (
 from .directory import find_branch, find_employee
 from .intents import detect_employee_field, greeting_reply, parse_intent
 from .llm import llm_parse
+from .agent import run_agent
 from ..ratelimit import RateLimiter
 from .menu import capability_groups
 from .manager import plan as manager_plan, execute as manager_execute
@@ -140,8 +141,85 @@ def _execute_pending_naturally(prompt):
         return {'title': 'تم التنفيذ' if ok else 'تعذر التنفيذ', 'answer': message}
     return None
 
-def answer_prompt(prompt, prior_chat):
-    """Understand ``prompt`` (local rules first, LLM only when needed) and build the reply."""
+def build_movement_plan(a):
+    """Validate a movement request and return a confirmation-ready plan."""
+    if not can("manage_movements"):
+        return {"title": "تسجيل حركة", "error": "لا تملك صلاحية تسجيل الحركات."}
+    employee_id = a.get("employee_id")
+    e = db.session.get(Employee, int(employee_id)) if employee_id else None
+    if not e and a.get("employee_name"):
+        e, matches = find_employee(a.get("employee_name"))
+        if not e and matches:
+            return {"title": "تحديد الموظف", "error": "حدد الموظف المقصود.", "choices": matches}
+    if not e:
+        return {"title": "تحديد الموظف", "error": "لم أستطع تحديد موظف واحد."}
+    mt = a.get("movement_type")
+    if not mt:
+        return {"title": "نوع الحركة", "answer": "هل تريد إجازة أم انتداب أم إذن؟"}
+    dest = None
+    if mt == "انتداب":
+        if a.get("destination_branch_id"):
+            dest = db.session.get(Branch, int(a["destination_branch_id"]))
+        elif a.get("destination_name"):
+            dest, matches = find_branch(a.get("destination_name"))
+            if not dest:
+                return {"title": "فرع الانتداب", "error": "لم أجد فرعًا مطابقًا.", "choices": matches[:10]}
+    if mt == "إجازة" and not a.get("leave_type"):
+        return {"title": "نوع الإجازة", "answer": "ما نوع الإجازة؟"}
+    if mt in ("إجازة", "انتداب") and not a.get("from_date"):
+        return {"title": "تاريخ البداية", "answer": "ما تاريخ بداية الحركة؟"}
+    if mt == "إجازة" and not a.get("to_date"):
+        return {"title": "تاريخ النهاية", "answer": "ما تاريخ نهاية الإجازة؟"}
+    if mt == "انتداب" and not a.get("open_assignment") and not a.get("to_date"):
+        return {"title": "تاريخ نهاية الانتداب", "answer": "هل الانتداب مفتوح أم له تاريخ نهاية؟"}
+    if mt == "انتداب" and not dest:
+        return {"title": "فرع الانتداب", "answer": "إلى أي فرع سيكون الانتداب؟"}
+    if mt == "إذن" and not a.get("permission_date"):
+        return {"title": "تاريخ الإذن", "answer": "ما تاريخ الإذن؟"}
+    err = validate_movement_fields(mt, a.get("leave_type"), dest.id if dest else None, a.get("from_date"), None if a.get("open_assignment") else a.get("to_date"), a.get("permission_date"))
+    if err:
+        return {"title": "مراجعة الحركة", "error": err}
+    if not e.is_active or not branch_ok(e.branch_id):
+        return {"title": "تسجيل حركة", "error": "الموظف خارج نطاق صلاحياتك."}
+    if mt == "انتداب" and (not dest or not branch_ok(dest.id)):
+        return {"title": "تسجيل انتداب", "error": "فرع الانتداب غير موجود أو خارج نطاق صلاحياتك."}
+    overlap = movement_overlaps(e.id, mt, a.get("from_date"), None if a.get("open_assignment") else a.get("to_date"), a.get("permission_date"))
+    if overlap:
+        return {"title": "تعارض في الحركة", "error": overlap}
+    plan = dict(a)
+    plan["employee_id"] = e.id
+    plan["destination_branch_id"] = dest.id if dest else None
+    preview = f'{mt} للموظف «{e.full_name}»'
+    if dest:
+        preview += f' إلى «{dest.name}»'
+    if mt in ("إجازة", "انتداب"):
+        preview += f' من {a.get("from_date")} إلى {a.get("to_date") or "مفتوح"}'
+    elif a.get("permission_date"):
+        preview += f' بتاريخ {a.get("permission_date")}'
+    return {"title": "تأكيد تسجيل الحركة", "plan": plan, "preview": preview}
+
+
+def answer_prompt(prompt, prior_chat, workspace_context=None):
+    """Understand prompt with the application agent, then fall back to legacy parsers."""
+    result = _execute_pending_naturally(prompt)
+    if result:
+        return result
+    agent_result = run_agent(prompt, prior_chat, workspace_context)
+    if agent_result:
+        if agent_result.get("preview"):
+            return {
+                "title": agent_result.get("pending_title") or "تأكيد العملية",
+                "answer": agent_result.get("answer"),
+                "preview": agent_result.get("preview"),
+            }
+        if agent_result.get("navigate_url"):
+            return {
+                "title": "الانتقال",
+                "answer": agent_result.get("answer"),
+                "actions": [{"label": "فتح الصفحة", "url": agent_result.get("navigate_url")}],
+            }
+        if agent_result.get("answer") or agent_result.get("error"):
+            return agent_result
     result = _execute_pending_naturally(prompt)
     if result:
         return result
@@ -522,6 +600,8 @@ def assistant():
     chat = _load_chat()
     if request.method == 'POST':
         prompt = (request.form.get('prompt') or '').strip()[:MAX_PROMPT_CHARS]
+        workspace_context = request.form.get('workspace_context') or ''
+        session['assistant_workspace_context'] = workspace_context[:4000]
         if not prompt:
             result = {'title': 'المساعد الذكي', 'error': 'اكتب طلبك أولًا.'}
         elif not assistant_limiter().allow(f'{me().id}'):
@@ -533,15 +613,17 @@ def assistant():
             prior_chat = list(chat)
             _save_chat_message('user', prompt)
             db.session.commit()
-            result = answer_prompt(prompt, prior_chat)
+            result = answer_prompt(prompt, prior_chat, workspace_context or session.get("assistant_workspace_context"))
         if prompt and result:
             _save_chat_message('assistant', history_text(result), result.get('title', 'المساعد الذكي'))
             _trim_chat()
             db.session.commit()
     groups = capability_groups()
     embed = request.args.get('embed') == '1'
+    panel = request.args.get('panel') == '1'
+    template_name = 'assistant_panel.html' if panel else ('assistant_embed.html' if embed else 'assistant.html')
     return render_template(
-        'assistant_embed.html' if embed else 'assistant.html',
+        template_name,
         result=result,
         prompt=prompt,
         assistant_options=[item for group in groups for item in group['items']],
@@ -559,6 +641,7 @@ def assistant_clear():
     session.pop('assistant_pending', None)
     session.pop('assistant_manager_pending', None)
     session.pop('assistant_context_employee_id', None)
+    session.pop('assistant_workspace_context', None)
     return redirect('/assistant?embed=1' if request.form.get('embed') == '1' else '/assistant')
 
 

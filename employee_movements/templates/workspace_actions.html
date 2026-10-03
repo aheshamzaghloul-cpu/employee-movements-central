@@ -39,5 +39,5 @@
     {% if 'مسؤول التطبيق' in roles %}<a href="/replacement">استبدال</a>{% endif %}
     {% if can('view_audit') %}<a href="/audit">سجل التدقيق</a>{% endif %}
   {% endif %}
-  <button type="button" class="ai" onclick="window.__openAssistant&&window.__openAssistant();return false;">✦ المساعد</button>
+  <button type="button" class="ai" onclick="window.__toggleAssistantDock&&window.__toggleAssistantDock();return false;">✦ المساعد</button>
 </div>

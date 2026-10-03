@@ -12,6 +12,25 @@
 
 **التقنيات:** Flask 3 · Flask-SQLAlchemy · PostgreSQL (أو SQLite للتطوير) · Gunicorn · Docker · Caddy (HTTPS).
 
+
+## الرفع على GitHub (من المتصفح — أقل من 100 ملف)
+
+هذا الأرشيف جاهز للرفع المباشر عبر واجهة GitHub على الويب (حد GitHub: أقل من 100 ملف في الرفعة الواحدة).
+
+1. فك الضغط عن الملف. ستحصل على مجلد `employee_movements_central`.
+2. على GitHub: **New repository** → أنشئ المستودع (يفضّل فارغًا بدون README).
+3. ادخل المستودع → **uploading an existing file**.
+4. اسحب **محتويات** المجلد (وليس ملف zip) إلى الصفحة.
+5. أظهر الملفات المخفية من مستكشف الملفات إن لزم، وتأكد من رفع:
+   - `.gitignore`
+   - `.env.example`
+   - `.dockerignore`
+   - مجلد `.github/workflows/ci.yml`
+6. **لا ترفع** ملف `.env` ولا قواعد البيانات `*.db` ولا مجلد `backups/`.
+7. اضغط **Commit changes**.
+
+عدد ملفات المشروع في هذا الأرشيف أقل من 100 حتى تمر الرفعة من المتصفح من أول مرة.
+
 ## التشغيل السريع (تطوير)
 
 ```bash
@@ -29,7 +48,7 @@ cp .env.example .env     # املأ القيم السرية والنطاق
 docker compose up -d --build
 ```
 
-التفاصيل والنسخ الاحتياطي: [docs/DEPLOYMENT_AR.md](docs/DEPLOYMENT_AR.md).
+التفاصيل والنسخ الاحتياطي: [docs/GUIDE_AR.md](docs/GUIDE_AR.md).
 
 ## الإعدادات (متغيرات البيئة)
 
@@ -80,7 +99,7 @@ employee_movements/
 tests/   docs/   scripts/
 ```
 
-مزيد من التفاصيل: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/DESIGN_SYSTEM_AR.md](docs/DESIGN_SYSTEM_AR.md) · [CHANGELOG.md](CHANGELOG.md).
+مزيد من التفاصيل وسجل الإصدارات: [docs/GUIDE_AR.md](docs/GUIDE_AR.md).
 
 ## الأدوار
 

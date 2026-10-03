@@ -1,10 +1,69 @@
-"""Integration tests: in-memory SQLite, real Flask app."""
+"""All tests in one module so the repo stays under GitHub's 100-file web upload limit."""
+
+from pathlib import Path
+import ast
+import pytest
+
+from employee_movements import create_app
+from employee_movements.extensions import db
+
+ADMIN_PASSWORD = 'Admin12345'
+
+
+@pytest.fixture()
+def app():
+    app = create_app(
+        {
+            'APP_ENV': 'testing',
+            'SECRET_KEY': 'k' * 48,
+            'SQLALCHEMY_DATABASE_URI': 'sqlite://',
+            'ADMIN_USERNAME': 'admin',
+            'ADMIN_PASSWORD': ADMIN_PASSWORD,
+            'LOGIN_RATE_LIMIT': 3,
+        }
+    )
+    yield app
+    with app.app_context():
+        db.session.remove()
+        db.drop_all()
+
+
+@pytest.fixture()
+def client(app):
+    return app.test_client()
+
+
+def csrf_from(client, path='/login'):
+    """Fetch a page and return the session CSRF token."""
+    client.get(path)
+    with client.session_transaction() as sess:
+        return sess.setdefault('csrf', 'test-csrf-token')
+
+
+@pytest.fixture()
+def login(app, client):
+    """Return a callable that signs the admin in and clears the forced password change."""
+
+    def _login():
+        from employee_movements.models import User
+
+        with app.app_context():
+            user = User.query.filter_by(username='admin').first()
+            user.must_change_password = False
+            db.session.commit()
+        token = csrf_from(client)
+        resp = client.post('/login', data={'username': 'admin', 'password': ADMIN_PASSWORD, '_csrf': token})
+        assert resp.status_code == 302
+        return client
+
+    return _login
+
+
+# --- app / integration ---
 
 from employee_movements.bootstrap import init_database
 from employee_movements.extensions import db
 from employee_movements.models import Movement, UserRole
-
-from .conftest import ADMIN_PASSWORD, csrf_from
 
 
 def test_healthz(client):
@@ -185,3 +244,188 @@ def test_home_direct_movement_creation_records_leave(app, login):
         assert movement.movement_type == 'إجازة'
         assert str(movement.from_date) == '2030-01-10'
         assert str(movement.to_date) == '2030-01-12'
+
+
+# --- text ---
+
+from employee_movements.assistant.text import extract_date, normalize_digits, normalize_for_search
+
+
+def test_hamza_and_taa_marbuta_are_unified():
+    assert normalize_for_search('إجازة') == normalize_for_search('اجازه')
+
+
+def test_alef_maqsura_and_yaa_are_unified():
+    assert normalize_for_search('منى') == normalize_for_search('مني')
+
+
+def test_diacritics_and_tatweel_removed():
+    assert normalize_for_search('مُحَمَّد') == normalize_for_search('محمد')
+    assert normalize_for_search('مـحـمد') == 'محمد'
+
+
+def test_arabic_indic_digits():
+    assert normalize_digits('٢٠٢٥') == '2025'
+
+
+def test_extract_date_pads_parts():
+    assert extract_date('من 2025/3/7 إلى') == '2025-03-07'
+    assert extract_date('بدون تاريخ') is None
+
+
+# --- ratelimit ---
+
+from employee_movements.ratelimit import RateLimiter
+
+
+def test_blocks_after_limit_and_resets():
+    limiter = RateLimiter(limit=2, window_seconds=60)
+    assert limiter.allow('k') and limiter.allow('k')
+    assert not limiter.allow('k')
+    assert limiter.is_blocked('k')
+    limiter.reset('k')
+    assert limiter.allow('k')
+
+
+def test_keys_are_independent():
+    limiter = RateLimiter(limit=1, window_seconds=60)
+    assert limiter.allow('a')
+    assert limiter.allow('b')
+
+
+def test_window_expires(monkeypatch):
+    import employee_movements.ratelimit as mod
+
+    now = [1000.0]
+    monkeypatch.setattr(mod.time, 'monotonic', lambda: now[0])
+    limiter = RateLimiter(limit=1, window_seconds=10)
+    assert limiter.allow('k')
+    assert not limiter.allow('k')
+    now[0] += 11
+    assert limiter.allow('k')
+
+
+# --- config ---
+
+from employee_movements.config import ConfigError, database_backend, load_config, normalize_database_url
+
+
+@pytest.mark.parametrize(
+    'url',
+    [
+        'postgres://u:p@h:5432/db',
+        'postgresql://u:p@h:5432/db',
+        'postgresql+psycopg://u:p@h:5432/db',
+    ],
+)
+def test_postgres_urls_use_installed_driver(url):
+    assert normalize_database_url(url) == 'postgresql+psycopg2://u:p@h:5432/db'
+
+
+def test_sqlite_url_untouched():
+    assert normalize_database_url('sqlite:///x.db') == 'sqlite:///x.db'
+
+
+def test_production_rejects_missing_secret(monkeypatch):
+    monkeypatch.setenv('APP_ENV', 'production')
+    monkeypatch.delenv('SECRET_KEY', raising=False)
+    with pytest.raises(ConfigError):
+        load_config()
+
+
+def test_production_rejects_placeholder_secret(monkeypatch):
+    monkeypatch.setenv('APP_ENV', 'production')
+    monkeypatch.setenv('SECRET_KEY', 'change-me-' + 'x' * 40)
+    with pytest.raises(ConfigError):
+        load_config()
+
+
+def test_production_requires_persistent_database(monkeypatch):
+    monkeypatch.setenv('APP_ENV', 'production')
+    monkeypatch.setenv('SECRET_KEY', 'a' * 48)
+    monkeypatch.delenv('DATABASE_URL', raising=False)
+    with pytest.raises(ConfigError):
+        load_config()
+
+
+def test_production_accepts_strong_secret_and_postgres(monkeypatch):
+    monkeypatch.setenv('APP_ENV', 'production')
+    monkeypatch.setenv('SECRET_KEY', 'a' * 48)
+    monkeypatch.setenv('DATABASE_URL', 'postgresql://u:p@h:5432/db')
+    assert load_config()['SECRET_KEY'] == 'a' * 48
+    assert load_config()['SQLALCHEMY_DATABASE_URI'].startswith('postgresql+psycopg2://')
+
+
+def test_development_generates_ephemeral_secret(monkeypatch):
+    monkeypatch.setenv('APP_ENV', 'development')
+    monkeypatch.delenv('SECRET_KEY', raising=False)
+    assert len(load_config()['SECRET_KEY']) >= 32
+
+
+def test_database_backend_labels_are_safe():
+    assert database_backend('postgresql+psycopg2://u:p@host/db') == 'postgresql'
+    assert database_backend('sqlite:///local.db') == 'sqlite'
+    assert database_backend('https://example.invalid') == 'other'
+
+
+# --- assistant contract ---
+
+from pathlib import Path
+import ast
+
+
+def test_agent_declares_application_tools():
+    source = Path("employee_movements/assistant/agent.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    names = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            names.add(node.value)
+    required = {
+        "get_workspace_context", "search_employees", "get_employee_profile",
+        "search_branches", "search_governorates", "search_movements",
+        "prepare_action", "navigate_to",
+    }
+    assert required.issubset(names)
+
+
+def test_old_theme_layers_are_not_loaded_by_base():
+    base = Path("employee_movements/templates/base.html").read_text(encoding="utf-8")
+    for legacy in ("professional-v55.css", "professional-v56.css", "professional-v57.css"):
+        assert legacy not in base
+
+
+# --- UI integrity (was scripts/check_ui_integrity.py) ---
+def test_ui_integrity_no_legacy_layers():
+    root = Path(__file__).resolve().parents[1]
+    templates = root / 'employee_movements' / 'templates'
+    css_dir = root / 'employee_movements' / 'static' / 'css'
+    js_dir = root / 'employee_movements' / 'static' / 'js'
+    import re
+    legacy = re.compile(r'(?:\bds-[\w-]+|\bv5[0-9]-[\w-]+|[\w-]+-v5[0-9])')
+    forbidden = (
+        'directActionModal', 'directActionOpen', 'directActionClose',
+        'directActionSearch', 'ui-direct-modal', 'ui-direct-panel',
+    )
+    texts = []
+    for p in list(templates.rglob('*.html')) + list(css_dir.glob('*.css')) + list(js_dir.glob('*.js')):
+        texts.append((p, p.read_text(encoding='utf-8')))
+    errors = []
+    for p, s in texts:
+        if legacy.search(s):
+            errors.append(f'legacy token: {p}')
+        for token in forbidden:
+            if token in s:
+                errors.append(f'forbidden component {token}: {p}')
+    css_files = list(css_dir.glob('*.css'))
+    if css_files != [css_dir / 'app.css']:
+        errors.append(f'expected one CSS entrypoint, found: {[p.name for p in css_files]}')
+    js_files = sorted(p.name for p in js_dir.glob('*.js'))
+    if js_files != ['app.js']:
+        errors.append(f'expected one JS entrypoint, found: {js_files}')
+    css = (css_dir / 'app.css').read_text(encoding='utf-8')
+    if css.count('{') != css.count('}'):
+        errors.append('CSS braces are unbalanced')
+    if css.count('(') != css.count(')'):
+        errors.append('CSS parentheses are unbalanced')
+    assert not errors, '\n'.join(errors)

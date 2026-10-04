@@ -207,14 +207,7 @@
     <div class="home-mini-card"><div class="home-section-head"><div><span class="home-kicker">الوصول السريع</span><h2>أدوات العمل</h2></div></div><div class="home-tools">{% if can('manage_employees') %}<a href="/employees"><b>الموظفون</b><small>إضافة وتعديل</small></a>{% endif %}<a href="/movements"><b>حركات الموظفين</b><small>متابعة السجل</small></a>{% if can('view_reports') %}<a href="/reports-missions"><b>تقارير ومأموريات</b><small>عرض وطباعة</small></a>{% endif %}{% if 'مسؤول التطبيق' in roles %}<a href="/structure"><b>الإدارة</b><small>الهيكل والحسابات</small></a>{% endif %}</div></div>
   </section>
 
-  <section class="home-assistant-room">
-    <span class="home-assistant-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg></span>
-    <div>
-      <b>{% if 'مسؤول التطبيق' in roles %}غرفة المساعد الاحترافي{% else %}المساعد الذكي{% endif %}</b>
-      <small>مكانه هنا وفي القائمة الجانبية فقط — وليس أعلى كل صفحة. محادثة كاملة تفهم الصفحة والصلاحيات.</small>
-    </div>
-    <a class="ui-btn ui-btn-primary" href="/assistant">فتح غرفة المساعد</a>
-  </section>
+
 </div>
 <script>
 document.addEventListener('DOMContentLoaded',()=>{

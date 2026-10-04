@@ -1,4 +1,4 @@
-"""Excel import wizard for branches and employees."""
+"""Excel import wizard for governorates, branches, and employees."""
 
 import io
 import json
@@ -73,6 +73,19 @@ def _cell_by_index(row, index):
         return row[idx - 1].value
     except (TypeError, ValueError):
         return None
+
+
+GOV_IMPORT_HEADERS = {
+    'name': (
+        'المحافظة',
+        'اسم المحافظة',
+        'المحافظه',
+        'governorate',
+        'governorate name',
+        'governorate_name',
+        'name',
+    ),
+}
 
 
 BRANCH_IMPORT_HEADERS = {
@@ -162,10 +175,14 @@ EMP_IMPORT_HEADERS = {
 
 
 def _import_spec(kind):
+    if kind == 'governorates':
+        return GOV_IMPORT_HEADERS
     return BRANCH_IMPORT_HEADERS if kind == 'branches' else EMP_IMPORT_HEADERS
 
 
 def _field_labels(kind):
+    if kind == 'governorates':
+        return {'name': 'اسم المحافظة'}
     if kind == 'branches':
         return {'governorate': 'المحافظة', 'name': 'اسم الفرع', 'code': 'كود الفرع'}
     return {
@@ -213,14 +230,13 @@ def _auto_map_headers(headers, spec):
 
 
 def _excel_import_permissions(kind):
-    if kind not in ('branches', 'employees'):
+    if kind not in ('governorates', 'branches', 'employees'):
         abort(404)
-    if (
-        kind == 'branches'
-        and not (can('manage_structure') and has_role('مسؤول التطبيق', 'مشرف محافظة'))
-    ):
+    if kind == 'governorates' and not has_role('مسؤول التطبيق'):
         abort(403)
-    if kind == 'employees' and (not has_role('مسؤول التطبيق')):
+    if kind == 'branches' and not (can('manage_structure') and has_role('مسؤول التطبيق', 'مشرف محافظة')):
+        abort(403)
+    if kind == 'employees' and not has_role('مسؤول التطبيق'):
         abort(403)
 
 
@@ -250,7 +266,11 @@ def excel_import_template(kind):
     wb = Workbook()
     ws = wb.active
     ws.title = 'بيانات'
-    if kind == 'branches':
+    if kind == 'governorates':
+        headers = ['اسم المحافظة']
+        ws.append(headers)
+        ws.append(['مثال: سوهاج'])
+    elif kind == 'branches':
         headers = ['المحافظة', 'اسم الفرع', 'كود الفرع']
         ws.append(headers)
         ws.append(['مثال: سوهاج', 'مثال: أم دومه', '255'])
@@ -458,7 +478,25 @@ def excel_import_confirm(kind):
         ):
             branches_by_gov.setdefault(b.governorate_id, {})[_excel_key(b.name)] = b
         actions = []
-        if kind == 'branches':
+        if kind == 'governorates':
+            existing = {_excel_key(g.name): g for g in Governorate.query.filter_by(is_active=True).all()}
+            pending = set(existing)
+            for (rno, row) in enumerate(ws.iter_rows(min_row=2, values_only=False), 2):
+                vals = {k: _mapped_value(row, mapping, k) for k in spec}
+                name = vals.get('name', '')
+                if not name:
+                    continue
+                key = _excel_key(name)
+                if key in pending:
+                    errors.append(f'صف {rno}: المحافظة موجودة بالفعل أو مكررة داخل الملف: {name}')
+                    continue
+                actions.append({
+                    'type': 'new_governorate',
+                    'row': rno,
+                    'values': {'name': name},
+                })
+                pending.add(key)
+        elif kind == 'branches':
             for (rno, row) in enumerate(ws.iter_rows(min_row=2, values_only=False), 2):
                 vals = {k: _mapped_value(row, mapping, k) for k in spec}
                 if not any(vals.values()):
@@ -718,7 +756,19 @@ def excel_import_apply(kind):
         selected = set(request.form.getlist('change'))
         added = updated = skipped = 0
         errors = list(review.get('errors', []))
-        if kind == 'branches':
+        if kind == 'governorates':
+            for a in actions:
+                if a['type'] != 'new_governorate':
+                    continue
+                name = a['values']['name'].strip()
+                if not name:
+                    continue
+                if Governorate.query.filter_by(name=name).first() or any(_excel_key(g.name) == _excel_key(name) for g in Governorate.query.filter_by(is_active=True).all()):
+                    skipped += 1
+                    continue
+                db.session.add(Governorate(name=name, is_active=True))
+                added += 1
+        elif kind == 'branches':
             for a in actions:
                 if a['type'] == 'new_branch':
                     v = a['values']
@@ -778,7 +828,7 @@ def excel_import_apply(kind):
         db.session.commit()
         log(
             'IMPORT',
-            'Branch' if kind == 'branches' else 'Employee',
+            'Governorate' if kind == 'governorates' else ('Branch' if kind == 'branches' else 'Employee'),
             0,
             f'Excel: إضافة {added}، تحديث {updated}، تخطي دون تغييرات {skipped}',
         )

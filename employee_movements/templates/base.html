@@ -26,7 +26,6 @@
     <a href="/movements" class="{% if request.path.startswith('/movements') %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M5 7h11l-3-3M19 17H8l3 3"/><path d="m16 4 3 3-3 3M8 14l-3 3 3 3"/></svg><span>حركات الموظفين</span></a>
     {% if can('view_reports') or can('manage_movements') %}<a href="/reports-missions" class="{% if request.path.startswith('/reports') or request.path.startswith('/mission') %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6V3Z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg><span>تقارير ومأموريات</span></a>{% endif %}
     {% if 'مشرف محافظة' in roles and 'مسؤول التطبيق' not in roles %}<a href="/delegations" class="{% if request.path.startswith('/delegations') %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M7 7h12M17 4l3 3-3 3M17 17H5M7 14l-3 3 3 3"/></svg><span>تفويض</span></a>{% endif %}
-    <a href="/assistant" class="{% if request.path.startswith('/assistant') %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg><span>المساعد الذكي</span></a>
   </nav>
   {% if 'مسؤول التطبيق' in roles %}<div class="ui-caption admin">الإدارة</div><nav class="ui-nav"><a href="/structure" class="{% if request.path.startswith('/structure') %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.8 2.8M15 15l2.7 2.7M17.7 6.3 15 9M9 15l-2.7 2.7"/><circle cx="12" cy="12" r="3.5"/></svg><span>الإدارة</span></a></nav>{% endif %}
   <div class="ui-spacer"></div>
@@ -49,6 +48,7 @@
 {% block content %}{% endblock %}
 {% if not me %}</div>{% endif %}
 </main></div>
+{% if me and request.args.get('embed')!='1' %}{% include 'assistant_dock.html' %}{% endif %}
 <script src="{{url_for('static',filename='js/app.js')}}"></script>
 <script src="{{url_for('static',filename='js/shell.js')}}"></script>
 <script src="{{url_for('static',filename='js/workspace.js')}}"></script>

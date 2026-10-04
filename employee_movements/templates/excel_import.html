@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}استيراد من Excel{% endblock %}
 {% block content %}
-<div class="ui-toolbar"><div><h1>استيراد ذكي من Excel</h1><p class="ui-subtitle">يمكنك استخدام أي ملف Excel حتى لو اختلف ترتيب الأعمدة أو اختلفت مسميات العناوين. تتم مطابقة الأعمدة مرة واحدة قبل الاستيراد.</p></div><div class="ui-actions"><a class="ui-btn ui-btn-secondary" href="{{ '/branches' if kind=='branches' else '/employees' }}"><svg class="ui-icon ui-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6 3 12l6 6"/><path d="M4 12h11a5 5 0 0 1 5 5v1"/></svg> العودة</a></div></div>
+<div class="ui-toolbar"><div><h1>استيراد ذكي من Excel</h1><p class="ui-subtitle">يمكنك استخدام أي ملف Excel حتى لو اختلف ترتيب الأعمدة أو اختلفت مسميات العناوين. تتم مطابقة الأعمدة مرة واحدة قبل الاستيراد.</p></div><div class="ui-actions"><a class="ui-btn ui-btn-secondary" href="{{ '/governorates' if kind=='governorates' else ('/branches' if kind=='branches' else '/employees') }}"><svg class="ui-icon ui-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6 3 12l6 6"/><path d="M4 12h11a5 5 0 0 1 5 5v1"/></svg> العودة</a></div></div>
 
 {% if mapping_step %}
 <div class="ui-card">
@@ -38,7 +38,7 @@
   {% if errors %}<div class="alert ui-mb-14"><b>صفوف لم يمكن تحليلها:</b>{% for e in errors %}<div>{{e}}</div>{% endfor %}</div>{% endif %}
   <form method="post" action="/excel-import/{{kind}}/apply" id="excelApplyForm">
     <input type="hidden" name="_csrf" value="{{csrf}}">
-    {% set new_count = actions|selectattr('type','equalto','new_employee')|list|length + actions|selectattr('type','equalto','new_branch')|list|length %}
+    {% set new_count = actions|selectattr('type','in',['new_employee','new_branch','new_governorate'])|list|length %}
     {% set change_count = actions|selectattr('type','equalto','employee')|list|length + actions|selectattr('type','equalto','branch')|list|length %}
     <div class="ui-hint ui-mb-14">جديد: <b>{{new_count}}</b> — سجلات موجودة بها اختلافات: <b>{{change_count}}</b></div>
     {% if actions %}
@@ -47,11 +47,11 @@
         <thead><tr><th>النوع</th><th>السجل</th><th>التغييرات / البيانات الجديدة</th></tr></thead>
         <tbody>
         {% for a in actions %}
-          {% if a.type in ['new_employee','new_branch'] %}
+          {% if a.type in ['new_employee','new_branch','new_governorate'] %}
           <tr>
             <td><span class="ui-status">إضافة جديدة</span></td>
-            <td><b>{% if a.type=='new_employee' %}{{a.values.name}}{% else %}{{a.values.name}}{% endif %}</b><br><small>{{a.governorate}}{% if a.branch %} — {{a.branch}}{% endif %}</small></td>
-            <td>{% if a.type=='new_employee' %}موظف جديد — سيتم إضافته تلقائيًا.{% else %}فرع جديد — سيتم إضافته تلقائيًا.{% endif %}</td>
+            <td><b>{{a.values.name}}</b><br><small>{{a.governorate}}{% if a.branch %} — {{a.branch}}{% endif %}</small></td>
+            <td>{% if a.type=='new_employee' %}موظف جديد — سيتم إضافته تلقائيًا.{% elif a.type=='new_branch' %}فرع جديد — سيتم إضافته تلقائيًا.{% else %}محافظة جديدة — سيتم إضافتها تلقائيًا.{% endif %}</td>
           </tr>
           {% else %}
           <tr>
@@ -82,7 +82,7 @@
 </div>
 {% else %}
 <div class="ui-card">
-  <div class="ui-section-title"><div><h3>استيراد {{ 'الفروع' if kind=='branches' else 'الموظفين' }}</h3><span class="ui-hint">ارفع ملف Excel الخاص بك؛ لا يشترط ترتيب معين للأعمدة.</span></div></div>
+  <div class="ui-section-title"><div><h3>استيراد {{ 'المحافظات' if kind=='governorates' else ('الفروع' if kind=='branches' else 'الموظفين') }}</h3><span class="ui-hint">ارفع ملف Excel الخاص بك؛ لا يشترط ترتيب معين للأعمدة.</span></div></div>
   <div class="ui-actions ui-mb-14"><a class="ui-btn ui-btn-secondary" href="/excel-import/{{kind}}/template">⬇ تحميل نموذج Excel اختياري</a></div>
   <form method="post" action="/excel-import/{{kind}}/preview" enctype="multipart/form-data" class="ui-grid wide">
     <input type="hidden" name="_csrf" value="{{csrf}}">
@@ -91,7 +91,9 @@
     </label>
     <div class="ui-form-actions"><button><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 5 5"/></svg> قراءة الملف ومطابقة الأعمدة</button></div>
   </form>
-  {% if kind=='branches' %}
+  {% if kind=='governorates' %}
+  <div class="ui-hint ui-mt-14">البيانات المطلوبة: <b>اسم المحافظة</b>. المحافظات الموجودة أو المكررة داخل الملف سيتم منع إضافتها تلقائيًا.</div>
+  {% elif kind=='branches' %}
   <div class="ui-hint ui-mt-14">البيانات المطلوبة: <b>المحافظة، اسم الفرع، كود الفرع</b>. يمكنك تغيير ترتيب الأعمدة أو أسماءها، والنظام يقترح المطابقة تلقائيًا.</div>
   {% else %}
   <div class="ui-hint ui-mt-14">البيانات المطلوبة: <b>المحافظة، الفرع، اسم الموظف، البريد الإلكتروني، الوظيفة، الكود الوظيفي، تاريخ التعيين، هاتف الشركة، الهاتف الشخصي</b>. ترتيب الأعمدة غير مهم.</div>

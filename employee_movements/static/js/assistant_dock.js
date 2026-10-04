@@ -4,7 +4,6 @@
     const dock=document.getElementById('assistantDock');
     if(!dock) return;
     const toggle=document.getElementById('assistantDockToggle');
-    const expand=document.getElementById('assistantDockExpand');
     const panel=document.getElementById('assistantDockPanel');
     const thread=document.getElementById('assistantDockThread');
     const form=document.getElementById('assistantDockForm');
@@ -41,8 +40,6 @@
       dock.dataset.open=open?'1':'0';
       if(panel) panel.hidden=!open;
       toggle?.setAttribute('aria-expanded',String(open));
-      expand?.setAttribute('aria-expanded',String(open));
-      expand?.classList.toggle('is-open',open);
       sync();
       if(open && !thread.dataset.loaded){ load(); }
       if(open) setTimeout(()=>input?.focus(),70);
@@ -89,7 +86,6 @@
     });
     window.__toggleAssistantDock=()=>setOpen(dock.dataset.open!=='1');
     toggle?.addEventListener('click',()=>setOpen(dock.dataset.open!=='1'));
-    expand?.addEventListener('click',()=>setOpen(dock.dataset.open!=='1'));
     document.getElementById('assistantInlineOpen')?.addEventListener('click',()=>{setOpen(true); input?.focus();});
     window.__focusAssistant=()=>{setOpen(true); input?.focus();};
     sync();

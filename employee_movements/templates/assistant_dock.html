@@ -1,20 +1,19 @@
-<section class="assistant-dock" id="assistantDock" data-open="0" aria-label="المساعد الذكي">
-  <div class="assistant-dock-bar">
-    <button class="assistant-dock-brand" id="assistantDockToggle" type="button" aria-expanded="false">
-      <span class="assistant-dock-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg></span>
-      <span class="assistant-dock-title"><b>المساعد الذكي</b><small>{% if 'مسؤول التطبيق' in roles %}مدير التطبيق{% else %}مساعد تشغيلي{% endif %} · يفهم الصفحة والسجل الحالي</small></span>
+<aside class="assistant-dock" id="assistantDock" data-open="0" aria-label="المساعد الذكي">
+  <button class="assistant-dock-trigger" id="assistantDockToggle" type="button" aria-label="فتح المساعد الذكي" aria-expanded="false" title="المساعد الذكي">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg>
+  </button>
+  <div class="assistant-dock-panel" id="assistantDockPanel" hidden>
+    <div class="assistant-dock-panel-head">
+      <div><b>المساعد الذكي</b><small>يفهم الصفحة والصلاحيات والسجل الحالي</small></div>
       <span class="assistant-dock-status">جاهز</span>
-    </button>
+    </div>
+    <div class="assistant-dock-context" id="assistantDockContext">سأستخدم الصفحة الحالية والصلاحيات المتاحة لفهم طلبك.</div>
+    <div class="assistant-dock-thread" id="assistantDockThread" aria-live="polite"></div>
     <form class="assistant-dock-composer" id="assistantDockForm" method="post" action="/assistant?panel=1">
       <input type="hidden" name="_csrf" value="{{csrf}}">
       <input type="hidden" name="workspace_context" id="assistantWorkspaceContext" value="">
-      <input type="text" name="prompt" id="assistantDockInput" placeholder="اكتب ما تريد إنجازه… مثال: هات أحمد المنتدب اليوم" autocomplete="off">
+      <input type="text" name="prompt" id="assistantDockInput" placeholder="اكتب طلبك…" autocomplete="off">
       <button type="submit" class="assistant-dock-send" aria-label="إرسال">إرسال</button>
-      <button type="button" class="assistant-dock-expand" id="assistantDockExpand" aria-label="عرض المحادثة" aria-expanded="false">⌃</button>
     </form>
   </div>
-  <div class="assistant-dock-panel" id="assistantDockPanel" hidden>
-    <div class="assistant-dock-context" id="assistantDockContext">سأستخدم الصفحة الحالية والسجل المحدد والصلاحيات المتاحة لفهم طلبك.</div>
-    <div class="assistant-dock-thread" id="assistantDockThread" aria-live="polite"></div>
-  </div>
-</section>
+</aside>

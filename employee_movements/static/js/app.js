@@ -336,4 +336,3 @@ document.addEventListener('DOMContentLoaded', function(){
   });
 })();
 
-// v35.32 — المساعد: تغيير حجم حر بدون زر + حدود الشاشة

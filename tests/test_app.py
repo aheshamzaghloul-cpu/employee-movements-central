@@ -12,7 +12,7 @@ def test_healthz(client):
     assert resp.status_code == 200
     payload = resp.get_json()
     assert payload['status'] == 'ok'
-    assert payload['version'] == '61.2.0'
+    assert payload['version'] == '61.2.1'
     assert payload['app_env'] == 'testing'
     assert payload['database_backend'] == 'sqlite'
     assert payload['database_url_configured'] is True

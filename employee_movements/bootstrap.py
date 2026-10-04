@@ -171,7 +171,6 @@ def ensure_schema():
     _normalize_legacy_movements()
     _remove_legacy_entry_login_roles()
     db.session.commit()
-    db.session.commit()
 
 
 # --------------------------------------------------------------------------- administrator

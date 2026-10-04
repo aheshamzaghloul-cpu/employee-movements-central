@@ -1,0 +1,10 @@
+# Keep repository text files normalized to LF so Windows editors do not create
+# false Git changes caused only by CRLF line endings.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.xlsx binary

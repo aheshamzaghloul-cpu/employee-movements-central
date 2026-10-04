@@ -44,7 +44,11 @@ def load_config(overrides=None):
         'SQLALCHEMY_DATABASE_URI': normalize_database_url(os.getenv('DATABASE_URL') or DEV_DATABASE_URL),
         'DATABASE_URL_CONFIGURED': bool(os.getenv('DATABASE_URL', '').strip()),
         'SQLALCHEMY_TRACK_MODIFICATIONS': False,
-        'SQLALCHEMY_ENGINE_OPTIONS': {'pool_pre_ping': True},
+        'SQLALCHEMY_ENGINE_OPTIONS': {
+            'pool_pre_ping': True,
+            'pool_recycle': int(os.getenv('DB_POOL_RECYCLE', '1800')),
+            'connect_args': {'connect_timeout': int(os.getenv('DB_CONNECT_TIMEOUT', '10'))},
+        },
         'SESSION_COOKIE_HTTPONLY': True,
         'SESSION_COOKIE_SAMESITE': 'Lax',
         'SESSION_COOKIE_SECURE': os.getenv('COOKIE_SECURE', '0') == '1',
@@ -59,6 +63,8 @@ def load_config(overrides=None):
         'ASSISTANT_RATE_LIMIT': int(os.getenv('ASSISTANT_RATE_LIMIT', '30')),
         'LOGIN_RATE_LIMIT': int(os.getenv('LOGIN_RATE_LIMIT', '10')),
         'INIT_DATABASE': os.getenv('INIT_DATABASE', '1') == '1',
+        'DB_INIT_RETRIES': max(1, int(os.getenv('DB_INIT_RETRIES', '8'))),
+        'DB_INIT_RETRY_DELAY': max(1, float(os.getenv('DB_INIT_RETRY_DELAY', '3'))),
         'TESTING': env == 'testing',
     }
     if overrides:

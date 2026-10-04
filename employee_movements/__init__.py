@@ -7,7 +7,7 @@ from sqlalchemy.exc import OperationalError
 
 from flask import Flask
 
-__version__ = '61.2.3'
+__version__ = '61.2.5'
 
 
 def create_app(overrides=None):
@@ -54,9 +54,14 @@ def _initialize_database_with_retry(app, init_database):
         except OperationalError as exc:
             if attempt >= retries:
                 raise
-            # Drop any failed scoped session/transaction before the next attempt.
+            # Clean up the failed scoped session while an application context is active.
+            # Calling db.session.remove() outside the Flask context raises
+            # "Working outside of application context" and hides the original
+            # PostgreSQL connection error.
             from .extensions import db
-            db.session.remove()
+            with app.app_context():
+                db.session.remove()
+                db.engine.dispose()
             app.logger.warning(
                 'قاعدة PostgreSQL غير متاحة مؤقتًا أثناء الإقلاع (محاولة %s/%s): %s. إعادة المحاولة بعد %.1f ثانية.',
                 attempt, retries, exc, delay,

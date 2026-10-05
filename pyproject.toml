@@ -2,7 +2,7 @@
 name = "employee-movements"
 description = "نظام إدارة حركات الموظفين — Employee Movements Central"
 requires-python = ">=3.12"
-version = "61.2.5"
+version = "62.0.0"
 
 [tool.ruff]
 line-length = 120

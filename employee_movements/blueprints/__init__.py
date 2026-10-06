@@ -16,6 +16,7 @@ BLUEPRINT_MODULES = (
     'reports',
     'health',
     'assistant',
+    'notifications',
 )
 
 

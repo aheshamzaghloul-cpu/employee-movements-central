@@ -31,9 +31,8 @@ bp = Blueprint('dashboard', __name__)
 def current_employee_status_rows(branch_ids, today):
     """Build the live status board with one employee query and one movement query.
 
-    Priority is: leave -> dated assignment -> open assignment -> today's permission ->
-    present in branch.  The last state is important: a normal employee must appear in
-    the board as "متواجد في الفرع" rather than disappearing because they have no movement.
+    Priority is: leave -> dated assignment -> open assignment -> today's permission.
+    Employees without a current movement are intentionally omitted from this board.
     """
     if not branch_ids:
         return []
@@ -93,10 +92,10 @@ def current_employee_status_rows(branch_ids, today):
         )
 
         current = None
-        state = 'متواجد في الفرع'
+        state = None
         place = e.branch.name if e.branch else '—'
         until = None
-        detail = 'متواجد في الفرع'
+        detail = ''
         display_branch = e.branch
 
         if leave:
@@ -126,6 +125,9 @@ def current_employee_status_rows(branch_ids, today):
             until = permission.permission_date
             detail = 'بتاريخ {}'.format(permission.permission_date.strftime('%d/%m/%Y'))
 
+        if current is None:
+            continue
+
         remaining = (until - today).days if until else None
         rows.append(
             {
@@ -152,7 +154,7 @@ def current_employee_status_rows(branch_ids, today):
         )
 
     def status_rank(r):
-        order = {'متواجد في الفرع': 0, 'إجازة': 1, 'انتداب': 2, 'انتداب مفتوح': 3, 'إذن': 4}
+        order = {'إجازة': 1, 'انتداب': 2, 'انتداب مفتوح': 3, 'إذن': 4}
         return order.get(r['state'], 9)
 
     rows.sort(key=lambda r: (status_rank(r), r['until'] or date.max, r['employee'].full_name))
@@ -504,15 +506,19 @@ def home():
     if bs:
         # الحركات أصبحت معلومات تشغيلية مباشرة وليست دورة اعتماد.
         if has_role('مشرف محافظة', 'مسؤول التطبيق', 'المدخل الأول', 'Manager Application Support'):
-            current_status_rows = current_employee_status_rows(bs, today)
+            all_status_rows = current_employee_status_rows(bs, today)
+            # الصفحة الرئيسية تعرض الحركات الحالية فقط؛ الموظف المتواجد طبيعيًا لا
+            # يظهر في قائمة الحالات التشغيلية حتى لا يطغى على الحالات التي تحتاج متابعة.
+            current_status_rows = [
+                r for r in all_status_rows
+                if r['state'] in ('إجازة', 'انتداب', 'انتداب مفتوح', 'إذن')
+            ]
             current_status_summary = {
-                'present': sum((1 for r in current_status_rows if r['state'] == 'متواجد في الفرع')),
+                'present': 0,
                 'leave': sum((1 for r in current_status_rows if r['state'] == 'إجازة')),
                 'assignment': sum((1 for r in current_status_rows if r['state'] == 'انتداب')),
                 'open_assignment': sum(
-                    1
-                    for r in current_status_rows
-                    if r['state'] == 'انتداب مفتوح'
+                    1 for r in current_status_rows if r['state'] == 'انتداب مفتوح'
                 ),
                 'permission': sum((1 for r in current_status_rows if r['state'] == 'إذن')),
                 'follow_up': sum((1 for r in current_status_rows if r['ending_notice'])),

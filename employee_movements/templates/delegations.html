@@ -1,5 +1,27 @@
 {% extends 'base.html' %}
-{% block title %}التفويض{% endblock %}
+{% block title %}التفويض<script>
+(() => {
+  const rows = [...document.querySelectorAll('[data-delegation-row]')];
+  const tabs = [...document.querySelectorAll('[data-delegation-filter]')];
+  const search = document.getElementById('delegationSearch');
+  let filter = 'all';
+  const render = () => {
+    const q = (search?.value || '').trim().toLocaleLowerCase();
+    rows.forEach(row => {
+      const matchesFilter = filter === 'all' || row.dataset.filter === filter;
+      const matchesSearch = !q || (row.dataset.search || '').toLocaleLowerCase().includes(q);
+      row.hidden = !(matchesFilter && matchesSearch);
+    });
+  };
+  tabs.forEach(tab => tab.addEventListener('click', () => {
+    filter = tab.dataset.delegationFilter;
+    tabs.forEach(x => x.classList.toggle('active', x === tab));
+    render();
+  }));
+  search?.addEventListener('input', render);
+})();
+</script>
+{% endblock %}
 {% block content %}
 <div class="ui-page delegation-workspace">
   <header class="ui-page-head"><div><span class="ui-eyebrow">استمرارية العمل</span><h1>التفويض</h1><p>تفويض مشرف بديل خلال فترة الغياب، مع متابعة الساري والمجدول والمنتهي من نفس الصفحة.</p></div><div class="ui-head-stats"><span><b>{{rows|length}}</b> سجل</span></div></header>
@@ -28,13 +50,49 @@
   </div>
 
   <section class="ui-work-card" id="delegation-history">
-    <div class="ui-card-head compact"><div><span class="ui-eyebrow">السجل</span><h2>كل التفويضات</h2></div></div>
+    {% set active_rows = rows|selectattr('is_active')|list %}
+    {% set ending_soon = [] %}
+    {% for d in active_rows %}
+      {% if d.starts_at <= today <= d.ends_at and (d.ends_at - today).days <= 7 %}{% set _ = ending_soon.append(d) %}{% endif %}
+    {% endfor %}
+    <div class="ui-card-head compact"><div><span class="ui-eyebrow">السجل التشغيلي</span><h2>متابعة التفويضات</h2></div><div class="delegation-tools"><input id="delegationSearch" type="search" placeholder="بحث باسم المشرف أو البديل أو المحافظة" aria-label="بحث في التفويضات"></div></div>
+    <div class="ui-delegation-tabs" role="tablist" aria-label="تصفية التفويضات">
+      <button type="button" class="active" data-delegation-filter="all">الكل <b>{{rows|length}}</b></button>
+      <button type="button" data-delegation-filter="live">ساري <b>{{current_count}}</b></button>
+      <button type="button" data-delegation-filter="planned">مجدول <b>{{active_count - current_count}}</b></button>
+      <button type="button" data-delegation-filter="closed">منتهي / ملغى <b>{{rows|length - active_count}}</b></button>
+    </div>
+    {% if ending_soon %}
+    <div class="ui-delegation-alert"><strong>تنبيه تشغيلي</strong><span>{{ending_soon|length}} تفويض{% if ending_soon|length != 1 %}ات{% endif %} ساري{% if ending_soon|length != 1 %}ة{% endif %} تنتهي خلال 7 أيام. راجع البديل قبل انتهاء الفترة.</span></div>
+    {% endif %}
     <div class="ui-table-wrap"><table class="ui-table delegation-table"><thead><tr><th>المشرف</th><th>البديل</th><th>المحافظة</th><th>الفترة</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody>
     {% for d in rows %}
       {% set state = 'ملغى' if not d.is_active else ('منتهى' if d.ends_at < today else ('ساري' if d.starts_at <= today <= d.ends_at else 'مجدول')) %}
-      <tr><td><b>{{d.supervisor.full_name}}</b></td><td>{{d.delegate.full_name}}</td><td>{{d.governorate.name}}</td><td>{{d.starts_at}} → {{d.ends_at}}</td><td><span class="ui-state {{'live' if state=='ساري' else 'planned' if state=='مجدول' else 'closed'}}">{{state}}</span></td><td>{% if d.is_active %}<form method="post" action="/delegations/{{d.id}}/revoke" class="ui-revoke-form"><input type="hidden" name="_csrf" value="{{csrf}}"><input name="reason" required minlength="3" placeholder="سبب الإلغاء"><button class="ui-danger-btn">إلغاء</button></form>{% else %}<span class="ui-muted">—</span>{% endif %}</td></tr>
+      <tr data-delegation-row data-filter="{{'live' if state=='ساري' else 'planned' if state=='مجدول' else 'closed'}}" data-search="{{d.supervisor.full_name}} {{d.delegate.full_name}} {{d.governorate.name}}"><td><b>{{d.supervisor.full_name}}</b></td><td>{{d.delegate.full_name}}</td><td>{{d.governorate.name}}</td><td>{{d.starts_at}} → {{d.ends_at}}</td><td><span class="ui-state {{'live' if state=='ساري' else 'planned' if state=='مجدول' else 'closed'}}">{{state}}</span></td><td>{% if d.is_active %}<form method="post" action="/delegations/{{d.id}}/revoke" class="ui-revoke-form"><input type="hidden" name="_csrf" value="{{csrf}}"><input name="reason" required minlength="3" placeholder="سبب الإلغاء"><button class="ui-danger-btn">إلغاء</button></form>{% else %}<span class="ui-muted">—</span>{% endif %}</td></tr>
     {% else %}<tr><td colspan="6" class="ui-empty">لا توجد تفويضات مسجلة.</td></tr>{% endfor %}
     </tbody></table></div>
   </section>
 </div>
+<script>
+(() => {
+  const rows = [...document.querySelectorAll('[data-delegation-row]')];
+  const tabs = [...document.querySelectorAll('[data-delegation-filter]')];
+  const search = document.getElementById('delegationSearch');
+  let filter = 'all';
+  const render = () => {
+    const q = (search?.value || '').trim().toLocaleLowerCase();
+    rows.forEach(row => {
+      const matchesFilter = filter === 'all' || row.dataset.filter === filter;
+      const matchesSearch = !q || (row.dataset.search || '').toLocaleLowerCase().includes(q);
+      row.hidden = !(matchesFilter && matchesSearch);
+    });
+  };
+  tabs.forEach(tab => tab.addEventListener('click', () => {
+    filter = tab.dataset.delegationFilter;
+    tabs.forEach(x => x.classList.toggle('active', x === tab));
+    render();
+  }));
+  search?.addEventListener('input', render);
+})();
+</script>
 {% endblock %}

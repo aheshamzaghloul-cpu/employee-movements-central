@@ -1,6 +1,7 @@
 """Reports, exports and audit log."""
 
 from flask import abort, Blueprint, render_template, request
+from datetime import date, timedelta
 
 from ..access import bids, can, gids, req
 from ..constants import MOVEMENT_TYPES, STATUSES
@@ -36,14 +37,33 @@ def reports_missions():
         Movement.query.join(Employee).filter(Employee.branch_id.in_(bs), Movement.is_active == True)
         if bs else Movement.query.filter(False)
     )
+    today = date.today()
+    month_start = today.replace(day=1)
+    next_month = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
+    week_end = today + timedelta(days=7)
     stats = {
         'total': movement_q.count(),
         'leave': movement_q.filter(Movement.movement_type == 'إجازة').count(),
         'assignment': movement_q.filter(Movement.movement_type == 'انتداب').count(),
         'permission': movement_q.filter(Movement.movement_type == 'إذن').count(),
         'open_assignments': movement_q.filter(Movement.movement_type == 'انتداب', Movement.to_date.is_(None)).count(),
+        'today': movement_q.filter(
+            ((Movement.from_date <= today) & (Movement.to_date.is_(None) | (Movement.to_date >= today)))
+            | (Movement.permission_date == today)
+        ).count(),
+        'month': movement_q.filter(
+            ((Movement.from_date >= month_start) & (Movement.from_date < next_month))
+            | ((Movement.to_date >= month_start) & (Movement.to_date < next_month))
+            | ((Movement.permission_date >= month_start) & (Movement.permission_date < next_month))
+        ).count(),
+        'follow_up_7d': movement_q.filter(
+            Movement.movement_type == 'انتداب',
+            Movement.to_date.isnot(None),
+            Movement.to_date >= today,
+            Movement.to_date <= week_end,
+        ).count(),
     }
-    return render_template('reports_missions.html', report_stats=stats)
+    return render_template('reports_missions.html', report_stats=stats, report_today=today, report_week_end=week_end)
 
 
 @bp.get('/reports')

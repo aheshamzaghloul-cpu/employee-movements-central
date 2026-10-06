@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent'
 DEFAULT_MODEL = 'gemini-3.8-flash'
-REQUEST_TIMEOUT_SECONDS = 20
+REQUEST_TIMEOUT_SECONDS = 8
 MAX_HISTORY_MESSAGES = 50
 MAX_HISTORY_TEXT_CHARS = 1800
 
@@ -186,7 +186,7 @@ def llm_parse(text, chat=None, live_context=''):
             'responseMimeType': 'application/json',
             'responseSchema': INTENT_SCHEMA,
             'maxOutputTokens': 900,
-            'thinkingConfig': {'thinkingLevel': 'medium'},
+            'thinkingConfig': {'thinkingLevel': 'low'},
         },
     }
     endpoint = GEMINI_URL.format(model=urllib.parse.quote(model, safe=''))

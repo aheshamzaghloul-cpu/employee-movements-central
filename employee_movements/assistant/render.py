@@ -262,7 +262,7 @@ def employee_status_text(e):
         .all()
     )
     if not active:
-        return 'متواجد في الفرع'
+        return 'لا توجد حركة حالية'
     m = active[0]
     if m.movement_type == 'إجازة':
         return f'إجازة — {m.leave_type or ''} — حتى {m.to_date}'
@@ -550,7 +550,6 @@ def render_read(a):
             if cur and cur.destination_branch_id == b.id and (e.branch_id != b.id):
                 inbound.append((e, cur))
 
-        on_duty = sum((1 for e in employees if employee_status_text(e) == 'على رأس العمل'))
         leave_count = sum((1 for e in employees if 'إجازة' in employee_status_text(e)))
         assignment_count = sum(
             1
@@ -571,7 +570,6 @@ def render_read(a):
             f'<div class="branch-data-card"><b>كود الفرع</b><strong>{esc(b.code or 'غير محدد')}</strong></div>',
             f'<div class="branch-data-card"><b>المحافظة</b><strong>{esc(b.governorate.name)}</strong></div>',
             f'<div class="branch-data-card"><b>الموظفون حاليًا</b><strong>{len(employees)}</strong></div>',
-            f'<div class="branch-data-card"><b>على رأس العمل</b><strong>{on_duty}</strong></div>',
             f'<div class="branch-data-card"><b>إجازة</b><strong>{leave_count}</strong></div>',
             f'<div class="branch-data-card"><b>انتداب</b><strong>{assignment_count}</strong></div>',
             f'<div class="branch-data-card"><b>إذن اليوم</b><strong>{permission_count}</strong></div>',

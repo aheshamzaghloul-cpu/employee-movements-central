@@ -22,6 +22,8 @@
       <input type="hidden" name="return_to" value="/movements#movement-current">
       <input type="hidden" name="employee_id" id="movementCreateEmployeeId" value="">
 
+      <div class="movement-progress" id="movementProgress" aria-label="خطوات تسجيل الحركة"><span class="is-active" data-step-indicator="1">1 المحافظة</span><i></i><span data-step-indicator="2">2 الفرع</span><i></i><span data-step-indicator="3">3 الموظف</span><i></i><span data-step-indicator="4">4 الحركة</span></div>
+
       <div class="movement-step movement-step-governorate">
         <div class="movement-step-head"><span class="movement-step-number">1</span><div><b>اختر المحافظة</b><small>تظهر المحافظات المسموح لك بالعمل عليها.</small></div></div>
         <select id="movementCreateGovernorate" class="movement-hierarchy-select"><option value="">اختر المحافظة</option>{% for g in movement_governorates %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select>
@@ -42,6 +44,7 @@
       <div class="movement-step movement-details-step" id="movementDetailsStep" hidden>
         <div class="movement-selected-employee" id="movementSelectedEmployee"></div>
         <div class="movement-step-head"><span class="movement-step-number">4</span><div><b>بيانات الحركة</b><small>اختر نوع الحركة ثم أدخل البيانات المطلوبة.</small></div></div>
+        <div class="movement-smart-warning" id="movementCurrentWarning" hidden></div>
         <div class="ui-form-row movement-create-top">
           <label>نوع الحركة<select id="movementCreateType" name="movement_type" required>{% for t in movement_types %}<option value="{{t}}">{{t}}</option>{% endfor %}</select></label>
         </div>
@@ -63,7 +66,9 @@
           <label>تاريخ الإذن<input type="date" name="permission_date"></label>
         </div>
 
-        <div class="ui-form-actions"><button class="ui-primary-btn" type="submit">تسجيل الحركة الآن</button><span>سيتم رفض أي حركة متعارضة تلقائيًا قبل الحفظ.</span></div>
+        <div class="movement-review" id="movementReview" hidden><span>مراجعة سريعة</span><b id="movementReviewText"></b></div>
+        <div class="movement-preflight" id="movementPreflight" hidden aria-live="polite"><span class="movement-preflight-dot"></span><div><b id="movementPreflightMessage"></b><small id="movementPreflightSuggestion"></small></div></div>
+        <div class="ui-form-actions"><button class="ui-primary-btn" type="submit" id="movementSubmit" disabled>تسجيل الحركة الآن</button><span>سيتم التحقق من التعارض والصلاحيات مرة أخرى قبل الحفظ.</span></div>
       </div>
     </form>
   </section>
@@ -148,7 +153,7 @@
 
   function resetAfterGovernorate(){
     branchStep.hidden=!govCreate?.value; employeeStep.hidden=true; detailsStep.hidden=true;
-    branchGrid.innerHTML=''; employeeGrid.innerHTML=''; employeeId.value=''; selectedEmployee.innerHTML='';
+    branchGrid.innerHTML=''; employeeGrid.innerHTML=''; employeeId.value=''; selectedEmployee.innerHTML=''; if(preflight)preflight.hidden=true;
     if(branchEmpty) branchEmpty.hidden=true; if(employeeEmpty) employeeEmpty.hidden=true;
   }
   function branchCard(b){
@@ -178,8 +183,10 @@
       if(!data.employees.length){employeeEmpty.hidden=false;return;}
       data.employees.forEach(e=>{
         const button=document.createElement('button'); button.type='button'; button.className='movement-employee-card'; button.dataset.id=e.id;
-        button.innerHTML='<span class="movement-employee-avatar">'+(e.name||'?').trim().charAt(0)+'</span><span class="movement-employee-main"><b></b><small></small></span><span class="movement-card-arrow">‹</span>';
+        button.innerHTML='<span class="movement-employee-avatar"></span><span class="movement-employee-main"><b></b><small></small><em class="movement-employee-state" hidden></em></span><span class="movement-card-arrow">‹</span>';
+        button.querySelector('.movement-employee-avatar').textContent=(e.name||'?').trim().charAt(0);
         button.querySelector('b').textContent=e.name; button.querySelector('small').textContent=e.code ? 'كود شئون العاملين: '+e.code : 'بدون كود';
+        if(e.current_movement){ const state=button.querySelector('.movement-employee-state'); state.hidden=false; state.textContent=e.current_movement.type==='انتداب' ? ('منتدب إلى '+(e.current_movement.destination||'جهة أخرى')) : (e.current_movement.type==='إجازة' ? ('إجازة'+(e.current_movement.leave_type?' · '+e.current_movement.leave_type:'')) : 'إذن اليوم'); state.classList.add(e.current_movement.type==='إجازة'?'leave':e.current_movement.type==='انتداب'?'assignment':'permission'); }
         button.addEventListener('click',()=>selectCreateEmployee(e,branch,button)); employeeGrid.appendChild(button);
       });
       employeeStep.scrollIntoView({behavior:'smooth',block:'nearest'});
@@ -190,6 +197,68 @@
     employeeId.value=e.id; detailsStep.hidden=false; selectedEmployee.innerHTML='<span>الموظف المختار</span><b>'+e.name+'</b><small>'+branch.name+(e.code?' · كود '+e.code:'')+'</small>';
     syncType(); detailsStep.scrollIntoView({behavior:'smooth',block:'nearest'});
   }
+  const submit=$('movementSubmit'), currentWarning=$('movementCurrentWarning'), review=$('movementReview'), reviewText=$('movementReviewText');
+  let selectedMovementEmployee=null, selectedMovementBranch=null;
+  function setProgress(step){ document.querySelectorAll('[data-step-indicator]').forEach(x=>x.classList.toggle('is-active',Number(x.dataset.stepIndicator)<=step)); }
+  function iso(v){return v?new Date(v+'T00:00:00'):null;}
+  let preflightSeq=0, preflightTimer=null;
+  const preflight=$('movementPreflight'), preflightMessage=$('movementPreflightMessage'), preflightSuggestion=$('movementPreflightSuggestion');
+  function movementPayload(){
+    const mtv=type?.value||'';
+    return {
+      employee_id:employeeId?.value||'', movement_type:mtv,
+      leave_type:mtv==='إجازة'?($('movementLeaveType')?.value||''):'',
+      destination_branch_id:mtv==='انتداب'?($('movementDestinationBranch')?.value||''):'',
+      from_date:mtv==='إجازة'?(document.querySelector('[name=leave_from_date]')?.value||''):(document.querySelector('[name=assignment_from_date]')?.value||''),
+      to_date:mtv==='إجازة'?(document.querySelector('[name=leave_to_date]')?.value||''):(document.querySelector('[name=assignment_to_date]')?.value||''),
+      permission_date:mtv==='إذن'?(document.querySelector('[name=permission_date]')?.value||''):'',
+      open_assignment:$('openAssignment')?.checked?'1':'0'
+    };
+  }
+  function setPreflight(level,message,suggestion,visible=true){
+    if(!preflight)return; preflight.hidden=!visible; preflight.className='movement-preflight '+(level||'info');
+    if(preflightMessage)preflightMessage.textContent=message||''; if(preflightSuggestion)preflightSuggestion.textContent=suggestion||'';
+  }
+  async function runMovementPreflight(){
+    const payload=movementPayload(), mtv=payload.movement_type, seq=++preflightSeq;
+    let complete=!!payload.employee_id;
+    if(mtv==='إجازة')complete=complete&&!!payload.leave_type&&!!payload.from_date&&!!payload.to_date;
+    if(mtv==='انتداب')complete=complete&&!!payload.destination_branch_id&&!!payload.from_date&&(payload.open_assignment==='1'||!!payload.to_date);
+    if(mtv==='إذن')complete=complete&&!!payload.permission_date;
+    if(!complete){ if(submit)submit.disabled=true; setPreflight('info','أكمل البيانات المطلوبة أولًا.','بعد اكتمالها سيجري النظام فحصًا تلقائيًا للتعارضات.',true); return; }
+    if(submit)submit.disabled=true; setPreflight('info','جارٍ فحص الحركة…','يتحقق النظام من الصلاحيات والتواريخ والحركات الحالية للموظف.',true);
+    const qs=new URLSearchParams(payload);
+    try{
+      const r=await fetch('/api/movement-preflight?'+qs.toString(),{headers:{'Accept':'application/json'}});
+      const d=await r.json(); if(seq!==preflightSeq)return;
+      setPreflight(d.level||'info',d.message,d.suggestion,true);
+      if(submit)submit.disabled=!(d.ok===true);
+    }catch(_){ if(seq!==preflightSeq)return; setPreflight('error','تعذر إجراء الفحص التمهيدي.','لن يتم تمكين التسجيل حتى يعيد الخادم التحقق من البيانات.',true); if(submit)submit.disabled=true; }
+  }
+  function refreshMovementReview(){
+    const mtv=type?.value||'', from=(mtv==='إجازة'?document.querySelector('[name=leave_from_date]')?.value:document.querySelector('[name=assignment_from_date]')?.value)||'', to=(mtv==='إجازة'?document.querySelector('[name=leave_to_date]')?.value:document.querySelector('[name=assignment_to_date]')?.value)||'', open=$('openAssignment')?.checked;
+    let ok=!!employeeId?.value;
+    if(mtv==='إجازة')ok=ok&&!!$('movementLeaveType')?.value&&!!from&&!!to;
+    if(mtv==='انتداب')ok=ok&&!!$('movementDestinationBranch')?.value&&!!from&&(open||!!to);
+    if(mtv==='إذن')ok=ok&&!!document.querySelector('[name=permission_date]')?.value;
+    if(review){review.hidden=!ok;if(ok&&reviewText){const dest=$('movementDestinationBranch')?.selectedOptions?.[0]?.textContent?.trim()||'';reviewText.textContent=mtv==='إجازة'?`إجازة ${$('movementLeaveType')?.value} · ${from} → ${to}`:mtv==='انتداب'?`انتداب → ${dest} · ${from}${open?' → مفتوح':' → '+to}`:`إذن يوم ${document.querySelector('[name=permission_date]')?.value}`;}}
+    clearTimeout(preflightTimer); preflightTimer=setTimeout(runMovementPreflight,180);
+  }
+  function showCurrentWarning(e){
+    selectedMovementEmployee=e;
+    if(!currentWarning)return;
+    const m=e?.current_movement;
+    if(!m){currentWarning.hidden=true;currentWarning.textContent='';return;}
+    currentWarning.hidden=false;
+    currentWarning.textContent=m.type==='انتداب' ? ('تنبيه: الموظف لديه انتداب ساري إلى '+(m.destination||'جهة أخرى')+'. سيتم التحقق من التعارض قبل الحفظ.') : m.type==='إجازة' ? 'تنبيه: الموظف لديه إجازة سارية اليوم. راجع التعارض قبل تسجيل حركة جديدة.' : 'تنبيه: الموظف لديه إذن اليوم. راجع التعارض قبل تسجيل حركة جديدة.';
+  }
+  [type,$('movementLeaveType'),$('movementDestinationBranch'),$('openAssignment'),...document.querySelectorAll('#movementDetailsStep input[type=date]')].forEach(x=>x?.addEventListener('input',refreshMovementReview));
+  [type,$('movementLeaveType'),$('movementDestinationBranch'),$('openAssignment')].forEach(x=>x?.addEventListener('change',refreshMovementReview));
+  govCreate?.addEventListener('change',()=>setProgress(govCreate.value?2:1));
+  const _loadCreateEmployees=loadCreateEmployees;
+  loadCreateEmployees=async function(branch){ setProgress(3); return _loadCreateEmployees(branch); };
+  const _selectCreateEmployee=selectCreateEmployee;
+  selectCreateEmployee=function(e,branch,button){ _selectCreateEmployee(e,branch,button); showCurrentWarning(e); setProgress(4); refreshMovementReview(); };
   govCreate?.addEventListener('change',loadCreateBranches);
 
   const gov=$('movementGovernorateFilter'), br=$('movementBranchFilter'), em=$('movementEmployeeFilter'), search=$('movementRecordsSearch'), mt=$('movementRecordsType');

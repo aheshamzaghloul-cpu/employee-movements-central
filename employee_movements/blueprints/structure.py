@@ -1,4 +1,8 @@
-"""Organizational structure: supervisors, first-level entries and replacement."""
+"""System governance and organizational structure routes.
+
+First-level entry operations are intentionally exposed from the Home page;
+this module keeps the underlying endpoints for backward compatibility.
+"""
 
 from flask import abort, Blueprint, flash, redirect, render_template, request, session, url_for
 
@@ -11,6 +15,7 @@ from ..access import (
     me,
     req,
     roles,
+    scope_governorate_id,
     user_branch_ids,
     user_gov_ids,
 )
@@ -60,16 +65,12 @@ def structure():
         abort(403)
 
     # مسؤول التطبيق يرى كل المحافظات، والمشرف يرى محافظاته فقط.
-    selected_gov = request.args.get('governorate_id', '').strip()
+    selected_gov = ''
     if is_admin:
+        # الإدارة مركز قيادة شامل على مستوى النظام. لا توجد محافظة عمل
+        # ولا بوابة نطاق هنا؛ المحافظة تستخدم كمرشح داخل أدوات الهيكل فقط.
         all_govs = Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all()
-        if selected_gov.isdigit() and any((g.id == int(selected_gov) for g in all_govs)):
-            govs = [db.session.get(Governorate, int(selected_gov))]
-        else:
-            # لا نبني شجرة المحافظات كاملة قبل الاختيار؛ هذا يمنع أخطاء البيانات
-            # في أي فرع غير مختار ويجعل صفحة الإدارة أخف وأوضح.
-            govs = []
-            selected_gov = ''
+        govs = []
     elif is_manager_support:
         allowed_govs = Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all()
         if selected_gov.isdigit() and any((g.id == int(selected_gov) for g in allowed_govs)):
@@ -259,6 +260,17 @@ def structure():
         )
         unassigned_branch_count = max(0, active_branch_count - len(assigned_entry_branch_ids))
         role_account_count = RoleAccount.query.count()
+        active_delegation_count = ApprovalDelegation.query.filter_by(is_active=True).count()
+        entry_with_no_branch_count = sum(
+            1 for a in entry_assignments
+            if not EntryAssignmentBranch.query.filter_by(entry_assignment_id=a.id).first()
+        )
+        supervisors_without_scope_count = sum(
+            1 for u in active_users
+            if 'مشرف محافظة' in actual_roles(u)
+            and not UserGovernorate.query.filter_by(user_id=u.id).first()
+        )
+        must_change_password_count = sum(1 for u in active_users if u.must_change_password)
         admin_stats = {
             'governorates': active_gov_count,
             'branches': active_branch_count,
@@ -270,38 +282,37 @@ def structure():
             'entries': len(entry_assignments),
             'entry_branches': len(assigned_entry_branch_ids),
             'unassigned_branches': unassigned_branch_count,
+            'entry_without_branches': entry_with_no_branch_count,
+            'supervisors_without_scope': supervisors_without_scope_count,
+            'must_change_password': must_change_password_count,
             'role_accounts': role_account_count,
-            'movements': Movement.query.filter_by(is_active=True).count(),
-            'delegations': ApprovalDelegation.query.filter_by(is_active=True).count(),
+            'delegations': active_delegation_count,
         }
+        admin_intelligence = []
+        def add_admin_signal(priority, title, detail, action_url, action_label, prompt=None):
+            admin_intelligence.append({
+                'priority': priority, 'title': title, 'detail': detail,
+                'action_url': action_url, 'action_label': action_label, 'prompt': prompt,
+            })
+        if not active_gov_count:
+            add_admin_signal('urgent', 'لا توجد محافظات نشطة', 'الهيكل الإداري لا يمكن تشغيله بصورة طبيعية قبل وجود محافظة واحدة على الأقل.', '/governorates', 'إدارة المحافظات', 'راجع حالة المحافظات في النظام')
+        if unassigned_branch_count:
+            add_admin_signal('urgent', f'{unassigned_branch_count} فرع بلا مدخل أول', 'هناك فروع نشطة لم ترتبط بدور مدخل أول تنظيمي حتى الآن.', '/', 'تنفيذ من الرئيسية', 'ما الفروع التي تحتاج مدخل أول؟')
+        if entry_with_no_branch_count:
+            add_admin_signal('warning', f'{entry_with_no_branch_count} مدخل أول بلا فروع', 'التكليف موجود، لكن لا توجد له فروع مرتبطة.', '/', 'إدارة من الرئيسية', 'من هم المدخلون الأوائل الذين يحتاجون مراجعة؟')
+        if supervisors_without_scope_count:
+            add_admin_signal('warning', f'{supervisors_without_scope_count} مشرف بلا نطاق محافظة', 'حساب مشرف نشط موجود بدون محافظة مسندة إليه.', '/users', 'مراجعة المشرفين', 'راجع المشرفين الذين ليس لهم نطاق محافظة')
+        if inactive_users:
+            add_admin_signal('info', f'{inactive_users} حسابات معطلة', 'ليست مشكلة تشغيلية بحد ذاتها، لكنها تستحق المراجعة الدورية.', '/users', 'إدارة الحسابات', 'ما الحسابات المعطلة؟')
+        if must_change_password_count:
+            add_admin_signal('info', f'{must_change_password_count} حسابات مطالبة بتغيير كلمة المرور', 'يمكن متابعتها من إدارة الحسابات.', '/users', 'مراجعة الحسابات', 'ما الحسابات التي تحتاج تغيير كلمة المرور؟')
+        if not admin_intelligence:
+            add_admin_signal('ok', 'الوضع الإداري مستقر', 'لا توجد إشارات إدارية واضحة تحتاج تدخلاً الآن وفق البيانات الحالية.', '/audit', 'فتح سجل التدقيق', 'اعطني ملخصًا سريعًا لحالة النظام')
         if is_admin:
             admin_audit = Audit.query.order_by(Audit.created_at.desc()).limit(8).all()
+    # تنفيذ تعيين/تغيير/إزالة المدخل الأول موجود في الرئيسية، لذلك لا
+    # نجهز نموذجًا مكررًا داخل الإدارة.
     available_entry_employees = []
-    if is_admin or is_supervisor or is_manager_support:
-        allowed_branch_set = set(bids())
-        candidates = (
-            (
-                Employee.query.filter(
-                    Employee.is_active == True,
-                    Employee.branch_id.in_(allowed_branch_set),
-                )
-                .order_by(Employee.full_name)
-                .all()
-            )
-            if allowed_branch_set
-            else []
-        )
-        for e in candidates:
-            if entry_role_exists(e):
-                continue
-            linked_user = db.session.get(User, e.user_id) if e.user_id else None
-            if (
-                linked_user
-                and 'مشرف محافظة' in actual_roles(linked_user)
-                and 'المدخل الأول' not in actual_roles(linked_user)
-            ):
-                continue
-            available_entry_employees.append(e)
     entry_supervisors = [
         u
         for u in User.query.filter_by(is_active=True).order_by(User.full_name).all()
@@ -314,11 +325,12 @@ def structure():
         is_admin=is_admin,
         is_supervisor=is_supervisor,
         is_manager_support=is_manager_support,
-        admin_view=is_admin or is_manager_support,
+        admin_view=is_admin,
         is_entry=is_entry,
         govs_all=govs_all,
         selected_governorate=selected_gov,
         admin_stats=admin_stats,
+        admin_intelligence=admin_intelligence,
         admin_audit=admin_audit,
         available_entry_employees=available_entry_employees,
         entry_supervisors=entry_supervisors,
@@ -339,12 +351,12 @@ def update_organizational_entry_branches(employee_id):
     )
     if not e or not a or (not e.is_active):
         abort(404)
-    if (
-        'مسؤول التطبيق' not in roles()
-        and 'Manager Application Support' not in roles()
-        and a.supervisor_id != me().id
-    ):
-        abort(403)
+    if 'مسؤول التطبيق' not in roles():
+        if 'Manager Application Support' in roles():
+            if not branch_ok(old.branch_id):
+                abort(403)
+        elif a.supervisor_id != me().id:
+            abort(403)
     allowed = set(bids())
     chosen = {int(x) for x in request.form.getlist('branch_id') if x.isdigit()} & allowed
     if not chosen:
@@ -386,12 +398,12 @@ def replace_organizational_entry_from_home(employee_id):
     if not old or not a or (not old.is_active):
         flash('الموظف المحدد ليس مدخلًا أول تنظيميًا حاليًا.')
         return redirect('/#entry-directory')
-    if (
-        'مسؤول التطبيق' not in roles()
-        and 'Manager Application Support' not in roles()
-        and a.supervisor_id != me().id
-    ):
-        abort(403)
+    if 'مسؤول التطبيق' not in roles():
+        if 'Manager Application Support' in roles():
+            if not branch_ok(old.branch_id):
+                abort(403)
+        elif a.supervisor_id != me().id:
+            abort(403)
     if not new or not new.is_active or new.id == old.id or (not branch_ok(new.branch_id)):
         flash('اختر موظفًا بديلًا نشطًا داخل نطاقك.')
         return redirect('/#entry-directory')
@@ -428,6 +440,9 @@ def replacement():
         if request.method == 'POST'
         else request.args.get('mode', 'supervisor')
     )
+    if mode == 'entry':
+        flash('استبدال المدخل الأول يتم من الصفحة الرئيسية.')
+        return redirect('/#entry-directory')
     if request.method == 'POST':
         if mode == 'supervisor':
             old_id = request.form.get('old_supervisor_id', '').strip()
@@ -596,7 +611,7 @@ def add_organizational_entry_role():
             flash('اختر المشرف المسؤول.')
             return redirect('/#entry-directory')
         if 'Manager Application Support' in roles():
-            selected = session.get('manager_governorate_id')
+            selected = scope_governorate_id()
             if not selected or int(selected) not in user_gov_ids(sup):
                 abort(403)
     else:
@@ -611,7 +626,7 @@ def add_organizational_entry_role():
     )
     if 'مسؤول التطبيق' in roles() or 'Manager Application Support' in roles():
         if 'Manager Application Support' in roles():
-            selected = session.get('manager_governorate_id')
+            selected = scope_governorate_id()
             allowed_govs = {int(selected)} if selected else set()
         else:
             allowed_govs = user_gov_ids(sup)
@@ -658,11 +673,14 @@ def remove_organizational_entry_role(employee_id):
     if not a:
         abort(404)
     if 'مسؤول التطبيق' not in roles():
-        if 'مشرف محافظة' not in roles() or a.supervisor_id != me().id:
+        if 'Manager Application Support' in roles():
+            if not branch_ok(old.branch_id):
+                abort(403)
+        elif 'مشرف محافظة' not in roles() or a.supervisor_id != me().id:
             abort(403)
     a.is_active = False
     db.session.commit()
     log('ROLE_CHANGE', 'Employee', employee_id, 'إزالة دور المدخل الأول التنظيمي')
     db.session.commit()
     flash('تمت إزالة دور المدخل الأول التنظيمي، وأصبحت فروع مسؤوليته متاحة لإسنادها من جديد.')
-    return redirect('/structure#entry-role-chain')
+    return redirect('/#entry-directory')

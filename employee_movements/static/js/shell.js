@@ -9,3 +9,5 @@
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
+
+// v65: smart interaction layer is loaded once for the whole application.

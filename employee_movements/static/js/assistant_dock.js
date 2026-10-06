@@ -38,6 +38,7 @@
     }
     function setOpen(open){
       dock.dataset.open=open?'1':'0';
+      document.body.classList.toggle('assistant-workspace-open',open);
       if(panel) panel.hidden=!open;
       toggle?.setAttribute('aria-expanded',String(open));
       sync();

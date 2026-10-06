@@ -82,6 +82,103 @@ def movement_employees_api():
     }
 
 
+@bp.get('/api/movement-preflight')
+@req
+def movement_preflight_api():
+    """تحقق تشغيلي سريع قبل الحفظ؛ لا يغني عن التحقق النهائي في POST."""
+    employee_raw = (request.args.get('employee_id') or '').strip()
+    movement_type = (request.args.get('movement_type') or '').strip()
+    leave_type = (request.args.get('leave_type') or '').strip() or None
+    destination_raw = (request.args.get('destination_branch_id') or '').strip()
+    from_date = (request.args.get('from_date') or '').strip() or None
+    to_date = (request.args.get('to_date') or '').strip() or None
+    permission_date = (request.args.get('permission_date') or '').strip() or None
+    open_assignment = request.args.get('open_assignment') == '1'
+
+    if not employee_raw.isdigit():
+        return {'ready': False, 'ok': False, 'level': 'info', 'message': 'اختر الموظف أولًا.', 'suggestion': 'ابدأ باختيار الموظف.'}
+    employee = db.session.get(Employee, int(employee_raw))
+    if not employee or not employee.is_active or not branch_ok(employee.branch_id):
+        abort(403)
+    if not can('manage_movements') or not can_manage_movement():
+        abort(403)
+
+    destination_id = int(destination_raw) if destination_raw.isdigit() else None
+    if movement_type == 'انتداب' and open_assignment:
+        to_date = None
+    validation = validate_movement_fields(
+        movement_type, leave_type, destination_id, from_date, to_date, permission_date
+    )
+    if validation:
+        return {'ready': False, 'ok': False, 'level': 'error', 'message': validation, 'suggestion': 'أكمل البيانات المطلوبة أو صححها قبل المتابعة.'}
+
+    try:
+        parsed_from = parse_date(from_date) if from_date else None
+        parsed_to = parse_date(to_date) if to_date else None
+        parsed_permission = parse_date(permission_date) if permission_date else None
+    except ValueError:
+        return {'ready': False, 'ok': False, 'level': 'error', 'message': 'التاريخ غير صحيح.', 'suggestion': 'اختر التاريخ من التقويم.'}
+
+    overlap = movement_overlaps(employee.id, movement_type, from_date, to_date, permission_date)
+    if overlap:
+        return {
+            'ready': True,
+            'ok': False,
+            'level': 'error',
+            'message': overlap,
+            'suggestion': 'راجع الحركة الحالية أو غيّر فترة الحركة الجديدة.',
+        }
+
+    today = date.today()
+    current = None
+    current_rows = (
+        Movement.query
+        .filter(Movement.employee_id == employee.id, Movement.is_active == True)
+        .order_by(Movement.created_at.desc())
+        .all()
+    )
+    for m in current_rows:
+        active_now = (
+            m.permission_date == today if m.movement_type == 'إذن'
+            else bool(m.from_date and m.from_date <= today and (m.to_date is None or m.to_date >= today))
+        )
+        if active_now:
+            current = m
+            break
+
+    message = 'الحركة متوافقة مبدئيًا ويمكن تسجيلها.'
+    suggestion = 'يمكنك المتابعة إلى تسجيل الحركة.'
+    if current:
+        if current.movement_type == 'إجازة':
+            detail = current.leave_type or 'إجازة'
+            message = f'للموظف حركة سارية اليوم: {detail}.'
+            suggestion = 'تأكد أن فترة الحركة الجديدة لا تتقاطع معها؛ التحقق النهائي سيتم عند الحفظ.'
+        elif current.movement_type == 'انتداب':
+            dest = current.destination.name if current.destination else 'جهة أخرى'
+            message = f'للموظف انتداب ساري حاليًا إلى {dest}.'
+            suggestion = 'إذا كان الانتداب سيستمر، لا تسجل حركة متعارضة معه.'
+        else:
+            message = 'للموظف إذن مسجل اليوم.'
+            suggestion = 'يمكن تسجيل حركة لفترة لا تتعارض مع الإذن.'
+
+    return {
+        'ready': True,
+        'ok': True,
+        'level': 'warning' if current else 'success',
+        'message': message,
+        'suggestion': suggestion,
+        'employee': {'id': employee.id, 'name': employee.full_name, 'code': employee.job_code or ''},
+        'current_movement': ({
+            'id': current.id,
+            'type': current.movement_type,
+            'leave_type': current.leave_type or '',
+            'destination': current.destination.name if current.destination else '',
+            'from_date': current.from_date.isoformat() if current.from_date else '',
+            'to_date': current.to_date.isoformat() if current.to_date else '',
+        } if current else None),
+    }
+
+
 @bp.get('/api/movements-page-filters')
 @req
 def movements_page_filters_api():
@@ -108,19 +205,50 @@ def movements_page_filters_api():
             'employees': [],
         }
     employees = []
+    employee_movements = {}
     if bid is not None:
         employees = (
             Employee.query.filter(Employee.is_active == True, Employee.branch_id == bid)
             .order_by(Employee.full_name.asc())
             .all()
         )
+        employee_ids = [e.id for e in employees]
+        if employee_ids:
+            today = date.today()
+            movement_rows = (
+                Movement.query
+                .filter(Movement.employee_id.in_(employee_ids), Movement.is_active == True)
+                .order_by(Movement.created_at.desc())
+                .all()
+            )
+            for m in movement_rows:
+                if m.employee_id in employee_movements:
+                    continue
+                current = False
+                if m.movement_type == 'إذن':
+                    current = m.permission_date == today
+                elif m.from_date and m.from_date <= today:
+                    current = m.to_date is None or m.to_date >= today
+                if current:
+                    employee_movements[m.employee_id] = {
+                        'type': m.movement_type,
+                        'leave_type': m.leave_type or '',
+                        'destination': m.destination.name if m.destination else '',
+                        'to_date': m.to_date.isoformat() if m.to_date else '',
+                    }
     return {
         'branches': [
             {'id': b.id, 'name': b.name, 'governorate_id': b.governorate_id}
             for b in branches
         ],
         'employees': [
-            {'id': e.id, 'name': e.full_name, 'code': e.job_code or '', 'branch_id': e.branch_id}
+            {
+                'id': e.id,
+                'name': e.full_name,
+                'code': e.job_code or '',
+                'branch_id': e.branch_id,
+                'current_movement': employee_movements.get(e.id),
+            }
             for e in employees
         ],
     }

@@ -172,14 +172,14 @@ def scope_governorate_id():
             session['operational_governorate_id'] = gid
             session['operational_scope_uid'] = u.id
             session['operational_scope_role'] = next(
-                iter(rs & {'مسؤول التطبيق', 'Manager Application Support'}),
+                iter(rs & {'مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'}),
                 None,
             )
     selected = session.get('operational_governorate_id')
     # إذا كان الاختيار محفوظًا لحساب/دور مختلف، فلا نستخدمه.
     scope_uid = session.get('operational_scope_uid')
     scope_role = session.get('operational_scope_role')
-    current_scope_role = next(iter(rs & {'مسؤول التطبيق', 'Manager Application Support'}), None)
+    current_scope_role = next(iter(rs & {'مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'}), None)
     if scope_uid != u.id or scope_role != current_scope_role:
         session.pop('operational_governorate_id', None)
         session.pop('operational_scope_uid', None)
@@ -222,10 +222,10 @@ def gids():
     if not u:
         return []
     rs = roles(u)
-    # أثناء الصفحات التشغيلية، مسؤول التطبيق وManager يعملان داخل المحافظة المختارة فقط.
+    # أثناء الصفحات التشغيلية، الدور التشغيلي المختار يعملان داخل المحافظة المختارة فقط.
     if (
         is_scope_required_endpoint()
-        and ('مسؤول التطبيق' in rs or 'Manager Application Support' in rs)
+        and ('مسؤول التطبيق' in rs or 'مشرف محافظة' in rs or 'Manager Application Support' in rs)
     ):
         selected = scope_governorate_id()
         return [int(selected)] if selected else []
@@ -257,12 +257,12 @@ def bids():
     if not u:
         return []
     rs = roles(u)
-    # في الصفحات التشغيلية، مسؤول التطبيق يعمل مثل مشرف المحافظة داخل
+    # في الصفحات التشغيلية، الدور الإداري/التشغيلي المختار يعمل داخل المحافظة المحددة داخل
     # المحافظة المختارة فقط؛ لا يجوز لدور مشرف آخر على نفس الحساب أن
     # يوسع النطاق أو يعيد سوهاج تلقائيًا.
     if (
         is_scope_required_endpoint()
-        and ('مسؤول التطبيق' in rs or 'Manager Application Support' in rs)
+        and ('مسؤول التطبيق' in rs or 'مشرف محافظة' in rs or 'Manager Application Support' in rs)
     ):
         gids_now = gids()
         return (

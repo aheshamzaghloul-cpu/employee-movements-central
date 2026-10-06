@@ -2,255 +2,111 @@
 {% block title %}الرئيسية — نظام إدارة حركات الموظفين{% endblock %}
 {% block content %}
 {% if scope_required and not scope_selected %}
-<section class="home-scope-gate">
-  <div class="home-scope-gate-icon"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg></div>
-  <span class="home-kicker">مساحة التشغيل</span>
-  <h1>اختر المحافظة للبدء</h1>
-  <form method="get" action="/" class="home-scope-form">
-    <label><span>المحافظة</span><select name="governorate_id" required><option value="">اختر المحافظة</option>{% for g in scope_governorates %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
-    <button class="ui-btn ui-btn-primary" type="submit">دخول مساحة العمل <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
-  </form>
+<section class="smart-scope-gate">
+  <div class="smart-scope-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg></div>
+  <div><span class="smart-eyebrow">نطاق العمل</span><h1>اختر محافظة العمل</h1></div>
+  <form method="get" action="/" class="smart-scope-form"><label><span>المحافظة</span><select name="governorate_id" required><option value="">اختر المحافظة</option>{% for g in scope_governorates %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label><button class="ui-btn ui-btn-primary" type="submit">دخول مساحة العمل <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></form>
+</section>
+<section class="smart-home-pre-scope-search">
+  {% include 'home_global_search.html' %}
 </section>
 {% else %}
-<div class="home">
-  <header class="home-header">
-    <div class="home-title">
-      <span class="home-kicker">لوحة التشغيل</span>
-      <h1>مرحبًا، {{me.full_name.split(' ')[0]}}</h1>
-      <div class="home-context-line">
-        <span>اليوم {{today.strftime('%d/%m/%Y')}}</span>
-        {% if scope_selected and scope_governorate %}<span class="home-context-chip"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg>{{scope_governorate.name}}</span>{% elif 'مشرف محافظة' in roles %}<span class="home-context-chip">{{scope_governorates|length}} محافظات</span>{% endif %}
-      </div>
+<div class="smart-home">
+  <header class="smart-home-head">
+    <div><span class="smart-eyebrow">مركز التشغيل</span><h1>مرحبًا، {{me.full_name.split(' ')[0]}}</h1><p>كل ما تحتاجه لإدارة حركة الموظفين من مساحة واحدة.</p></div>
+    <div class="smart-context">
+      <span>{{today.strftime('%A %d/%m/%Y')}}</span>
+      {% if scope_selected and scope_governorate %}<b><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg>{{scope_governorate.name}}</b>{% elif 'مشرف محافظة' in roles %}<b>{{scope_governorates|length}} محافظات</b>{% endif %}
     </div>
-    {% if scope_required %}
-    <form method="get" action="/" class="home-scope-switcher"><span>محافظة العمل</span><select name="governorate_id" onchange="this.form.submit()"><option value="">تغيير المحافظة</option>{% for g in scope_governorates %}<option value="{{g.id}}" {% if scope_selected and scope_selected|int==g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></form>
-    {% endif %}
   </header>
 
-  <section class="home-workspace-card" id="employee-search">
-    <div class="home-workspace-head">
-      <div>
-        <span class="home-kicker">المهمة الأولى</span>
-        <h2>البحث عن موظف</h2>
-        <p class="home-task-note">ابحث بالاسم أو كود شئون العاملين لاستعراض الملف والحالة.</p>
-      </div>
-      <span class="home-live-pill">بحث شامل</span>
-    </div>
-
-    <form method="get" action="/" class="home-search" id="homeEmployeeSearchForm">
-      <label class="home-search-primary">
-        <span>اسم الموظف أو كود شئون العاملين</span>
-        <div class="home-search-field-wrap"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.2"/><path d="m16 16 4 4"/></svg><input name="movement_name" value="{{movement_name_query or ''}}" type="search" placeholder="اكتب الاسم أو الكود ثم اضغط بحث" autocomplete="off"></div>
-      </label>
-      <label><span>المحافظة</span><select name="movement_governorate_id" id="homeSearchGovernorate"><option value="">كل المحافظات</option>{% for g in movement_search_governorates %}<option value="{{g.id}}" {% if movement_governorate_id and movement_governorate_id|int==g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>
-      <label><span>الفرع</span><select name="movement_branch_id" id="homeSearchBranch"><option value="">كل الفروع</option>{% for b in movement_search_all_branches %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}" {% if movement_branch_id and movement_branch_id|int==b.id %}selected{% endif %}>{{b.name}}</option>{% endfor %}</select></label>
-      <button class="ui-btn ui-btn-primary home-search-submit" type="submit"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.2"/><path d="m16 16 4 4"/></svg>بحث</button>
-    </form>
-
-    {% if movement_employee_matches and not movement_employee %}
-    <div class="home-search-results">
-      <div class="home-results-head"><b>{{movement_employee_matches|length}} نتيجة</b><span>اختر الموظف المطلوب</span></div>
-      {% for emp in movement_employee_matches %}
-      <a class="home-result-row" href="/?{% if movement_governorate_id %}movement_governorate_id={{movement_governorate_id}}&{% endif %}{% if movement_branch_id %}movement_branch_id={{movement_branch_id}}&{% endif %}employee_id={{emp.id}}#employee-search">
-        <i>{{(emp.full_name or 'م')[:1]}}</i>
-        <span><b>{{emp.full_name}}</b><small>{{emp.job_title or 'موظف'}} · كود {{emp.job_code or '—'}}</small></span>
-        <em>{{emp.branch.name if emp.branch else '—'}} · {{emp.branch.governorate.name if emp.branch and emp.branch.governorate else '—'}}</em>
-        <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
-      </a>
-      {% endfor %}
-    </div>
-    {% elif (movement_branch_id or movement_name_query) and not movement_employee %}
-    <div class="home-search-empty"><b>لا توجد نتيجة مطابقة</b><span>غيّر الاسم أو الكود أو الفلاتر ثم أعد البحث.</span></div>
-    {% endif %}
-
-    {% if movement_employee %}
-    <div class="home-employee-command">
-      <div class="home-employee-summary">
-        <a class="home-employee-avatar" href="/employee/{{movement_employee.id}}">{{(movement_employee.full_name or 'م')[:1]}}</a>
-        <div class="home-employee-main">
-          <span class="home-kicker">الموظف المحدد</span>
-          <h3><a href="/employee/{{movement_employee.id}}">{{movement_employee.full_name}}</a></h3>
-          <p>{{movement_employee.job_title or 'موظف'}} · كود {{movement_employee.job_code or '—'}}</p>
+  <div class="smart-home-grid">
+    <main class="smart-home-main">
+      <section class="smart-overview-card">
+        <div class="smart-section-head"><div><span class="smart-eyebrow">الحالة المباشرة</span><h2>حالة الموظفين الآن</h2><p>الحركات السارية اليوم فقط، مرتبة حسب الأولوية التشغيلية.</p></div><a class="ui-btn ui-btn-secondary ui-btn-mini" href="/employees">كل الموظفين</a></div>
+        <div class="smart-status-metrics">
+          <button type="button" data-status-metric="إجازة"><b>{{current_status_summary.leave}}</b><span>إجازة</span><i class="leave"></i></button>
+          <button type="button" data-status-metric="انتداب"><b>{{current_status_summary.assignment}}</b><span>منتدب إليه</span><i class="assign"></i></button>
+          <button type="button" data-status-metric="انتداب مفتوح"><b>{{current_status_summary.open_assignment}}</b><span>منتدب إليه · مفتوح</span><i class="open"></i></button>
+          <button type="button" data-status-metric="إذن"><b>{{current_status_summary.permission}}</b><span>إذن اليوم</span><i class="permit"></i></button>
         </div>
-        <div class="home-employee-meta"><b>{{movement_employee.branch.name if movement_employee.branch else '—'}}</b><span>{{movement_employee.branch.governorate.name if movement_employee.branch and movement_employee.branch.governorate else '—'}}</span></div>
-      </div>
-      <div class="home-employee-history">
-        {% for k,t,icon in [('إجازة','آخر إجازة','leave'),('انتداب','آخر انتداب','assign'),('إذن','آخر إذن','permit')] %}
-        {% set m=movement_employee_last[k] %}
-        <article class="home-history-card {{icon}}"><span>{{t}}</span>{% if m %}<b>{{m.from_date or m.permission_date or '—'}}{% if m.to_date %} → {{m.to_date}}{% endif %}</b><small>{{m.leave_type or (m.destination.name if m.destination else 'إذن')}}</small>{% else %}<b>لا توجد</b><small>—</small>{% endif %}</article>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
-  </section>
+        <div class="smart-status-tools"><label class="smart-inline-search"><svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.2"/><path d="m16 16 4 4"/></svg><input id="current-status-search" type="search" placeholder="ابحث داخل الحالات..." autocomplete="off"></label><select id="current-status-branch-filter"><option value="">كل الفروع</option>{% for row in current_status_rows|unique(attribute='display_branch') %}{% if row.display_branch %}<option value="{{row.display_branch.id}}">{{row.display_branch.name}}</option>{% endif %}{% endfor %}</select><button type="button" class="ui-btn ui-btn-ghost ui-btn-mini" id="current-status-reset">إعادة ضبط</button></div>
+        <div class="smart-status-list" id="current-status-list">
+          {% for row in current_status_rows[:40] %}
+          <a class="smart-status-row" data-status-branch="{{row.display_branch.id if row.display_branch else ''}}" data-status-state="{{row.state}}" data-status-name="{{row.employee.full_name|lower}} {{row.employee.job_code|lower}}" href="/employee/{{row.employee.id}}">
+            <span class="smart-person"><i>{{(row.employee.full_name or 'م')[:1]}}</i><b>{{row.employee.full_name}}</b><small>{{row.employee.job_code or '—'}} · {{row.display_branch.name if row.display_branch else '—'}}</small></span>
+            <span class="smart-status-place">{% if row.state in ['انتداب','انتداب مفتوح'] %}<b>{{row.state == 'انتداب' and 'منتدب إليه' or 'منتدب إليه · مفتوح'}}</b><small>{{row.place}}</small>{% else %}<b>{{row.state}}</b><small>{{row.place}}</small>{% endif %}</span>
+            <span class="smart-status-date">{% if row.to_date %}حتى {{row.to_date}}{% elif row.until %}{{row.until}}{% else %}مفتوح{% endif %}</span>
+            <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
+          </a>
+          {% else %}<div class="smart-empty">لا توجد حركات سارية حاليًا.</div>{% endfor %}
+          <div class="smart-empty" id="current-status-filter-empty" hidden>لا توجد نتائج مطابقة.</div>
+        </div>
+      </section>
 
-  {% if can('manage_movements') %}
-  <section class="home-workspace-card home-register-card" id="movement-register">
-    <div class="home-workspace-head">
-      <div>
-        <span class="home-kicker">المهمة الثانية</span>
-        <h2>تسجيل حركة</h2>
-        <p class="home-task-note">مهمة مستقلة عن البحث: إجازة أو انتداب أو إذن للموظف المحدد.</p>
-      </div>
-      <span class="home-live-pill home-live-pill-amber">تسجيل تشغيلي</span>
-    </div>
-
-    {% if movement_employee %}
-      {% if movement_employee_in_scope %}
-      <div class="home-register-zone home-register-zone-open">
-        <div class="home-register-title"><span>تسجيل حركة جديدة لـ {{movement_employee.full_name}}</span><small>اختر نوع الحركة ثم أدخل البيانات المطلوبة</small></div>
-        <form method="post" action="/movements/create" class="home-movement-form" id="homeMovementForm">
-          <input type="hidden" name="_csrf" value="{{csrf}}">
-          <input type="hidden" name="employee_id" value="{{movement_employee.id}}">
-          <input type="hidden" name="movement_type" id="homeMovementType" value="إجازة">
-          <div class="home-movement-switch" role="tablist" aria-label="نوع الحركة">
-            <button type="button" class="home-movement-tab is-active leave" data-movement-action="إجازة">إجازة</button>
-            <button type="button" class="home-movement-tab assign" data-movement-action="انتداب">انتداب</button>
-            <button type="button" class="home-movement-tab permit" data-movement-action="إذن">إذن</button>
-          </div>
-
-          <div class="home-movement-fields" data-movement-fields="إجازة">
-            <label><span>نوع الإجازة</span><select name="leave_type"><option value="">اختر النوع</option>{% for x in leave_types %}<option value="{{x}}">{{x}}</option>{% endfor %}</select></label>
-            <label><span>من تاريخ</span><input type="date" name="leave_from_date"></label>
-            <label><span>إلى تاريخ</span><input type="date" name="leave_to_date"></label>
-          </div>
-
-          <div class="home-movement-fields" data-movement-fields="انتداب" hidden>
-            <label><span>الفرع المنتدب إليه</span><select name="destination_branch_id"><option value="">اختر الفرع</option>{% for b in home_movement_branches %}<option value="{{b.id}}">{{b.name}} — {{b.governorate.name}}</option>{% endfor %}</select></label>
-            <label><span>من تاريخ</span><input type="date" name="assignment_from_date" data-assignment-field></label>
-            <label><span>إلى تاريخ</span><input type="date" name="assignment_to_date" data-assignment-field></label>
-            <label class="home-open-assignment"><span><input type="checkbox" name="open_assignment" value="1"> انتداب مفتوح</span></label>
-          </div>
-
-          <div class="home-movement-fields" data-movement-fields="إذن" hidden>
-            <label><span>تاريخ الإذن</span><input type="date" name="permission_date"></label>
-          </div>
-
-          <div class="home-movement-submit"><span id="homeMovementHint">تسجيل إجازة للموظف المحدد</span><button class="ui-btn ui-btn-primary" type="submit">تسجيل الحركة</button></div>
-        </form>
-      </div>
-      {% else %}
-      <div class="home-out-of-scope">
-        <b>الموظف تم العثور عليه خارج محافظة العمل الحالية.</b>
-        <span>يمكنك متابعة بياناته، ولتسجيل إجازة أو انتداب أو إذن غيّر «محافظة العمل» إلى محافظة الموظف أولًا.</span>
-      </div>
+      {% if is_admin or is_manager_support or 'مشرف محافظة' in roles %}
+      <section class="smart-overview-card" id="entry-directory">
+        <div class="smart-section-head"><div><span class="smart-eyebrow">التشغيل التنظيمي</span><h2>المدخلون الأوائل</h2><p>الموظفون المكلفون بإدخال الحركات للفروع التابعة لهم.</p></div><div class="smart-section-actions"><span class="smart-count">{{entry_rows|length}} مدخل</span><button class="ui-btn ui-btn-secondary ui-btn-mini" type="button" id="toggle-entry-role-add">إضافة مدخل أول</button></div></div>
+        <div id="entry-role-inline-panel" hidden class="smart-inline-panel">
+          <form method="post" action="/entry-role/add" id="entry-role-inline-form" class="smart-entry-form">
+            <input type="hidden" name="_csrf" value="{{csrf}}">
+            <label><span>الموظف</span><input id="inline-entry-employee-search" list="inline-entry-employees" placeholder="ابحث بالاسم أو الفرع" autocomplete="off" required><input type="hidden" name="employee_id" id="inline-entry-employee"><datalist id="inline-entry-employees">{% for e in available_entry_employees %}<option value="{{e.full_name}} — {{e.branch.name if e.branch else '—'}}" data-id="{{e.id}}"></option>{% endfor %}</datalist></label>
+            {% if is_admin %}<label><span>المشرف المسؤول</span><select name="supervisor_id" required><option value="">اختر المشرف</option>{% for s in entry_supervisors %}<option value="{{s.id}}">{{s.full_name}}</option>{% endfor %}</select></label>{% endif %}
+            <div><span>الفروع</span><div class="smart-check-grid">{% for b in available_entry_branches %}<label><input type="checkbox" name="branch_id" value="{{b.id}}"><span>{{b.name}}</span></label>{% endfor %}</div></div>
+            <button class="ui-btn ui-btn-primary" type="submit">حفظ التكليف</button>
+          </form>
+        </div>
+        <div class="smart-entry-list">
+          {% for row in entry_rows %}
+          <details class="smart-entry-item"><summary><i>{{(row.employee.full_name or 'م')[:1]}}</i><span><b>{{row.employee.full_name}}</b><small>{{row.supervisor.full_name if row.supervisor else '—'}} · {{row.branches|length}} فروع · {{row.employee_count}} موظف</small></span><em>{{row.alert_count}} متابعة</em><svg viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></summary><div class="smart-entry-body"><div class="smart-entry-branches">{% for bg in row.branches %}<span><b>{{bg.branch.name}}</b><small>{{bg.employees|length}} موظف</small></span>{% else %}<span>لا توجد فروع مسندة.</span>{% endfor %}</div><div class="smart-entry-actions"><details><summary>تعديل الفروع</summary><form method="post" action="/entry-role/{{row.employee.id}}/branches"><input type="hidden" name="_csrf" value="{{csrf}}"><div class="smart-check-grid">{% for b in row.available_branches %}<label><input type="checkbox" name="branch_id" value="{{b.id}}" {% if b.id in row.assignment_branch_ids %}checked{% endif %}><span>{{b.name}}</span></label>{% endfor %}</div><button class="ui-btn ui-btn-secondary ui-btn-mini" type="submit">حفظ</button></form></details><details><summary>استبدال</summary><form method="post" action="/entry-role/{{row.employee.id}}/replace"><input type="hidden" name="_csrf" value="{{csrf}}"><select name="new_entry_employee_id" required><option value="">اختر البديل</option>{% for e in row.replace_targets %}<option value="{{e.id}}">{{e.full_name}}{% if e.branch %} — {{e.branch.name}}{% endif %}</option>{% endfor %}</select><button class="ui-btn ui-btn-secondary ui-btn-mini" type="submit">استبدال</button></form></details><form method="post" action="/entry-role/{{row.employee.id}}/remove" onsubmit="return confirm('هل تريد إزالة دور المدخل الأول؟ ستظل بيانات الموظف والحركات محفوظة.');"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="ui-btn ui-btn-danger ui-btn-mini" type="submit">إزالة الدور</button></form></div></div></details>
+          {% else %}<div class="smart-empty">لا يوجد مدخلون أوائل حاليًا.</div>{% endfor %}
+        </div>
+      </section>
       {% endif %}
-    {% else %}
-      <div class="home-register-empty">
-        <b>حدّد الموظف أولًا من مهمة البحث أعلاه.</b>
-        <span>بعد اختيار الموظف يظهر هنا نموذج تسجيل الإجازة أو الانتداب أو الإذن بشكل مستقل.</span>
-        <a class="ui-btn ui-btn-secondary" href="#employee-search">الذهاب إلى البحث</a>
-      </div>
-    {% endif %}
-  </section>
-  {% endif %}
 
+      <section class="smart-activity-grid">
+        <article class="smart-overview-card"><div class="smart-section-head compact"><div><span class="smart-eyebrow">نشاط مباشر</span><h2>آخر الحالات</h2></div><a href="/movements">السجل الكامل</a></div><div class="smart-recent-list">{% for row in current_status_rows[:6] %}<a href="/employee/{{row.employee.id}}"><i class="{{'leave' if row.state=='إجازة' else 'assign' if row.state in ['انتداب','انتداب مفتوح'] else 'permit'}}"></i><span><b>{{row.employee.full_name}}</b><small>{{row.state}} · {{row.display_branch.name if row.display_branch else '—'}}</small></span><em>{{row.to_date or row.until or 'مفتوح'}}</em></a>{% else %}<div class="smart-empty">لا توجد حالات تشغيلية حالية.</div>{% endfor %}</div></article>
+        <article class="smart-overview-card"><div class="smart-section-head compact"><div><span class="smart-eyebrow">وصول سريع</span><h2>أدوات العمل</h2></div></div><div class="smart-tools-grid">{% if can('manage_employees') %}<a href="/employees"><i>👥</i><b>الموظفون</b><small>إدارة الملفات</small></a>{% endif %}{% if can('view_reports') %}<a href="/reports-missions"><i>▤</i><b>التقارير</b><small>تقارير ومأموريات</small></a>{% endif %}{% if 'مسؤول التطبيق' in roles %}<a href="/structure"><i>⚙</i><b>الإدارة</b><small>مركز النظام</small></a>{% endif %}</div></article>
+      </section>
+    </main>
 
-  {% if is_admin or is_manager_support or 'مشرف محافظة' in roles %}
-  <section class="home-section" id="entry-directory">
-    <div class="home-section-head"><div><span class="home-kicker">الإدارة التنظيمية</span><h2>المدخلون الأوائل</h2></div><div class="home-section-actions"><span class="home-count-pill">{{entry_rows|length}} مدخل</span>{% if is_admin or is_manager_support or 'مشرف محافظة' in roles %}<button class="ui-btn ui-btn-secondary ui-btn-mini" type="button" id="toggle-entry-role-add">إضافة مدخل أول</button>{% endif %}</div></div>
-    <div id="entry-role-inline-panel" hidden class="entry-role-inline-panel">
-      <form method="post" action="/entry-role/add" id="entry-role-inline-form" class="home-entry-form">
-        <input type="hidden" name="_csrf" value="{{csrf}}">
-        <label><span>الموظف</span><input id="inline-entry-employee-search" list="inline-entry-employees" placeholder="ابحث بالاسم" autocomplete="off" required><input type="hidden" name="employee_id" id="inline-entry-employee"><datalist id="inline-entry-employees">{% for e in available_entry_employees %}<option value="{{e.full_name}} — {{e.branch.name if e.branch else '—'}}" data-id="{{e.id}}"></option>{% endfor %}</datalist></label>
-        {% if is_admin %}<label><span>المشرف المسؤول</span><select name="supervisor_id" required><option value="">اختر المشرف</option>{% for s in entry_supervisors %}<option value="{{s.id}}">{{s.full_name}}</option>{% endfor %}</select></label>{% endif %}
-        <div><span>فروع المسؤولية</span><div class="home-entry-branch-grid">{% for b in available_entry_branches %}<label><input type="checkbox" name="branch_id" value="{{b.id}}"><span>{{b.name}}</span></label>{% endfor %}</div></div>
-        <button class="ui-btn ui-btn-primary" type="submit">حفظ التكليف</button>
-      </form>
-    </div>
-    <div class="home-entry-grid">
-      {% for row in entry_rows %}
-      <details class="home-entry-card">
-        <summary><i>{{(row.employee.full_name or 'م')[:1]}}</i><div><b>{{row.employee.full_name}}</b><small>{{row.supervisor.full_name if row.supervisor else '—'}} · {{row.branches|length}} فروع · {{row.employee_count}} موظف</small></div><span>{{row.alert_count}} متابعة</span><svg viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></summary>
-        <div class="home-entry-card-body">
-          <div class="home-entry-branches">{% for bg in row.branches %}<div><b>{{bg.branch.name}}</b><span>{{bg.employees|length}} موظف</span></div>{% else %}<span>لا توجد فروع مسندة.</span>{% endfor %}</div>
-          <div class="home-entry-actions">
-            <details><summary>تعديل الفروع</summary><form method="post" action="/entry-role/{{row.employee.id}}/branches"><input type="hidden" name="_csrf" value="{{csrf}}"><div class="home-entry-checks">{% for b in row.available_branches %}<label><input type="checkbox" name="branch_id" value="{{b.id}}" {% if b.id in row.assignment_branch_ids %}checked{% endif %}><span>{{b.name}}</span></label>{% endfor %}</div><button class="ui-btn ui-btn-secondary ui-btn-mini" type="submit">حفظ</button></form></details>
-            <details><summary>استبدال</summary><form method="post" action="/entry-role/{{row.employee.id}}/replace"><input type="hidden" name="_csrf" value="{{csrf}}"><select name="new_entry_employee_id" required><option value="">اختر البديل</option>{% for e in row.replace_targets %}<option value="{{e.id}}">{{e.full_name}}{% if e.branch %} — {{e.branch.name}}{% endif %}</option>{% endfor %}</select><button class="ui-btn ui-btn-secondary ui-btn-mini" type="submit">استبدال</button></form></details>
-            <form method="post" action="/entry-role/{{row.employee.id}}/remove" onsubmit="return confirm('هل تريد إزالة دور المدخل الأول؟ ستظل بيانات الموظف والحركات محفوظة.');"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="ui-btn ui-btn-danger ui-btn-mini" type="submit">إزالة الدور</button></form>
-          </div>
-        </div>
-      </details>
-      {% else %}<div class="home-empty">لا يوجد مدخلون أوائل حاليًا.</div>{% endfor %}
-    </div>
-  </section>
-  {% endif %}
+    <aside class="smart-home-rail">
+      {% include 'home_global_search.html' %}
 
-  <section class="home-section home-status-section" id="employee-status">
-    <div class="home-section-head"><div><span class="home-kicker">المتابعة المباشرة</span><h2>حالة الموظفين الآن</h2></div><div class="home-section-actions"><span class="home-count-pill">{{current_status_rows|length}} موظف</span><a class="ui-btn ui-btn-secondary ui-btn-mini" href="/employees">عرض الموظفين</a></div></div>
-    <div class="home-status-metrics">
-      <div class="home-status-metric present"><b>{{current_status_summary.present}}</b><span>متواجد في الفرع</span></div>
-      <div class="home-status-metric leave"><b>{{current_status_summary.leave}}</b><span>إجازة</span></div>
-      <div class="home-status-metric assign"><b>{{current_status_summary.assignment}}</b><span>انتداب محدد</span></div>
-      <div class="home-status-metric open"><b>{{current_status_summary.open_assignment}}</b><span>انتداب مفتوح</span></div>
-      <div class="home-status-metric permit"><b>{{current_status_summary.permission}}</b><span>إذن اليوم</span></div>
-    </div>
-    <div class="home-filter-line"><select id="current-status-branch-filter"><option value="">كل الفروع</option>{% for row in current_status_rows|unique(attribute='display_branch') %}{% if row.display_branch %}<option value="{{row.display_branch.id}}">{{row.display_branch.name}}</option>{% endif %}{% endfor %}</select><select id="current-status-employee-filter"><option value="">كل الموظفين</option>{% for row in current_status_rows %}<option value="{{row.employee.id}}">{{row.employee.full_name}}</option>{% endfor %}</select></div>
-    <div class="home-status-table">
-      <div class="home-status-table-head"><span>الموظف</span><span>الفرع الحالي</span><span>الحالة</span><span>حتى</span></div>
-      <div id="current-status-list">
-      {% for row in current_status_rows[:30] %}
-        <a class="home-status-row" data-status-branch="{{row.display_branch.id if row.display_branch else ''}}" data-status-employee="{{row.employee.id}}" href="/employee/{{row.employee.id}}">
-          <span><i>{{(row.employee.full_name or 'م')[:1]}}</i><b>{{row.employee.full_name}}</b><small>{{row.employee.job_title or 'موظف'}}</small></span>
-          <span>{{row.display_branch.name if row.display_branch else '—'}}</span>
-          <span><em class="home-status-chip {% if row.state=='إجازة' %}leave{% elif row.state in ['انتداب','انتداب مفتوح'] %}assign{% elif row.state=='إذن' %}permit{% else %}present{% endif %}">{{row.state}}</em></span>
-          <span>{{row.to_date or row.until or '—'}}</span>
-        </a>
-      {% else %}<div class="home-empty">لا توجد بيانات للعرض.</div>{% endfor %}
-      <div class="home-empty" id="current-status-filter-empty" hidden>لا توجد نتائج مطابقة للفلاتر الحالية.</div>
-      </div>
-    </div>
-  </section>
-
-  <section class="home-bottom-grid">
-    <div class="home-mini-card"><div class="home-section-head"><div><span class="home-kicker">آخر النشاط</span><h2>المتابعة الحالية</h2></div><a href="/movements">عرض الكل</a></div><div class="home-recent-list">{% for row in current_status_rows[:6] %}<a href="/employee/{{row.employee.id}}"><i class="{{'leave' if row.state=='إجازة' else 'assign' if row.state in ['انتداب','انتداب مفتوح'] else 'permit' if row.state=='إذن' else 'present'}}"></i><span><b>{{row.employee.full_name}}</b><small>{{row.state}} · {{row.display_branch.name if row.display_branch else '—'}}</small></span><em>{{row.to_date or row.until or '—'}}</em></a>{% else %}<div class="home-empty">لا توجد حالات تشغيلية حالية.</div>{% endfor %}</div></div>
-    <div class="home-mini-card"><div class="home-section-head"><div><span class="home-kicker">الوصول السريع</span><h2>أدوات العمل</h2></div></div><div class="home-tools">{% if can('manage_employees') %}<a href="/employees"><b>الموظفون</b><small>إضافة وتعديل</small></a>{% endif %}<a href="/movements"><b>حركات الموظفين</b><small>متابعة السجل</small></a>{% if can('view_reports') %}<a href="/reports-missions"><b>تقارير ومأموريات</b><small>عرض وطباعة</small></a>{% endif %}{% if 'مسؤول التطبيق' in roles %}<a href="/structure"><b>الإدارة</b><small>الهيكل والحسابات</small></a>{% endif %}</div></div>
-  </section>
-
-
+      {% if can('manage_movements') %}
+      <section class="smart-action-card register-card" id="movement-register">
+        <div class="smart-action-head"><span class="smart-action-icon accent"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><div><span class="smart-eyebrow">إجراء سريع</span><h2>تسجيل حركة</h2></div></div>
+        {% if movement_employee and movement_employee_in_scope %}
+        <div class="smart-register-selected"><span>الموظف المحدد</span><b>{{movement_employee.full_name}}</b><small>{{movement_employee.branch.name if movement_employee.branch else '—'}}</small></div>
+        <form method="post" action="/movements/create" class="smart-movement-form" id="homeMovementForm">
+          <input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="employee_id" value="{{movement_employee.id}}"><input type="hidden" name="movement_type" id="homeMovementType" value="إجازة">
+          <div class="smart-movement-tabs" role="tablist"><button type="button" class="is-active leave" data-movement-action="إجازة">إجازة</button><button type="button" class="assign" data-movement-action="انتداب">انتداب</button><button type="button" class="permit" data-movement-action="إذن">إذن</button></div>
+          <div data-movement-fields="إجازة" class="smart-movement-fields"><label><span>نوع الإجازة</span><select name="leave_type"><option value="">اختر النوع</option>{% for x in leave_types %}<option value="{{x}}">{{x}}</option>{% endfor %}</select></label><div class="smart-date-grid"><label><span>من</span><input type="date" name="leave_from_date"></label><label><span>إلى</span><input type="date" name="leave_to_date"></label></div></div>
+          <div data-movement-fields="انتداب" class="smart-movement-fields" hidden><label><span>الفرع المنتدب إليه</span><select name="destination_branch_id"><option value="">اختر الفرع</option>{% for b in home_movement_branches %}<option value="{{b.id}}">{{b.name}} — {{b.governorate.name}}</option>{% endfor %}</select></label><div class="smart-date-grid"><label><span>من</span><input type="date" name="assignment_from_date" data-assignment-field></label><label><span>إلى</span><input type="date" name="assignment_to_date" data-assignment-field></label></div><label class="smart-open-check"><input type="checkbox" name="open_assignment" value="1"><span>انتداب مفتوح بلا تاريخ نهاية</span></label></div>
+          <div data-movement-fields="إذن" class="smart-movement-fields" hidden><label><span>تاريخ الإذن</span><input type="date" name="permission_date"></label></div>
+          <div class="smart-form-footer"><span id="homeMovementHint">تسجيل إجازة</span><button class="ui-btn ui-btn-primary" type="submit">تسجيل الحركة</button></div>
+        </form>
+        {% elif movement_employee %}<div class="smart-blocked-state"><b>الموظف خارج محافظة العمل الحالية.</b><span>يمكنك فتح ملفه، ولتسجيل حركة غيّر محافظة العمل إلى محافظته.</span></div>
+        {% else %}<div class="smart-register-empty"><div>1</div><b>ابحث عن موظف أولًا</b><span>بعد اختيار الموظف ستظهر هنا الخطوة التالية تلقائيًا.</span><a href="#employee-search" class="ui-btn ui-btn-secondary">اختيار موظف</a></div>{% endif %}
+      </section>
+      {% endif %}
+    </aside>
+  </div>
 </div>
 <script>
 document.addEventListener('DOMContentLoaded',()=>{
-  const searchGov=document.getElementById('homeSearchGovernorate');
-  const searchBranch=document.getElementById('homeSearchBranch');
-  if(searchGov && searchBranch){
-    const syncBranches=()=>{const gov=searchGov.value;[...searchBranch.options].forEach((opt,i)=>{if(i===0){opt.hidden=false;return;}opt.hidden=!!gov&&opt.dataset.governorate!==gov;});if(searchBranch.options[searchBranch.selectedIndex]?.hidden)searchBranch.value='';};
-    searchGov.addEventListener('change',syncBranches); syncBranches();
-  }
-
-  const typeInput=document.getElementById('homeMovementType');
-  const movementForm=document.getElementById('homeMovementForm');
-  const hint=document.getElementById('homeMovementHint');
-  const labels={
-    'إجازة':'تسجيل إجازة للموظف المحدد',
-    'انتداب':'تسجيل انتداب للموظف المحدد',
-    'إذن':'تسجيل إذن للموظف المحدد'
-  };
-  function syncMovement(type){
-    if(!typeInput||!movementForm)return;
-    typeInput.value=type;
-    document.querySelectorAll('.home-movement-tab').forEach(b=>b.classList.toggle('is-active',b.dataset.movementAction===type));
-    document.querySelectorAll('[data-movement-fields]').forEach(x=>x.hidden=x.dataset.movementFields!==type);
-    if(hint)hint.textContent=labels[type]||'تسجيل الحركة';
-  }
-  document.querySelectorAll('.home-movement-tab').forEach(b=>b.addEventListener('click',()=>syncMovement(b.dataset.movementAction)));
-  const open=document.querySelector('.home-open-assignment input');
-  const to=document.querySelector('[data-assignment-field][name="assignment_to_date"]');
-  open?.addEventListener('change',()=>{if(to){to.disabled=open.checked;to.required=!open.checked;if(open.checked)to.value='';}});
-  syncMovement(typeInput?.value||'إجازة');
-
-  const branch=document.getElementById('current-status-branch-filter'),emp=document.getElementById('current-status-employee-filter');
-  const rows=[...document.querySelectorAll('#current-status-list .home-status-row')],empty=document.getElementById('current-status-filter-empty');
-  function filter(){const b=branch?.value||'',e=emp?.value||'';let visible=0;rows.forEach(r=>{const ok=(!b||r.dataset.statusBranch===b)&&(!e||r.dataset.statusEmployee===e);r.hidden=!ok;if(ok)visible++;});if(empty)empty.hidden=visible!==0;}
-  branch?.addEventListener('change',filter); emp?.addEventListener('change',filter);
-
-  const add=document.getElementById('toggle-entry-role-add'),panel=document.getElementById('entry-role-inline-panel');
-  add?.addEventListener('click',()=>{if(panel){panel.hidden=!panel.hidden; if(!panel.hidden)panel.scrollIntoView({behavior:'smooth',block:'nearest'});}});
-  const entrySearch=document.getElementById('inline-entry-employee-search'),entryId=document.getElementById('inline-entry-employee'),entryList=document.getElementById('inline-entry-employees');
-  if(entrySearch&&entryId&&entryList){
-    const sync=()=>{const value=entrySearch.value.trim();const opt=[...entryList.options].find(o=>o.value===value);entryId.value=opt?.dataset.id||'';};
-    entrySearch.addEventListener('input',sync);entrySearch.addEventListener('change',sync);
-  }
+  const sg=document.getElementById('homeSearchGovernorate'), sb=document.getElementById('homeSearchBranch');
+  if(sg&&sb){const sync=()=>{const g=sg.value;[...sb.options].forEach((o,i)=>{o.hidden=i>0&&!!g&&o.dataset.governorate!==g});if(sb.options[sb.selectedIndex]?.hidden)sb.value='';};sg.addEventListener('change',sync);sync();}
+  const typeInput=document.getElementById('homeMovementType'), hint=document.getElementById('homeMovementHint'), form=document.getElementById('homeMovementForm');
+  const labels={'إجازة':'تسجيل إجازة','انتداب':'تسجيل انتداب','إذن':'تسجيل إذن'};
+  function syncMovement(t){if(!typeInput||!form)return;typeInput.value=t;document.querySelectorAll('[data-movement-action]').forEach(b=>b.classList.toggle('is-active',b.dataset.movementAction===t));document.querySelectorAll('[data-movement-fields]').forEach(x=>x.hidden=x.dataset.movementFields!==t);if(hint)hint.textContent=labels[t]||'تسجيل الحركة';}
+  document.querySelectorAll('[data-movement-action]').forEach(b=>b.addEventListener('click',()=>syncMovement(b.dataset.movementAction)));syncMovement(typeInput?.value||'إجازة');
+  const open=document.querySelector('.smart-open-check input'),to=document.querySelector('[name="assignment_to_date"]');open?.addEventListener('change',()=>{if(to){to.disabled=open.checked;to.required=!open.checked;if(open.checked)to.value='';}});
+  const search=document.getElementById('current-status-search'),branch=document.getElementById('current-status-branch-filter'),reset=document.getElementById('current-status-reset'),empty=document.getElementById('current-status-filter-empty'),rows=[...document.querySelectorAll('.smart-status-row')];let state='';
+  function apply(){const q=(search?.value||'').trim().toLocaleLowerCase('ar'),b=branch?.value||'';let n=0;rows.forEach(r=>{const ok=(!b||r.dataset.statusBranch===b)&&(!state||r.dataset.statusState===state)&&(!q||r.dataset.statusName.includes(q));r.hidden=!ok;if(ok)n++;});if(empty)empty.hidden=n>0;}
+  document.querySelectorAll('[data-status-metric]').forEach(btn=>btn.addEventListener('click',()=>{state=state===btn.dataset.statusMetric?'':btn.dataset.statusMetric;document.querySelectorAll('[data-status-metric]').forEach(x=>x.classList.toggle('selected',x.dataset.statusMetric===state));apply();}));search?.addEventListener('input',apply);branch?.addEventListener('change',apply);reset?.addEventListener('click',()=>{state='';if(search)search.value='';if(branch)branch.value='';document.querySelectorAll('[data-status-metric]').forEach(x=>x.classList.remove('selected'));apply();});
+  const add=document.getElementById('toggle-entry-role-add'),panel=document.getElementById('entry-role-inline-panel');add?.addEventListener('click',()=>{if(panel){panel.hidden=!panel.hidden;if(!panel.hidden)panel.scrollIntoView({behavior:'smooth',block:'nearest'});}});
+  const es=document.getElementById('inline-entry-employee-search'),ei=document.getElementById('inline-entry-employee'),el=document.getElementById('inline-entry-employees');if(es&&ei&&el){const sync=()=>{const o=[...el.options].find(x=>x.value===es.value.trim());ei.value=o?.dataset.id||''};es.addEventListener('input',sync);es.addEventListener('change',sync);}
 });
 </script>
 {% endif %}

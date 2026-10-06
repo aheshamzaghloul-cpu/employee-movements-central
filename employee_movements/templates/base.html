@@ -11,46 +11,71 @@
 </head>
 <body class="{% if request.args.get('embed')=='1' %}assistant-embed-body{% endif %}">
 <a class="skip-link" href="#main">تخطي إلى المحتوى</a>
-<div class="ui-shell{% if request.args.get('embed')=='1' %} assistant-host{% endif %}">
+<div class="ui-shell v64-shell{% if request.args.get('embed')=='1' %} assistant-host{% endif %}">
 {% if me and request.args.get('embed')!='1' %}
-<aside class="ui-sidebar" id="appSidebar">
-  <div class="ui-brand">
+<aside class="ui-sidebar v64-sidebar" id="appSidebar">
+  <div class="ui-brand v64-brand">
     <div class="ui-brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 4h12v4H9v4h7v4H9v4H6V4Z"/></svg></div>
-    <div class="ui-brand-copy"><strong>نظام إدارة حركات<br>الموظفين</strong><span>المنصة المركزية</span></div>
+    <div class="ui-brand-copy"><strong>حركات الموظفين</strong><span>المركزية</span></div>
     <button class="ui-collapse" id="sidebarCollapse" type="button" aria-label="تصغير القائمة"><svg viewBox="0 0 24 24"><path d="m14 7-5 5 5 5"/></svg></button>
   </div>
-  <div class="ui-caption">مساحة العمل</div>
-  <nav class="ui-nav" aria-label="التنقل الرئيسي">
+  <div class="v64-side-user"><div class="ui-avatar">{{(me.full_name or 'م')[:1]}}</div><div><b>{{me.full_name}}</b><small>{% if active_role %}{{active_role}}{% elif roles %}{{roles|join(' · ')}}{% endif %}</small></div></div>
+  <div class="v64-nav-label">مساحة العمل</div>
+  <nav class="ui-nav v64-nav" aria-label="التنقل الرئيسي">
     <a href="/" class="{% if request.path=='/' %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="m4 10 8-6 8 6v9h-5v-6H9v6H4v-9Z"/></svg><span>الرئيسية</span></a>
     <a href="/employees" class="{% if request.path.startswith('/employees') %}active{% endif %}"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M3.5 19c.6-3 2.5-4.5 5.5-4.5s4.9 1.5 5.5 4.5M14 15c2.7-.7 5.5.5 6.5 4"/></svg><span>الموظفون</span></a>
-    <a href="/movements" class="{% if request.path.startswith('/movements') %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M5 7h11l-3-3M19 17H8l3 3"/><path d="m16 4 3 3-3 3M8 14l-3 3 3 3"/></svg><span>حركات الموظفين</span></a>
-    {% if can('view_reports') or can('manage_movements') %}<a href="/reports-missions" class="{% if request.path.startswith('/reports') or request.path.startswith('/mission') %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6V3Z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg><span>تقارير ومأموريات</span></a>{% endif %}
-    {% if 'مشرف محافظة' in roles and 'مسؤول التطبيق' not in roles %}<a href="/delegations" class="{% if request.path.startswith('/delegations') %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M7 7h12M17 4l3 3-3 3M17 17H5M7 14l-3 3 3 3"/></svg><span>تفويض</span></a>{% endif %}
+    <a href="/movements" class="{% if request.path.startswith('/movements') %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M5 7h11l-3-3M19 17H8l3 3"/><path d="m16 4 3 3-3 3M8 14l-3 3 3 3"/></svg><span>الحركات</span></a>
+    {% if can('view_reports') or can('manage_movements') %}<a href="/reports-missions" class="{% if request.path.startswith('/reports') or request.path.startswith('/mission') %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6V3Z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg><span>التقارير والمأموريات</span></a>{% endif %}
+    {% if 'مشرف محافظة' in roles and 'مسؤول التطبيق' not in roles %}<a href="/delegations" class="{% if request.path.startswith('/delegations') %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M7 7h12M17 4l3 3-3 3M17 17H5M7 14l-3 3 3 3"/></svg><span>التفويض</span></a>{% endif %}
   </nav>
-  {% if 'مسؤول التطبيق' in roles %}<div class="ui-caption admin">الإدارة</div><nav class="ui-nav"><a href="/structure" class="{% if request.path.startswith('/structure') %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.8 2.8M15 15l2.7 2.7M17.7 6.3 15 9M9 15l-2.7 2.7"/><circle cx="12" cy="12" r="3.5"/></svg><span>الإدارة</span></a></nav>{% endif %}
+  {% if 'مسؤول التطبيق' in roles %}
+  <div class="v64-nav-label admin">إدارة النظام</div>
+  <nav class="ui-nav v64-nav"><a href="/structure" class="{% if request.path.startswith('/structure') %}active{% endif %}"><svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.8 2.8M15 15l2.7 2.7M17.7 6.3 15 9M9 15l-2.7 2.7"/><circle cx="12" cy="12" r="3.5"/></svg><span>الإدارة</span></a></nav>
+  {% endif %}
   <div class="ui-spacer"></div>
-  <div class="ui-account"><a href="/change-password"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20c.7-3.5 3-5 7-5s6.3 1.5 7 5"/></svg><span>حسابي</span></a><a href="/logout"><svg viewBox="0 0 24 24"><path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10"/></svg><span>خروج</span></a></div>
-  <div class="ui-version">نظام إدارة حركات الموظفين · الإصدار {{app_version}}</div>
+  <div class="v64-side-footer"><a href="/change-password"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20c.7-3.5 3-5 7-5s6.3 1.5 7 5"/></svg><span>حسابي</span></a><a href="/logout"><svg viewBox="0 0 24 24"><path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10"/></svg><span>خروج</span></a></div>
+  <div class="ui-version">الإصدار {{app_version}}</div>
 </aside>
-<header class="ui-topbar">
-  <button class="ui-mobile-menu" id="sidebarToggle" type="button" aria-label="القائمة"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-  <div class="ui-user"><div class="ui-avatar">{{(me.full_name or 'م')[:1]}}</div><div class="ui-user-copy"><strong>{{me.full_name}}</strong><small>{% if active_role %}{{active_role}}{% elif roles %}{{roles|join(' · ')}}{% endif %}</small></div></div>
-  <div class="ui-top-actions">
-    {% if scope_required %}<form method="get" action="/" class="ui-scope-form"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg><select name="governorate_id" aria-label="المحافظة" onchange="this.form.submit()"><option value="">{% if scope_selected %}محافظة: {{scope_governorate.name}}{% else %}اختر المحافظة{% endif %}</option>{% for g in scope_governorates %}{% if not scope_selected or g.id!=scope_selected %}<option value="{{g.id}}">محافظة: {{g.name}}</option>{% endif %}{% endfor %}</select></form>{% elif scope_selected and scope_governorate %}<div class="ui-scope-chip"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg>محافظة: {{scope_governorate.name}}</div>{% elif 'مشرف محافظة' in roles %}<div class="ui-scope-chip ui-scope-info"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg>صلاحيات المشرف: {{scope_governorates|length}} محافظات</div>{% endif %}
-    {% if login_real_roles|length > 1 %}<form method="post" action="/switch-role" class="ui-role-switch prominent-role-switch"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="next" value="{{request.path}}"><span>تغيير الدور</span><select name="active_role" aria-label="تغيير الدور" onchange="this.form.submit()">{% for r in ['مسؤول التطبيق','مشرف محافظة','Manager Application Support'] if r in real_roles %}<option value="{{r}}" {% if active_role==r or (not active_role and loop.first) %}selected{% endif %}>{{r}}</option>{% endfor %}</select></form>{% endif %}
+<header class="ui-topbar v64-topbar">
+  <div class="v64-breadcrumb"><button class="ui-mobile-menu" id="sidebarToggle" type="button" aria-label="القائمة"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><span>نظام إدارة حركات الموظفين</span><b>/</b><strong>{% if request.path=='/' %}الرئيسية{% elif request.path.startswith('/employees') %}الموظفون{% elif request.path.startswith('/movements') %}حركات الموظفين{% elif request.path.startswith('/reports') or request.path.startswith('/mission') %}التقارير والمأموريات{% elif request.path.startswith('/delegations') %}التفويض{% elif request.path.startswith('/structure') %}الإدارة{% else %}مساحة العمل{% endif %}</strong></div>
+  <div class="ui-top-actions v64-top-actions">
+    <button class="v65-command-trigger" id="commandPaletteOpen" type="button" aria-label="فتح البحث والأوامر" aria-haspopup="dialog"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg><span>أوامر سريعة</span><kbd>Ctrl K</kbd></button>
+    {% if me %}<div class="v65-notification-wrap"><button class="v65-notification-trigger" id="notificationTrigger" type="button" aria-label="مركز المتابعة" title="مركز المتابعة" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span class="v65-notification-badge" id="notificationBadge" hidden>0</span></button><section class="v65-notification-popover" id="notificationPopover" hidden role="dialog" aria-label="مركز المتابعة"><div class="v65-notification-pop-head"><div><span>المتابعة التشغيلية</span><strong>ما يحتاج انتباهك</strong></div><button type="button" id="notificationRefresh" aria-label="تحديث">↻</button></div><div class="v65-notification-pop-tabs" role="tablist"><button type="button" class="active" data-notification-filter="all">الكل</button><button type="button" data-notification-filter="urgent">عاجل</button><button type="button" data-notification-filter="warning">قريب</button><button type="button" data-notification-filter="info">مفتوح</button></div><div class="v65-notification-pop-list" id="notificationPopList"></div><div class="v65-notification-pop-foot"><a href="/notifications">فتح مركز المتابعة الكامل</a></div></section></div>{% endif %}
+    {% if scope_required %}<form method="get" action="{{request.path}}" class="ui-scope-form v64-scope-form"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg><select name="governorate_id" aria-label="المحافظة" onchange="this.form.submit()"><option value="">{% if scope_selected %}{{scope_governorate.name}}{% else %}اختر المحافظة{% endif %}</option>{% for g in scope_governorates %}{% if not scope_selected or g.id!=scope_selected %}<option value="{{g.id}}">{{g.name}}</option>{% endif %}{% endfor %}</select></form>{% elif scope_selected and scope_governorate %}<div class="ui-scope-chip">محافظة العمل: {{scope_governorate.name}}</div>{% elif 'مشرف محافظة' in roles %}<div class="ui-scope-chip ui-scope-info">{{scope_governorates|length}} محافظات ضمن الصلاحية</div>{% endif %}
+    {% if login_real_roles|length > 1 %}<form method="post" action="/switch-role" class="ui-role-switch prominent-role-switch"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="next" value="{{request.path}}"><span>الدور</span><select name="active_role" aria-label="تغيير الدور" onchange="this.form.submit()">{% for r in ['مسؤول التطبيق','مشرف محافظة','Manager Application Support'] if r in real_roles %}<option value="{{r}}" {% if active_role==r or (not active_role and loop.first) %}selected{% endif %}>{{r}}</option>{% endfor %}</select></form>{% endif %}
   </div>
 </header>
 {% endif %}
-<main id="main" class="ui-main{% if me and request.args.get('embed')!='1' %} with-shell{% endif %}{% if not me %} auth-main{% endif %}{% if request.args.get('embed')=='1' %} assistant-embed-main{% endif %}">
+<main id="main" class="ui-main v64-main{% if me and request.args.get('embed')!='1' %} with-shell{% endif %}{% if not me %} auth-main{% endif %}{% if request.args.get('embed')=='1' %} assistant-embed-main{% endif %}">
 {% if not me %}<div class="login">{% endif %}
 {% for x in get_flashed_messages() %}<div class="enterprise-alert" role="status">{{x}}</div>{% endfor %}
 {% if me and request.args.get('embed')!='1' %}{% include 'workspace_actions.html' %}{% endif %}
+{% if me and request.args.get('embed')!='1' and request.path!='/' %}
+<section class="v64-page-intro" aria-label="عنوان الصفحة">
+  <div><span class="v64-eyebrow">مساحة العمل</span><h1>{% if request.path.startswith('/employees') %}الموظفون{% elif request.path.startswith('/movements') %}حركات الموظفين{% elif request.path.startswith('/reports') or request.path.startswith('/mission') %}التقارير والمأموريات{% elif request.path.startswith('/delegations') %}التفويض وإدارة الغياب{% elif request.path.startswith('/structure') %}مركز إدارة النظام{% elif request.path.startswith('/users') %}المستخدمون والصلاحيات{% else %}مساحة العمل{% endif %}</h1><p>{% if request.path.startswith('/employees') %}إدارة بيانات الموظفين والوصول السريع إلى ملفاتهم وحالاتهم.{% elif request.path.startswith('/movements') %}تسجيل ومتابعة الحركات الحالية وسجل الموظفين.{% elif request.path.startswith('/reports') or request.path.startswith('/mission') %}تحويل بيانات الحركات إلى تقارير ومأموريات قابلة للمراجعة والطباعة.{% elif request.path.startswith('/delegations') %}إدارة التفويضات المؤقتة بين المشرفين ومتابعة السريان.{% elif request.path.startswith('/structure') %}إدارة الهيكل والصلاحيات والبيانات المرجعية من مركز واحد.{% else %}أدوات تشغيلية منظمة ضمن مساحة واحدة.{% endif %}</p></div>
+  <div class="v64-page-context">{% if scope_selected and scope_governorate %}<span>محافظة العمل</span><b>{{scope_governorate.name}}</b>{% elif 'مسؤول التطبيق' in roles %}<span>صلاحية النظام</span><b>وصول إداري</b>{% endif %}</div>
+</section>
+{% endif %}
 {% block content %}{% endblock %}
 {% if not me %}</div>{% endif %}
 </main></div>
-{% if me and request.args.get('embed')!='1' %}{% include 'assistant_dock.html' %}{% endif %}
+{% if me and request.args.get('embed')!='1' %}
+{% include 'assistant_dock.html' %}
+<div class="v65-palette" id="commandPalette" hidden aria-hidden="true">
+  <div class="v65-palette-backdrop" data-palette-close></div>
+  <section class="v65-palette-dialog" role="dialog" aria-modal="true" aria-labelledby="paletteTitle">
+    <div class="v65-palette-head"><div><span>مركز الأوامر</span><h2 id="paletteTitle">ماذا تريد أن تفعل؟</h2></div><button type="button" data-palette-close aria-label="إغلاق">Esc</button></div>
+    <label class="v65-palette-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg><input id="paletteInput" type="search" autocomplete="off" placeholder="اكتب أمرًا أو افتح صفحة…" aria-label="الأوامر والتنقل"></label>
+    <div class="v65-palette-results" id="paletteResults" role="listbox" aria-label="النتائج"></div>
+    <div class="v65-palette-foot"><span>Enter فتح</span><span>↑ ↓ تنقل</span><span>Esc إغلاق</span></div>
+  </section>
+</div>
+<div class="v65-toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
+{% endif %}
 <script src="{{url_for('static',filename='js/app.js')}}"></script>
 <script src="{{url_for('static',filename='js/shell.js')}}"></script>
 <script src="{{url_for('static',filename='js/workspace.js')}}"></script>
 <script src="{{url_for('static',filename='js/assistant_dock.js')}}"></script>
+<script src="{{url_for('static',filename='js/smart_ui.js')}}"></script>
+<script src="{{url_for('static',filename='js/notifications.js')}}"></script>
 </body></html>

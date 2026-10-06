@@ -70,7 +70,7 @@ def inject_context():
             (
                 u
                 and (
-                    ('مسؤول التطبيق' in roles(u) or 'Manager Application Support' in roles(u))
+                    ('مسؤول التطبيق' in roles(u) or 'مشرف محافظة' in roles(u) or 'Manager Application Support' in roles(u))
                     and is_scope_required_endpoint()
                 )
             ),

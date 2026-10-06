@@ -4,25 +4,58 @@
 {% if scope_required and not scope_selected %}
 <div class="scope-empty-state ui-scope-state"><div class="scope-empty-icon"><svg class="ui-icon ui-icon-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18"/></svg></div><span class="home-kicker">اختيار نطاق العمل</span><h1>اختر المحافظة أولًا</h1><p>حدد المحافظة قبل عرض التقارير والمأموريات.</p></div>
 {% else %}
-<div class="ui-page reports-workspace">
-  <header class="ui-page-head"><div><span class="ui-eyebrow">مركز القراءة والقرار</span><h1>تقارير ومأموريات</h1><p>ابدأ من المهمة مباشرة: تقرير، مأمورية، طباعة أو متابعة.</p></div><div class="ui-head-stats"><span><b>{{report_stats.total}}</b> حركة</span><span><b>{{report_stats.open_assignments}}</b> مأمورية مفتوحة</span></div></header>
+<div class="ui-page reports-workspace smart-reports-workspace">
+  <header class="ui-page-head smart-reports-head">
+    <div><span class="ui-eyebrow">مركز القراءة والقرار</span><h1>تقارير ومأموريات</h1><p>الوصول إلى المعلومة، ثم تنفيذ الإجراء من نفس المسار.</p></div>
+    <div class="ui-head-stats"><span><b>{{report_stats.total}}</b> إجمالي الحركات</span><span><b>{{report_stats.open_assignments}}</b> انتداب مفتوح</span><span><b>{{report_stats.follow_up_7d}}</b> يحتاج متابعة خلال 7 أيام</span></div>
+  </header>
 
-  <section class="ui-report-launch-grid">
-    {% if can('view_reports') %}
-    <a class="ui-report-launch leave" href="/reports/leaves"><span class="ui-launch-icon">◷</span><div><b>الإجازات</b><small>{{report_stats.leave}} حركة · الموظف · الفرع · الفترة</small></div><strong>فتح التقرير ←</strong></a>
-    <a class="ui-report-launch assignment" href="/reports/assignments"><span class="ui-launch-icon">↔</span><div><b>الانتدابات</b><small>{{report_stats.assignment}} حركة · الجهة · المدة · الحالة</small></div><strong>فتح التقرير ←</strong></a>
-    <a class="ui-report-launch permission" href="/reports/permissions"><span class="ui-launch-icon">◷</span><div><b>الأذونات</b><small>{{report_stats.permission}} حركة · التاريخ · الموظف · الفرع</small></div><strong>فتح التقرير ←</strong></a>
-    {% endif %}
-    <a class="ui-report-launch mission" href="/reports/assignments/print-missions"><span class="ui-launch-icon">▣</span><div><b>مركز المأموريات</b><small>المفتوحة والمحددة المدة، مع التعديل والطباعة.</small></div><strong>فتح المركز ←</strong></a>
-    {% if can('view_reports') %}<a class="ui-report-launch summary" href="/reports"><span class="ui-launch-icon">▤</span><div><b>ملخص التقارير</b><small>مؤشرات الحركة مع التصفية السريعة.</small></div><strong>فتح الملخص ←</strong></a>{% endif %}
+  <section class="smart-report-metrics">
+    <a href="/reports" class="smart-report-metric total"><span>إجمالي الحركات</span><strong>{{report_stats.total}}</strong><small>كل الحركات النشطة داخل نطاقك</small></a>
+    <a href="/reports?movement_type=إجازة" class="smart-report-metric leave"><span>الإجازات</span><strong>{{report_stats.leave}}</strong><small>انتقل مباشرة إلى تقرير الإجازات</small></a>
+    <a href="/reports?movement_type=انتداب" class="smart-report-metric assignment"><span>الانتدابات</span><strong>{{report_stats.assignment}}</strong><small>{{report_stats.open_assignments}} مفتوحة حاليًا</small></a>
+    <a href="/reports?movement_type=إذن" class="smart-report-metric permission"><span>الأذونات</span><strong>{{report_stats.permission}}</strong><small>عرض السجل وتصفية النتائج</small></a>
   </section>
 
-  <section class="ui-work-card ui-report-flow">
-    <div class="ui-card-head compact"><div><span class="ui-eyebrow">طريقة العمل</span><h2>من التقرير إلى الإجراء</h2></div></div>
-    <div class="ui-flow-grid"><div><b>01</b><strong>اختيار النوع</strong><small>إجازة / انتداب / إذن / مأمورية</small></div><div><b>02</b><strong>تصفية النتيجة</strong><small>المحافظة، الفرع، الموظف، الفترة</small></div><div><b>03</b><strong>تنفيذ مباشر</strong><small>طباعة PDF أو Excel أو فتح الحركة</small></div></div>
+  <section class="smart-report-command-grid">
+    <div class="ui-work-card smart-report-primary">
+      <div class="ui-card-head"><div><span class="ui-eyebrow">ابدأ من هنا</span><h2>اختر ما تريد إنجازه</h2></div></div>
+      <div class="smart-report-actions">
+        {% if can('view_reports') %}
+        <a href="/reports/leaves"><b>الإجازات</b><small>الموظف · الفرع · الفترة · الحالة</small><span>فتح التقرير ←</span></a>
+        <a href="/reports/assignments"><b>الانتدابات</b><small>الجهة · المدة · الحالة · الموظف</small><span>فتح التقرير ←</span></a>
+        <a href="/reports/permissions"><b>الأذونات</b><small>التاريخ · الموظف · الفرع</small><span>فتح التقرير ←</span></a>
+        {% endif %}
+        <a href="/reports/assignments/print-missions"><b>مركز المأموريات</b><small>مراجعة، تعديل، إغلاق وإصدار النموذج</small><span>فتح المركز ←</span></a>
+      </div>
+    </div>
+
+    <aside class="ui-work-card smart-report-attention">
+      <div class="ui-card-head compact"><div><span class="ui-eyebrow">يحتاج انتباهًا</span><h2>متابعة سريعة</h2></div></div>
+      <a href="/reports/assignments/print-missions" class="smart-report-attention-item urgent"><strong>{{report_stats.follow_up_7d}}</strong><span>انتداب ينتهي خلال 7 أيام</span><small>راجع المدة قبل اتخاذ الإجراء</small></a>
+      <a href="/reports/assignments/print-missions" class="smart-report-attention-item"><strong>{{report_stats.open_assignments}}</strong><span>انتداب مفتوح</span><small>لا يوجد تاريخ نهاية مسجل</small></a>
+    </aside>
   </section>
 
-  <section class="ui-work-card ui-report-note"><b>المأمورية المفتوحة</b><span>عدم وجود تاريخ نهاية لا يعني خطأ؛ تبقى الحركة مفتوحة حتى إغلاقها أو تعديل مدتها. عند الطباعة يمكن تحديد تاريخ مؤقت للنموذج دون تغيير بيانات الحركة.</span></section>
+  <section class="smart-report-live-grid">
+    <div class="ui-work-card">
+      <div class="ui-card-head compact"><div><span class="ui-eyebrow">قراءة فورية</span><h2>حركة اليوم</h2></div><span class="smart-report-date">{{report_today}}</span></div>
+      <div class="smart-report-live-number"><strong>{{report_stats.today}}</strong><span>حركة مرتبطة باليوم الحالي</span></div>
+      <div class="smart-report-mini-actions"><a href="/reports">استكشاف التقرير ←</a><a href="/reports/assignments/print-missions">المأموريات ←</a></div>
+    </div>
+    <div class="ui-work-card">
+      <div class="ui-card-head compact"><div><span class="ui-eyebrow">الفترة الحالية</span><h2>هذا الشهر</h2></div></div>
+      <div class="smart-report-live-number"><strong>{{report_stats.month}}</strong><span>حركة بدأت أو انتهت أو سُجلت خلال الشهر</span></div>
+      <div class="smart-report-mini-actions"><a href="/reports">عرض التفاصيل ←</a><a href="/reports.csv">تصدير CSV ←</a></div>
+    </div>
+    <div class="ui-work-card smart-report-print-card">
+      <div class="ui-card-head compact"><div><span class="ui-eyebrow">إخراج رسمي</span><h2>المأمورية</h2></div></div>
+      <p>افتح مركز المأموريات لاختيار السجل، مراجعته ثم إصدار النموذج الرسمي.</p>
+      <a class="ui-btn ui-tone-teal" href="/reports/assignments/print-missions">فتح مركز المأموريات</a>
+    </div>
+  </section>
+
+  <section class="ui-work-card smart-report-note"><b>قاعدة التشغيل</b><span>الأرقام هنا مبنية على الحركات النشطة داخل نطاق العمل الحالي. الانتداب المفتوح يظل مفتوحًا في السجل حتى تتم مراجعته وإغلاقه أو تسجيل تاريخ نهاية له.</span></section>
 </div>
 {% endif %}
 {% endblock %}

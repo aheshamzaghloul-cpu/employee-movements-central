@@ -1,5 +1,6 @@
 """Integration tests: in-memory SQLite, real Flask app."""
 
+from employee_movements import __version__
 from employee_movements.bootstrap import init_database
 from employee_movements.extensions import db
 from employee_movements.models import Movement, UserRole
@@ -12,7 +13,7 @@ def test_healthz(client):
     assert resp.status_code == 200
     payload = resp.get_json()
     assert payload['status'] == 'ok'
-    assert payload['version'] == '61.2.1'
+    assert payload['version'] == __version__
     assert payload['app_env'] == 'testing'
     assert payload['database_backend'] == 'sqlite'
     assert payload['database_url_configured'] is True
@@ -108,7 +109,7 @@ def test_bootstrap_is_idempotent(app):
         db.session.rollback()
 
 
-def test_live_status_board_includes_normal_present_employee(app, login):
+def test_live_status_board_excludes_normal_present_employee(app, login):
     from datetime import date
 
     from employee_movements.blueprints.dashboard import current_employee_status_rows
@@ -130,9 +131,7 @@ def test_live_status_board_includes_normal_present_employee(app, login):
         db.session.commit()
 
         rows = current_employee_status_rows({branch.id}, date.today())
-        assert len(rows) == 1
-        assert rows[0]['state'] == 'متواجد في الفرع'
-        assert rows[0]['movement'] is None
+        assert rows == []
 
 
 def test_home_direct_movement_creation_records_leave(app, login):
@@ -185,3 +184,16 @@ def test_home_direct_movement_creation_records_leave(app, login):
         assert movement.movement_type == 'إجازة'
         assert str(movement.from_date) == '2030-01-10'
         assert str(movement.to_date) == '2030-01-12'
+
+
+def test_home_and_palette_keep_employee_search_boundaries():
+    from pathlib import Path
+
+    home = Path('employee_movements/templates/home.html').read_text(encoding='utf-8')
+    base = Path('employee_movements/templates/base.html').read_text(encoding='utf-8')
+    smart_ui = Path('employee_movements/static/js/smart_ui.js').read_text(encoding='utf-8')
+    assert 'home_global_search.html' in home
+    assert '<b>الحركات</b>' not in home
+    assert 'ابحث عن موظف' not in base
+    assert '/employee-search?q=' not in smart_ui
+

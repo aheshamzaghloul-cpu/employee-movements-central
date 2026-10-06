@@ -204,6 +204,11 @@ def answer_prompt(prompt, prior_chat, workspace_context=None):
     result = _execute_pending_naturally(prompt)
     if result:
         return result
+    # الردود الاجتماعية البسيطة لا تحتاج اتصالًا خارجيًا؛ هذا يقلل زمن الاستجابة بشكل واضح.
+    local_fast = parse_intent(prompt)
+    if local_fast.get('intent') == 'greeting':
+        return {'title': 'بسيوني في الخدمة', 'answer': local_fast.get('reply') or greeting_reply(prompt)}
+
     agent_result = run_agent(prompt, prior_chat, workspace_context)
     if agent_result:
         if agent_result.get("preview"):
@@ -321,7 +326,7 @@ def answer_prompt(prompt, prior_chat, workspace_context=None):
             result = {'title': 'مدير التطبيق', 'error': 'لم أستطع تحديد العملية الإدارية.'}
     elif a.get('intent') == 'greeting':
         result = {
-            'title': 'المساعد الذكي',
+            'title': 'بسيوني في الخدمة',
             'answer': a.get('reply') or greeting_reply(prompt),
         }
     elif a.get('intent') == 'topic_options':
@@ -351,7 +356,7 @@ def answer_prompt(prompt, prior_chat, workspace_context=None):
             'admin': '/structure',
             'users': '/users',
             'delegation': '/delegations',
-            'replacement': '/replacement',
+            'replacement': '/replacement?mode=supervisor',
             'audit': '/audit',
         }
         if not nav:
@@ -364,6 +369,7 @@ def answer_prompt(prompt, prior_chat, workspace_context=None):
             '/governorates': 'manage_structure',
             '/branches': 'manage_structure',
             '/replacement': 'manage_structure',
+            '/replacement?mode=supervisor': 'manage_structure',
             '/users': 'manage_users',
             '/delegations': 'manage_users',
             '/movements': 'manage_movements',

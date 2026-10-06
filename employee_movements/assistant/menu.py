@@ -121,17 +121,17 @@ def capability_groups():
             },
             {
                 'label': 'المدخل الأول',
-                'prompt': 'أريد إدارة المدخلين الأوائل',
+                'prompt': 'أريد إدارة المدخلين الأوائل من الرئيسية',
                 'icon': '👥',
                 'kind': 'action',
-                'url': '/structure',
+                'url': '/',
             },
             {
-                'label': 'الاستبدال',
-                'prompt': 'أريد تنفيذ الاستبدال',
+                'label': 'استبدال مشرف',
+                'prompt': 'أريد استبدال مشرف محافظة',
                 'icon': '🔁',
                 'kind': 'action',
-                'url': '/replacement',
+                'url': '/replacement?mode=supervisor',
             },
         ]
         if has_role('مسؤول التطبيق'):

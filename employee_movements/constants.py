@@ -55,7 +55,7 @@ ROLE_DEFAULT_PERMISSIONS = {
 }
 
 
-# Pages that operate inside a single governorate chosen by the admin/manager.
+# Pages that operate inside a single governorate chosen by the active operational role.
 OPERATIONAL_SCOPE_ENDPOINTS = frozenset(
     {
         'dashboard.home',
@@ -67,5 +67,37 @@ OPERATIONAL_SCOPE_ENDPOINTS = frozenset(
         'missions.mission_print_list',
         'missions.mission_print',
         'missions.mission_print_date',
+        'notifications.notifications',
+        # Direct operational actions must inherit the same selected-work-governorate
+        # as their parent pages; a direct URL/POST must never bypass the scope gate.
+        'employees.employee_edit_data',
+        'employees.employee_edit',
+        'employees.employee_convert_role',
+        'employees.employee_resign',
+        'employees.employee_delete',
+        'employees.resigned_employees',
+        'employees.employee_reactivate',
+        'employees.employee_card',
+        'movements.movement_employees_api',
+        'movements.movement_preflight_api',
+        'movements.movements_page_filters_api',
+        'movements.movement_create',
+        'movements.movement_edit',
+        'movements.movement_submit',
+        'movements.close_assignment',
+        'movements.assignment_form',
+        'movements.movement_delete',
+        'movements.movement_history',
+        'reports.employee_type_report_xlsx',
+        'reports.employee_type_report_csv',
+        'reports.report_csv',
+        'missions.mission_edit',
+        'missions.mission_edit_save',
+        'missions.mission_close',
+        'missions.mission_reopen',
+        'missions.mission_print_date',
+        'missions.mission_print_date_save',
+        'missions.mission_pdf',
+        'missions.mission_print',
     }
 )

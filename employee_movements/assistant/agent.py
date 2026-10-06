@@ -22,7 +22,7 @@ from .llm import DEFAULT_MODEL
 logger = logging.getLogger(__name__)
 
 GEMINI_INTERACTION_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-MAX_AGENT_ROUNDS = 4
+MAX_AGENT_ROUNDS = 2
 
 PAGE_NAMES = {
     "/": "الرئيسية",
@@ -53,11 +53,11 @@ ACTION_NAMES = [
 ]
 
 SYSTEM = """
-أنت مدير مساعد ذكي داخل «نظام إدارة حركات الموظفين». تعامل مع المستخدم كمحادثة مستمرة،
+أنت «بسيوني»، المساعد الذكي والشخصية الرسمية داخل «نظام إدارة حركات الموظفين». تعامل مع المستخدم كمحادثة مستمرة،
 وافهم العامية المصرية والفصحى والضمائر والعبارات المختصرة مثل «هو»، «نفسه»، «عدّلها»،
 «خلّيها»، «تمام»، «نفّذ»، «اللي قدامك»، و«من هنا».
 
-أنت لا تملك صلاحيات مستقلة. التطبيق هو صاحب القرار النهائي في الصلاحيات والنطاق والتحقق.
+أنت لست مقيدًا بصفحة معينة: يمكنك الانتقال والتعامل مع أي جزء من النظام من نفس المحادثة. صلاحياتك التنفيذية هي نفس صلاحيات المستخدم الحالي، والتطبيق هو صاحب القرار النهائي في الصلاحيات والنطاق والتحقق. إذا كان المستخدم مسؤول التطبيق، تعامل معه كمستخدم إداري كامل ولا تطلب منه العودة إلى صفحة الإدارة لمجرد تنفيذ إجراء متاح له.
 استخدم أدوات التطبيق بدل التخمين. لا تخترع اسم موظف أو فرع أو محافظة أو نتيجة.
 إذا احتجت بيانات حقيقية فاستدع الأداة المناسبة أولًا.
 
@@ -373,7 +373,7 @@ def tool_execute(name, args, ctx):
         mapping = {
             "home": "/", "employees": "/employees", "employee": "/employees", "movements": "/movements",
             "reports": "/reports", "missions": "/reports-missions", "delegations": "/delegations",
-            "administration": "/structure", "users": "/users", "branches": "/branches",
+            "administration": "/structure", "users": "/users", "branches": "/branches", "first_entry": "/",
             "governorates": "/governorates", "lookups": "/lookups", "audit": "/audit",
         }
         target = args.get("target")
@@ -440,12 +440,12 @@ def _call_gemini(contents, context):
     model = (current_app.config.get("GEMINI_MODEL") or DEFAULT_MODEL).removeprefix("models/")
     endpoint = GEMINI_INTERACTION_URL.format(model=urllib.parse.quote(model, safe=""))
     role_text = ", ".join(roles())
-    system = SYSTEM + f"\n\nسياق مساحة العمل الحالي (بيانات وصفية من التطبيق): {json.dumps(context, ensure_ascii=False)}\nالدور النشط: {session.get('active_role') or role_text}."
+    system = SYSTEM + f"\n\nسياق مساحة العمل الحالي (بيانات وصفية من التطبيق): {json.dumps(context, ensure_ascii=False)}\nالدور النشط: {session.get('active_role') or role_text}. اسم المساعد: بسيوني في الخدمة. الصفحة الحالية سياق مساعد وليست قيدًا على قدراتك."
     payload = {
         "system_instruction": {"parts": [{"text": system}]},
         "contents": contents,
         "tools": [{"functionDeclarations": tool_schemas()}],
-        "generationConfig": {"maxOutputTokens": 1200, "thinkingConfig": {"thinkingLevel": "medium"}},
+        "generationConfig": {"maxOutputTokens": 700, "thinkingConfig": {"thinkingLevel": "low"}},
     }
     req = urllib.request.Request(endpoint, data=json.dumps(payload).encode("utf-8"), headers={
         "Content-Type": "application/json",

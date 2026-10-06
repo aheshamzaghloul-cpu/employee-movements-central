@@ -1,67 +1,121 @@
 {% extends 'base.html' %}
-{% block title %}بطاقة الموظف — {{e.full_name}}{% endblock %}
+{% block title %}ملف الموظف — {{e.full_name}}{% endblock %}
 {% block content %}
-<div class="ui-toolbar">
-  <div class="ui-employee-head employee-head">
-    <div><h1>{{e.full_name}} {% if e.resignation_date %}<span class="employee-deleted-badge">مستقيل</span>{% endif %}</h1><p class="ui-subtitle">الكود الوظيفي: <b>{{e.job_code or "—"}}</b> — محافظة {{current_branch.governorate.name if current_branch and current_branch.governorate else (e.branch.governorate.name if e.branch and e.branch.governorate else '—')}} — <b>الفرع الحالي: {{current_branch.name if current_branch else '—'}}</b>{% if current_assignment and current_assignment.to_date is none %} — <span class="ui-badge"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/></svg> انتداب مفتوح</span>{% endif %}<br><small>فرع التعيين الأساسي: {{e.branch.name if e.branch else '—'}}{% if e.resignation_date %} — تاريخ الاستقالة: <b>{{e.resignation_date}}</b>{% endif %}{% if e.rehire_date %} — تاريخ إعادة التعيين: <b>{{e.rehire_date}}</b>{% endif %}</small></p></div>
-  </div>
-  <div class="ui-actions">{% if not e.deleted_at and can_manage_employee(e) and can('manage_movements') %}<a class="ui-btn ui-tone-teal" href="/movements?employee_id={{e.id}}">+ تسجيل حركة للموظف</a>{% endif %}{% if not e.deleted_at and can_manage_employee(e) and can('manage_employees') %}<a class="ui-btn ui-btn-secondary" href="/employees/{{e.id}}/edit">تعديل البيانات</a>{% endif %}<a class="ui-btn ui-btn-secondary" href="/employees">عودة للموظفين</a></div>
-</div>
-
-<div class="ui-card ui-employee-profile employee-profile">
-  <div class="ui-grid wide">
-    <div><b>الوظيفة</b><div class="ui-hint">{{e.job_title or 'لا توجد بيانات'}}</div></div>
-    <div><b>كود الموظف</b><div class="ui-hint">{{e.job_code or 'لا توجد بيانات'}}</div></div>
-    <div><b>تاريخ التعيين</b><div class="ui-hint">{{e.hire_date or 'لا توجد بيانات'}}</div></div>
-    <div><b>هاتف الشركة</b><div class="ui-hint">{{e.company_phone or 'لا توجد بيانات'}}</div></div>
-    <div><b>الهاتف الشخصي</b><div class="ui-hint">{{e.personal_phone or 'لا توجد بيانات'}}</div></div>
-  </div>
-</div>
-
-<section class="ui-card-grid ui-employee-last-cards employee-last-cards">
-{% for k,t in [('إجازة','آخر إجازة'),('انتداب','آخر انتداب'),('إذن','آخر إذن')] %}
-  <div class="ui-card ui-employee-last-card last-card last-{{loop.index}}">
-    <div class="ui-employee-last-head last-card-head"><h3>{{t}}</h3><span class="ui-badge last-badge">{{k}}</span></div>
-    {% if last[k] %}
-      {% set m=last[k] %}
-      <div class="ui-employee-last-main last-main">{% if k=='إذن' %}{{m.permission_date}}{% else %}{{m.from_date}} <span>→</span> {{m.to_date}}{% endif %}</div>
-      {% if m.leave_type %}<div class="ui-hint">نوع الإجازة: <b>{{m.leave_type}}</b></div>{% endif %}
-      {% if m.destination %}<div class="ui-hint">الفرع المنتدب إليه: <b>{{m.destination.name}}</b></div>{% endif %}
-      <div class="ui-employee-last-footer last-footer"><span class="ui-tag">{{m.status}}</span><a href="/movements/{{m.id}}/history">فتح تفاصيل الحركة</a></div>
-    {% else %}<p class="ui-hint">لا توجد بيانات</p>{% endif %}
-  </div>
-{% endfor %}
-</section>
-
-<div class="ui-card ui-table-wrap ui-employee-history employee-history">
-  <div class="ui-section-title">
-    <div><h3>سجل حركات الموظف</h3><div class="ui-hint">الأحدث أولًا — اختر نوع الحركة لتصفية السجل.</div></div>
-    {% if not e.deleted_at and can_manage_employee(e) and can('manage_movements') %}<a class="ui-btn ui-tone-teal ui-btn-mini" href="/movements?employee_id={{e.id}}">+ حركة جديدة</a>{% endif %}
-  </div>
-  <div class="ui-employee-history-tools history-tools">
-    <div class="ui-filter-group history-filters" role="group" aria-label="تصفية الحركات">
-      <button type="button" class="ui-btn ui-filter-pill is-active" data-history-filter="all">الكل <span>{{ms|length}}</span></button>
-      <button type="button" class="ui-btn ui-filter-pill" data-history-filter="إجازة">إجازات</button>
-      <button type="button" class="ui-btn ui-filter-pill" data-history-filter="انتداب">انتدابات</button>
-      <button type="button" class="ui-btn ui-filter-pill" data-history-filter="إذن">أذون</button>
+<div class="smart-employee-page">
+  <header class="smart-employee-hero">
+    <div class="smart-employee-identity">
+      <div class="smart-employee-avatar">{{e.full_name[:1]}}</div>
+      <div class="smart-employee-heading">
+        <div class="smart-eyebrow">ملف الموظف</div>
+        <h1>{{e.full_name}} {% if e.resignation_date %}<span class="smart-employee-badge danger">مستقيل</span>{% endif %}</h1>
+        <div class="smart-employee-subline">
+          <span>{{e.job_title or 'موظف'}}</span>
+          <i></i><span>كود شئون العاملين: {{e.job_code or '—'}}</span>
+          <i></i><span>{{e.branch.governorate.name if e.branch and e.branch.governorate else '—'}}</span>
+          <i></i><span>{{e.branch.name if e.branch else '—'}}</span>
+        </div>
+      </div>
     </div>
-    <input id="employee_history_search" class="ui-search-input history-search" type="search" placeholder="بحث داخل سجل الحركات...">
+    <div class="smart-employee-actions">
+      {% if not e.deleted_at and can_manage_employee(e) and can('manage_movements') %}<a class="ui-btn ui-tone-teal" href="/movements?employee_id={{e.id}}">تسجيل حركة</a>{% endif %}
+      {% if not e.deleted_at and can_manage_employee(e) and can('manage_employees') %}<a class="ui-btn ui-btn-secondary" href="/employees/{{e.id}}/edit">تعديل البيانات</a>{% endif %}
+      <a class="ui-btn ui-btn-ghost" href="/employees">الموظفون</a>
+    </div>
+  </header>
+
+  <section class="smart-employee-status {{current_status.key}}">
+    <div class="smart-status-icon"><span></span></div>
+    <div class="smart-status-main">
+      <span class="smart-eyebrow">الحالة الحالية</span>
+      <strong>{{current_status.label}}</strong>
+      <small>{{current_status.detail}}{% if current_status.until %} · حتى {{current_status.until.strftime('%d/%m/%Y') }}{% endif %}</small>
+    </div>
+    {% if current_status.movement %}<a href="/movements/{{current_status.movement.id}}/edit" class="smart-status-link">فتح الحركة</a>{% endif %}
+  </section>
+
+  <div class="smart-employee-grid">
+    <main class="smart-employee-main">
+      <section class="smart-employee-card">
+        <div class="smart-card-head"><div><span class="smart-eyebrow">بيانات أساسية</span><h2>بيانات الموظف</h2></div></div>
+        <div class="smart-facts">
+          <div><span>الوظيفة</span><strong>{{e.job_title or '—'}}</strong></div>
+          <div><span>كود شئون العاملين</span><strong>{{e.job_code or '—'}}</strong></div>
+          <div><span>تاريخ التعيين</span><strong>{{e.hire_date.strftime('%d/%m/%Y') if e.hire_date else '—'}}</strong></div>
+          <div><span>المحافظة</span><strong>{{e.branch.governorate.name if e.branch and e.branch.governorate else '—'}}</strong></div>
+          <div><span>فرع التعيين</span><strong>{{e.branch.name if e.branch else '—'}}</strong></div>
+          <div><span>الفرع الحالي</span><strong>{{current_branch.name if current_branch else '—'}}</strong></div>
+        </div>
+      </section>
+
+      <section class="smart-employee-card smart-movement-overview">
+        <div class="smart-card-head"><div><span class="smart-eyebrow">ملخص الحركة</span><h2>آخر حركة من كل نوع</h2></div><a href="#movement-history">السجل الكامل ↓</a></div>
+        <div class="smart-last-movements">
+          {% for k,t,c in [('إجازة','آخر إجازة','leave'),('انتداب','آخر انتداب','assign'),('إذن','آخر إذن','permit')] %}
+          <article class="smart-last-movement {{c}}">
+            <div class="smart-last-icon"><span></span></div><div>
+              <span>{{t}}</span>
+              {% if last[k] %}
+                {% set m=last[k] %}
+                <strong>{% if k=='إذن' %}{{m.permission_date.strftime('%d/%m/%Y') if m.permission_date else '—'}}{% elif k=='إجازة' %}{{m.leave_type or 'إجازة'}}{% else %}{{m.destination.name if m.destination else 'انتداب'}}{% endif %}</strong>
+                <small>{% if k=='إذن' %}إذن مسجل{% else %}{{m.from_date.strftime('%d/%m/%Y') if m.from_date else '—'}}{% if m.to_date %} ← {{m.to_date.strftime('%d/%m/%Y')}}{% else %} · مفتوح{% endif %}{% endif %}</small>
+              {% else %}<strong>لا توجد حركة</strong><small>لا توجد بيانات مسجلة</small>{% endif %}
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="smart-employee-card" id="movement-history">
+        <div class="smart-card-head"><div><span class="smart-eyebrow">السجل التشغيلي</span><h2>سجل حركات الموظف</h2></div><span class="smart-count">{{ms|length}} حركة</span></div>
+        <div class="smart-history-tools">
+          <div class="smart-filter-pills" role="group" aria-label="تصفية الحركات">
+            <button type="button" class="smart-filter is-active" data-history-filter="all">الكل <b>{{ms|length}}</b></button>
+            <button type="button" class="smart-filter" data-history-filter="إجازة">إجازات</button>
+            <button type="button" class="smart-filter" data-history-filter="انتداب">انتدابات</button>
+            <button type="button" class="smart-filter" data-history-filter="إذن">أذون</button>
+          </div>
+          <input id="employee_history_search" class="smart-history-search" type="search" placeholder="ابحث في السجل…" autocomplete="off">
+        </div>
+        <div class="smart-history-list" id="employee_history_table">
+          {% for m in ms %}
+          <article class="smart-history-row" data-movement-type="{{m.movement_type}}">
+            <div class="smart-history-type {{'leave' if m.movement_type=='إجازة' else 'assign' if m.movement_type=='انتداب' else 'permit'}}"><span></span></div>
+            <div class="smart-history-info"><strong>{{m.movement_type}}</strong><small>{% if m.leave_type %}{{m.leave_type}}{% elif m.destination %}إلى {{m.destination.name}}{% else %}إذن{% endif %}</small></div>
+            <div class="smart-history-date"><span>{% if m.movement_type=='إذن' %}{{m.permission_date.strftime('%d/%m/%Y') if m.permission_date else '—'}}{% else %}{{m.from_date.strftime('%d/%m/%Y') if m.from_date else '—'}}{% endif %}</span><small>{% if m.to_date %}حتى {{m.to_date.strftime('%d/%m/%Y')}}{% elif m.movement_type=='انتداب' %}مفتوح{% else %}—{% endif %}</small></div>
+            <span class="smart-history-status">{{m.status}}</span>
+            <a href="/movements/{{m.id}}/edit">فتح</a>
+          </article>
+          {% else %}<div class="smart-empty">لا توجد حركات مسجلة لهذا الموظف.</div>{% endfor %}
+        </div>
+        <div id="history_no_match" class="smart-empty" hidden>لا توجد حركات مطابقة.</div>
+      </section>
+    </main>
+
+    <aside class="smart-employee-side">
+      <section class="smart-employee-card smart-contact-card">
+        <div class="smart-card-head"><div><span class="smart-eyebrow">الوصول السريع</span><h2>التواصل</h2></div></div>
+        <div class="smart-contact-list">
+          <div><span>هاتف العمل</span><strong>{{e.company_phone or 'غير مسجل'}}</strong>{% if e.company_phone %}<a href="tel:{{e.company_phone}}">اتصال</a>{% endif %}</div>
+          <div><span>الهاتف الشخصي</span><strong>{{e.personal_phone or 'غير مسجل'}}</strong>{% if e.personal_phone %}<a href="tel:{{e.personal_phone}}">اتصال</a>{% endif %}</div>
+          <div><span>البريد الإلكتروني</span><strong>{{e.email or 'غير مسجل'}}</strong>{% if e.email %}<a href="mailto:{{e.email}}">مراسلة</a>{% endif %}</div>
+        </div>
+      </section>
+
+      <section class="smart-employee-card smart-context-card">
+        <div class="smart-card-head"><div><span class="smart-eyebrow">السياق التنظيمي</span><h2>مكان الموظف</h2></div></div>
+        <div class="smart-context-flow">
+          <div><span>المحافظة</span><strong>{{e.branch.governorate.name if e.branch and e.branch.governorate else '—'}}</strong></div>
+          <i></i>
+          <div><span>فرع التعيين</span><strong>{{e.branch.name if e.branch else '—'}}</strong></div>
+          <i></i>
+          <div><span>الفرع الحالي</span><strong>{{current_branch.name if current_branch else '—'}}</strong></div>
+        </div>
+      </section>
+
+      {% if not e.deleted_at and can_manage_employee(e) and can('manage_movements') %}
+      <a class="smart-primary-action" href="/movements?employee_id={{e.id}}"><span>+</span><div><strong>تسجيل حركة جديدة</strong><small>إجازة · انتداب · إذن</small></div><b>←</b></a>
+      {% endif %}
+    </aside>
   </div>
-  <table id="employee_history_table">
-    <thead><tr><th>التاريخ</th><th>نوع الحركة</th><th>التفصيل</th><th>من</th><th>إلى</th><th>الحالة</th><th></th></tr></thead>
-    <tbody>
-    {% for m in ms %}
-      <tr data-movement-type="{{m.movement_type}}">
-        <td>{{m.permission_date or m.from_date or '-'}}</td>
-        <td><span class="movement-chip {{ 'leave' if m.movement_type=='إجازة' else 'assign' if m.movement_type=='انتداب' else 'permit' }}">{{m.movement_type}}</span></td>
-        <td>{% if m.leave_type %}{{m.leave_type}}{% elif m.destination %}إلى {{m.destination.name}}{% else %}إذن{% endif %}</td>
-        <td>{{m.from_date or '-'}}</td><td>{{m.to_date or '-'}}</td>
-        <td><span class="ui-tag">{{m.status}}</span></td>
-        <td><a class="table-link" href="/movements/{{m.id}}/edit">فتح الحركة</a></td>
-      </tr>
-    {% else %}<tr><td colspan="7" class="ui-empty">لا توجد حركات مسجلة لهذا الموظف.</td></tr>{% endfor %}
-    </tbody>
-  </table>
-  <div id="history_no_match" class="ui-empty" hidden>لا توجد حركات مطابقة للبحث أو التصفية.</div>
 </div>
 {% endblock %}

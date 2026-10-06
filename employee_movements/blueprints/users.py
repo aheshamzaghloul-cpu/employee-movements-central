@@ -722,137 +722,26 @@ def user_update_branches(i):
 @req
 @only('مسؤول التطبيق')
 def grant_entry_role(i):
-    u = db.session.get(User, i)
-    if not u or not u.is_active:
-        abort(404)
-    if 'مشرف محافظة' not in actual_roles(u):
-        flash('يمكن منح أهلية المدخل الأول من خلال هذا الإجراء للمشرفين فقط.')
-        return redirect('/users')
-    linked = Employee.query.filter_by(user_id=u.id, is_active=True).first()
-    if not linked:
-        flash('لا يمكن منح الدور للمشرف قبل وجود سجل موظف مرتبط بحسابه.')
-        return redirect(url_for('users.user_edit', i=i))
-    if 'المدخل الأول' not in actual_roles(u):
-        db.session.add(UserRole(user_id=u.id, role='المدخل الأول'))
-        log('ROLE_CHANGE', 'User', i, 'منح أهلية دور المدخل الأول للمشرف')
-        db.session.commit()
-        flash(
-            f'تم منح {u.full_name} أهلية دور المدخل الأول. سيظهر الآن في خانة الموظف عند إضافة مدخل أول من الرئيسية.',
-        )
-    else:
-        flash(f'{u.full_name} لديه بالفعل أهلية دور المدخل الأول.')
-    return redirect('/structure')
+    # First-level entry is an employee-linked organizational assignment.
+    # Keep the legacy endpoint only as a compatibility redirect; execution belongs to Home.
+    flash('إدارة المدخل الأول تتم من الصفحة الرئيسية على سجل الموظف.')
+    return redirect('/#entry-directory')
 
 
 @bp.post('/users/<int:i>/revoke-entry-role')
 @req
 @only('مسؤول التطبيق')
 def revoke_entry_role(i):
-    u = db.session.get(User, i)
-    if not u:
-        abort(404)
-    if 'المدخل الأول' in actual_roles(u):
-        if (
-            EntryAssignment.query.join(Employee, EntryAssignment.employee_id == Employee.id)
-            .filter(Employee.user_id == u.id, EntryAssignment.is_active == True)
-            .first()
-        ):
-            flash('لا يمكن إزالة أهلية الدور أثناء وجود تكليف مدخل أول فعال. أزل التكليف أولًا.')
-            return redirect('/structure')
-        UserRole.query.filter_by(user_id=i, role='المدخل الأول').delete()
-        log('ROLE_CHANGE', 'User', i, 'إزالة أهلية دور المدخل الأول للمشرف')
-        db.session.commit()
-        flash(f'تمت إزالة أهلية دور المدخل الأول من {u.full_name}.')
-    return redirect('/structure')
+    # Legacy compatibility redirect; do not duplicate first-entry execution here.
+    flash('إزالة دور المدخل الأول تتم من الصفحة الرئيسية.')
+    return redirect('/#entry-directory')
 
 
 @bp.route('/users/<int:i>/entry-management', methods=['GET', 'POST'])
 @req
 def entry_management(i):
-    u = db.session.get(User, i)
-    if not u or 'المدخل الأول' not in actual_roles(u):
-        abort(404)
-    if not allowed_target_user(u):
-        abort(403)
+    # Kept for old bookmarks/integrations. The canonical first-entry operations live on Home.
     if 'مسؤول التطبيق' not in roles() and 'مشرف محافظة' not in roles():
         abort(403)
-    current_ids = user_branch_ids(u)
-    allowed_branch_objs = (
-        (
-            Branch.query.filter(
-                Branch.is_active == True,
-                Branch.governorate_id.in_(
-                    (
-                        gids()
-                        if 'مسؤول التطبيق' not in roles()
-                        else [g.id for g in Governorate.query.filter_by(is_active=True).all()]
-                    ),
-                ),
-            )
-            .order_by(Branch.name.asc())
-            .all()
-        )
-        if gids() or 'مسؤول التطبيق' in roles()
-        else []
-    )
-    # الفرع المتاح للمدخل = غير مرتبط بمدخل أول آخر، أو مرتبط بالمدخل الحالي.
-    available = []
-    for b in allowed_branch_objs:
-        owners = [
-            x.user_id
-            for x in UserBranch.query.filter_by(branch_id=b.id).all()
-            if x.user_id != u.id
-        ]
-        occupied = False
-        for oid in owners:
-            ou = db.session.get(User, oid)
-            if ou and ou.is_active and ('المدخل الأول' in actual_roles(ou)):
-                occupied = True
-                break
-        if not occupied or b.id in current_ids:
-            available.append(b)
-    if request.method == 'POST':
-        action = request.form.get('action', 'branches')
-        if action == 'branches':
-            chosen = {int(x) for x in request.form.getlist('branch_id') if x.isdigit()}
-            allowed_ids = {b.id for b in available}
-            chosen &= allowed_ids
-            if not chosen:
-                flash('يجب اختيار فرع واحد على الأقل للمدخل الأول.')
-                return redirect(url_for('users.entry_management', i=i))
-            UserBranch.query.filter_by(user_id=i).delete()
-            for bid in sorted(chosen):
-                db.session.add(UserBranch(user_id=i, branch_id=bid))
-            log('ASSIGN', 'User', i, 'تحديث فروع مسؤولية المدخل الأول')
-            db.session.commit()
-            flash('تم تحديث فروع مسؤولية المدخل الأول بنجاح.')
-            return redirect(url_for('users.entry_management', i=i))
-        if action == 'remove_role':
-            if 'مسؤول التطبيق' not in roles():
-                abort(403)
-            linked = Employee.query.filter_by(user_id=u.id).first()
-            UserRole.query.filter_by(user_id=u.id, role='المدخل الأول').delete()
-            UserBranch.query.filter_by(user_id=u.id).delete()
-            SupervisorEntry.query.filter_by(entry_id=u.id).delete()
-            remaining = actual_roles(u) - {'المدخل الأول'}
-            if not remaining:
-                u.is_active = False
-            if linked:
-                linked.user_id = None
-            log('ROLE_CHANGE', 'User', i, 'إزالة دور المدخل الأول')
-            db.session.commit()
-            flash('تمت إزالة دور المدخل الأول مع الاحتفاظ بسجل الموظف وحركاته.')
-            return redirect('/')
-    return render_template(
-        'entry_management.html',
-        u=u,
-        branches=available,
-        current_ids=current_ids,
-        linked_emp=Employee.query.filter_by(user_id=u.id).first(),
-        supervisors=[
-            s
-            for s in User.query.all()
-            if s.is_active and 'مشرف محافظة' in actual_roles(s)
-        ],
-        is_admin='مسؤول التطبيق' in roles(),
-    )
+    flash('إدارة المدخل الأول تتم من الصفحة الرئيسية.')
+    return redirect('/#entry-directory')

@@ -249,7 +249,8 @@ def _visible_employee(e):
     if not e or not getattr(e, "is_active", False):
         return False
     try:
-        return branch_ok(e.branch_id)
+        rs = roles()
+        return True if ('مسؤول التطبيق' in rs or 'مشرف محافظة' in rs) else branch_ok(e.branch_id)
     except Exception:
         return False
 
@@ -319,7 +320,7 @@ def tool_execute(name, args, ctx):
         for b in Branch.query.filter_by(is_active=True).order_by(Branch.name).all():
             if gid and b.governorate_id != gid:
                 continue
-            if not branch_ok(b.id):
+            if not ('مسؤول التطبيق' in roles() or 'مشرف محافظة' in roles()) and not branch_ok(b.id):
                 continue
             if q and q not in (b.name or "").lower() and q not in str(b.code or "").lower():
                 continue
@@ -352,7 +353,7 @@ def tool_execute(name, args, ctx):
         if bid: query = query.filter(Employee.branch_id == bid)
         rows = []
         for m in query.order_by(Movement.id.desc()).limit(30).all():
-            if not branch_ok(m.employee.branch_id):
+            if not ('مسؤول التطبيق' in roles() or 'مشرف محافظة' in roles()) and not branch_ok(m.employee.branch_id):
                 continue
             date_filter = str(args.get("date") or "").strip()
             if date_filter:

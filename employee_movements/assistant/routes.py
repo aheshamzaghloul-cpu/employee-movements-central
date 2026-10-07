@@ -2,7 +2,7 @@
 
 from flask import abort, Blueprint, current_app, flash, redirect, render_template, request, session
 
-from ..access import branch_ok, can, log, me, req
+from ..access import branch_ok, can, log, me, req, roles
 from ..extensions import db
 from ..models import AssistantMessage, Branch, Employee, Governorate, Movement
 from ..validation import (
@@ -179,10 +179,11 @@ def build_movement_plan(a):
     err = validate_movement_fields(mt, a.get("leave_type"), dest.id if dest else None, a.get("from_date"), None if a.get("open_assignment") else a.get("to_date"), a.get("permission_date"))
     if err:
         return {"title": "مراجعة الحركة", "error": err}
-    if not e.is_active or not branch_ok(e.branch_id):
+    global_actor = 'مسؤول التطبيق' in roles() or 'مشرف محافظة' in roles()
+    if not e.is_active or (not global_actor and not branch_ok(e.branch_id)):
         return {"title": "تسجيل حركة", "error": "الموظف خارج نطاق صلاحياتك."}
-    if mt == "انتداب" and (not dest or not branch_ok(dest.id)):
-        return {"title": "تسجيل انتداب", "error": "فرع الانتداب غير موجود أو خارج نطاق صلاحياتك."}
+    if mt == "انتداب" and (not dest or not dest.is_active or (not global_actor and not branch_ok(dest.id))):
+        return {"title": "تسجيل انتداب", "error": "فرع الانتداب غير موجود أو غير مسموح داخل نطاقك."}
     overlap = movement_overlaps(e.id, mt, a.get("from_date"), None if a.get("open_assignment") else a.get("to_date"), a.get("permission_date"))
     if overlap:
         return {"title": "تعارض في الحركة", "error": overlap}
@@ -483,15 +484,15 @@ def answer_prompt(prompt, prior_chat, workspace_context=None):
                 )
                 if err:
                     result = {'title': 'مراجعة الحركة', 'error': err}
-                elif not e or not branch_ok(e.branch_id):
+                elif not e or not e.is_active or (not (('مسؤول التطبيق' in roles()) or ('مشرف محافظة' in roles())) and not branch_ok(e.branch_id)):
                     result = {'title': 'تسجيل حركة', 'error': 'الموظف خارج نطاق صلاحياتك.'}
                 elif (
                     a.get('movement_type') == 'انتداب'
-                    and (not dest or not branch_ok(dest.id))
+                    and (not dest or not dest.is_active or (not (('مسؤول التطبيق' in roles()) or ('مشرف محافظة' in roles())) and not branch_ok(dest.id)))
                 ):
                     result = {
                         'title': 'تسجيل انتداب',
-                        'error': 'فرع الانتداب غير موجود أو خارج نطاق صلاحياتك.',
+                        'error': 'فرع الانتداب غير موجود أو غير مسموح داخل نطاقك.',
                     }
                 elif movement_overlaps(
                     e.id,
@@ -554,7 +555,8 @@ def _execute_movement_plan(a):
         return False, 'لا تملك صلاحية تسجيل الحركات.'
     e = db.session.get(Employee, a.get('employee_id'))
     dest = db.session.get(Branch, a.get('destination_branch_id')) if a.get('destination_branch_id') else None
-    if not e or not e.is_active or not branch_ok(e.branch_id):
+    global_actor = 'مسؤول التطبيق' in roles() or 'مشرف محافظة' in roles()
+    if not e or not e.is_active or (not global_actor and not branch_ok(e.branch_id)):
         return False, 'الموظف خارج نطاق صلاحياتك أو لم يعد نشطًا.'
     err = validate_movement_fields(
         a.get('movement_type'),
@@ -566,8 +568,8 @@ def _execute_movement_plan(a):
     )
     if err:
         return False, err
-    if a.get('movement_type') == 'انتداب' and (not dest or not branch_ok(dest.id)):
-        return False, 'فرع الانتداب غير مسموح داخل نطاق الصلاحيات.'
+    if a.get('movement_type') == 'انتداب' and (not dest or not dest.is_active or (not global_actor and not branch_ok(dest.id))):
+        return False, 'فرع الانتداب غير موجود أو غير مسموح داخل نطاق الصلاحيات.'
     overlap = movement_overlaps(
         e.id,
         a.get('movement_type'),

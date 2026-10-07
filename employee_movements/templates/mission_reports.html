@@ -4,7 +4,7 @@
 {% if scope_required and not scope_selected %}<div class="scope-empty-state"><div class="scope-empty-icon"><svg class="ui-icon ui-icon-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18"/></svg></div><span class="home-kicker">اختيار نطاق العمل</span><h1>اختر المحافظة أولًا</h1><p>حدد المحافظة التي تريد العمل عليها قبل عرض المأموريات.</p></div>{% else %}
 <div class="ui-page-head no-print">
   <div><span class="home-kicker">المأموريات</span><h1>المأموريات</h1><p class="ui-muted">عرض وطباعة المأموريات داخل نطاق العمل الحالي. التعديل والإنهاء يظلان حسب صلاحية المستخدم.</p></div>
-  <div class="ui-actions"><a class="ui-btn ui-btn-secondary" href="/reports-missions">↩ تقارير ومأموريات</a></div>
+  <div class="ui-actions"><a class="ui-btn ui-btn-secondary" href="/reports-missions">↩ تقارير ومأموريات</a>{% if 'Manager Application Support' in roles or 'مسؤول التطبيق' in roles %}<a class="ui-btn ui-tone-teal" href="/reports/assignments/edit-requests">طلبات التعديل{% if pending_edit_requests_count %} ({{pending_edit_requests_count}}){% endif %}</a>{% endif %}</div>
 </div>
 
 <div class="ui-card ui-mission-filter-card no-print ui-pad-18">
@@ -14,17 +14,18 @@
   <div><label>محافظة جهة المأمورية</label><select name="destination_governorate_id" onchange="this.form.destination_branch_id.value='';this.form.submit()"><option value="">كل المحافظات</option>{% for g in destination_governorates %}<option value="{{g.id}}" {% if selected_destination_governorate==g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></div>
   <div><label>فرع جهة المأمورية</label><select name="destination_branch_id" onchange="this.form.submit()" {% if not selected_destination_governorate %}disabled{% endif %}><option value="">كل الفروع</option>{% for b in destination_branches %}<option value="{{b.id}}" {% if selected_destination_branch==b.id|string %}selected{% endif %}>{{b.name}}</option>{% endfor %}</select></div>
   <div><label>الموظف</label><select name="employee_id" {% if not selected_branch %}disabled{% endif %}><option value="">كل الموظفين</option>{% for e in employees %}<option value="{{e.id}}" {% if selected_employee==e.id|string %}selected{% endif %}>{{e.full_name}} — {{e.job_code or '—'}}</option>{% endfor %}</select></div>
+  <div><label>حالة المأمورية</label><select name="mission_state" onchange="this.form.submit()"><option value="">الكل</option><option value="تحت التحرير" {% if mission_state=='تحت التحرير' %}selected{% endif %}>تحت التحرير</option><option value="مغلقة" {% if mission_state=='مغلقة' %}selected{% endif %}>مغلقة</option></select></div>
   <div><label>مدة الانتداب</label><select name="duration"><option value="" {% if not duration %}selected{% endif %}>كل المدد</option><option value="open" {% if duration=='open' %}selected{% endif %}>مفتوح بلا تاريخ نهاية</option><option value="dated" {% if duration=='dated' %}selected{% endif %}>محدد بتاريخ نهاية</option></select></div>
   <div><label>من يوم</label><input type="date" name="date_from" value="{{date_from}}"></div>
   <div><label>إلى يوم</label><input type="date" name="date_to" value="{{date_to}}"></div>
-  <div class="ui-actions"><button class="ui-btn ui-tone-teal">بحث</button><a class="ui-btn ui-btn-secondary" href="/reports/assignments/print-missions">مسح</a></div>
+  <div class="ui-actions"><button class="ui-btn ui-tone-teal">بحث</button><a class="ui-btn ui-btn-secondary" href="/reports/assignments/export.xlsx?date_from={{date_from}}&date_to={{date_to}}&mission_state={{mission_state}}">سحب Excel</a><a class="ui-btn ui-btn-secondary" href="/reports/assignments/print-missions">مسح</a></div>
 </form>
 </div>
 
 <div class="ui-card ui-mission-results ui-table-wrap">
   <div class="ui-section-title"><div><h3>نتائج المأموريات</h3><small>{{ rows|length }} مأمورية ضمن الفلاتر الحالية</small></div></div>
   {% if rows %}
-  <table data-smart-table class="ui-mission-table"><thead><tr><th>الموظف</th><th>المحافظة</th><th>الفرع الأساسي</th><th>جهة المأمورية</th><th>من</th><th>إلى</th><th>المدة</th><th>الإجراءات</th></tr></thead><tbody>
+  <table data-smart-table class="ui-mission-table"><thead><tr><th>الموظف</th><th>المحافظة</th><th>الفرع الأساسي</th><th>جهة المأمورية</th><th>من</th><th>إلى</th><th>الحالة</th><th>المدة</th><th>الإجراءات</th></tr></thead><tbody>
   {% for m in rows %}
   <tr>
     <td><a href="/employees/{{m.employee_id}}"><strong>{{m.employee.full_name}}</strong></a><br><small>{{m.employee.job_code or '—'}}</small></td>
@@ -33,8 +34,8 @@
     <td>{{m.destination.name if m.destination else '—'}}</td>
     <td>{{m.from_date or '—'}}</td>
     <td>{% if m.to_date %}{{m.to_date}}{% else %}<span class="ui-tag">مفتوح</span>{% endif %}</td>
-    <td>{% if m.to_date %}محدد المدة{% else %}مفتوح المدة{% endif %}</td>
-    <td class="ui-mission-actions"><a class="ui-btn ui-tone-teal ui-btn-mini" href="/reports/assignments/mission-pdf/{{m.id}}" target="_blank"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="M18 12h.01"/></svg>️ طباعة</a>{% if can_manage_movement(m) %}<a class="ui-btn ui-btn-secondary ui-btn-mini" href="/reports/assignments/mission-edit/{{m.id}}">تعديل</a>{% endif %}</td>
+    <td>{{m.mission_state or 'تحت التحرير'}}</td><td>{% if m.to_date %}محدد المدة{% else %}مفتوح المدة{% endif %}</td>
+    <td class="ui-mission-actions"><a class="ui-btn ui-tone-teal ui-btn-mini" href="/reports/assignments/mission-pdf/{{m.id}}" target="_blank"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="M18 12h.01"/></svg>️ طباعة</a>{% if can_manage_movement(m) %}<a class="ui-btn ui-btn-secondary ui-btn-mini" href="/reports/assignments/mission-edit/{{m.id}}">تعديل</a>{% elif m.mission_state=='مغلقة' and 'مشرف محافظة' in roles %}<form method="post" action="/reports/assignments/mission-edit-request/{{m.id}}" style="display:inline"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="text" name="reason" required minlength="5" placeholder="سبب طلب التعديل" aria-label="سبب طلب تعديل المأمورية"><button class="ui-btn ui-btn-secondary ui-btn-mini">طلب تعديل</button></form>{% endif %}</td>
   </tr>
   {% endfor %}
   </tbody></table>

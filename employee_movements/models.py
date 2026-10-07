@@ -254,6 +254,24 @@ class Movement(db.Model):
     last_assignment_notice_at = db.Column(db.DateTime)
 
 
+class MissionEditRequest(db.Model):
+    __table_args__ = (UniqueConstraint('movement_id', 'status', name='uq_mission_edit_request_status'),)
+    id = db.Column(db.Integer, primary_key=True)
+    movement_id = db.Column(db.Integer, db.ForeignKey('movement.id', ondelete='CASCADE'), nullable=False)
+    requested_by = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='RESTRICT'), nullable=False)
+    reason = db.Column(db.Text, nullable=False)
+    details_snapshot = db.Column(db.Text)
+    status = db.Column(db.String(30), default='قيد المراجعة', nullable=False)
+    reviewed_by = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'))
+    reviewed_at = db.Column(db.DateTime)
+    manager_notes = db.Column(db.Text)
+    final_state = db.Column(db.String(30))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    movement = db.relationship('Movement', foreign_keys=[movement_id])
+    requester = db.relationship('User', foreign_keys=[requested_by])
+    reviewer = db.relationship('User', foreign_keys=[reviewed_by])
+
+
 class MovementHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     movement_id = db.Column(

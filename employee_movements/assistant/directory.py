@@ -2,22 +2,20 @@
 
 import re
 
-from ..access import bids
+from ..access import bids, roles
 from ..models import Branch, Employee
 from .text import normalize_for_search
 
 
 # v34.91 — إصلاح نافذة المساعد العائمة داخل التطبيق وإزالة حجب X-Frame-Options.
 def scope_employees():
+    rs = roles()
+    if 'مسؤول التطبيق' in rs or 'مشرف محافظة' in rs:
+        return Employee.query.filter(Employee.is_active == True).order_by(Employee.full_name).all()
     bs = bids()
     return (
-        (
-            Employee.query.filter(Employee.is_active == True, Employee.branch_id.in_(bs))
-            .order_by(Employee.full_name)
-            .all()
-        )
-        if bs
-        else []
+        Employee.query.filter(Employee.is_active == True, Employee.branch_id.in_(bs)).order_by(Employee.full_name).all()
+        if bs else []
     )
 
 
@@ -54,8 +52,12 @@ def find_branch(value, governorate_id=None):
     q = Branch.query.filter(Branch.is_active == True)
     if governorate_id:
         q = q.filter(Branch.governorate_id == governorate_id)
-    allowed = set(bids())
-    rows = q.filter(Branch.id.in_(allowed)).order_by(Branch.name).all() if allowed else []
+    rs = roles()
+    if 'مسؤول التطبيق' in rs or 'مشرف محافظة' in rs:
+        rows = q.order_by(Branch.name).all()
+    else:
+        allowed = set(bids())
+        rows = q.filter(Branch.id.in_(allowed)).order_by(Branch.name).all() if allowed else []
     nv = normalize_for_search(value)
     exact = [
         b

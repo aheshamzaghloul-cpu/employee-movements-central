@@ -1,3 +1,7 @@
+## v68.11.8 — Global Supervisor Movement Operations
+
+مراجعة شاملة لتماسك دورة الحركات والمأموريات، توحيد اختيار جهات المأموريات، وتشديد التعامل مع السجلات غير النشطة.
+
 ## v68.11.3 — Delegation Operational Boundary Fix
 
 The application now keeps one canonical post-save lifecycle for current movement status, history, follow-up, notifications, and assignment closure.

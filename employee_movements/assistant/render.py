@@ -4,10 +4,21 @@ from datetime import date
 
 from markupsafe import Markup, escape
 
-from ..access import branch_ok, can, gids
+from ..access import branch_ok, can, gids, roles
 from ..assignments import current_assignment_for_employee, employees_effectively_in_branches
 from ..extensions import db
 from ..models import Branch, Employee, EntryAssignment, EntryAssignmentBranch, Governorate, Movement
+
+
+def _global_movement_actor():
+    rs = roles()
+    return 'مسؤول التطبيق' in rs or 'مشرف محافظة' in rs
+
+def _visible_employee(e):
+    return bool(e and getattr(e, 'is_active', False) and (_global_movement_actor() or branch_ok(e.branch_id)))
+
+def _visible_branch(b):
+    return bool(b and getattr(b, 'is_active', False) and (_global_movement_actor() or branch_ok(b.id)))
 
 
 def topic_options(topic):
@@ -422,7 +433,7 @@ def render_read(a):
             .order_by(Branch.name)
             .all()
         )
-        branches = [b for b in branches if branch_ok(b.id)]
+        branches = [b for b in branches if _visible_branch(b)]
         branch_ids = {b.id for b in branches}
         rows = []
         # الانتداب الحالي إلى فرع داخل المحافظة.
@@ -467,7 +478,7 @@ def render_read(a):
             .order_by(Branch.name)
             .all()
         )
-        branches = [b for b in branches if branch_ok(b.id)]
+        branches = [b for b in branches if _visible_branch(b)]
         employees = (
             (
                 Employee.query.filter(
@@ -495,7 +506,7 @@ def render_read(a):
         }
     if intent == 'employee_status':
         e = db.session.get(Employee, a.get('employee_id')) if a.get('employee_id') else None
-        if not e or not e.is_active or (not branch_ok(e.branch_id)):
+        if not _visible_employee(e):
             return {
                 'title': 'نتيجة البحث',
                 'error': 'لم أجد موظفًا واحدًا مطابقًا.',
@@ -514,7 +525,7 @@ def render_read(a):
         }
     if intent in ('branch_status', 'branch_info'):
         b = db.session.get(Branch, a.get('branch_id')) if a.get('branch_id') else None
-        if not b or not branch_ok(b.id):
+        if not _visible_branch(b):
             return {
                 'title': 'نتيجة البحث',
                 'error': 'لم أجد فرعًا واحدًا مطابقًا.',
@@ -615,7 +626,7 @@ def render_read(a):
         return {'title': f'بيانات فرع {b.name}', 'html': Markup(answer)}
     if intent == 'employee_info':
         e = db.session.get(Employee, a.get('employee_id')) if a.get('employee_id') else None
-        if not e or not e.is_active or (not branch_ok(e.branch_id)):
+        if not _visible_employee(e):
             return {
                 'title': 'نتيجة البحث',
                 'error': 'لم أجد موظفًا واحدًا مطابقًا.',
@@ -748,7 +759,7 @@ def render_read(a):
         }
     if intent == 'employee_movements':
         e = db.session.get(Employee, a.get('employee_id')) if a.get('employee_id') else None
-        if not e or not branch_ok(e.branch_id):
+        if not _visible_employee(e):
             return {
                 'title': 'نتيجة البحث',
                 'error': 'لم أجد موظفًا واحدًا مطابقًا.',

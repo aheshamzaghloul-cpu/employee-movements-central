@@ -380,16 +380,66 @@ def can_manage_employee(e):
     return bool(e and branch_ok(e.branch_id) and can('manage_employees'))
 
 
+def movement_is_closed(m):
+    """Return whether the movement/mission is in a closed state.
+
+    Closing a mission is a lifecycle boundary: supervisors may create and
+    maintain an open movement, but reopening or editing a closed mission is
+    reserved for Manager Application Support and the application administrator.
+    """
+    return bool(
+        m
+        and (
+            getattr(m, 'assignment_state', None) == 'مغلق'
+            or getattr(m, 'mission_state', None) == 'مغلقة'
+        )
+    )
+
+
+def can_view_movement(m=None):
+    """Return whether the user may view/print a movement regardless of edit rights.
+
+    Supervisors can view and print movements for any employee. Manager support
+    remains tied to the selected work-governorate, while first-level entry stays
+    tied to assigned branches. Closed-state restrictions apply to mutation, not printing.
+    """
+    rs = roles()
+    if 'مسؤول التطبيق' in rs:
+        return bool(m is None or getattr(m, 'is_active', True))
+    if 'مشرف محافظة' in rs and can('view_reports'):
+        if m is None:
+            return True
+        if not getattr(m, 'is_active', True):
+            return False
+        # الانتداب/المأمورية وحده ذو نطاق عالمي للمشرف؛ الإجازات والأذونات
+        # تظل ضمن نطاقه التشغيلي المعتاد.
+        if getattr(m, 'movement_type', None) == 'انتداب':
+            return True
+        return branch_ok(m.employee.branch_id) if getattr(m, 'employee', None) else False
+    if 'Manager Application Support' in rs and can('view_reports'):
+        return bool(m is None or branch_ok(m.employee.branch_id))
+    if 'المدخل الأول' in rs and can('view_reports'):
+        return bool(m and branch_ok(m.employee.branch_id))
+    return False
+
+
 def can_manage_movement(m=None):
     rs = roles()
     if 'مسؤول التطبيق' in rs:
         return True
     if 'Manager Application Support' in rs and can('manage_movements'):
-        return True
+        return bool(m is None or branch_ok(m.employee.branch_id))
     if 'مشرف محافظة' in rs and can('manage_movements'):
-        return True
+        # Only assignments/missions have global employee reach for supervisors.
+        # Leave and permission remain restricted to the supervisor's operational scope.
+        if m is not None and getattr(m, 'movement_type', None) != 'انتداب':
+            return bool(branch_ok(m.employee.branch_id))
+        # A closed assignment may only be modified/reopened by Manager/Admin.
+        return not movement_is_closed(m)
     if 'المدخل الأول' not in rs:
         return False
-    # First-level users manage movements within their assigned branches.
-    # They are not limited to movements they personally created.
+    # First-level users remain restricted to their assigned branches and cannot
+    # edit a closed mission.
+    if movement_is_closed(m):
+        return False
     return bool(m and branch_ok(m.employee.branch_id)) if m else True

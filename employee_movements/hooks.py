@@ -10,6 +10,7 @@ from .access import (
     can,
     can_manage_employee,
     can_manage_movement,
+    can_view_movement,
     csrf_token,
     has_role,
     is_scope_required_endpoint,
@@ -64,6 +65,7 @@ def inject_context():
         'branch_entry': branch_entry,
         'can_manage_employee': can_manage_employee,
         'can_manage_movement': can_manage_movement,
+        'can_view_movement': can_view_movement,
         'ASSIGNMENT_STATES': ASSIGNMENT_STATES,
         'ASSIGNMENT_ALERT_DAYS': ASSIGNMENT_ALERT_DAYS,
         'scope_required': bool(

@@ -28,6 +28,7 @@ def movement_employees_api():
     gid = request.args.get('governorate_id', '').strip()
     bid = request.args.get('branch_id', '').strip()
     q = (request.args.get('q') or '').strip()
+    movement_type = (request.args.get('movement_type') or '').strip()
     gov = None
     global_search = bool(q)
     if gid:
@@ -35,8 +36,6 @@ def movement_employees_api():
             return {'results': [], 'branches': []}
         gov = db.session.get(Governorate, int(gid))
         if not gov or not gov.is_active:
-            return {'results': [], 'branches': []}
-        if not global_search and not (int(gid) in set(gids())):
             return {'results': [], 'branches': []}
     branch_rows = (
         (
@@ -47,14 +46,15 @@ def movement_employees_api():
         if gov
         else Branch.query.filter_by(is_active=True).order_by(Branch.name.asc()).all()
     )
+    # Supervisors may pick an employee from any active branch only for
+    # assignment/mission registration. Leave and permission remain scoped.
+    rs = roles()
+    global_assignment_picker = movement_type == 'انتداب' and ('مسؤول التطبيق' in rs or 'مشرف محافظة' in rs)
+    if not global_assignment_picker and 'مسؤول التطبيق' not in rs:
+        branch_rows = [b for b in branch_rows if branch_ok(b.id)]
     branch_ids = [b.id for b in branch_rows]
     if bid.isdigit():
         bid_int = int(bid)
-        if not global_search and bid_int not in set(bids()):
-            return {'results': [], 'branches': [
-                {'id': b.id, 'name': b.name, 'governorate_id': b.governorate_id}
-                for b in branch_rows
-            ]}
         if bid_int not in branch_ids:
             return {
                 'results': [],
@@ -107,7 +107,9 @@ def movement_preflight_api():
     if not employee_raw.isdigit():
         return {'ready': False, 'ok': False, 'level': 'info', 'message': 'اختر الموظف أولًا.', 'suggestion': 'ابدأ باختيار الموظف.'}
     employee = db.session.get(Employee, int(employee_raw))
-    if not employee or not employee.is_active or not branch_ok(employee.branch_id):
+    rs = roles()
+    global_employee_access = 'مسؤول التطبيق' in rs or ('مشرف محافظة' in rs and movement_type == 'انتداب')
+    if not employee or not employee.is_active or (not global_employee_access and not branch_ok(employee.branch_id)):
         abort(403)
     if not can('manage_movements') or not can_manage_movement():
         abort(403)
@@ -188,8 +190,21 @@ def movement_preflight_api():
 @req
 def movements_page_filters_api():
     """فلاتر صفحة الحركات: المحافظات ضمن النطاق ثم الفروع ثم موظفو الفرع فقط."""
-    allowed_gids = set(gids())
-    allowed_bids = set(bids())
+    rs = roles()
+    movement_type = (request.args.get('movement_type') or '').strip()
+    # Only assignment/mission registration gets the supervisor's global
+    # employee picker. Leave/permission employee selection remains scoped.
+    global_movement_picker = 'مسؤول التطبيق' in rs or ('مشرف محافظة' in rs and movement_type == 'انتداب')
+    allowed_gids = (
+        {g.id for g in Governorate.query.filter_by(is_active=True).all()}
+        if global_movement_picker
+        else set(gids())
+    )
+    allowed_bids = (
+        {b.id for b in Branch.query.filter_by(is_active=True).all()}
+        if global_movement_picker
+        else set(bids())
+    )
     gid_raw = (request.args.get('governorate_id') or '').strip()
     bid_raw = (request.args.get('branch_id') or '').strip()
     gid = int(gid_raw) if gid_raw.isdigit() else None
@@ -261,6 +276,7 @@ def movements_page_filters_api():
 def movement_create():
     """Create an operational movement directly from the home employee card."""
     employee_id = request.form.get('employee_id', '').strip()
+    movement_type = (request.form.get('movement_type') or '').strip()
     return_to = (request.form.get('return_to') or '/').strip()
     if not return_to.startswith('/') or return_to.startswith('//'):
         return_to = '/'
@@ -269,13 +285,14 @@ def movement_create():
         return redirect('/')
 
     employee = db.session.get(Employee, int(employee_id))
-    if not employee or not employee.is_active or not branch_ok(employee.branch_id):
+    rs = roles()
+    global_employee_access = 'مسؤول التطبيق' in rs or ('مشرف محافظة' in rs and movement_type == 'انتداب')
+    if not employee or not employee.is_active or (not global_employee_access and not branch_ok(employee.branch_id)):
         abort(403)
     if not can('manage_movements') or not can_manage_movement():
         abort(403)
 
     form = request.form
-    movement_type = (form.get('movement_type') or '').strip()
     leave_type = (form.get('leave_type') or '').strip() or None
     destination = (
         db.session.get(Branch, int(form.get('destination_branch_id')))
@@ -338,26 +355,47 @@ def movement_create():
 @req
 def movements():
     # صفحة الحركات للمتابعة والسجل فقط؛ تسجيل الحركة يتم من الرئيسية.
+    rs = roles()
+    global_assignment_actor = 'مسؤول التطبيق' in rs or 'مشرف محافظة' in rs
     bs = bids()
     scoped_branches = (
-        (
+        Branch.query.filter(Branch.is_active == True).order_by(Branch.name.asc()).all()
+        if global_assignment_actor
+        else (
             Branch.query.filter(Branch.id.in_(bs), Branch.is_active == True)
-            .order_by(Branch.name.asc())
-            .all()
+            .order_by(Branch.name.asc()).all()
+            if bs else []
         )
-        if bs
-        else []
     )
-    rows = (
-        (
-            Movement.query.join(Employee)
-            .filter(Employee.branch_id.in_(bs), Movement.is_active == True)
+    if 'مسؤول التطبيق' in rs:
+        rows = (
+            Movement.query
+            .filter(Movement.is_active == True)
             .order_by(Movement.created_at.desc())
             .all()
         )
-        if bs
-        else []
-    )
+    elif 'مشرف محافظة' in rs:
+        # المشرف يرى كل الانتدابات/المأموريات، لكن الإجازات والأذونات
+        # تبقى محكومة بنطاق الفروع التشغيلي.
+        rows = (
+            Movement.query.join(Employee)
+            .filter(
+                Movement.is_active == True,
+                db.or_(
+                    Movement.movement_type == 'انتداب',
+                    Employee.branch_id.in_(bs),
+                ),
+            )
+            .order_by(Movement.created_at.desc())
+            .all()
+        )
+    else:
+        rows = (
+            Movement.query.join(Employee)
+            .filter(Employee.branch_id.in_(bs), Movement.is_active == True)
+            .order_by(Movement.created_at.desc()).all()
+            if bs else []
+        )
     today = date.today()
     tomorrow = today + timedelta(days=ASSIGNMENT_ALERT_DAYS)
 
@@ -403,13 +441,14 @@ def movements():
         movement_leave_types=active_leave_types(),
         movement_types=active_movement_types(),
         movement_filter_governorates=(
-            (
+            Governorate.query.filter(Governorate.is_active == True)
+            .order_by(Governorate.name.asc()).all()
+            if ('مسؤول التطبيق' in roles() or 'مشرف محافظة' in roles())
+            else (
                 Governorate.query.filter(Governorate.id.in_(gids()), Governorate.is_active == True)
-                .order_by(Governorate.name.asc())
-                .all()
+                .order_by(Governorate.name.asc()).all()
+                if gids() else []
             )
-            if gids()
-            else []
         ),
     )
 
@@ -418,18 +457,13 @@ def movements():
 @req
 def movement_edit(i):
     m = db.session.get(Movement, i)
-    if not m or not branch_ok(m.employee.branch_id):
+    if not m or not m.is_active:
         abort(403)
     # الحركات معلومات تشغيلية مباشرة ويمكن تعديلها دون انتظار اعتماد.
     if not can_manage_movement(m) or not can('manage_movements'):
         abort(403)
     if request.method == 'POST':
         f = request.form
-        if m.movement_type == 'انتداب' and m.assignment_state == 'مغلق':
-            # A closed assignment may never be reopened implicitly by an edit POST.
-            # Reopening is a distinct audited action handled only by reopen_assignment.
-            flash('الانتداب مغلق. أعد فتحه أولًا من إجراء إعادة الفتح ثم عدّل المدة أو البيانات.')
-            return redirect(url_for('movements.movements'))
         mt = f.get('movement_type')
         dest = (
             int(f['destination_branch_id'])
@@ -445,6 +479,9 @@ def movement_edit(i):
         pd = f.get('permission_date')
         if mt == 'انتداب' and f.get('open_assignment') == '1':
             td = None
+        if m.movement_type == 'انتداب' and m.assignment_state == 'مغلق' and mt == 'انتداب' and not td:
+            flash('المأمورية المغلقة يجب أن تحتفظ بتاريخ نهاية. لإعادتها مفتوحة استخدم إجراء إعادة الفتح أولًا.')
+            return redirect(url_for('movements.movement_edit', i=i))
         err = validate_movement_fields(mt, f.get('leave_type') or None, dest, fd, td, pd)
         if err:
             flash(err)
@@ -461,18 +498,15 @@ def movement_edit(i):
         m.to_date = parse_date(td)
         m.permission_date = parse_date(pd)
         if mt == 'انتداب':
-            # A closed assignment may only return to active state through the explicit
-            # reopen endpoint. Clearing closure metadata here prevents a reopened/extended
-            # movement from retaining stale closure information.
-            if m.assignment_state == 'مغلق':
-                m.assignment_state = 'ساري'
-                m.closed_by = None
-                m.closed_at = None
-                m.closure_reason = None
-            else:
+            # Editing a closed assignment is allowed only to Manager/Admin.
+            # The edit must not silently reopen it; reopening remains an explicit action.
+            if m.assignment_state != 'مغلق':
                 m.assignment_state = 'ساري'
         else:
             m.assignment_state = 'ساري'
+            m.closed_by = None
+            m.closed_at = None
+            m.closure_reason = None
         m.notes = None
         m.modified_by = me().id
         m.modified_at = datetime.utcnow()
@@ -486,12 +520,20 @@ def movement_edit(i):
         'movement_edit.html',
         m=m,
         emps=(
-            Employee.query.filter(Employee.branch_id.in_(bids()), Employee.is_active == True)
+            Employee.query.filter(Employee.is_active == True)
             .order_by(Employee.full_name)
             .all()
+            if ('مسؤول التطبيق' in roles() or 'مشرف محافظة' in roles())
+            else Employee.query.filter(Employee.branch_id.in_(bids()), Employee.is_active == True)
+            .order_by(Employee.full_name).all()
         ),
-        bs=Branch.query.filter(Branch.id.in_(bids()), Branch.is_active == True).all(),
+        bs=(
+            Branch.query.filter(Branch.is_active == True).order_by(Branch.name.asc()).all()
+            if ('مسؤول التطبيق' in roles() or 'مشرف محافظة' in roles())
+            else Branch.query.filter(Branch.id.in_(bids()), Branch.is_active == True).all()
+        ),
         destination_branches=Branch.query.filter(Branch.is_active == True).order_by(Branch.name.asc()).all(),
+        destination_governorates=Governorate.query.filter(Governorate.is_active == True).order_by(Governorate.name.asc()).all(),
         leave_types=active_leave_types(),
         movement_types=active_movement_types(),
     )
@@ -501,7 +543,7 @@ def movement_edit(i):
 @req
 def movement_submit(i):
     m = db.session.get(Movement, i)
-    if not m or not branch_ok(m.employee.branch_id) or (not can_manage_movement(m)):
+    if not m or not m.is_active or (not can_manage_movement(m)):
         abort(403)
     old_status = m.status
     m.status = 'مسجلة'
@@ -522,7 +564,6 @@ def close_assignment(i):
         not m
         or m.movement_type != 'انتداب'
         or not m.is_active
-        or not branch_ok(m.employee.branch_id)
     ):
         abort(403)
     if not can('manage_movements') or not can_manage_movement(m):
@@ -556,7 +597,6 @@ def reopen_assignment(i):
         not m
         or m.movement_type != 'انتداب'
         or not m.is_active
-        or not branch_ok(m.employee.branch_id)
     ):
         abort(403)
     if not can('manage_movements') or not can_manage_movement(m):
@@ -581,7 +621,7 @@ def reopen_assignment(i):
 @req
 def assignment_form(i):
     m = db.session.get(Movement, i)
-    if not m or m.movement_type != 'انتداب' or (not branch_ok(m.employee.branch_id)):
+    if not m or not m.is_active or m.movement_type != 'انتداب':
         abort(403)
     if not can('manage_movements') or not can_manage_movement(m):
         abort(403)
@@ -592,7 +632,7 @@ def assignment_form(i):
 @req
 def movement_delete(i):
     m = db.session.get(Movement, i)
-    if not m or not branch_ok(m.employee.branch_id):
+    if not m:
         abort(403)
     if not can('delete_movements'):
         flash('لا تملك صلاحية حذف المأموريات والحركات.')
@@ -616,7 +656,7 @@ def movement_delete(i):
 @req
 def movement_history(i):
     m = db.session.get(Movement, i)
-    if not m or not branch_ok(m.employee.branch_id):
+    if not m:
         abort(403)
     if not can('view_audit'):
         abort(403)

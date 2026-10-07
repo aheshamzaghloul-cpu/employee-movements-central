@@ -8,10 +8,11 @@
 <div class="ui-card ui-mission-edit-card">
 <form method="post" class="ui-grid ui-grid-3-gap-16"><input type="hidden" name="_csrf" value="{{csrf}}">
   <div class="ui-grid-full"><label>الموظف</label><input value="{{m.employee.full_name}} — {{m.employee.job_code or '—'}}" disabled></div>
-  <div><label>جهة المأمورية</label><select name="destination_branch_id" required>{% for b in branches %}<option value="{{b.id}}" {% if m.destination_branch_id==b.id %}selected{% endif %}>{{b.name}} — {{b.governorate.name}}</option>{% endfor %}</select></div>
+  <div><label>محافظة جهة المأمورية</label><select id="missionDestinationGovernorate" required><option value="">اختر المحافظة</option>{% for g in destination_governorates %}<option value="{{g.id}}" {% if m.destination_branch and m.destination_branch.governorate_id==g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></div><div><label>فرع جهة المأمورية</label><select name="destination_branch_id" id="missionDestinationBranch" required><option value="">اختر الفرع</option>{% for b in branches %}<option value="{{b.id}}" data-governorate-id="{{b.governorate_id}}" {% if m.destination_branch_id==b.id %}selected{% endif %}>{{b.name}}</option>{% endfor %}</select></div>
   <div><label>من تاريخ</label><input type="date" name="from_date" value="{{m.from_date.isoformat() if m.from_date else ''}}" required></div>
   <div><label>إلى تاريخ</label><input type="date" name="to_date" value="{{m.to_date.isoformat() if m.to_date else ''}}" min="{{m.from_date.isoformat() if m.from_date else ''}}"></div>
   <div class="ui-actions ui-grid-full"><button class="ui-btn ui-tone-teal">حفظ التعديل</button><a class="ui-btn ui-btn-secondary" href="/reports/assignments/print-missions">إلغاء</a></div>
+<script>(function(){const g=document.getElementById('missionDestinationGovernorate'),b=document.getElementById('missionDestinationBranch');if(!g||!b)return;const all=[...b.options].slice(1).map(o=>({value:o.value,text:o.textContent,gov:o.dataset.governorateId}));function sync(){const selected=b.value,gid=g.value;b.innerHTML='<option value="">اختر الفرع</option>';all.filter(x=>x.gov===gid).forEach(x=>{const o=document.createElement('option');o.value=x.value;o.textContent=x.text;if(x.value===selected)o.selected=true;b.appendChild(o);});if(selected&&!all.some(x=>x.value===selected&&x.gov===gid))b.value='';b.disabled=!gid;}g.addEventListener('change',sync);sync();})();</script>
 </form>
 </div>
 {% endblock %}

@@ -1,3 +1,42 @@
+# CHANGELOG
+
+## v68.12.0 — Mission Center Lifecycle & Edit Requests
+- Added date-range mission center filtering and mission-state filtering (تحت التحرير/مغلقة).
+- Added supervisor post-close edit requests with reason and full mission snapshot.
+- Added Manager/Application Admin request inbox and controlled execution.
+- Manager/Admin can save the corrected mission as مغلقة or تحت التحرير; request execution is audited.
+- Added monthly mission detail export-ready aggregation template.
+
+## v68.11.9 — Assignment-Only Global Reach & Monthly Mission Aggregation
+- Supervisor global employee reach is limited to assignment/mission registration and viewing.
+- Leave and permission viewing remains within the supervisor operational scope.
+- Mission center employee filter no longer exposes out-of-scope employees to Manager.
+- Added Manager/Admin monthly aggregation of closed missions by employee and branch, with calendar days overlapping the selected month.
+- No incentive formula is invented or applied; the aggregation is a factual preparation surface.
+- Runtime Flask/PostgreSQL was not executed in the current environment.
+# v68.11.8 — Assignment-Only Global Supervisor Selection
+
+- Supervisor global employee selection is limited to انتداب/مأمورية only.
+- Leave and permission registration/editing remain within operational scope.
+- Server-side preflight/create and movement edit guards enforce the distinction.
+- Closed assignments remain editable/reopenable only by Manager Application Support or مسؤول التطبيق; printing remains view/print-only.
+
+# v68.11.8 — Global Supervisor Movement Operations
+
+- مشرف المحافظة يستطيع تسجيل حركة لأي موظف نشط من أي محافظة، مع بقاء نطاق الحساب منفصلًا عن بيانات الموظف.
+- وجهة الانتداب/المأمورية يمكن أن تكون أي فرع نشط في أي محافظة للمشرف.
+- المأمورية/الانتداب المغلق لا يمكن تعديله أو إعادة فتحه من المشرف؛ التعديل بعد الإغلاق وإعادة الفتح متاحان للـManager ومسؤول التطبيق فقط.
+- الطباعة والمشاهدة لا تُعامل كتعديل؛ المشرف يستطيع طباعة المأموريات من أي محافظة.
+- Basyouni يستخدم نفس قاعدة النطاق عند تسجيل الحركة.
+- الحفاظ على نطاق Manager والمدخل الأول كما هو.
+- منع تعديل مأمورية مغلقة إلى حالة «مفتوحة بلا تاريخ نهاية» دون إجراء إعادة فتح صريح.
+
+
+- توحيد رقم الإصدار داخل الحزمة إلى v68.11.6.
+- توحيد اختيار محافظة وفرع جهة المأمورية في تعديل الحركة وتعديل المأمورية مع إتاحة جميع المحافظات النشطة.
+- منع تعديل أو تثبيت أو عرض نموذج مأمورية لسجل حركة غير نشط/محذوف.
+- منع طباعة مأمورية غير نشطة من رابط الطباعة المباشر.
+
 # Changelog
 ## v68.11.5 — Destination Governorate Selection
 

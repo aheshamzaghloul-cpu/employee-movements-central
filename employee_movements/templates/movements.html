@@ -25,7 +25,7 @@
       <div class="movement-progress" id="movementProgress" aria-label="خطوات تسجيل الحركة"><span class="is-active" data-step-indicator="1">1 المحافظة</span><i></i><span data-step-indicator="2">2 الفرع</span><i></i><span data-step-indicator="3">3 الموظف</span><i></i><span data-step-indicator="4">4 الحركة</span></div>
 
       <div class="movement-step movement-step-governorate">
-        <div class="movement-step-head"><span class="movement-step-number">1</span><div><b>اختر المحافظة</b><small>تظهر المحافظات المسموح لك بالعمل عليها.</small></div></div>
+        <div class="movement-step-head"><span class="movement-step-number">1</span><div><b>اختر المحافظة</b><small>في الانتداب يمكن اختيار موظف من أي محافظة؛ الإجازة والإذن يلتزمان بنطاقك.</small></div></div>
         <select id="movementCreateGovernorate" class="movement-hierarchy-select"><option value="">اختر المحافظة</option>{% for g in movement_governorates %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select>
       </div>
 
@@ -143,6 +143,7 @@
   const type=$('movementCreateType');
   const leave=$('movementLeavePanel'), assign=$('movementAssignmentPanel'), perm=$('movementPermissionPanel');
   function syncType(){ const v=type?.value; if(!leave)return; leave.hidden=v!=='إجازة'; assign.hidden=v!=='انتداب'; perm.hidden=v!=='إذن'; }
+  type?.addEventListener('change',()=>{ if(gov?.value) loadCreateBranches(); });
   type?.addEventListener('change',syncType); syncType();
   $('openAssignment')?.addEventListener('change',e=>{ const d=$('assignmentToDate'); if(d){d.disabled=e.target.checked; if(e.target.checked)d.value='';}});
 
@@ -181,7 +182,7 @@
     resetAfterGovernorate(); const gid=govCreate?.value; if(!gid)return;
     branchGrid.innerHTML='<div class="movement-hierarchy-loading">جارٍ تحميل الفروع...</div>';
     try{
-      const r=await fetch('/api/movements-page-filters?governorate_id='+encodeURIComponent(gid)); const data=await r.json();
+      const r=await fetch('/api/movements-page-filters?governorate_id='+encodeURIComponent(gid)+'&movement_type='+encodeURIComponent(type?.value||'')); const data=await r.json();
       branchGrid.innerHTML='';
       if(!data.branches.length){branchEmpty.hidden=false;return;}
       data.branches.forEach(b=>branchGrid.appendChild(branchCard(b)));
@@ -192,7 +193,7 @@
     employeeStep.hidden=false; detailsStep.hidden=true; employeeGrid.innerHTML='<div class="movement-hierarchy-loading">جارٍ تحميل الموظفين...</div>'; employeeEmpty.hidden=true; employeeId.value=''; selectedEmployee.innerHTML='';
     $('movementEmployeeHint').textContent='موظفو فرع '+branch.name+' فقط.';
     try{
-      const gid=govCreate?.value||''; const r=await fetch('/api/movements-page-filters?governorate_id='+encodeURIComponent(gid)+'&branch_id='+encodeURIComponent(branch.id)); const data=await r.json();
+      const gid=govCreate?.value||''; const r=await fetch('/api/movements-page-filters?governorate_id='+encodeURIComponent(gid)+'&branch_id='+encodeURIComponent(branch.id)+'&movement_type='+encodeURIComponent(type?.value||'')); const data=await r.json();
       employeeGrid.innerHTML='';
       if(!data.employees.length){employeeEmpty.hidden=false;return;}
       data.employees.forEach(e=>{

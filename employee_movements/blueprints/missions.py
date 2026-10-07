@@ -434,24 +434,17 @@ def mission_print_list():
 
     gov = request.args.get('governorate_id', '').strip()
     branch = request.args.get('branch_id', '').strip()
+    destination_gov = request.args.get('destination_governorate_id', '').strip()
+    destination_branch = request.args.get('destination_branch_id', '').strip()
     employee = request.args.get('employee_id', '').strip()
     status = request.args.get('status', '').strip()
     date_from = request.args.get('date_from', '').strip()
     date_to = request.args.get('date_to', '').strip()
     duration = request.args.get('duration', '').strip()
 
-    govs = (
-        (
-            Governorate.query.filter(
-                Governorate.id.in_(allowed_gids),
-                Governorate.is_active == True,
-            )
-            .order_by(Governorate.name.asc())
-            .all()
-        )
-        if allowed_gids
-        else []
-    )
+    # «من محافظة» في تقرير المأموريات اختيار بياناتي عالمي؛
+    # الوصول الفعلي للموظف والصفوف يظل مقيدًا بـ allowed_bids.
+    govs = Governorate.query.filter(Governorate.is_active == True).order_by(Governorate.name.asc()).all()
     branches = (
         (
             Branch.query.filter(Branch.id.in_(allowed_bids), Branch.is_active == True)
@@ -461,6 +454,8 @@ def mission_print_list():
         if allowed_bids
         else []
     )
+    destination_governorates = Governorate.query.filter(Governorate.is_active == True).order_by(Governorate.name.asc()).all()
+    destination_branches = Branch.query.filter(Branch.is_active == True).order_by(Branch.name.asc()).all()
 
     selected_gov = None
     if gov.isdigit() and any((g.id == int(gov) for g in govs)):
@@ -469,6 +464,21 @@ def mission_print_list():
         q = q.filter(Employee.branch.has(Branch.governorate_id == selected_gov.id))
     else:
         gov = ''
+
+    selected_destination_governorate = None
+    if destination_gov.isdigit() and any((g.id == int(destination_gov) for g in destination_governorates)):
+        selected_destination_governorate = db.session.get(Governorate, int(destination_gov))
+        destination_branches = [b for b in destination_branches if b.governorate_id == selected_destination_governorate.id]
+        q = q.filter(Movement.destination_branch.has(Branch.governorate_id == selected_destination_governorate.id))
+    else:
+        destination_gov = ''
+
+    selected_destination_branch = None
+    if destination_branch.isdigit() and any((b.id == int(destination_branch) for b in destination_branches)):
+        selected_destination_branch = db.session.get(Branch, int(destination_branch))
+        q = q.filter(Movement.destination_branch_id == selected_destination_branch.id)
+    else:
+        destination_branch = ''
 
     selected_branch = None
     if branch.isdigit() and any((b.id == int(branch) for b in branches)):
@@ -521,9 +531,13 @@ def mission_print_list():
         statuses=STATUSES,
         report_governorates=govs,
         report_branches=branches,
+        destination_governorates=destination_governorates,
+        destination_branches=destination_branches,
         employees=employees,
         selected_governorate=gov,
         selected_branch=branch,
+        selected_destination_governorate=destination_gov,
+        selected_destination_branch=destination_branch,
         selected_employee=employee,
         status=status,
         date_from=date_from,

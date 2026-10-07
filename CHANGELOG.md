@@ -1,5 +1,10 @@
 # Changelog
-## v68.11.3 — Employee Card Scope Guard
+## v68.11.5 — Destination Governorate Selection
+
+- Added explicit all-governorate destination selection for assignment registration.
+- Added destination-governorate/branch filters to mission printing without expanding operational scope.
+
+# v68.11.3 — Employee Card Scope Guard
 
 - Keep homepage employee search global as designed.
 - Require operational branch scope before opening an employee card directly.

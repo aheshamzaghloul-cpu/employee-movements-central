@@ -56,7 +56,8 @@
         </div>
 
         <div class="movement-type-panel" id="movementAssignmentPanel" hidden>
-          <label>الجهة المنتدب إليها<select name="destination_branch_id" id="movementDestinationBranch"><option value="">اختر الفرع</option>{% for b in destination_branches %}<option value="{{b.id}}">{{b.name}} — {{b.governorate.name if b.governorate else ''}}</option>{% endfor %}</select></label>
+          <label>محافظة جهة المأمورية<select id="movementDestinationGovernorate"><option value="">اختر المحافظة</option>{% for g in destination_governorates %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
+          <label>الجهة المنتدب إليها<select name="destination_branch_id" id="movementDestinationBranch" disabled><option value="">اختر المحافظة أولًا</option></select></label>
           <label>من<input type="date" name="assignment_from_date"></label>
           <label>إلى<input type="date" name="assignment_to_date" id="assignmentToDate"></label>
           <label class="ui-check"><input type="checkbox" name="open_assignment" value="1" id="openAssignment"> انتداب مفتوح بلا تاريخ نهاية</label>
@@ -144,6 +145,19 @@
   function syncType(){ const v=type?.value; if(!leave)return; leave.hidden=v!=='إجازة'; assign.hidden=v!=='انتداب'; perm.hidden=v!=='إذن'; }
   type?.addEventListener('change',syncType); syncType();
   $('openAssignment')?.addEventListener('change',e=>{ const d=$('assignmentToDate'); if(d){d.disabled=e.target.checked; if(e.target.checked)d.value='';}});
+
+  const destinationGov=$('movementDestinationGovernorate'), destinationBranch=$('movementDestinationBranch');
+  const destinationBranches=[{% for b in destination_branches %}{id:{{b.id}},name:{{b.name|tojson}},governorate_id:{{b.governorate_id}}}{% if not loop.last %},{% endif %}{% endfor %}];
+  function syncDestinationBranches(){
+    if(!destinationBranch)return;
+    const gid=destinationGov?.value||'';
+    destinationBranch.innerHTML='<option value="">'+(gid?'اختر الفرع':'اختر المحافظة أولًا')+'</option>';
+    destinationBranch.disabled=!gid;
+    if(!gid)return;
+    destinationBranches.filter(b=>String(b.governorate_id)===String(gid)).forEach(b=>{const o=document.createElement('option');o.value=b.id;o.textContent=b.name;destinationBranch.appendChild(o);});
+  }
+  destinationGov?.addEventListener('change',()=>{syncDestinationBranches();refreshMovementReview();});
+  syncDestinationBranches();
 
   const govCreate=$('movementCreateGovernorate');
   const branchStep=$('movementBranchStep'), employeeStep=$('movementEmployeeStep'), detailsStep=$('movementDetailsStep');
@@ -253,7 +267,7 @@
     currentWarning.textContent=m.type==='انتداب' ? ('تنبيه: الموظف لديه انتداب ساري إلى '+(m.destination||'جهة أخرى')+'. سيتم التحقق من التعارض قبل الحفظ.') : m.type==='إجازة' ? 'تنبيه: الموظف لديه إجازة سارية اليوم. راجع التعارض قبل تسجيل حركة جديدة.' : 'تنبيه: الموظف لديه إذن اليوم. راجع التعارض قبل تسجيل حركة جديدة.';
   }
   [type,$('movementLeaveType'),$('movementDestinationBranch'),$('openAssignment'),...document.querySelectorAll('#movementDetailsStep input[type=date]')].forEach(x=>x?.addEventListener('input',refreshMovementReview));
-  [type,$('movementLeaveType'),$('movementDestinationBranch'),$('openAssignment')].forEach(x=>x?.addEventListener('change',refreshMovementReview));
+  [type,$('movementLeaveType'),$('movementDestinationGovernorate'),$('movementDestinationBranch'),$('openAssignment')].forEach(x=>x?.addEventListener('change',refreshMovementReview));
   govCreate?.addEventListener('change',()=>setProgress(govCreate.value?2:1));
   const _loadCreateEmployees=loadCreateEmployees;
   loadCreateEmployees=async function(branch){ setProgress(3); return _loadCreateEmployees(branch); };

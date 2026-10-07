@@ -1,8 +1,7 @@
-# v68.11.3 — Delegation Operational Boundary Fix
+# v68.11.5 — Destination Governorate Selection
 
-إصلاح مسار الصفحة الرئيسية الذي يستخدم `branch_ok` دون استيراده، مع الإبقاء على حدود التفويض التشغيلي وملكية الهيكل التنظيمي كما هي.
-
-## التحقق
-- Python compile: سيتم بعد التعديل
-- Jinja parse: سيتم بعد التعديل
-- Runtime Flask/PostgreSQL: لم تُنفذ في بيئة الاختبار الحالية.
+- Assignment registration now separates employee scope from mission destination.
+- Mission destination governorate lists all active governorates.
+- Destination branch is populated only from the selected destination governorate.
+- Mission print/search adds destination-governorate and destination-branch filters across all active governorates.
+- Employee/source governorate and employee scope remain permission-bound.

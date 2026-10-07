@@ -390,10 +390,15 @@ def movements():
         tomorrow=tomorrow,
         bs=scoped_branches,
         destination_branches=destination_branches,
+        # محافظة الموظف/من: تعرض كل المحافظات النشطة في قائمة الاختيار،
+        # بينما يظل الوصول الفعلي للموظف محكومًا بـ branch_ok في الـ API والحفظ.
         movement_governorates=(
-            Governorate.query.filter(Governorate.id.in_(set(gids())), Governorate.is_active == True)
+            Governorate.query.filter_by(is_active=True)
             .order_by(Governorate.name.asc()).all()
-            if gids() else []
+        ),
+        destination_governorates=(
+            Governorate.query.filter(Governorate.is_active == True)
+            .order_by(Governorate.name.asc()).all()
         ),
         movement_leave_types=active_leave_types(),
         movement_types=active_movement_types(),

@@ -7,7 +7,7 @@ from sqlalchemy.exc import OperationalError
 
 from flask import Flask
 
-__version__ = '68.11.3'
+__version__ = '68.11.4'
 
 
 def create_app(overrides=None):

@@ -47,6 +47,12 @@ def login():
     session.clear()
     session['uid'] = user.id
     session['csrf'] = secrets.token_urlsafe(24)
+    # الحساب متعدد الأدوار يبدأ بدور واحد محدد؛ لا نسمح بمزيج صلاحيات بين الأدوار.
+    real_roles = actual_roles(user)
+    for preferred in LOGIN_ROLES:
+        if preferred in real_roles:
+            session['active_role'] = preferred
+            break
     user.last_login = datetime.utcnow()
     log('LOGIN', 'User', user.id)
     db.session.commit()
@@ -71,13 +77,22 @@ def switch_role():
         old_role = session.get('active_role')
         session['active_role'] = selected
         if old_role != selected:
-            # تغيير الدور يغيّر السياق التشغيلي؛ لا ننقل محافظة الدور السابق
-            # إلى الدور الجديد. يجب اختيار المحافظة من جديد عند الحاجة.
+            # تغيير الدور عملية انتقال أمنية كاملة، وليس مجرد تبديل للقائمة.
+            # لا ننقل محافظة أو سياق صفحة أو عملية معلقة من الدور السابق.
             session.pop('operational_governorate_id', None)
             session.pop('operational_scope_uid', None)
             session.pop('operational_scope_role', None)
-            log('SWITCH_ROLE', 'User', u.id, f'{old_role or 'الدور التلقائي'} -> {selected}')
+            session.pop('assistant_pending', None)
+            session.pop('assistant_manager_pending', None)
+            session.pop('assistant_context_employee_id', None)
+            session.pop('assistant_workspace_context', None)
+            log('SWITCH_ROLE', 'User', u.id, f'{old_role or "الدور التلقائي"} -> {selected}')
             db.session.commit()
+            # لا نعيد المستخدم إلى صفحة قد تنتمي للدور السابق.
+            # الإدارة هي نقطة الهبوط الوحيدة لمسؤول التطبيق، بينما التشغيل
+            # يبدأ من الرئيسية للمشرف/Manager.
+            landing = url_for('structure.structure') if selected == 'مسؤول التطبيق' else url_for('dashboard.home')
+            return redirect(landing)
     else:
         flash('الدور المختار غير متاح لهذا الحساب.')
     return redirect(safe_next_url(request.form.get('next'), url_for('dashboard.home')))

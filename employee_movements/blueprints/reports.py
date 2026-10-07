@@ -59,6 +59,7 @@ def reports_missions():
         'follow_up_7d': movement_q.filter(
             Movement.movement_type == 'انتداب',
             Movement.to_date.isnot(None),
+            Movement.assignment_state != 'مغلق',
             Movement.to_date >= today,
             Movement.to_date <= week_end,
         ).count(),

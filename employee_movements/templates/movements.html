@@ -56,7 +56,7 @@
         </div>
 
         <div class="movement-type-panel" id="movementAssignmentPanel" hidden>
-          <label>الجهة المنتدب إليها<select name="destination_branch_id" id="movementDestinationBranch"><option value="">اختر الفرع</option>{% for b in bs %}<option value="{{b.id}}">{{b.name}} — {{b.governorate.name if b.governorate else ''}}</option>{% endfor %}</select></label>
+          <label>الجهة المنتدب إليها<select name="destination_branch_id" id="movementDestinationBranch"><option value="">اختر الفرع</option>{% for b in destination_branches %}<option value="{{b.id}}">{{b.name}} — {{b.governorate.name if b.governorate else ''}}</option>{% endfor %}</select></label>
           <label>من<input type="date" name="assignment_from_date"></label>
           <label>إلى<input type="date" name="assignment_to_date" id="assignmentToDate"></label>
           <label class="ui-check"><input type="checkbox" name="open_assignment" value="1" id="openAssignment"> انتداب مفتوح بلا تاريخ نهاية</label>
@@ -121,7 +121,7 @@
 
   <section class="ui-work-card movement-log-card" id="movement-log">
     <div class="ui-card-head compact"><div><span class="ui-eyebrow">السجل</span><h2>سجل الحركات الكامل</h2><p>عرض مختصر، مع فتح التفاصيل والتاريخ عند الحاجة.</p></div><b class="ui-counter">{{ rows|length }}</b></div>
-    <div class="ui-table-wrap"><table class="ui-table"><thead><tr><th>الموظف</th><th>الحركة</th><th>من</th><th>إلى / التاريخ</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>
+    <div class="ui-table-wrap"><table data-smart-table class="ui-table"><thead><tr><th>الموظف</th><th>الحركة</th><th>من</th><th>إلى / التاريخ</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>
     {% for m in rows %}
       <tr data-movement-filter-row data-employee-id="{{m.employee.id}}" data-branch-id="{{m.employee.branch_id}}" data-governorate-id="{{m.employee.branch.governorate_id if m.employee.branch else ''}}" data-name="{{m.employee.full_name|lower}}" data-code="{{(m.employee.job_code or '')|lower}}" data-type="{{m.movement_type}}">
         <td><a href="/employee/{{m.employee.id}}"><b>{{m.employee.full_name}}</b></a><small>{{m.employee.job_code or '—'}} · {{m.employee.branch.name if m.employee.branch else '—'}}</small></td>

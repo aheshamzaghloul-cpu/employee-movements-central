@@ -27,7 +27,7 @@
   <header class="ui-page-head"><div><span class="ui-eyebrow">استمرارية العمل</span><h1>التفويض</h1><p>تفويض مشرف بديل خلال فترة الغياب، مع متابعة الساري والمجدول والمنتهي من نفس الصفحة.</p></div><div class="ui-head-stats"><span><b>{{rows|length}}</b> سجل</span></div></header>
 
   <section class="ui-work-card delegation-create-card" id="delegation-new">
-    <div class="ui-card-head"><div><span class="ui-eyebrow">تنفيذ مباشر</span><h2>إنشاء تفويض</h2><p>التفويض يكون بين مشرف محافظة ومشرف محافظة مؤهل للمحافظة نفسها.</p></div><span class="ui-card-icon">⇄</span></div>
+    <div class="ui-card-head"><div><span class="ui-eyebrow">تنفيذ مباشر</span><h2>إنشاء تفويض</h2><p>التفويض ينقل المسؤولية التشغيلية مؤقتًا إلى مشرف محافظة بديل خلال الفترة المحددة.</p></div><span class="ui-card-icon">⇄</span></div>
     <form method="post" action="/delegations/add" class="ui-form">
       <input type="hidden" name="_csrf" value="{{csrf}}">
       <div class="ui-form-row delegation-create-grid">
@@ -42,11 +42,12 @@
   </section>
 
   <div class="ui-delegation-summary" id="delegation-active">
-    {% set active_count = rows|selectattr('is_active')|list|length %}
     {% set current_count = rows|selectattr('is_active')|selectattr('starts_at','le',today)|selectattr('ends_at','ge',today)|list|length %}
+    {% set planned_count = rows|selectattr('is_active')|selectattr('starts_at','gt',today)|list|length %}
+    {% set closed_count = rows|length - current_count - planned_count %}
     <div><b>{{current_count}}</b><span>ساري الآن</span></div>
-    <div><b>{{active_count - current_count}}</b><span>مجدول</span></div>
-    <div><b>{{rows|length - active_count}}</b><span>منتهي / ملغى</span></div>
+    <div><b>{{planned_count}}</b><span>مجدول</span></div>
+    <div><b>{{closed_count}}</b><span>منتهي / ملغى</span></div>
   </div>
 
   <section class="ui-work-card" id="delegation-history">
@@ -59,8 +60,8 @@
     <div class="ui-delegation-tabs" role="tablist" aria-label="تصفية التفويضات">
       <button type="button" class="active" data-delegation-filter="all">الكل <b>{{rows|length}}</b></button>
       <button type="button" data-delegation-filter="live">ساري <b>{{current_count}}</b></button>
-      <button type="button" data-delegation-filter="planned">مجدول <b>{{active_count - current_count}}</b></button>
-      <button type="button" data-delegation-filter="closed">منتهي / ملغى <b>{{rows|length - active_count}}</b></button>
+      <button type="button" data-delegation-filter="planned">مجدول <b>{{planned_count}}</b></button>
+      <button type="button" data-delegation-filter="closed">منتهي / ملغى <b>{{closed_count}}</b></button>
     </div>
     {% if ending_soon %}
     <div class="ui-delegation-alert"><strong>تنبيه تشغيلي</strong><span>{{ending_soon|length}} تفويض{% if ending_soon|length != 1 %}ات{% endif %} ساري{% if ending_soon|length != 1 %}ة{% endif %} تنتهي خلال 7 أيام. راجع البديل قبل انتهاء الفترة.</span></div>
@@ -68,7 +69,7 @@
     <div class="ui-table-wrap"><table class="ui-table delegation-table"><thead><tr><th>المشرف</th><th>البديل</th><th>المحافظة</th><th>الفترة</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody>
     {% for d in rows %}
       {% set state = 'ملغى' if not d.is_active else ('منتهى' if d.ends_at < today else ('ساري' if d.starts_at <= today <= d.ends_at else 'مجدول')) %}
-      <tr data-delegation-row data-filter="{{'live' if state=='ساري' else 'planned' if state=='مجدول' else 'closed'}}" data-search="{{d.supervisor.full_name}} {{d.delegate.full_name}} {{d.governorate.name}}"><td><b>{{d.supervisor.full_name}}</b></td><td>{{d.delegate.full_name}}</td><td>{{d.governorate.name}}</td><td>{{d.starts_at}} → {{d.ends_at}}</td><td><span class="ui-state {{'live' if state=='ساري' else 'planned' if state=='مجدول' else 'closed'}}">{{state}}</span></td><td>{% if d.is_active %}<form method="post" action="/delegations/{{d.id}}/revoke" class="ui-revoke-form"><input type="hidden" name="_csrf" value="{{csrf}}"><input name="reason" required minlength="3" placeholder="سبب الإلغاء"><button class="ui-danger-btn">إلغاء</button></form>{% else %}<span class="ui-muted">—</span>{% endif %}</td></tr>
+      <tr data-delegation-row data-filter="{{'live' if state=='ساري' else 'planned' if state=='مجدول' else 'closed'}}" data-search="{{d.supervisor.full_name}} {{d.delegate.full_name}} {{d.governorate.name}}"><td><b>{{d.supervisor.full_name}}</b></td><td>{{d.delegate.full_name}}</td><td>{{d.governorate.name}}</td><td>{{d.starts_at}} → {{d.ends_at}}</td><td><span class="ui-state {{'live' if state=='ساري' else 'planned' if state=='مجدول' else 'closed'}}">{{state}}</span></td><td>{% if d.is_active and d.ends_at >= today %}<form method="post" action="/delegations/{{d.id}}/revoke" class="ui-revoke-form"><input type="hidden" name="_csrf" value="{{csrf}}"><input name="reason" required minlength="3" placeholder="سبب الإلغاء"><button class="ui-danger-btn">إلغاء</button></form>{% else %}<span class="ui-muted">—</span>{% endif %}</td></tr>
     {% else %}<tr><td colspan="6" class="ui-empty">لا توجد تفويضات مسجلة.</td></tr>{% endfor %}
     </tbody></table></div>
   </section>

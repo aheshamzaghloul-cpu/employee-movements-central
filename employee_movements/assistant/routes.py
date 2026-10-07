@@ -233,7 +233,7 @@ def answer_prompt(prompt, prior_chat, workspace_context=None):
     # استخدم Gemini خصوصًا في الطلبات التنفيذية؛ هذا يسمح بفهم الصياغات الحرة
     # مثل «اعمل لأحمد إجازة...» حتى عندما لا تطابق قواعد الاستخراج المحلية حرفيًا.
     # الاستعلامات المباشرة تظل محلية أولًا لتقليل التأخير وعدم إرسال بيانات حية إلى النموذج.
-    semantic_intents = {'help', 'topic_options', 'employee_topic', 'register_movement', 'employee_add', 'employee_create', 'user_create', 'user_edit', 'user_toggle', 'user_delete', 'user_password_reset', 'user_set_governorates', 'user_set_branches', 'entry_assign', 'entry_remove', 'entry_replace', 'delegation_create', 'delegation_revoke', 'governorate_create', 'governorate_edit', 'governorate_toggle', 'branch_create', 'branch_edit', 'branch_toggle', 'employee_edit', 'employee_delete', 'employee_restore', 'role_grant', 'role_revoke', 'lookup_create', 'lookup_edit', 'lookup_toggle', 'lookup_delete', 'movement_edit', 'movement_delete', 'movement_close'}
+    semantic_intents = {'help', 'topic_options', 'employee_topic', 'register_movement', 'employee_add', 'employee_create', 'user_create', 'user_edit', 'user_toggle', 'user_delete', 'user_password_reset', 'user_set_governorates', 'user_set_branches', 'entry_assign', 'entry_remove', 'entry_replace', 'delegation_create', 'delegation_revoke', 'governorate_create', 'governorate_edit', 'governorate_toggle', 'branch_create', 'branch_edit', 'branch_toggle', 'employee_edit', 'employee_delete', 'employee_restore', 'role_grant', 'role_revoke', 'lookup_create', 'lookup_edit', 'lookup_toggle', 'lookup_delete', 'movement_edit', 'movement_delete', 'movement_close', 'movement_reopen'}
     read_only_local = {'greeting', 'employee_status', 'employee_info', 'employee_movements', 'branch_status', 'branch_info', 'branch_entry', 'governorate_employees', 'governorate_assignments_today', 'movement_people_today'}
     manager_markers = ('امنح دور','منح دور','اسحب دور','إزالة دور','ازالة دور','عدّل حساب','عدل حساب','أضف حساب','اضف حساب','احذف حساب','أوقف حساب','أنشئ تفويض','انشئ تفويض','أضف محافظة','اضف محافظة','عدّل محافظة','عدل محافظة','أضف فرع','اضف فرع','عدّل فرع','عدل فرع','احذف موظف','احذف الموظف','استرجع موظف','استرجع الموظف','عيّن مدخل','عين مدخل','أزل دور المدخل','أزل المدخل','أضف نوع','اضف نوع','عطّل','عطل','فعّل','فعل','غيّر محافظات','غير محافظات','غيّر فروع','غير فروع','احذف حركة','حذف حركة','عدّل حركة','عدل حركة','تعديل حركة','أنهى الانتداب','انهاء الانتداب','أغلق الانتداب','اغلاق الانتداب')
     has_manager_marker = any(x in prompt for x in manager_markers)
@@ -316,7 +316,7 @@ def answer_prompt(prompt, prior_chat, workspace_context=None):
         'user_set_governorates', 'user_set_branches',
         'role_grant', 'role_revoke', 'entry_assign', 'entry_remove', 'entry_replace',
         'delegation_create', 'delegation_revoke',
-        'lookup_create', 'lookup_edit', 'lookup_toggle', 'lookup_delete', 'movement_edit', 'movement_delete', 'movement_close',
+        'lookup_create', 'lookup_edit', 'lookup_toggle', 'lookup_delete', 'movement_edit', 'movement_delete', 'movement_close', 'movement_reopen',
     }
     if a.get('intent') in manager_intents:
         result = manager_plan(a)

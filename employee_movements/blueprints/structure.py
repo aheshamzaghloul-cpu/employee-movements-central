@@ -9,6 +9,7 @@ from flask import abort, Blueprint, flash, redirect, render_template, request, s
 from ..access import (
     actual_roles,
     bids,
+    delegated_gov_ids,
     branch_ok,
     has_role,
     log,
@@ -353,7 +354,7 @@ def update_organizational_entry_branches(employee_id):
         abort(404)
     if 'مسؤول التطبيق' not in roles():
         if 'Manager Application Support' in roles():
-            if not branch_ok(old.branch_id):
+            if not branch_ok(e.branch_id):
                 abort(403)
         elif a.supervisor_id != me().id:
             abort(403)
@@ -600,6 +601,14 @@ def add_organizational_entry_role():
     if not e or not e.is_active:
         flash('الموظف غير موجود أو غير نشط.')
         return redirect('/#entry-directory')
+    # التفويض نطاق تشغيلي مؤقت ولا ينقل ملكية التكليف التنظيمي.
+    # لذلك لا يجوز للمشرف البديل إنشاء/إعادة إنشاء تكليف مدخل أول داخل
+    # محافظة مفوضة فقط؛ يمكنه متابعة العمل، بينما يظل التغيير الهيكلي
+    # للمشرف الأصلي أو مسؤول التطبيق.
+    if 'مشرف محافظة' in roles() and 'مسؤول التطبيق' not in roles():
+        employee_gid = e.branch.governorate_id if e.branch else None
+        if employee_gid in delegated_gov_ids(me()) and employee_gid not in user_gov_ids(me()):
+            abort(403)
     existing_entry = EntryAssignment.query.filter_by(employee_id=e.id).first()
     if existing_entry and existing_entry.is_active:
         flash('هذا الموظف لديه بالفعل دور المدخل الأول التنظيمي.')
@@ -618,6 +627,11 @@ def add_organizational_entry_role():
         sup = me()
         if e.branch.governorate_id not in user_gov_ids(sup):
             abort(403)
+    # الموظف نفسه يجب أن يكون داخل نفس النطاق التنظيمي للجهة التي سيُسند إليها؛
+    # لا يكفي أن تكون الفروع المختارة داخل نطاق المشرف.
+    if 'مسؤول التطبيق' not in roles() and (not e.branch or not branch_ok(e.branch_id)):
+        abort(403)
+
     branch_ids = {int(x) for x in request.form.getlist('branch_id') if x.isdigit()}
     allowed = (
         set(bids())
@@ -674,7 +688,7 @@ def remove_organizational_entry_role(employee_id):
         abort(404)
     if 'مسؤول التطبيق' not in roles():
         if 'Manager Application Support' in roles():
-            if not branch_ok(old.branch_id):
+            if not branch_ok(e.branch_id):
                 abort(403)
         elif 'مشرف محافظة' not in roles() or a.supervisor_id != me().id:
             abort(403)

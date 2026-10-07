@@ -50,7 +50,7 @@ def plan(a):
         'user_create', 'user_edit', 'user_toggle', 'user_delete', 'user_password_reset',
         'user_set_governorates', 'user_set_branches',
         'role_grant', 'role_revoke',
-        'lookup_create', 'lookup_edit', 'lookup_toggle', 'lookup_delete', 'movement_edit', 'movement_delete', 'movement_close', 'entry_assign', 'entry_remove', 'entry_replace',
+        'lookup_create', 'lookup_edit', 'lookup_toggle', 'lookup_delete', 'movement_edit', 'movement_delete', 'movement_close', 'movement_reopen', 'entry_assign', 'entry_remove', 'entry_replace',
         'delegation_create', 'delegation_revoke',
     }:
         return None
@@ -296,9 +296,9 @@ def plan(a):
             return {'title': 'إنشاء تفويض', 'error': 'أحتاج المشرف الأصلي والمشرف البديل والمحافظة وتاريخ البداية والنهاية.'}
         if 'مشرف محافظة' not in actual_roles(sup) or 'مشرف محافظة' not in actual_roles(delegate) or sup.id == delegate.id:
             return {'title': 'إنشاء تفويض', 'error': 'التفويض يكون بين مشرفين مختلفين.'}
-        if gov.id not in user_gov_ids(sup) or gov.id not in user_gov_ids(delegate):
-            return {'title': 'إنشاء تفويض', 'error': 'المشرفان يجب أن يكونا مكلفين بالمحافظة نفسها.'}
-        overlap = ApprovalDelegation.query.filter_by(supervisor_id=sup.id, governorate_id=gov.id, is_active=True).filter(ApprovalDelegation.starts_at <= ends, ApprovalDelegation.ends_at >= starts).first()
+        if gov.id not in user_gov_ids(sup):
+            return {'title': 'إنشاء تفويض', 'error': 'المشرف الأصلي يجب أن يكون مكلفًا بالمحافظة.'}
+        overlap = ApprovalDelegation.query.filter(ApprovalDelegation.is_active == True, ApprovalDelegation.governorate_id == gov.id, ApprovalDelegation.starts_at <= ends, ApprovalDelegation.ends_at >= starts, db.or_(ApprovalDelegation.supervisor_id == sup.id, ApprovalDelegation.delegate_id == delegate.id)).first()
         if overlap:
             return {'title': 'إنشاء تفويض', 'error': 'يوجد تفويض متداخل في نفس الفترة.'}
         return {'title': 'تأكيد إنشاء التفويض', 'plan': {'kind': intent, 'supervisor_id': sup.id, 'delegate_id': delegate.id, 'governorate_id': gov.id, 'starts_at': starts.isoformat(), 'ends_at': ends.isoformat()},
@@ -415,7 +415,7 @@ def plan(a):
         return {'title': 'تأكيد تعديل الموظف', 'plan': {'kind': intent, 'id': e.id, 'updates': updates},
                 'preview': f'تعديل بيانات الموظف «{e.full_name}»: ' + '، '.join(f'{k}={v}' for k,v in updates.items())}
 
-    if intent in ('movement_edit', 'movement_delete', 'movement_close'):
+    if intent in ('movement_edit', 'movement_delete', 'movement_close', 'movement_reopen'):
         movement = db.session.get(Movement, int(a['movement_id'])) if a.get('movement_id') else None
         if not movement and a.get('employee_id'):
             q = Movement.query.filter_by(employee_id=int(a['employee_id']), is_active=True)
@@ -444,6 +444,15 @@ def plan(a):
         if intent == 'movement_delete':
             return {'title': 'تأكيد حذف الحركة', 'plan': {'kind': intent, 'id': movement.id},
                     'preview': f'إخفاء الحركة رقم {movement.id} الخاصة بالموظف «{movement.employee.full_name}» مع الاحتفاظ بسجلها.'}
+        if intent == 'movement_reopen':
+            if movement.movement_type != 'انتداب':
+                return {'title': 'إعادة فتح الانتداب', 'error': 'الحركة المحددة ليست انتدابًا.'}
+            if movement.assignment_state != 'مغلق':
+                return {'title': 'إعادة فتح الانتداب', 'error': 'الانتداب مفتوح بالفعل.'}
+            return {'title': 'تأكيد إعادة فتح الانتداب',
+                    'plan': {'kind': intent, 'id': movement.id},
+                    'preview': f'إعادة فتح الانتداب رقم {movement.id} للموظف «{movement.employee.full_name}» للسماح بالتمديد أو التعديل.'}
+
         if intent == 'movement_close':
             if movement.movement_type != 'انتداب':
                 return {'title': 'إنهاء الانتداب', 'error': 'الحركة المحددة ليست انتدابًا.'}
@@ -454,6 +463,8 @@ def plan(a):
                     'plan': {'kind': intent, 'id': movement.id, 'close_date': close_date.isoformat(),
                              'reason': a.get('reason') or 'إغلاق الانتداب وعودة الموظف لفرعه الأصلي'},
                     'preview': f'إنهاء الانتداب رقم {movement.id} للموظف «{movement.employee.full_name}» بتاريخ {close_date}.'}
+        if movement.movement_type == 'انتداب' and movement.assignment_state == 'مغلق':
+            return {'title': 'تعديل الانتداب', 'error': 'الانتداب مغلق. أعد فتحه أولًا قبل تمديد المدة أو تعديل بياناته.'}
         dest = None
         if a.get('destination_branch_id'):
             dest = db.session.get(Branch, int(a['destination_branch_id']))
@@ -714,6 +725,24 @@ def execute(plan):
                                        action='AI_MANAGER_DELETE', reason='حذف/إخفاء الحركة من مدير التطبيق', user_id=me().id))
         log('AI_MANAGER_DELETE', 'Movement', x.id, f'حذف حركة الموظف {x.employee.full_name}')
         message = 'تم إخفاء الحركة والاحتفاظ بسجلها.'
+    elif kind == 'movement_reopen':
+        x = db.session.get(Movement, plan['id'])
+        if not x or not x.is_active or x.movement_type != 'انتداب':
+            return False, 'الانتداب غير موجود أو غير نشط.'
+        if x.assignment_state != 'مغلق':
+            return False, 'الانتداب مفتوح بالفعل.'
+        x.assignment_state = 'ساري'
+        x.closed_by = None
+        x.closed_at = None
+        x.closure_reason = None
+        x.modified_by = me().id
+        x.modified_at = datetime.utcnow()
+        from ..models import MovementHistory
+        db.session.add(MovementHistory(movement_id=x.id, from_status=x.status, to_status=x.status,
+                                       action='AI_MANAGER_REOPEN_ASSIGNMENT', reason='إعادة فتح الانتداب للتعديل أو التمديد من المساعد', user_id=me().id))
+        log('AI_MANAGER_REOPEN', 'Movement', x.id, 'إعادة فتح الانتداب للتعديل أو التمديد')
+        message = 'تمت إعادة فتح الانتداب. يمكنك الآن تمديد مدته أو تعديل بياناته.'
+
     elif kind == 'movement_close':
         x = db.session.get(Movement, plan['id'])
         if not x or x.movement_type != 'انتداب' or not x.is_active:
@@ -804,11 +833,11 @@ def execute(plan):
         old = a.employee_id; a.employee_id = new.id; log('AI_MANAGER_REPLACE','Employee',old,f'استبداله بالموظف {new.full_name}'); log('AI_MANAGER_REPLACE','Employee',new.id,'استلام دور المدخل الأول'); message='تم استبدال المدخل الأول ونقل التكليف.'
     elif kind == 'delegation_create':
         sup=db.session.get(User,plan['supervisor_id']); delegate=db.session.get(User,plan['delegate_id']); gov=db.session.get(Governorate,plan['governorate_id']); starts=parse_date(plan['starts_at']); ends=parse_date(plan['ends_at'])
-        if not sup or not delegate or not gov or not starts or not ends or starts > ends: return False,'بيانات التفويض غير صالحة.'
+        if not sup or not delegate or not gov or not gov.is_active or not starts or not ends or starts > ends: return False,'بيانات التفويض غير صالحة.'
         if not sup.is_active or not delegate.is_active or sup.id == delegate.id: return False,'المشرفان غير صالحين للتفويض.'
         if 'مشرف محافظة' not in actual_roles(sup) or 'مشرف محافظة' not in actual_roles(delegate): return False,'التفويض يجب أن يكون بين مشرفي محافظات.'
-        if gov.id not in user_gov_ids(sup) or gov.id not in user_gov_ids(delegate): return False,'المشرفان يجب أن يكونا مكلفين بالمحافظة نفسها.'
-        overlap = ApprovalDelegation.query.filter_by(supervisor_id=sup.id, governorate_id=gov.id, is_active=True).filter(ApprovalDelegation.starts_at <= ends, ApprovalDelegation.ends_at >= starts).first()
+        if gov.id not in user_gov_ids(sup): return False,'المشرف الأصلي يجب أن يكون مكلفًا بالمحافظة.'
+        overlap = ApprovalDelegation.query.filter(ApprovalDelegation.is_active == True, ApprovalDelegation.governorate_id == gov.id, ApprovalDelegation.starts_at <= ends, ApprovalDelegation.ends_at >= starts, db.or_(ApprovalDelegation.supervisor_id == sup.id, ApprovalDelegation.delegate_id == delegate.id)).first()
         if overlap: return False,'يوجد تفويض متداخل في نفس الفترة.'
         d=ApprovalDelegation(supervisor_id=sup.id,delegate_id=delegate.id,governorate_id=gov.id,starts_at=starts,ends_at=ends,created_by=me().id); db.session.add(d); db.session.flush(); log('AI_MANAGER_ADD','ApprovalDelegation',d.id,f'{sup.full_name} -> {delegate.full_name}'); message='تم إنشاء التفويض.'
     elif kind == 'delegation_revoke':

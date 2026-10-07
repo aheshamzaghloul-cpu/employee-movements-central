@@ -4,11 +4,12 @@ from datetime import date, timedelta
 
 from flask import abort, Blueprint, redirect, render_template, request, url_for
 
-from ..access import actual_roles, bids, gids, has_role, me, req, roles, scope_governorate_id
+from ..access import actual_roles, bids, branch_ok, delegated_gov_ids, gids, has_role, me, req, roles, scope_governorate_id, user_gov_ids
 from ..assignments import (
     employees_effectively_in_branches,
     organizational_entries_for_supervisor,
     organizational_entry_for_employee,
+    resolve_current_movement,
     supervisor_for_entry,
 )
 from ..constants import LEAVE_TYPES, MOVEMENT_TYPES
@@ -54,76 +55,34 @@ def current_employee_status_rows(branch_ids, today):
     rows = []
     for e in employees:
         employee_moves = by_employee.get(e.id, [])
-        leave = next(
-            (
-                m for m in employee_moves
-                if m.movement_type == 'إجازة'
-                and m.from_date and m.to_date
-                and m.from_date <= today <= m.to_date
-            ),
-            None,
-        )
-        assignment = next(
-            (
-                m for m in employee_moves
-                if m.movement_type == 'انتداب'
-                and m.assignment_state != 'مغلق'
-                and m.from_date
-                and m.from_date <= today
-                and m.to_date is not None
-                and today <= m.to_date
-            ),
-            None,
-        )
-        open_assignment = next(
-            (
-                m for m in employee_moves
-                if m.movement_type == 'انتداب'
-                and m.assignment_state != 'مغلق'
-                and m.from_date
-                and m.from_date <= today
-                and m.to_date is None
-            ),
-            None,
-        )
-        permission = next(
-            (m for m in employee_moves if m.movement_type == 'إذن' and m.permission_date == today),
-            None,
-        )
-
-        current = None
+        current = resolve_current_movement(employee_moves, today)
         state = None
         place = e.branch.name if e.branch else '—'
         until = None
         detail = ''
         display_branch = e.branch
 
-        if leave:
-            current = leave
+        if current and current.movement_type == 'إجازة':
             state = 'إجازة'
-            place = leave.leave_type or 'إجازة'
-            until = leave.to_date
-            detail = 'من {} إلى {}'.format(leave.from_date.strftime('%d/%m/%Y'), leave.to_date.strftime('%d/%m/%Y'))
-        elif assignment:
-            current = assignment
+            place = current.leave_type or 'إجازة'
+            until = current.to_date
+            detail = 'من {} إلى {}'.format(current.from_date.strftime('%d/%m/%Y'), current.to_date.strftime('%d/%m/%Y'))
+        elif current and current.movement_type == 'انتداب' and current.to_date is not None:
             state = 'انتداب'
-            place = assignment.destination.name if assignment.destination else 'جهة الانتداب غير محددة'
-            until = assignment.to_date
-            detail = 'من {} إلى {}'.format(assignment.from_date.strftime('%d/%m/%Y'), assignment.to_date.strftime('%d/%m/%Y'))
-            display_branch = assignment.destination or e.branch
-        elif open_assignment:
-            current = open_assignment
+            place = current.destination.name if current.destination else 'جهة الانتداب غير محددة'
+            until = current.to_date
+            detail = 'من {} إلى {}'.format(current.from_date.strftime('%d/%m/%Y'), current.to_date.strftime('%d/%m/%Y'))
+            display_branch = current.destination or e.branch
+        elif current and current.movement_type == 'انتداب':
             state = 'انتداب مفتوح'
-            place = open_assignment.destination.name if open_assignment.destination else 'جهة الانتداب غير محددة'
-            until = None
-            detail = 'من {} — مفتوح'.format(open_assignment.from_date.strftime('%d/%m/%Y'))
-            display_branch = open_assignment.destination or e.branch
-        elif permission:
-            current = permission
+            place = current.destination.name if current.destination else 'جهة الانتداب غير محددة'
+            detail = 'من {} — مفتوح'.format(current.from_date.strftime('%d/%m/%Y'))
+            display_branch = current.destination or e.branch
+        elif current and current.movement_type == 'إذن':
             state = 'إذن'
             place = e.branch.name if e.branch else '—'
-            until = permission.permission_date
-            detail = 'بتاريخ {}'.format(permission.permission_date.strftime('%d/%m/%Y'))
+            until = current.permission_date
+            detail = 'بتاريخ {}'.format(current.permission_date.strftime('%d/%m/%Y'))
 
         if current is None:
             continue
@@ -167,7 +126,11 @@ def home():
     current_user = me()
     effective = roles(current_user)
     is_manager_support = 'Manager Application Support' in effective
-    is_scope_user = 'مسؤول التطبيق' in effective or is_manager_support
+    is_scope_user = (
+        'مسؤول التطبيق' in effective
+        or 'مشرف محافظة' in effective
+        or is_manager_support
+    )
     selected_manager_gov = scope_governorate_id() if is_scope_user else None
     bs = set(bids())
     today = date.today()
@@ -285,6 +248,35 @@ def home():
                     if 'مشرف محافظة' in actual_roles(u)
                 ]
             )
+            # التفويض يمنح نطاقًا تشغيليًا مؤقتًا فقط. لذلك يرى المشرف البديل
+            # تكليفات المدخلين داخل المحافظة المفوضة للمتابعة، لكن ملكية التكليف
+            # تظل للمشرف الأصلي ولا تنتقل إليه.
+            if 'مشرف محافظة' in effective:
+                delegated_ids = delegated_gov_ids(current_user)
+                if delegated_ids:
+                    owned_ids = {u.id for u in supervisors if u}
+                    delegated_branch_ids = {
+                        b.id
+                        for b in Branch.query.filter(
+                            Branch.governorate_id.in_(delegated_ids),
+                            Branch.is_active == True,
+                        ).all()
+                    }
+                    delegated_owner_ids = {
+                        a.supervisor_id
+                        for a in EntryAssignment.query.filter_by(is_active=True).all()
+                        for link in EntryAssignmentBranch.query.filter_by(entry_assignment_id=a.id).all()
+                        if link.branch_id in delegated_branch_ids
+                    }
+                    extra_supervisors = (
+                        User.query.filter(
+                            User.id.in_(delegated_owner_ids - owned_ids),
+                            User.is_active == True,
+                        )
+                        .order_by(User.full_name.asc())
+                        .all()
+                    )
+                    supervisors = supervisors + extra_supervisors
         seen = set()
         for sup in supervisors:
             for (a, scoped_all) in organizational_entries_for_supervisor(sup):
@@ -411,6 +403,13 @@ def home():
                         'employee_count': len(branch_employee_ids),
                         'today_movement_count': today_movement_count,
                         'alert_count': alert_count,
+                        # المشرف الأصلي يملك التكليف التنظيمي. المشرف البديل عبر
+                        # التفويض يستطيع المتابعة التشغيلية فقط ولا يعدّل الملكية.
+                        'can_manage': (
+                            'مسؤول التطبيق' in effective
+                            or 'Manager Application Support' in effective
+                            or (sup.id == current_user.id and a.supervisor_id == current_user.id)
+                        ),
                     },
                 )
     else:
@@ -459,7 +458,15 @@ def home():
     entry_supervisors = []
     available_entry_branches = []
     if 'مسؤول التطبيق' in effective or 'مشرف محافظة' in effective or is_manager_support:
-        allowed_branch_set = set(bs)
+        delegated_only_govs = delegated_gov_ids(current_user) if 'مشرف محافظة' in effective else set()
+        permanent_govs = user_gov_ids(current_user) if 'مشرف محافظة' in effective else set()
+        delegated_only = bool(
+            'مشرف محافظة' in effective
+            and selected_manager_gov
+            and int(selected_manager_gov) in delegated_only_govs
+            and int(selected_manager_gov) not in permanent_govs
+        )
+        allowed_branch_set = set(bs) if not delegated_only else set()
         if allowed_branch_set:
             candidates = (
                 Employee.query.filter(
@@ -502,6 +509,11 @@ def home():
             entry_supervisors = supervisors
         else:
             entry_supervisors = [me()]
+        # لا نعرض إنشاء تكليف جديد في محافظة مفوضة فقط؛ التفويض لا ينقل
+        # الملكية التنظيمية للمشرف البديل.
+        if 'مشرف محافظة' in effective and delegated_only:
+            available_entry_employees = []
+            available_entry_branches = []
 
     if bs:
         # الحركات أصبحت معلومات تشغيلية مباشرة وليست دورة اعتماد.
@@ -542,18 +554,8 @@ def home():
         if home_movement_gov_ids
         else []
     )
-    home_movement_branches = (
-        (
-            Branch.query.filter(
-                Branch.governorate_id.in_(home_movement_gov_ids),
-                Branch.is_active == True,
-            )
-            .order_by(Branch.name.asc())
-            .all()
-        )
-        if home_movement_gov_ids
-        else []
-    )
+    # جهة الانتداب قد تكون في محافظة مختلفة؛ هذا الاختيار لا يمنح المستخدم نطاقًا تشغيليًا عليها.
+    home_movement_branches = Branch.query.filter(Branch.is_active == True).order_by(Branch.name.asc()).all()
 
     # بحث الموظف في الرئيسية متاح لكل المحافظات، حتى لو كان نطاق العمل الحالي محافظة واحدة.
     return render_template(
@@ -627,6 +629,12 @@ def home():
         movement_employee_id=int(movement_employee_id) if movement_employee_id.isdigit() else None,
         movement_types=MOVEMENT_TYPES,
         leave_types=LEAVE_TYPES,
+        is_delegated_supervisor=bool(
+            'مشرف محافظة' in effective
+            and selected_manager_gov
+            and int(selected_manager_gov) in delegated_gov_ids(current_user)
+            and int(selected_manager_gov) not in user_gov_ids(current_user)
+        ),
     )
 
 

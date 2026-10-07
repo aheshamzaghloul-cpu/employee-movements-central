@@ -19,14 +19,11 @@ def delegations():
         abort(403)
     q = ApprovalDelegation.query
     if 'مسؤول التطبيق' not in roles(u):
-        gids = user_gov_ids(u)
-        q = (
-            q.filter(
+        q = q.filter(
+            db.or_(
                 ApprovalDelegation.supervisor_id == u.id,
-                ApprovalDelegation.governorate_id.in_(gids),
+                ApprovalDelegation.delegate_id == u.id,
             )
-            if gids
-            else q.filter(False)
         )
     rows = (
         q.order_by(
@@ -85,7 +82,7 @@ def delegation_add():
     gov = db.session.get(Governorate, gid)
     if 'مسؤول التطبيق' not in roles(u):
         sup = u
-    if not sup or not delegate or (not gov) or (not starts) or (not ends) or (starts > ends):
+    if not sup or not delegate or (not gov) or (not gov.is_active) or (not starts) or (not ends) or (starts > ends):
         flash('جميع بيانات التفويض مطلوبة، ويجب أن تكون بداية التفويض قبل أو مساوية لنهايته.')
         return redirect('/delegations')
     # التفويض الإداري يتم حصراً بين مشرفي المحافظات: مشرف أصلي ← مشرف بديل.
@@ -99,12 +96,17 @@ def delegation_add():
     if delegate.id == sup.id:
         flash('لا يمكن اختيار المشرف نفسه كبديل.')
         return redirect('/delegations')
-    if 'مشرف محافظة' not in actual_roles(delegate) or gid not in user_gov_ids(delegate):
-        flash('البديل يجب أن يكون مشرف محافظة مؤهلًا ومكلفًا بالمحافظة نفسها.')
+    if 'مشرف محافظة' not in actual_roles(delegate):
+        flash('البديل يجب أن يكون مشرف محافظة نشطًا.')
         return redirect('/delegations')
     overlap = (
-        ApprovalDelegation.query.filter_by(supervisor_id=sup.id, governorate_id=gid, is_active=True)
-        .filter(ApprovalDelegation.starts_at <= ends, ApprovalDelegation.ends_at >= starts)
+        ApprovalDelegation.query.filter(
+            ApprovalDelegation.is_active == True,
+            ApprovalDelegation.governorate_id == gid,
+            ApprovalDelegation.starts_at <= ends,
+            ApprovalDelegation.ends_at >= starts,
+            db.or_(ApprovalDelegation.supervisor_id == sup.id, ApprovalDelegation.delegate_id == delegate.id),
+        )
         .first()
     )
     if overlap:

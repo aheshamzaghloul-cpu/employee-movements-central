@@ -13,7 +13,7 @@ import urllib.request
 
 from flask import current_app, request, session
 
-from ..access import actual_roles, branch_ok, can, me, roles, user_gov_ids
+from ..access import actual_roles, branch_ok, can, effective_user_gov_ids, me, roles, user_gov_ids
 from ..extensions import db
 from ..models import Branch, Employee, Governorate, Movement
 from .directory import find_branch, find_employee
@@ -49,7 +49,7 @@ ACTION_NAMES = [
     "entry_assign", "entry_remove", "entry_replace",
     "delegation_create", "delegation_revoke",
     "lookup_create", "lookup_edit", "lookup_toggle", "lookup_delete",
-    "movement_edit", "movement_delete", "movement_close",
+    "movement_edit", "movement_delete", "movement_close", "movement_reopen",
 ]
 
 SYSTEM = """
@@ -334,7 +334,7 @@ def tool_execute(name, args, ctx):
         for g in Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all():
             if q and q not in (g.name or "").lower():
                 continue
-            if not (set(user_gov_ids(me())) & {g.id}) and 'مسؤول التطبيق' not in roles():
+            if not (set(effective_user_gov_ids(me())) & {g.id}) and 'مسؤول التطبيق' not in roles():
                 continue
             rows.append({"id": g.id, "name": g.name})
             if len(rows) >= limit:
@@ -373,12 +373,23 @@ def tool_execute(name, args, ctx):
         mapping = {
             "home": "/", "employees": "/employees", "employee": "/employees", "movements": "/movements",
             "reports": "/reports", "missions": "/reports-missions", "delegations": "/delegations",
-            "administration": "/structure", "users": "/users", "branches": "/branches", "first_entry": "/",
-            "governorates": "/governorates", "lookups": "/lookups", "audit": "/audit",
+            "administration": "/structure", "users": "/users", "branches": "/branches", "governorates": "/governorates", "lookups": "/lookups", "audit": "/audit",
         }
         target = args.get("target")
         if target not in mapping:
             return {"ok": False, "error": "صفحة غير معروفة."}
+        # التنقل عبر بسيوني لا يتجاوز حدود الدور النشط.
+        current_roles = roles()
+        if target == "delegations" and "مشرف محافظة" not in current_roles and "مسؤول التطبيق" not in current_roles:
+            return {"ok": False, "error": "صفحة التفويض متاحة لمشرف المحافظة ومسؤول التطبيق فقط."}
+        if target in {"administration", "users", "branches", "governorates", "lookups"} and "مسؤول التطبيق" not in current_roles:
+            return {"ok": False, "error": "هذه الصفحة إدارية ومخصصة لمسؤول التطبيق."}
+        if target == "audit" and not can("view_audit"):
+            return {"ok": False, "error": "لا تملك صلاحية سجل التدقيق."}
+        if target in {"employees", "employee"} and not can("manage_employees") and not can("view_reports"):
+            return {"ok": False, "error": "لا تملك صلاحية دليل الموظفين."}
+        if target in {"movements", "reports", "missions"} and not (can("manage_movements") or can("view_reports")):
+            return {"ok": False, "error": "لا تملك صلاحية هذه المساحة التشغيلية."}
         return {"ok": True, "navigate": mapping[target]}
     if name == "prepare_action":
         return _prepare_action(args, ctx)

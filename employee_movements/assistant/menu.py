@@ -1,6 +1,6 @@
 """Capability menu shown in the assistant: only actions the current role may perform."""
 
-from ..access import can, has_role
+from ..access import can, has_role, roles
 
 
 def capability_groups():
@@ -144,7 +144,7 @@ def capability_groups():
             })
         if structure_items:
             groups.append({'group': 'الإدارة التنظيمية', 'items': structure_items})
-    if can('manage_users'):
+    if can('manage_users') and ('مسؤول التطبيق' in roles() or 'مشرف محافظة' in roles()):
         groups.append(
             {
                 'group': 'المستخدمون والصلاحيات',

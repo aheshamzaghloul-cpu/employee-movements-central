@@ -1,13 +1,15 @@
 """Authentication helpers, role/permission checks and operational-scope resolution."""
 
 import secrets
+from datetime import date
 from functools import wraps
 
 from flask import abort, has_request_context, redirect, request, session, url_for
 
-from .constants import OPERATIONAL_SCOPE_ENDPOINTS, ROLE_DEFAULT_PERMISSIONS, ROLES
+from .constants import LOGIN_ROLES, OPERATIONAL_SCOPE_ENDPOINTS, ROLE_DEFAULT_PERMISSIONS, ROLES
 from .extensions import db
 from .models import (
+    ApprovalDelegation,
     Audit,
     Branch,
     Governorate,
@@ -51,6 +53,11 @@ def roles(u=None):
             return {active}
         if active:
             session.pop('active_role', None)
+        # A multi-role account must always operate in exactly one login role.
+        # Prefer an explicit active role; otherwise use the stable role priority
+        # instead of returning a mixture of admin + supervisor permissions.
+        default_role = next((r for r in LOGIN_ROLES if r in real), None)
+        return {default_role} if default_role else real
     return real
 
 
@@ -120,18 +127,30 @@ def can_for_user(u, permission):
 
 
 def user_permissions(u):
+    """Return permissions allowed by the user's effective login role.
+
+    A stored explicit permission must never turn a supervisor/manager session into
+    an administrator session. The active role is a security boundary, not only a
+    navigation preference. Administrators retain full system permissions.
+    """
     explicit = {x.permission for x in UserPermission.query.filter_by(user_id=u.id).all()}
     selected = None
     if u and has_request_context() and (u.id == session.get('uid')):
         selected = session.get('active_role')
-    effective = {selected} if selected else (actual_roles(u) - {'المدخل الأول'})
+
     if selected:
-        # الصلاحيات محفوظة للحساب ويمكن لمسؤول التطبيق زيادتها أو تقليلها؛ اختيار الدور يغيّر واجهة الدور لا يلغي الصلاحيات المخصصة.
-        if explicit:
-            return explicit
-        return set(ROLE_DEFAULT_PERMISSIONS.get(selected, set()))
+        if selected == 'مسؤول التطبيق':
+            return set(PERMISSIONS)
+        allowed = set(ROLE_DEFAULT_PERMISSIONS.get(selected, set()))
+        return (explicit & allowed) if explicit else allowed
+
+    effective = actual_roles(u) - {'المدخل الأول'}
     if explicit:
-        return explicit
+        allowed = set()
+        for r in effective:
+            allowed |= ROLE_DEFAULT_PERMISSIONS.get(r, set())
+        return explicit & allowed
+
     out = set()
     for r in effective:
         out |= ROLE_DEFAULT_PERMISSIONS.get(r, set())
@@ -145,6 +164,43 @@ def can(permission):
 
 def user_gov_ids(u):
     return {x.governorate_id for x in UserGovernorate.query.filter_by(user_id=u.id).all()}
+
+
+def delegated_gov_ids(u, on_date=None):
+    """Return only delegations whose security prerequisites are still valid.
+
+    A delegation is temporary scope, not a permanent entitlement. It must not
+    survive loss of the delegate's account/role, loss of the original
+    supervisor's account/role or permanent governorate assignment, or
+    deactivation of the governorate itself.
+    """
+    if not u or not u.is_active or 'مشرف محافظة' not in actual_roles(u):
+        return set()
+    day = on_date or date.today()
+    rows = (
+        ApprovalDelegation.query
+        .filter_by(delegate_id=u.id, is_active=True)
+        .filter(ApprovalDelegation.starts_at <= day, ApprovalDelegation.ends_at >= day)
+        .all()
+    )
+    valid = set()
+    for delegation in rows:
+        governorate = delegation.governorate
+        supervisor = delegation.supervisor
+        if not governorate or not governorate.is_active:
+            continue
+        if not supervisor or not supervisor.is_active:
+            continue
+        if 'مشرف محافظة' not in actual_roles(supervisor):
+            continue
+        if delegation.governorate_id not in user_gov_ids(supervisor):
+            continue
+        valid.add(delegation.governorate_id)
+    return valid
+
+
+def effective_user_gov_ids(u, on_date=None):
+    return user_gov_ids(u) | delegated_gov_ids(u, on_date)
 
 
 def user_branch_ids(u):
@@ -201,17 +257,15 @@ def scope_governorates_for_user(u=None):
     if 'مشرف محافظة' in rs:
         assigned = (
             Governorate.query.filter(
-                Governorate.id.in_(user_gov_ids(u)),
+                Governorate.id.in_(effective_user_gov_ids(u)),
                 Governorate.is_active == True,
             )
             .order_by(Governorate.name.asc())
             .all()
         )
-        if assigned or 'مسؤول التطبيق' not in actual_roles(u):
-            return assigned
-        return Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all()
+        return assigned
     return (
-        Governorate.query.filter(Governorate.id.in_(user_gov_ids(u)), Governorate.is_active == True)
+        Governorate.query.filter(Governorate.id.in_(effective_user_gov_ids(u)), Governorate.is_active == True)
         .order_by(Governorate.name.asc())
         .all()
     )
@@ -237,15 +291,11 @@ def gids():
             return [int(selected)]
         return []
     if 'مشرف محافظة' in rs:
-        assigned = [
+        assigned = {
             x.governorate_id
             for x in UserGovernorate.query.filter_by(user_id=u.id).join(Governorate).filter(Governorate.is_active == True)
-        ]
-        if assigned:
-            return assigned
-        if 'مسؤول التطبيق' in actual_roles(u):
-            return [g.id for g in Governorate.query.filter_by(is_active=True)]
-        return []
+        }
+        return sorted(assigned | delegated_gov_ids(u))
     return [
         x.governorate_id
         for x in UserGovernorate.query.filter_by(user_id=u.id).join(Governorate).filter(Governorate.is_active == True)

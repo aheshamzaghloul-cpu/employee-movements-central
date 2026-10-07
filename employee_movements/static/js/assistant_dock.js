@@ -34,7 +34,7 @@
       const c=context();
       if(contextInput) contextInput.value=JSON.stringify(c);
       const cbox=document.getElementById('assistantDockContext');
-      if(cbox) cbox.textContent='السياق الحالي: '+(c.heading||document.title||'مساحة العمل')+(c.scope_governorate_id?' · نطاق محافظة محدد':'');
+      if(cbox){ const role=document.body.dataset.activeRole||''; const area=(location.pathname.startsWith('/structure')?'الإدارة':location.pathname.startsWith('/employees')?'الموظفون':location.pathname.startsWith('/reports')||location.pathname.startsWith('/mission')?'التقارير والمأموريات':location.pathname.startsWith('/delegations')?'التفويض':location.pathname==='/'?'الرئيسية':'مساحة العمل'); cbox.textContent='السياق الحالي: '+area+(role?' · '+role:'')+(c.scope_governorate_id?' · نطاق محافظة محدد':''); }
     }
     function setOpen(open){
       dock.dataset.open=open?'1':'0';

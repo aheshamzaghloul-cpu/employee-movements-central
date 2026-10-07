@@ -22,7 +22,7 @@
 <div class="ui-card ui-mission-results ui-table-wrap">
   <div class="ui-section-title"><div><h3>نتائج المأموريات</h3><small>{{ rows|length }} مأمورية ضمن الفلاتر الحالية</small></div></div>
   {% if rows %}
-  <table class="ui-mission-table"><thead><tr><th>الموظف</th><th>المحافظة</th><th>الفرع الأساسي</th><th>جهة المأمورية</th><th>من</th><th>إلى</th><th>المدة</th><th>الإجراءات</th></tr></thead><tbody>
+  <table data-smart-table class="ui-mission-table"><thead><tr><th>الموظف</th><th>المحافظة</th><th>الفرع الأساسي</th><th>جهة المأمورية</th><th>من</th><th>إلى</th><th>المدة</th><th>الإجراءات</th></tr></thead><tbody>
   {% for m in rows %}
   <tr>
     <td><a href="/employees/{{m.employee_id}}"><strong>{{m.employee.full_name}}</strong></a><br><small>{{m.employee.job_code or '—'}}</small></td>

@@ -180,13 +180,7 @@ def mission_edit(movement_id):
         return redirect('/reports/assignments/print-missions')
     bs = bids()
     branches = (
-        (
-            Branch.query.filter(Branch.is_active == True, Branch.id.in_(bs))
-            .order_by(Branch.name.asc())
-            .all()
-        )
-        if bs
-        else []
+        Branch.query.filter(Branch.is_active == True).order_by(Branch.name.asc()).all()
     )
     return render_template('mission_edit.html', m=m, branches=branches)
 
@@ -213,9 +207,9 @@ def mission_edit_save(movement_id):
     td = parse_date(request.form.get('to_date', ''))
     if (
         not destination
-        or destination.id not in set((b.id for b in Branch.query.filter(Branch.id.in_(bids()), Branch.is_active == True).all()))
+        or not destination.is_active
     ):
-        flash('اختر جهة مأمورية صحيحة ضمن نطاقك.')
+        flash('اختر جهة مأمورية صحيحة من الفروع النشطة.')
         return redirect(url_for('missions.mission_edit', movement_id=movement_id))
     if not fd:
         flash('يجب إدخال تاريخ بداية صحيح.')

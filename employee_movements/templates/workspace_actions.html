@@ -1,15 +1,15 @@
-<div class="ui-actionbar v64-commandbar" role="toolbar" aria-label="إجراءات الصفحة">
-  <span class="v64-command-title">إجراءات سريعة</span>
+<div class="ui-actionbar premium-commandbar" role="toolbar" aria-label="إجراءات الصفحة">
+  <span class="premium-command-title">إجراءات سريعة</span>
   {% if request.path == '/' %}
     <a class="primary" href="/#employee-search">بحث عن موظف</a>
     {% if can('manage_movements') %}<a href="/#movement-register">تسجيل حركة</a>{% endif %}
-    <a href="/#entry-directory">المدخلون الأوائل</a><a href="/#employee-status">حالة الموظفين</a>
+    <a href="/#entry-directory">المدخلون الأوائل</a>
   {% elif request.path.startswith('/employees') %}
     {% if can('manage_employees') %}<a class="primary" href="#employee-add">إضافة موظف</a>{% endif %}<a href="#employee-search">بحث سريع</a>{% if 'مسؤول التطبيق' in roles %}<a href="/excel-import/employees">استيراد Excel</a>{% endif %}<a href="/employees/resigned">المستقيلون</a>
   {% elif request.path.startswith('/movements') %}
     {% if can('manage_movements') %}<a class="primary" href="#movement-create">تسجيل حركة</a>{% endif %}<a href="#movement-current">الحالية</a><a href="#movement-followup">تحتاج متابعة</a><a href="#movement-log">السجل</a>
   {% elif request.path.startswith('/reports') or request.path.startswith('/mission') %}
-    {% if can('view_reports') %}<a class="primary" href="/reports">مركز التقارير</a>{% endif %}<a href="/reports/leaves">الإجازات</a><a href="/reports/assignments">الانتدابات</a><a href="/reports/permissions">الأذونات</a><a href="/reports/assignments/print-missions">المأموريات</a>
+    {% if can('view_reports') %}<a class="primary" href="/reports">مركز التقارير</a>{% endif %}<a href="/reports/assignments/print-missions">مركز المأموريات</a>
   {% elif request.path.startswith('/delegations') %}
     <a class="primary" href="#delegation-new">تفويض جديد</a><a href="#delegation-active">السارية</a><a href="#delegation-history">السجل</a>
   {% elif request.path.startswith('/structure') or request.path.startswith('/users') or request.path.startswith('/branches') or request.path.startswith('/governorates') or request.path.startswith('/lookups') or request.path.startswith('/excel-import') %}

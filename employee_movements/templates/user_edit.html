@@ -7,8 +7,8 @@
 </div>
 
 <div class="ui-card">
-  <form method="post">
-    <input type="hidden" name="_csrf" value="{{csrf}}">
+  <form method="post" class="workflow-user-form">
+    <input type="hidden" name="_csrf" value="{{csrf}}"><div class="workflow-progress" aria-label="مراحل التعديل"><span class="active"><b>01</b> البيانات</span><span><b>02</b> النطاق</span><span><b>03</b> الصلاحيات</span></div>
     <div class="ui-grid wide">
       <label>الاسم الكامل<input name="full_name" value="{{u.full_name}}" required></label>
       <label>البريد الإلكتروني<input name="email" type="email" value="{{u.email or ''}}" required autocomplete="email"></label>
@@ -18,7 +18,7 @@
     </div>
 
     {% if 'مسؤول التطبيق' in roles %}
-    <div class="ui-section-title ui-mt-18"><h3>أدوار تسجيل الدخول</h3></div>
+    <div class="workflow-form-section"><div class="workflow-form-section-head"><span>02</span><strong>أدوار تسجيل الدخول</strong></div>
     <div class="multi-dropdown ui-multi-select" data-multi-dropdown>
       <details open>
         <summary><span>الأدوار</span><b data-multi-summary="roles">{{selected_roles|length}} محدد</b></summary>
@@ -38,7 +38,7 @@
     <div class="ui-hint ui-mt-8">«المدخل الأول» تكليف تنظيمي على موظف موجود، ويُدار من الصفحة الرئيسية، وليس دور تسجيل دخول.</div>
     {% endif %}
 
-    <div class="ui-section-title ui-mt-18"><h3>نطاق العمل</h3></div>
+    <div class="workflow-form-section"><div class="workflow-form-section-head"><span>03</span><strong>نطاق العمل</strong></div>
     {% if 'مسؤول التطبيق' in roles %}
     <div data-role-scope="supervisor">
       <label>المحافظات للمشرف</label>
@@ -65,9 +65,7 @@
     <div class="ui-hint ui-mt-8">Manager Application Support يعمل على مستوى المحافظات بعد اختيار محافظة العمل من الواجهة التشغيلية، ولا يكتسب صلاحيات إدارة الحسابات أو المحافظات من هذا الدور.</div>
     {% endif %}
 
-    <div class="ui-section-title ui-mt-18">
-      <div><h3>الصلاحيات</h3><span class="ui-hint">يمكن لمسؤول التطبيق زيادة أو تقليل الصلاحيات.</span></div>
-    </div>
+    <div class="workflow-form-section"><div class="workflow-form-section-head"><span>04</span><strong>الصلاحيات</strong></div>
     <div class="ui-card">
       <div class="multi-dropdown ui-multi-select" data-multi-dropdown>
         <details>

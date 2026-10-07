@@ -1,4 +1,52 @@
-## v66.0.1 — Scope Integrity Review
+# Changelog
+## v68.11.3 — Employee Card Scope Guard
+
+- Keep homepage employee search global as designed.
+- Require operational branch scope before opening an employee card directly.
+- Keep مسؤول التطبيق globally authorized for employee cards.
+- Prevent direct URL access from bypassing governorate/branch scope.
+
+
+## v68.11.3 — Delegation Operational Boundary Fix
+
+- إصلاح استيراد `branch_ok` في لوحة الصفحة الرئيسية لمنع `NameError` عند مسار فحص نطاق موظف الحركة.
+- لا تغيير في حدود التفويض أو ملكية التكليفات التنظيمية.
+
+## v68.11.0 — Delegation Operational Boundary
+
+- Delegated supervisors can see first-level entry assignments inside their temporary governorate scope for operational follow-up.
+- Existing entry assignments remain owned by their original supervisor; delegated supervisors receive read-only monitoring for those assignments.
+- The Home page hides structural entry-assignment creation in a governorate that is delegated only to the current supervisor.
+- Server-side POST protection prevents a delegated supervisor from creating/recreating a first-level entry assignment in a delegated-only governorate.
+- Permanent governorate scope continues to allow the original supervisor to manage their own entry assignments normally.
+- Movement, employee, report, and mission operations continue to derive their scope from the canonical effective governorate/branch scope.
+
+## v68.11.0 — Delegation Lifecycle Guard
+
+- Effective delegated scope now requires the delegate account to be active and to retain the `مشرف محافظة` role.
+- Effective delegated scope now requires the original supervisor to remain active, retain the `مشرف محافظة` role, and remain permanently assigned to the delegated governorate.
+- Inactive governorates no longer contribute delegated operational scope.
+- Delegation creation explicitly rejects inactive governorates.
+- This is a security/lifecycle guard: stale delegation records may remain for audit history, but they cannot grant operational access after their prerequisites disappear.
+
+
+- توحيد مصدر الحالة الحالية للحركة بين الرئيسية، بطاقة الموظف، قوائم الموظفين، صفحة الحركات وPreflight.
+- جعل اختيار الحركة الحالية حتميًا عند وجود أكثر من سجل مرشح.
+- منع الانتداب المغلق أو الحركة غير النشطة من الظهور كحالة حالية.
+- منع ظهور الانتدابات المغلقة في قائمة «تحتاج متابعة».
+- إضافة اختبارات عقدية لدورة ما بعد الحفظ.
+
+## v67.2.0 — Premium Interactive Design System
+- إعادة توحيد لغة التصميم البصرية على مستوى التطبيق بالكامل.
+- Shell فاخر وهادئ: Sidebar وTopbar وPage Headers وCommand Bar.
+- توحيد الحقول والأزرار والجداول والحالات والبطاقات والنوافذ المنبثقة.
+- إعادة صقل الرئيسية مع إبقاء بحث الموظف وتسجيل الحركة في مركز التجربة.
+- إبقاء حالة الموظفين والمدخلين الأوائل ضمن المتابعة الثانوية دون حذف العمليات الفعلية.
+- تحسين صفحات الموظفين وملف الموظف والتقارير والمأموريات والتفويض والإدارة وتسجيل الدخول.
+- الإشعارات وبسيوني أصبحا جزءًا من نفس لغة التصميم التفاعلية.
+- إزالة «الحركات» من القائمة الجانبية الرئيسية مع الإبقاء على مسارات التشغيل الحالية.
+- لا تغيير في منطق البيانات أو الصلاحيات أو مسارات العمل المقصودة.
+## v67.2.0 — Scope Integrity Review
 
 - فرض محافظة العمل المختارة على عمليات الموظفين والحركات والتقارير والمأموريات والتصدير والواجهات البرمجية التشغيلية.
 - منع تجاوز النطاق عبر رابط مباشر أو طلب POST خارج سياق المحافظة المختارة.

@@ -92,6 +92,7 @@ def governorate_delete(i):
 
 @bp.route('/branches', methods=['GET', 'POST'])
 @req
+@only('مسؤول التطبيق')
 def branches():
     if not can('manage_structure') or not has_role('مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'):
         abort(403)
@@ -169,6 +170,7 @@ def branches():
 
 @bp.post('/branches/<int:i>/edit')
 @req
+@only('مسؤول التطبيق')
 def branch_edit(i):
     if not can('manage_structure') or not has_role('مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'):
         abort(403)
@@ -202,6 +204,7 @@ def branch_edit(i):
 
 @bp.post('/branches/<int:i>/toggle')
 @req
+@only('مسؤول التطبيق')
 def branch_toggle(i):
     if not can('manage_structure') or not has_role('مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'):
         abort(403)
@@ -218,6 +221,7 @@ def branch_toggle(i):
 
 @bp.post('/branches/<int:i>/delete')
 @req
+@only('مسؤول التطبيق')
 def branch_delete(i):
     if not can('manage_structure') or not has_role('مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'):
         abort(403)

@@ -20,6 +20,7 @@ from ..access import (
 )
 from ..assignments import (
     current_assignment_for_employee,
+    resolve_current_movement,
     effective_branch_id_for_employee,
     employee_is_effectively_in_branch,
     organizational_entry_for_employee,
@@ -393,17 +394,14 @@ def employees():
             by_employee.setdefault(m.employee_id, []).append(m)
         for e in rows:
             ms = by_employee.get(e.id, [])
-            leave = next((m for m in ms if m.movement_type == 'إجازة' and m.from_date and m.to_date and m.from_date <= today <= m.to_date), None)
-            assignment = next((m for m in ms if m.movement_type == 'انتداب' and m.assignment_state != 'مغلق' and m.from_date and m.from_date <= today and m.to_date and today <= m.to_date), None)
-            open_assignment = next((m for m in ms if m.movement_type == 'انتداب' and m.assignment_state != 'مغلق' and m.from_date and m.from_date <= today and m.to_date is None), None)
-            permission = next((m for m in ms if m.movement_type == 'إذن' and m.permission_date == today), None)
-            if leave:
-                status_map[e.id] = {'key': 'leave', 'label': 'إجازة', 'detail': leave.leave_type or 'إجازة'}
-            elif assignment:
-                status_map[e.id] = {'key': 'assignment', 'label': 'منتدب إليه', 'detail': assignment.destination.name if assignment.destination else 'جهة الانتداب غير محددة'}
-            elif open_assignment:
-                status_map[e.id] = {'key': 'open-assignment', 'label': 'منتدب إليه · مفتوح', 'detail': open_assignment.destination.name if open_assignment.destination else 'جهة الانتداب غير محددة'}
-            elif permission:
+            current = resolve_current_movement(ms, today)
+            if current and current.movement_type == 'إجازة':
+                status_map[e.id] = {'key': 'leave', 'label': 'إجازة', 'detail': current.leave_type or 'إجازة'}
+            elif current and current.movement_type == 'انتداب' and current.to_date is not None:
+                status_map[e.id] = {'key': 'assignment', 'label': 'منتدب إليه', 'detail': current.destination.name if current.destination else 'جهة الانتداب غير محددة'}
+            elif current and current.movement_type == 'انتداب':
+                status_map[e.id] = {'key': 'open-assignment', 'label': 'منتدب إليه · مفتوح', 'detail': current.destination.name if current.destination else 'جهة الانتداب غير محددة'}
+            elif current and current.movement_type == 'إذن':
                 status_map[e.id] = {'key': 'permission', 'label': 'إذن اليوم', 'detail': 'مسجل اليوم'}
 
     # عرض الموظفين يكون مجمعًا حسب المحافظة ثم الفرع، بدل قائمة واحدة طويلة.
@@ -817,6 +815,11 @@ def employee_card(i):
     e = db.session.get(Employee, i)
     if not e:
         abort(404)
+    # البحث في الرئيسية عالمي ومتعمد أن يتجاوز محافظة العمل، لكن فتح البطاقة
+    # نفسها يجب أن يظل خاضعًا لنطاق المستخدم التشغيلي. مسؤول التطبيق فقط
+    # يستطيع فتح أي بطاقة مباشرة.
+    if 'مسؤول التطبيق' not in actual_roles(me()) and not branch_ok(e.branch_id):
+        abort(403)
     if not e.is_active and (not (can('manage_employees') and can_manage_employee(e))):
         abort(403)
 
@@ -841,18 +844,15 @@ def employee_card(i):
     # The card has its own deterministic current-state calculation so it remains
     # correct even when opened directly, outside the Home dashboard.
     current_status = {'key': 'none', 'label': 'لا توجد حركة حالية', 'detail': 'لا توجد حركة مسجلة الآن', 'movement': None, 'until': None}
-    active_leave = next((m for m in ms if m.movement_type == 'إجازة' and m.from_date and m.to_date and m.from_date <= today <= m.to_date), None)
-    dated_assignment = next((m for m in ms if m.movement_type == 'انتداب' and m.assignment_state != 'مغلق' and m.from_date and m.from_date <= today and m.to_date and today <= m.to_date), None)
-    open_assignment = next((m for m in ms if m.movement_type == 'انتداب' and m.assignment_state != 'مغلق' and m.from_date and m.from_date <= today and m.to_date is None), None)
-    today_permission = next((m for m in ms if m.movement_type == 'إذن' and m.permission_date == today), None)
-    if active_leave:
-        current_status = {'key': 'leave', 'label': 'إجازة', 'detail': active_leave.leave_type or 'إجازة', 'movement': active_leave, 'until': active_leave.to_date}
-    elif dated_assignment:
-        current_status = {'key': 'assignment', 'label': 'منتدب إليه', 'detail': dated_assignment.destination.name if dated_assignment.destination else 'جهة الانتداب غير محددة', 'movement': dated_assignment, 'until': dated_assignment.to_date}
-    elif open_assignment:
-        current_status = {'key': 'open-assignment', 'label': 'منتدب إليه · مفتوح', 'detail': open_assignment.destination.name if open_assignment.destination else 'جهة الانتداب غير محددة', 'movement': open_assignment, 'until': None}
-    elif today_permission:
-        current_status = {'key': 'permission', 'label': 'إذن اليوم', 'detail': 'مسجل اليوم', 'movement': today_permission, 'until': today}
+    current = resolve_current_movement(ms, today)
+    if current and current.movement_type == 'إجازة':
+        current_status = {'key': 'leave', 'label': 'إجازة', 'detail': current.leave_type or 'إجازة', 'movement': current, 'until': current.to_date}
+    elif current and current.movement_type == 'انتداب' and current.to_date is not None:
+        current_status = {'key': 'assignment', 'label': 'منتدب إليه', 'detail': current.destination.name if current.destination else 'جهة الانتداب غير محددة', 'movement': current, 'until': current.to_date}
+    elif current and current.movement_type == 'انتداب':
+        current_status = {'key': 'open-assignment', 'label': 'منتدب إليه · مفتوح', 'detail': current.destination.name if current.destination else 'جهة الانتداب غير محددة', 'movement': current, 'until': None}
+    elif current and current.movement_type == 'إذن':
+        current_status = {'key': 'permission', 'label': 'إذن اليوم', 'detail': 'مسجل اليوم', 'movement': current, 'until': today}
 
     return render_template(
         'employee.html',

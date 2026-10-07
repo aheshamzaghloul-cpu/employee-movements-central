@@ -1,6 +1,6 @@
 """Domain services: assignments (انتداب), supervisors, organizational entry roles."""
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from .access import actual_roles, bids, branch_ok, me
 from .constants import ASSIGNMENT_ALERT_DAYS, LOGIN_ROLES
@@ -32,6 +32,43 @@ def assignment_state(m):
     if m.to_date <= today + timedelta(days=ASSIGNMENT_ALERT_DAYS):
         return 'قرب الانتهاء'
     return 'ساري'
+
+
+def resolve_current_movement(movements, on_date=None):
+    """Resolve one canonical current operational movement from an already-loaded list.
+
+    This is the single status rule used by Home, employee cards, movement preflight
+    and employee listings. Closed/deleted movements never become current. Priority
+    remains the established product rule: leave -> dated assignment -> open assignment
+    -> today's permission.
+    """
+    on_date = on_date or date.today()
+    moves = [m for m in (movements or []) if m and m.is_active]
+    # Make the resolver deterministic even when callers provide an unsorted list.
+    # Newer records win only when the same movement type has more than one
+    # overlapping candidate; the business priority below remains unchanged.
+    moves.sort(
+        key=lambda m: (
+            getattr(m, 'created_at', None) or datetime.min,
+            getattr(m, 'id', 0) or 0,
+        ),
+        reverse=True,
+    )
+
+    leave = next((m for m in moves if m.movement_type == 'إجازة'
+                  and m.from_date and m.to_date
+                  and m.from_date <= on_date <= m.to_date), None)
+    assignment = next((m for m in moves if m.movement_type == 'انتداب'
+                       and m.assignment_state != 'مغلق'
+                       and m.from_date and m.from_date <= on_date
+                       and m.to_date is not None and on_date <= m.to_date), None)
+    open_assignment = next((m for m in moves if m.movement_type == 'انتداب'
+                            and m.assignment_state != 'مغلق'
+                            and m.from_date and m.from_date <= on_date
+                            and m.to_date is None), None)
+    permission = next((m for m in moves if m.movement_type == 'إذن'
+                       and m.permission_date == on_date), None)
+    return leave or assignment or open_assignment or permission
 
 
 def current_assignment_for_employee(employee_id, on_date=None):

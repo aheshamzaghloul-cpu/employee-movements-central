@@ -1,5 +1,6 @@
 (function(){
   const qs=(s,r=document)=>r.querySelector(s), qsa=(s,r=document)=>[...r.querySelectorAll(s)];
+  const notify=(message,type='warning')=>{ if(typeof window.toast==='function') window.toast(message,type); else setTimeout(()=>{ if(typeof window.toast==='function') window.toast(message,type); },0); };
 
   function syncDependentSelect(gid,bid){
     const g=qs('#'+gid), b=qs('#'+bid); if(!g||!b)return;
@@ -50,7 +51,7 @@
     for(const group of groups){
       if(group.dataset.required!=='1')continue;
       const name=group.dataset.choiceGroup;
-      if(!boxes(name,form).some(x=>x.checked)){e.preventDefault(); alert('يجب اختيار عنصر واحد على الأقل.'); return;}
+      if(!boxes(name,form).some(x=>x.checked)){e.preventDefault(); notify('يجب اختيار عنصر واحد على الأقل.','warning'); return;}
     }
   }));
 
@@ -78,7 +79,7 @@
   movementType?.addEventListener('change',syncMovement); ['#from_date','#to_date'].forEach(s=>qs(s)?.addEventListener('input',syncMovement)); movementEmployee?.addEventListener('change',syncAutoApprover);
   syncMovement(); syncAutoApprover();
   const movementForm=qs('#movement_form');
-  movementForm?.addEventListener('submit',e=>{if(movementEmployee&&!movementEmployee.value){e.preventDefault();alert('يجب اختيار الموظف.');}});
+  movementForm?.addEventListener('submit',e=>{if(movementEmployee&&!movementEmployee.value){e.preventDefault();notify('يجب اختيار الموظف.','warning');}});
 
   // Dropdown multi-select summaries.
   function updateMultiSummaries(root=document){
@@ -142,7 +143,7 @@
   movementName?.addEventListener('keydown',e=>{if(e.key==='Escape')hideMovementSuggestions();});
   document.addEventListener('click',e=>{if(movementSuggestions&&!e.target.closest('.movement-employee-search'))hideMovementSuggestions();});
   if(movementGov?.value||movementName?.value)loadMovementSearch();
-  movementSearchForm?.addEventListener('submit',e=>{if(!movementName?.value.trim()&&!movementGov?.value&&!movementBranch?.value){e.preventDefault();movementName?.focus();alert('اكتب اسم الموظف أو كوده، أو اختر محافظة/فرع كفلتر.');}});
+  movementSearchForm?.addEventListener('submit',e=>{if(!movementName?.value.trim()&&!movementGov?.value&&!movementBranch?.value){e.preventDefault();movementName?.focus();notify('اكتب اسم الموظف أو كوده، أو اختر محافظة أو فرع كفلتر.','info');}});
 
   // معالج التسجيل الذكي للحركة من الصفحة الرئيسية.
   const hmForm=qs('#home-real-movement-form'), hmGov=qs('#home_move_gov'), hmBranch=qs('#home_move_branch'), hmEmp=qs('#home_move_employee'), hmType=qs('#home_move_type');
@@ -165,17 +166,50 @@
   function hmEmployeeState(){const o=hmEmp?.selectedOptions?.[0];if(!o||!o.value){hmState.hidden=true;hmNext.disabled=true;return;}hmState.innerHTML=`<span class="ui-icon-tile"><svg class="ui-icon ui-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="3"/><path d="M5 21a7 7 0 0 1 14 0"/></svg></span><div><b>${esc(o.textContent)}</b><small>تم اختيار الموظف — يمكنك الانتقال لبيانات الحركة.</small></div>`;hmState.hidden=false;hmNext.disabled=false;}
   function hmDestSync(){if(!hmDestGov||!hmDestBranch)return;const g=hmDestGov.value;[...hmDestBranch.options].forEach(o=>{if(!o.value)return;const ok=!g||o.dataset.governorate===g;o.hidden=!ok;o.disabled=!ok;});if(hmDestBranch.value&&hmDestBranch.selectedOptions[0]?.disabled)hmDestBranch.value='';}
   function hmReviewBuild(){const get=n=>qs(`[name="${n}"]`,hmForm)?.selectedOptions?.[0]?.textContent||qs(`[name="${n}"]`,hmForm)?.value||'—';const type=hmType.value;const emp=hmEmp?.selectedOptions?.[0]?.textContent||'—';let rows=[['الموظف',emp],['نوع الحركة',type]];if(type==='إجازة')rows.push(['نوع الإجازة',get('leave_type')]);if(type==='انتداب'){rows.push(['جهة الانتداب',get('destination_branch_id')]);rows.push(['من تاريخ',qs('[name="from_date"]',hmForm)?.value||'—']);rows.push(['إلى تاريخ',hmOpen?.checked?'مفتوح':(qs('[name="to_date"]',hmForm)?.value||'—')]);}else if(type==='إذن')rows.push(['تاريخ الإذن',qs('[name="permission_date"]',hmForm)?.value||'—']);else rows.push(['من تاريخ',qs('[name="from_date"]',hmForm)?.value||'—'],['إلى تاريخ',qs('[name="to_date"]',hmForm)?.value||'—']);hmReviewGrid.innerHTML=rows.map(x=>`<div><small>${esc(x[0])}</small><b>${esc(x[1])}</b></div>`).join('');}
-  hmGov?.addEventListener('change',hmLoadBranches);hmBranch?.addEventListener('change',hmLoadEmployees);hmEmp?.addEventListener('change',hmEmployeeState);hmDestGov?.addEventListener('change',hmDestSync);hmOpen?.addEventListener('change',hmSyncDynamic);hmNext?.addEventListener('click',()=>{if(!hmEmp?.value){alert('اختر الموظف أولًا.');return;}hmStepDetails.hidden=false;hmNextRow.hidden=true;hmSyncDynamic();});hmBack?.addEventListener('click',()=>{hmReview.hidden=true;hmStepDetails.hidden=false;});
+  hmGov?.addEventListener('change',hmLoadBranches);hmBranch?.addEventListener('change',hmLoadEmployees);hmEmp?.addEventListener('change',hmEmployeeState);hmDestGov?.addEventListener('change',hmDestSync);hmOpen?.addEventListener('change',hmSyncDynamic);hmNext?.addEventListener('click',()=>{if(!hmEmp?.value){notify('اختر الموظف أولًا.','warning');return;}hmStepDetails.hidden=false;hmNextRow.hidden=true;hmSyncDynamic();});hmBack?.addEventListener('click',()=>{hmReview.hidden=true;hmStepDetails.hidden=false;});
   hmForm?.addEventListener('input',()=>{if(hmStepDetails&&!hmStepDetails.hidden){hmReviewBuild();}});
   hmForm?.addEventListener('change',()=>{if(hmStepDetails&&!hmStepDetails.hidden){hmReviewBuild();}});
   hmStepDetails?.addEventListener('click',e=>{if(e.target.closest('#home-movement-review'))return;});
   hmStepDetails?.insertAdjacentHTML('beforeend','<div class="wizard-details-next"><button type="button" class="btn" id="home-review-button">مراجعة الحركة ←</button></div>');
-  qs('#home-review-button')?.addEventListener('click',()=>{if(!hmType.value||!hmEmp.value){alert('اختر نوع الحركة والموظف.');return;}if(!hmForm.reportValidity())return;hmReviewBuild();hmStepDetails.hidden=true;hmReview.hidden=false;});
+  qs('#home-review-button')?.addEventListener('click',()=>{if(!hmType.value||!hmEmp.value){notify('اختر نوع الحركة والموظف.','warning');return;}if(!hmForm.reportValidity())return;hmReviewBuild();hmStepDetails.hidden=true;hmReview.hidden=false;});
   hmSyncDynamic();hmDestSync();
 
-  // Generic table search and confirmations.
-  qsa('[data-confirm]').forEach(el=>el.addEventListener('click',e=>{if(!confirm(el.dataset.confirm))e.preventDefault()}));
-  qsa('[data-auto-search]').forEach(input=>input.addEventListener('input',()=>{const q=input.value.trim().toLowerCase(),target=input.dataset.autoSearch;qsa(target+' tbody tr').forEach(tr=>tr.style.display=!q||tr.innerText.toLowerCase().includes(q)?'':'none');}));
+  // Unified interaction layer: confirmations, search feedback, submit states and validation focus.
+  function ensureConfirmDialog(){
+    let root=qs('#interactiveConfirm');
+    if(root)return root;
+    root=document.createElement('div'); root.id='interactiveConfirm'; root.className='interactive-confirm'; root.hidden=true;
+    root.innerHTML='<div class="interactive-confirm-backdrop" data-confirm-cancel></div><section class="interactive-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="interactiveConfirmTitle"><div class="interactive-confirm-mark">!</div><div class="interactive-confirm-copy"><strong id="interactiveConfirmTitle">تأكيد الإجراء</strong><p id="interactiveConfirmMessage"></p></div><div class="interactive-confirm-actions"><button type="button" class="ui-btn" data-confirm-cancel>إلغاء</button><button type="button" class="ui-btn ui-btn-primary" id="interactiveConfirmOk">متابعة</button></div></section>';
+    document.body.appendChild(root); return root;
+  }
+  let pendingConfirm=null;
+  function askConfirm(el){
+    const root=ensureConfirmDialog(); qs('#interactiveConfirmMessage',root).textContent=el.dataset.confirm||'هل تريد متابعة هذا الإجراء؟';
+    root.hidden=false; document.body.classList.add('interactive-confirm-open'); pendingConfirm=el; qs('#interactiveConfirmOk',root)?.focus();
+  }
+  function closeConfirm(){const root=qs('#interactiveConfirm');if(!root)return;root.hidden=true;document.body.classList.remove('interactive-confirm-open');pendingConfirm=null;}
+  document.addEventListener('click',e=>{
+    const cancel=e.target.closest('[data-confirm-cancel]'); if(cancel){closeConfirm();return;}
+    const ok=e.target.closest('#interactiveConfirmOk');
+    if(ok&&pendingConfirm){const el=pendingConfirm;closeConfirm();if(el.form){el.dataset.confirmApproved='1';el.form.requestSubmit(el);delete el.dataset.confirmApproved;}else if(el.href){window.location.href=el.href;}return;}
+    const target=e.target.closest('[data-confirm]');
+    if(target&&target.dataset.confirmApproved!=='1'){e.preventDefault();e.stopImmediatePropagation();askConfirm(target);}
+  },true);
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!qs('#interactiveConfirm')?.hidden)closeConfirm();});
+
+  qsa('[data-auto-search]').forEach(input=>input.addEventListener('input',()=>{
+    const q=input.value.trim().toLowerCase(),target=input.dataset.autoSearch,rows=qsa(target+' tbody tr'); let shown=0;
+    rows.forEach(tr=>{const hit=!q||tr.innerText.toLowerCase().includes(q);tr.style.display=hit?'':'none';if(hit)shown++;});
+    input.setAttribute('aria-controls',target.replace(/^#/,''));
+    const card=input.closest('.ui-card,.ui-work-card,.smart-directory-card');
+    if(card){let meta=qs('.interactive-search-count',card);if(!meta){meta=document.createElement('span');meta.className='interactive-search-count';input.parentNode.appendChild(meta);}meta.textContent=q?`نتيجة ظاهرة: ${shown}`:'';}
+  }));
+
+  qsa('form').forEach(form=>form.addEventListener('submit',()=>{
+    if(form.dataset.noBusy==='1')return;
+    qsa('button[type=submit],input[type=submit]',form).filter(x=>!x.disabled).forEach(btn=>{btn.disabled=true;btn.setAttribute('aria-busy','true');if(btn.tagName==='BUTTON'){btn.dataset.originalLabel=btn.innerHTML;btn.innerHTML='<span class="interactive-spinner" aria-hidden="true"></span> جارٍ التنفيذ…';}});
+  }));
+  document.addEventListener('invalid',e=>{const field=e.target;if(field&&typeof field.focus==='function')setTimeout(()=>field.focus({preventScroll:false}),0);},true);
 
   // Employee history filters.
   const hist=qs('#employee_history_table'); if(hist){const rows=qsa('tbody tr[data-movement-type]',hist),buttons=qsa('[data-history-filter]'),search=qs('#employee_history_search'),no=qs('#history_no_match');let filter='all';const apply=()=>{const q=(search?.value||'').toLowerCase().trim();let n=0;rows.forEach(r=>{const ok=(filter==='all'||r.dataset.movementType===filter)&&(!q||r.innerText.toLowerCase().includes(q));r.hidden=!ok;if(ok)n++});if(no)no.hidden=n!==0};buttons.forEach(b=>b.addEventListener('click',()=>{filter=b.dataset.historyFilter;buttons.forEach(x=>x.classList.toggle('active',x===b));apply()}));search?.addEventListener('input',apply);}
@@ -353,3 +387,39 @@ document.addEventListener('DOMContentLoaded', function(){
   });
 })();
 
+
+
+// v67.7 — smart data surfaces: search, counts and focus without changing server-side workflows.
+(function(){
+  const norm=v=>(v||'').toLocaleLowerCase('ar').replace(/[\u064B-\u065F\u0670]/g,'').replace(/ـ/g,'').trim();
+  document.querySelectorAll('table[data-smart-table]').forEach(table=>{
+    if(table.dataset.smartReady==='1') return;
+    const body=table.tBodies?.[0]; if(!body) return;
+    const rows=[...body.rows].filter(r=>!r.classList.contains('ui-empty'));
+    if(!rows.length) return;
+    table.dataset.smartReady='1';
+    const wrap=table.closest('.ui-table-wrap') || table.parentElement;
+    if(!wrap) return;
+    const head=table.tHead;
+    const title=(wrap.querySelector('.ui-section-title h3')||wrap.querySelector('h2,h3'))?.textContent?.trim() || 'البيانات';
+    let bar=wrap.querySelector(':scope > .smart-data-toolbar');
+    if(!bar){
+      bar=document.createElement('div'); bar.className='smart-data-toolbar';
+      bar.innerHTML=`<div class="smart-data-summary"><strong>${title}</strong><span data-smart-count></span></div><label class="smart-data-search"><span class="sr-only">بحث داخل الجدول</span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg><input type="search" data-smart-table-search placeholder="بحث داخل البيانات…" autocomplete="off"></label>`;
+      wrap.insertBefore(bar,table);
+    }
+    const input=bar.querySelector('[data-smart-table-search]');
+    const count=bar.querySelector('[data-smart-count]');
+    const existingSearch=wrap.querySelector('[data-auto-search]');
+    if(existingSearch){ bar.hidden=true; return; }
+    function render(){
+      const q=norm(input?.value); let visible=0;
+      rows.forEach(row=>{const ok=!q||norm(row.textContent).includes(q);row.hidden=!ok;if(ok)visible++});
+      if(count) count.textContent=`${visible} من ${rows.length}`;
+      table.classList.toggle('has-smart-filter',!!q);
+    }
+    input?.addEventListener('input',render);
+    render();
+    if(head) head.classList.add('smart-table-head');
+  });
+})();

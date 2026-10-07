@@ -4,28 +4,28 @@
 {% if scope_required and not scope_selected %}
 <div class="scope-empty-state ui-scope-state"><div class="scope-empty-icon"><svg class="ui-icon ui-icon-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18"/></svg></div><span class="home-kicker">مركز المتابعة</span><h1>اختر المحافظة أولًا</h1><p>حدد محافظة العمل لعرض التنبيهات والمهام المرتبطة بنطاقك التشغيلي.</p></div>
 {% else %}
-<div class="ui-page v65-notifications-page">
-  <header class="v65-notifications-head">
+<div class="ui-page interactive-notifications-page">
+  <header class="interactive-notifications-head">
     <div><span class="ui-eyebrow">المتابعة التشغيلية</span><h1>مركز المتابعة</h1><p>كل ما يحتاج قرارًا أو مراجعة، مرتب حسب الأولوية.</p></div>
-    <div class="v65-notification-summary"><strong>{{notification_count}}</strong><span>عنصر يحتاج متابعة</span></div>
+    <div class="interactive-notification-summary"><strong>{{notification_count}}</strong><span>عنصر يحتاج متابعة</span></div>
   </header>
 
-  <section class="v65-notification-metrics">
-    <div class="v65-notification-metric urgent"><b>{{notification_items|selectattr('level','equalto','urgent')|list|length}}</b><span>منتهية</span></div>
-    <div class="v65-notification-metric warning"><b>{{notification_items|selectattr('level','equalto','warning')|list|length}}</b><span>قرب الانتهاء</span></div>
-    <div class="v65-notification-metric info"><b>{{notification_items|selectattr('level','equalto','info')|list|length}}</b><span>انتداب مفتوح</span></div>
+  <section class="interactive-notification-metrics">
+    <div class="interactive-notification-metric urgent"><b>{{notification_items|selectattr('level','equalto','urgent')|list|length}}</b><span>منتهية</span></div>
+    <div class="interactive-notification-metric warning"><b>{{notification_items|selectattr('level','equalto','warning')|list|length}}</b><span>قرب الانتهاء</span></div>
+    <div class="interactive-notification-metric info"><b>{{notification_items|selectattr('level','equalto','info')|list|length}}</b><span>انتداب مفتوح</span></div>
   </section>
 
-  <section class="ui-work-card v65-notification-list-card">
+  <section class="ui-work-card interactive-notification-list-card">
     <div class="ui-card-head compact"><div><span class="ui-eyebrow">قائمة الإجراءات</span><h2>ما يحتاج انتباهك</h2></div><a class="ui-link-btn" href="/movements#movement-followup">عرض الحركات</a></div>
-    <div class="v65-notification-list">
+    <div class="interactive-notification-list">
       {% for item in notification_items %}
-      <article class="v65-notification-item {{item.level}}">
-        <span class="v65-notification-dot" aria-hidden="true"></span>
-        <div class="v65-notification-content"><div class="v65-notification-title"><b>{{item.title}}</b><span>{{item.label}}</span></div><p>{{item.detail}}</p><small>{{item.employee.branch.name if item.employee.branch else '—'}}{% if item.employee.job_code %} · {{item.employee.job_code}}{% endif %}</small></div>
-        <div class="v65-notification-actions"><a href="{{item.employee_url}}">ملف الموظف</a><a class="primary" href="{{item.action_url}}">{{item.action_label}}</a></div>
+      <article class="interactive-notification-item {{item.level}}">
+        <span class="interactive-notification-dot" aria-hidden="true"></span>
+        <div class="interactive-notification-content"><div class="interactive-notification-title"><b>{{item.title}}</b><span>{{item.label}}</span></div><p>{{item.detail}}</p><small>{{item.employee.branch.name if item.employee.branch else '—'}}{% if item.employee.job_code %} · {{item.employee.job_code}}{% endif %}</small></div>
+        <div class="interactive-notification-actions"><a href="{{item.employee_url}}">ملف الموظف</a><a class="primary" href="{{item.action_url}}">{{item.action_label}}</a></div>
       </article>
-      {% else %}<div class="ui-empty v65-notification-empty"><b>لا توجد متابعة معلقة.</b><span>لا توجد حاليًا حركات انتداب منتهية أو قريبة الانتهاء أو مفتوحة ضمن نطاقك.</span></div>{% endfor %}
+      {% else %}<div class="ui-empty interactive-notification-empty"><b>لا توجد متابعة معلقة.</b><span>لا توجد حاليًا حركات انتداب منتهية أو قريبة الانتهاء أو مفتوحة ضمن نطاقك.</span></div>{% endfor %}
     </div>
   </section>
 </div>

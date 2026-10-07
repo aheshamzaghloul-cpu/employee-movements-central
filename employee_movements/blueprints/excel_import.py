@@ -234,7 +234,7 @@ def _excel_import_permissions(kind):
         abort(404)
     if kind == 'governorates' and not has_role('مسؤول التطبيق'):
         abort(403)
-    if kind == 'branches' and not (can('manage_structure') and has_role('مسؤول التطبيق', 'مشرف محافظة')):
+    if kind == 'branches' and 'مسؤول التطبيق' not in roles():
         abort(403)
     if kind == 'employees' and not has_role('مسؤول التطبيق'):
         abort(403)

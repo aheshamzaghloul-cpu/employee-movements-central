@@ -27,17 +27,17 @@
   {% if can('manage_employees') and add_govs %}
   <details class="smart-add-employee" id="employee-add">
     <summary><span><b>إضافة موظف جديد</b><small>إنشاء سجل وربطه بالمحافظة والفرع</small></span><i>+</i></summary>
-    <form method="post" class="smart-add-grid">
-      <input type="hidden" name="_csrf" value="{{csrf}}">
+    <form method="post" class="smart-add-grid workflow-employee-form">
+      <input type="hidden" name="_csrf" value="{{csrf}}"><div class="workflow-form-section"><div class="workflow-form-section-head"><span>01</span><strong>مكان العمل</strong></div>
       <label>المحافظة<select name="governorate_id" id="new_employee_governorate" required><option value="">اختر المحافظة</option>{% for g in add_govs %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
-      <label>الفرع<select name="branch_id" id="new_employee_branch" required><option value="">اختر الفرع</option>{% for b in add_bs %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}">{{b.name}}</option>{% endfor %}</select></label>
+      <label>الفرع<select name="branch_id" id="new_employee_branch" required><option value="">اختر الفرع</option>{% for b in add_bs %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}">{{b.name}}</option>{% endfor %}</select></label></div><div class="workflow-form-section"><div class="workflow-form-section-head"><span>02</span><strong>بيانات الموظف</strong></div>
       <label>اسم الموظف<input name="full_name" required autocomplete="off"></label>
       <label>كود شئون العاملين<input name="job_code" required autocomplete="off"></label>
       <label>الوظيفة<input name="job_title" required autocomplete="off"></label>
       <label>البريد الإلكتروني<input name="email" type="email" required autocomplete="email"></label>
-      <label>تاريخ التعيين<input type="date" name="hire_date" required></label>
+      <label>تاريخ التعيين<input type="date" name="hire_date" required></label></div><div class="workflow-form-section"><div class="workflow-form-section-head"><span>03</span><strong>بيانات الاتصال</strong></div>
       <label>هاتف العمل <small>اختياري</small><input name="company_phone" autocomplete="off"></label>
-      <label>الهاتف الشخصي <small>اختياري</small><input name="personal_phone" autocomplete="off"></label>
+      <label>الهاتف الشخصي <small>اختياري</small><input name="personal_phone" autocomplete="off"></label></div>
       <div class="smart-add-actions"><button class="ui-btn employees-primary">حفظ الموظف</button><button type="button" class="ui-btn ui-btn-secondary" onclick="this.closest('details').open=false">إلغاء</button></div>
     </form>
   </details>

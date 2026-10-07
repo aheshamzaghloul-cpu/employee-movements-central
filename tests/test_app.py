@@ -64,6 +64,44 @@ def test_switch_role_rejects_external_redirect(login):
     assert 'evil.example' not in resp.headers['Location']
 
 
+
+def test_switch_role_resets_operational_and_assistant_context(login):
+    client = login()
+    with client.session_transaction() as sess:
+        token = sess['csrf']
+        sess['active_role'] = 'مسؤول التطبيق'
+        sess['operational_governorate_id'] = 99
+        sess['operational_scope_uid'] = 1
+        sess['operational_scope_role'] = 'مسؤول التطبيق'
+        sess['assistant_pending'] = {'employee_id': 1, 'movement_type': 'إجازة'}
+        sess['assistant_manager_pending'] = {'action': 'x'}
+        sess['assistant_context_employee_id'] = 1
+        sess['assistant_workspace_context'] = 'old role context'
+    with client.session_transaction() as sess:
+        token = sess['csrf']
+    resp = client.post('/switch-role', data={'active_role': 'مشرف محافظة', 'next': '/structure', '_csrf': token})
+    assert resp.status_code == 302
+    assert resp.headers['Location'].endswith('/')
+    with client.session_transaction() as sess:
+        assert sess.get('active_role') == 'مشرف محافظة'
+        assert 'operational_governorate_id' not in sess
+        assert 'operational_scope_uid' not in sess
+        assert 'operational_scope_role' not in sess
+        assert 'assistant_pending' not in sess
+        assert 'assistant_manager_pending' not in sess
+        assert 'assistant_context_employee_id' not in sess
+        assert 'assistant_workspace_context' not in sess
+
+
+def test_switch_to_admin_lands_in_administration(login):
+    client = login()
+    with client.session_transaction() as sess:
+        sess['active_role'] = 'مشرف محافظة'
+        token = sess['csrf']
+    resp = client.post('/switch-role', data={'active_role': 'مسؤول التطبيق', 'next': '/', '_csrf': token})
+    assert resp.status_code == 302
+    assert '/structure' in resp.headers['Location']
+
 def test_unknown_page_renders_friendly_arabic_404(client):
     resp = client.get('/no-such-page')
     assert resp.status_code == 404

@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta
 
 from flask import abort, Blueprint, flash, redirect, render_template, request, url_for
 
+from ..assignments import resolve_current_movement
 from ..access import bids, branch_ok, can, can_manage_movement, gids, log, me, req, roles
 from ..constants import ASSIGNMENT_ALERT_DAYS
 from ..extensions import db
@@ -28,11 +29,14 @@ def movement_employees_api():
     bid = request.args.get('branch_id', '').strip()
     q = (request.args.get('q') or '').strip()
     gov = None
+    global_search = bool(q)
     if gid:
         if not gid.isdigit():
             return {'results': [], 'branches': []}
         gov = db.session.get(Governorate, int(gid))
         if not gov or not gov.is_active:
+            return {'results': [], 'branches': []}
+        if not global_search and not (int(gid) in set(gids())):
             return {'results': [], 'branches': []}
     branch_rows = (
         (
@@ -46,6 +50,11 @@ def movement_employees_api():
     branch_ids = [b.id for b in branch_rows]
     if bid.isdigit():
         bid_int = int(bid)
+        if not global_search and bid_int not in set(bids()):
+            return {'results': [], 'branches': [
+                {'id': b.id, 'name': b.name, 'governorate_id': b.governorate_id}
+                for b in branch_rows
+            ]}
         if bid_int not in branch_ids:
             return {
                 'results': [],
@@ -104,6 +113,10 @@ def movement_preflight_api():
         abort(403)
 
     destination_id = int(destination_raw) if destination_raw.isdigit() else None
+    if movement_type == 'انتداب' and destination_id is not None:
+        destination = db.session.get(Branch, destination_id)
+        if not destination or not destination.is_active:
+            abort(403)
     if movement_type == 'انتداب' and open_assignment:
         to_date = None
     validation = validate_movement_fields(
@@ -130,21 +143,13 @@ def movement_preflight_api():
         }
 
     today = date.today()
-    current = None
     current_rows = (
         Movement.query
         .filter(Movement.employee_id == employee.id, Movement.is_active == True)
-        .order_by(Movement.created_at.desc())
+        .order_by(Movement.created_at.desc(), Movement.id.desc())
         .all()
     )
-    for m in current_rows:
-        active_now = (
-            m.permission_date == today if m.movement_type == 'إذن'
-            else bool(m.from_date and m.from_date <= today and (m.to_date is None or m.to_date >= today))
-        )
-        if active_now:
-            current = m
-            break
+    current = resolve_current_movement(current_rows, today)
 
     message = 'الحركة متوافقة مبدئيًا ويمكن تسجيلها.'
     suggestion = 'يمكنك المتابعة إلى تسجيل الحركة.'
@@ -218,23 +223,20 @@ def movements_page_filters_api():
             movement_rows = (
                 Movement.query
                 .filter(Movement.employee_id.in_(employee_ids), Movement.is_active == True)
-                .order_by(Movement.created_at.desc())
+                .order_by(Movement.created_at.desc(), Movement.id.desc())
                 .all()
             )
+            by_employee = {}
             for m in movement_rows:
-                if m.employee_id in employee_movements:
-                    continue
-                current = False
-                if m.movement_type == 'إذن':
-                    current = m.permission_date == today
-                elif m.from_date and m.from_date <= today:
-                    current = m.to_date is None or m.to_date >= today
+                by_employee.setdefault(m.employee_id, []).append(m)
+            for employee_id, employee_moves in by_employee.items():
+                current = resolve_current_movement(employee_moves, today)
                 if current:
-                    employee_movements[m.employee_id] = {
-                        'type': m.movement_type,
-                        'leave_type': m.leave_type or '',
-                        'destination': m.destination.name if m.destination else '',
-                        'to_date': m.to_date.isoformat() if m.to_date else '',
+                    employee_movements[employee_id] = {
+                        'type': current.movement_type,
+                        'leave_type': current.leave_type or '',
+                        'destination': current.destination.name if current.destination else '',
+                        'to_date': current.to_date.isoformat() if current.to_date else '',
                     }
     return {
         'branches': [
@@ -284,6 +286,8 @@ def movement_create():
     to_date = None if (movement_type == 'انتداب' and form.get('open_assignment') == '1') else ((form.get('leave_to_date') if movement_type == 'إجازة' else form.get('assignment_to_date')) or None)
     permission_date = form.get('permission_date') or None
     destination_id = destination.id if destination else None
+    if movement_type == 'انتداب' and (destination is None or not destination.is_active):
+        abort(403)
 
     error = validate_movement_fields(
         movement_type, leave_type, destination_id, from_date, to_date, permission_date
@@ -357,20 +361,26 @@ def movements():
     today = date.today()
     tomorrow = today + timedelta(days=ASSIGNMENT_ALERT_DAYS)
 
-    def is_current(m):
-        if m.movement_type == 'إذن':
-            return bool(m.permission_date == today)
-        if not m.from_date or m.from_date > today:
-            return False
-        return m.to_date is None or m.to_date >= today
-
-    current_rows = [m for m in rows if is_current(m)]
+    by_employee = {}
+    for m in rows:
+        by_employee.setdefault(m.employee_id, []).append(m)
+    current_rows = []
+    for employee_moves in by_employee.values():
+        current = resolve_current_movement(employee_moves, today)
+        if current:
+            current_rows.append(current)
     followup_rows = [
         m
         for m in rows
-        if m.movement_type in ('إجازة', 'انتداب') and m.to_date is not None and (m.to_date <= tomorrow)
+        if (
+            m.movement_type in ('إجازة', 'انتداب')
+            and m.to_date is not None
+            and m.to_date <= tomorrow
+            and not (m.movement_type == 'انتداب' and m.assignment_state == 'مغلق')
+        )
     ]
     followup_rows.sort(key=lambda m: (m.to_date or date.max, m.id))
+    destination_branches = Branch.query.filter(Branch.is_active == True).order_by(Branch.name.asc()).all()
     return render_template(
         'movements.html',
         rows=rows,
@@ -379,6 +389,7 @@ def movements():
         today=today,
         tomorrow=tomorrow,
         bs=scoped_branches,
+        destination_branches=destination_branches,
         movement_governorates=(
             Governorate.query.filter(Governorate.id.in_(set(gids())), Governorate.is_active == True)
             .order_by(Governorate.name.asc()).all()
@@ -409,12 +420,21 @@ def movement_edit(i):
         abort(403)
     if request.method == 'POST':
         f = request.form
+        if m.movement_type == 'انتداب' and m.assignment_state == 'مغلق':
+            # A closed assignment may never be reopened implicitly by an edit POST.
+            # Reopening is a distinct audited action handled only by reopen_assignment.
+            flash('الانتداب مغلق. أعد فتحه أولًا من إجراء إعادة الفتح ثم عدّل المدة أو البيانات.')
+            return redirect(url_for('movements.movements'))
         mt = f.get('movement_type')
         dest = (
             int(f['destination_branch_id'])
             if f.get('destination_branch_id', '').isdigit()
             else None
         )
+        if mt == 'انتداب':
+            destination = db.session.get(Branch, dest) if dest else None
+            if destination is None or not destination.is_active:
+                abort(403)
         fd = f.get('from_date')
         td = f.get('to_date')
         pd = f.get('permission_date')
@@ -435,7 +455,19 @@ def movement_edit(i):
         m.from_date = parse_date(fd)
         m.to_date = parse_date(td)
         m.permission_date = parse_date(pd)
-        m.assignment_state = 'ساري' if mt == 'انتداب' else 'ساري'
+        if mt == 'انتداب':
+            # A closed assignment may only return to active state through the explicit
+            # reopen endpoint. Clearing closure metadata here prevents a reopened/extended
+            # movement from retaining stale closure information.
+            if m.assignment_state == 'مغلق':
+                m.assignment_state = 'ساري'
+                m.closed_by = None
+                m.closed_at = None
+                m.closure_reason = None
+            else:
+                m.assignment_state = 'ساري'
+        else:
+            m.assignment_state = 'ساري'
         m.notes = None
         m.modified_by = me().id
         m.modified_at = datetime.utcnow()
@@ -454,6 +486,7 @@ def movement_edit(i):
             .all()
         ),
         bs=Branch.query.filter(Branch.id.in_(bids()), Branch.is_active == True).all(),
+        destination_branches=Branch.query.filter(Branch.is_active == True).order_by(Branch.name.asc()).all(),
         leave_types=active_leave_types(),
         movement_types=active_movement_types(),
     )
@@ -510,11 +543,42 @@ def close_assignment(i):
     return redirect('/movements')
 
 
+@bp.post('/movements/<int:i>/reopen-assignment')
+@req
+def reopen_assignment(i):
+    m = db.session.get(Movement, i)
+    if (
+        not m
+        or m.movement_type != 'انتداب'
+        or not m.is_active
+        or not branch_ok(m.employee.branch_id)
+    ):
+        abort(403)
+    if not can('manage_movements') or not can_manage_movement(m):
+        abort(403)
+    if m.assignment_state != 'مغلق':
+        flash('الانتداب مفتوح بالفعل.')
+        return redirect('/movements')
+    m.assignment_state = 'ساري'
+    m.closed_by = None
+    m.closed_at = None
+    m.closure_reason = None
+    m.modified_by = me().id
+    m.modified_at = datetime.utcnow()
+    record_movement_history(m, m.status, m.status, 'REOPEN_ASSIGNMENT', 'إعادة فتح الانتداب للتعديل أو التمديد')
+    log('REOPEN_ASSIGNMENT', 'Movement', m.id, 'إعادة فتح الانتداب للتعديل أو التمديد')
+    db.session.commit()
+    flash('تمت إعادة فتح الانتداب. يمكنك الآن تعديل المدة أو تمديدها.')
+    return redirect(url_for('movements.movement_edit', i=m.id))
+
+
 @bp.get('/movements/<int:i>/assignment-form')
 @req
 def assignment_form(i):
     m = db.session.get(Movement, i)
     if not m or m.movement_type != 'انتداب' or (not branch_ok(m.employee.branch_id)):
+        abort(403)
+    if not can('manage_movements') or not can_manage_movement(m):
         abort(403)
     return render_template('assignment_form.html', m=m, today=date.today())
 

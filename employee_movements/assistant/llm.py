@@ -34,7 +34,7 @@ INTENT_SCHEMA = {
                 'employee_add', 'employee_create', 'employee_status', 'employee_info', 'employee_movements',
                 'governorate_create', 'governorate_edit', 'governorate_toggle',
                 'branch_create', 'branch_edit', 'branch_toggle',
-                'employee_edit', 'employee_delete', 'employee_restore', 'user_create', 'user_edit', 'user_toggle', 'user_delete', 'user_password_reset', 'user_set_governorates', 'user_set_branches', 'role_grant', 'role_revoke', 'entry_assign', 'entry_remove', 'entry_replace', 'delegation_create', 'delegation_revoke', 'lookup_create', 'lookup_edit', 'lookup_toggle', 'lookup_delete', 'movement_edit', 'movement_delete', 'movement_close',
+                'employee_edit', 'employee_delete', 'employee_restore', 'user_create', 'user_edit', 'user_toggle', 'user_delete', 'user_password_reset', 'user_set_governorates', 'user_set_branches', 'role_grant', 'role_revoke', 'entry_assign', 'entry_remove', 'entry_replace', 'delegation_create', 'delegation_revoke', 'lookup_create', 'lookup_edit', 'lookup_toggle', 'lookup_delete', 'movement_edit', 'movement_delete', 'movement_close', 'movement_reopen',
                 'branch_status', 'branch_info', 'branch_entry', 'governorate_employees',
                 'governorate_assignments_today', 'movement_people_today', 'employee_topic',
                 'register_movement', 'topic_options', 'navigate', 'help',

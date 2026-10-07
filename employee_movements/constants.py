@@ -39,8 +39,6 @@ GRANTABLE_BY_SUPERVISOR = {'manage_employees', 'manage_movements', 'view_reports
 ROLE_DEFAULT_PERMISSIONS = {
     'مسؤول التطبيق': set(PERMISSIONS),
     'مشرف محافظة': {
-        'manage_users',
-        'manage_structure',
         'manage_employees',
         'manage_movements',
         'view_reports',
@@ -85,6 +83,7 @@ OPERATIONAL_SCOPE_ENDPOINTS = frozenset(
         'movements.movement_edit',
         'movements.movement_submit',
         'movements.close_assignment',
+        'movements.reopen_assignment',
         'movements.assignment_form',
         'movements.movement_delete',
         'movements.movement_history',

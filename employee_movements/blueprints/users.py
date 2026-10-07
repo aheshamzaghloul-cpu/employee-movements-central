@@ -46,7 +46,9 @@ bp = Blueprint('users', __name__)
 @bp.route('/users', methods=['GET', 'POST'])
 @req
 def users():
-    if not can('manage_users') or not has_role('مسؤول التطبيق', 'مشرف محافظة'):
+    # إدارة الحسابات والأدوار والصلاحيات مركزية لمسؤول التطبيق فقط.
+    # المشرف يدير التشغيل والمدخل الأول من الرئيسية، وليس حسابات المستخدمين.
+    if 'مسؤول التطبيق' not in roles() or not can('manage_users'):
         abort(403)
     u = me()
     visible = (
@@ -305,7 +307,7 @@ def users():
 @req
 def user_edit(i):
     target = db.session.get(User, i)
-    if not target or not can('manage_users') or (not allowed_target_user(target) and i != me().id):
+    if 'مسؤول التطبيق' not in roles() or not target or not can('manage_users') or (not allowed_target_user(target) and i != me().id):
         abort(403)
     if 'مسؤول التطبيق' not in roles() and 'المدخل الأول' not in roles(target):
         abort(403)
@@ -646,7 +648,7 @@ def user_toggle(i):
 @bp.post('/users/<int:i>/reset')
 @req
 def user_reset_password(i):
-    if not can('manage_users') or not has_role('مسؤول التطبيق', 'مشرف محافظة'):
+    if 'مسؤول التطبيق' not in roles() or not can('manage_users'):
         abort(403)
     u = db.session.get(User, i)
     if not u:
@@ -685,7 +687,7 @@ def user_update_governorates(i):
 
 @bp.post('/users/<int:i>/branches')
 @req
-@only('مسؤول التطبيق', 'مشرف محافظة')
+@only('مسؤول التطبيق')
 def user_update_branches(i):
     u = db.session.get(User, i)
     if not u or 'المدخل الأول' not in roles(u):
@@ -741,7 +743,7 @@ def revoke_entry_role(i):
 @req
 def entry_management(i):
     # Kept for old bookmarks/integrations. The canonical first-entry operations live on Home.
-    if 'مسؤول التطبيق' not in roles() and 'مشرف محافظة' not in roles():
+    if 'مسؤول التطبيق' not in roles():
         abort(403)
     flash('إدارة المدخل الأول تتم من الصفحة الرئيسية.')
     return redirect('/#entry-directory')

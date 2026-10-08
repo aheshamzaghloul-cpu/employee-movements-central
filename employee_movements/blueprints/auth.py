@@ -1,6 +1,7 @@
 """Login, logout, role switching and password change."""
 
 import secrets
+import hmac
 from datetime import datetime
 
 from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
@@ -55,6 +56,39 @@ def login():
             break
     user.last_login = datetime.utcnow()
     log('LOGIN', 'User', user.id)
+    db.session.commit()
+    return redirect(url_for('dashboard.home'))
+
+
+@bp.get('/review-access')
+def review_access():
+    """Enter the dedicated review account through a temporary tokenized link.
+
+    This path is disabled by default and never weakens normal login. In production,
+    REVIEW_ACCESS_ENABLED=1 and a sufficiently long REVIEW_ACCESS_TOKEN must be set.
+    The token is checked before the configured review username is loaded.
+    """
+    if not current_app.config.get('REVIEW_ACCESS_ENABLED'):
+        abort(404)
+    token = request.args.get('token', '')
+    expected = current_app.config.get('REVIEW_ACCESS_TOKEN', '')
+    if not expected or len(expected) < 32 or not hmac.compare_digest(token, expected):
+        abort(404)
+    username = current_app.config.get('REVIEW_USERNAME', 'full_review_test')
+    user = User.query.filter_by(username=username).first()
+    if not user or not user.is_active:
+        abort(404)
+
+    session.clear()
+    session['uid'] = user.id
+    session['csrf'] = secrets.token_urlsafe(24)
+    real_roles = actual_roles(user)
+    for preferred in LOGIN_ROLES:
+        if preferred in real_roles:
+            session['active_role'] = preferred
+            break
+    user.last_login = datetime.utcnow()
+    log('REVIEW_LOGIN', 'User', user.id, 'Temporary review access')
     db.session.commit()
     return redirect(url_for('dashboard.home'))
 

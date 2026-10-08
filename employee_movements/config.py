@@ -63,6 +63,10 @@ def load_config(overrides=None):
         'ASSISTANT_RATE_LIMIT': int(os.getenv('ASSISTANT_RATE_LIMIT', '30')),
         'ASSISTANT_TIMEOUT_SECONDS': int(os.getenv('ASSISTANT_TIMEOUT_SECONDS', '8')),
         'LOGIN_RATE_LIMIT': int(os.getenv('LOGIN_RATE_LIMIT', '10')),
+        # Temporary full-review access. Disabled unless explicitly enabled in production.
+        'REVIEW_ACCESS_ENABLED': os.getenv('REVIEW_ACCESS_ENABLED', '0') == '1',
+        'REVIEW_ACCESS_TOKEN': os.getenv('REVIEW_ACCESS_TOKEN', '').strip(),
+        'REVIEW_USERNAME': os.getenv('REVIEW_USERNAME', 'full_review_test').strip() or 'full_review_test',
         'INIT_DATABASE': os.getenv('INIT_DATABASE', '1') == '1',
         'DB_INIT_RETRIES': max(1, int(os.getenv('DB_INIT_RETRIES', '8'))),
         'DB_INIT_RETRY_DELAY': max(1, float(os.getenv('DB_INIT_RETRY_DELAY', '3'))),

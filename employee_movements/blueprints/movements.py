@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 from flask import abort, Blueprint, flash, redirect, render_template, request, url_for
 
 from ..assignments import resolve_current_movement
-from ..access import bids, branch_ok, can, can_manage_movement, gids, log, me, req, roles
+from ..access import bids, branch_ok, can, can_manage_movement, can_manage_movement_employee, gids, log, me, req, roles
 from ..constants import ASSIGNMENT_ALERT_DAYS
 from ..extensions import db
 from ..models import Branch, Employee, Governorate, Movement, MovementHistory, User
@@ -108,8 +108,7 @@ def movement_preflight_api():
         return {'ready': False, 'ok': False, 'level': 'info', 'message': 'اختر الموظف أولًا.', 'suggestion': 'ابدأ باختيار الموظف.'}
     employee = db.session.get(Employee, int(employee_raw))
     rs = roles()
-    global_employee_access = 'مسؤول التطبيق' in rs or ('مشرف محافظة' in rs and movement_type == 'انتداب')
-    if not employee or not employee.is_active or (not global_employee_access and not branch_ok(employee.branch_id)):
+    if not can_manage_movement_employee(employee, movement_type):
         abort(403)
     if not can('manage_movements') or not can_manage_movement():
         abort(403)
@@ -286,8 +285,7 @@ def movement_create():
 
     employee = db.session.get(Employee, int(employee_id))
     rs = roles()
-    global_employee_access = 'مسؤول التطبيق' in rs or ('مشرف محافظة' in rs and movement_type == 'انتداب')
-    if not employee or not employee.is_active or (not global_employee_access and not branch_ok(employee.branch_id)):
+    if not can_manage_movement_employee(employee, movement_type):
         abort(403)
     if not can('manage_movements') or not can_manage_movement():
         abort(403)

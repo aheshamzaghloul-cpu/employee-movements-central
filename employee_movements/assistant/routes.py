@@ -18,6 +18,7 @@ from .agent import run_agent
 from ..ratelimit import RateLimiter
 from .menu import capability_groups
 from .manager import plan as manager_plan, execute as manager_execute
+from .pending import take_pending_plan, store_pending_plan
 from .render import render_branch_entry, render_read, topic_options
 
 bp = Blueprint('assistant', __name__)
@@ -131,11 +132,11 @@ def _execute_pending_naturally(prompt):
         return ({'title': 'المساعد الذكي', 'answer': 'تم إلغاء العملية المعلقة.'} if had else None)
     if not _is_confirmation(prompt):
         return None
-    manager_pending = session.pop('assistant_manager_pending', None)
+    manager_pending = take_pending_plan('assistant_manager_pending')
     if manager_pending:
         ok, message = manager_execute(manager_pending)
         return {'title': 'تم التنفيذ' if ok else 'تعذر التنفيذ', 'answer': message}
-    movement_pending = session.pop('assistant_pending', None)
+    movement_pending = take_pending_plan('assistant_pending')
     if movement_pending:
         ok, message = _execute_movement_plan(movement_pending)
         return {'title': 'تم التنفيذ' if ok else 'تعذر التنفيذ', 'answer': message}
@@ -179,10 +180,9 @@ def build_movement_plan(a):
     err = validate_movement_fields(mt, a.get("leave_type"), dest.id if dest else None, a.get("from_date"), None if a.get("open_assignment") else a.get("to_date"), a.get("permission_date"))
     if err:
         return {"title": "مراجعة الحركة", "error": err}
-    global_actor = 'مسؤول التطبيق' in roles() or 'مشرف محافظة' in roles()
-    if not e.is_active or (not global_actor and not branch_ok(e.branch_id)):
+    if not can_manage_movement_employee(e, mt):
         return {"title": "تسجيل حركة", "error": "الموظف خارج نطاق صلاحياتك."}
-    if mt == "انتداب" and (not dest or not dest.is_active or (not global_actor and not branch_ok(dest.id))):
+    if mt == "انتداب" and not can_manage_movement_destination(dest, mt):
         return {"title": "تسجيل انتداب", "error": "فرع الانتداب غير موجود أو غير مسموح داخل نطاقك."}
     overlap = movement_overlaps(e.id, mt, a.get("from_date"), None if a.get("open_assignment") else a.get("to_date"), a.get("permission_date"))
     if overlap:
@@ -322,7 +322,7 @@ def answer_prompt(prompt, prior_chat, workspace_context=None):
     if a.get('intent') in manager_intents:
         result = manager_plan(a)
         if result and result.get('plan'):
-            session['assistant_manager_pending'] = result['plan']
+            store_pending_plan('assistant_manager_pending', result['plan'])
         if result is None:
             result = {'title': 'مدير التطبيق', 'error': 'لم أستطع تحديد العملية الإدارية.'}
     elif a.get('intent') == 'greeting':
@@ -512,7 +512,7 @@ def answer_prompt(prompt, prior_chat, workspace_context=None):
                         ),
                     }
                 else:
-                    session['assistant_pending'] = a
+                    store_pending_plan('assistant_pending', a)
                     dest_text = (
                         f' إلى {dest.governorate.name} — {dest.name}'
                         if dest
@@ -555,8 +555,7 @@ def _execute_movement_plan(a):
         return False, 'لا تملك صلاحية تسجيل الحركات.'
     e = db.session.get(Employee, a.get('employee_id'))
     dest = db.session.get(Branch, a.get('destination_branch_id')) if a.get('destination_branch_id') else None
-    global_actor = 'مسؤول التطبيق' in roles() or 'مشرف محافظة' in roles()
-    if not e or not e.is_active or (not global_actor and not branch_ok(e.branch_id)):
+    if not can_manage_movement_employee(e, a.get('movement_type')):
         return False, 'الموظف خارج نطاق صلاحياتك أو لم يعد نشطًا.'
     err = validate_movement_fields(
         a.get('movement_type'),
@@ -568,7 +567,7 @@ def _execute_movement_plan(a):
     )
     if err:
         return False, err
-    if a.get('movement_type') == 'انتداب' and (not dest or not dest.is_active or (not global_actor and not branch_ok(dest.id))):
+    if a.get('movement_type') == 'انتداب' and not can_manage_movement_destination(dest, a.get('movement_type')):
         return False, 'فرع الانتداب غير موجود أو غير مسموح داخل نطاق الصلاحيات.'
     overlap = movement_overlaps(
         e.id,
@@ -663,7 +662,7 @@ def assistant_confirm():
         session.pop('assistant_manager_pending', None)
         flash('تم إلغاء العملية ولم يُنفذ أي تغيير.')
         return redirect(back)
-    manager_pending = session.pop('assistant_manager_pending', None)
+    manager_pending = take_pending_plan('assistant_manager_pending')
     if manager_pending:
         ok, message = manager_execute(manager_pending)
         if ok:
@@ -671,7 +670,7 @@ def assistant_confirm():
         else:
             flash(message)
         return redirect(back)
-    a = session.pop('assistant_pending', None)
+    a = take_pending_plan('assistant_pending')
     if not a:
         flash('لا توجد عملية معلقة للتأكيد.')
         return redirect(back)

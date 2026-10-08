@@ -2,7 +2,7 @@
 
 from flask import abort, Blueprint, flash, redirect, render_template, request
 
-from ..access import actual_roles, can, gids, has_role, log, only, req, roles, user_branch_ids
+from ..access import actual_roles, can, gids, governorate_ok, has_role, log, only, req, roles, user_branch_ids
 from ..extensions import db
 from ..models import (
     Branch,
@@ -131,7 +131,7 @@ def branches():
         g = db.session.get(Governorate, int(gid)) if gid and gid.isdigit() else None
         if not g or not g.is_active or (not name) or (not code):
             flash('جميع بيانات الفرع مطلوبة: المحافظة والاسم والكود.')
-        elif 'مسؤول التطبيق' not in roles() and g.id not in set(gids()):
+        elif 'مسؤول التطبيق' not in roles() and not governorate_ok(g.id):
             abort(403)
         elif Branch.query.filter_by(governorate_id=g.id, name=name).first():
             flash('الفرع موجود بالفعل في هذه المحافظة.')
@@ -183,7 +183,7 @@ def branch_edit(i):
         return redirect('/branches')
     if (
         'مسؤول التطبيق' not in roles()
-        and (x.governorate_id not in set(gids()) or g.id not in set(gids()))
+        and (not governorate_ok(x.governorate_id) or not governorate_ok(g.id))
     ):
         abort(403)
     dup = (
@@ -211,7 +211,7 @@ def branch_toggle(i):
     x = db.session.get(Branch, i)
     if not x:
         abort(404)
-    if 'مسؤول التطبيق' not in roles() and x.governorate_id not in set(gids()):
+    if 'مسؤول التطبيق' not in roles() and not governorate_ok(x.governorate_id):
         abort(403)
     x.is_active = not x.is_active
     log('TOGGLE', 'Branch', i)
@@ -228,7 +228,7 @@ def branch_delete(i):
     x = db.session.get(Branch, i)
     if not x:
         abort(404)
-    if 'مسؤول التطبيق' not in roles() and x.governorate_id not in set(gids()):
+    if 'مسؤول التطبيق' not in roles() and not governorate_ok(x.governorate_id):
         abort(403)
     if (
         Employee.query.filter_by(branch_id=i).count()

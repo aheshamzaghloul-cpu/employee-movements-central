@@ -1,4 +1,117 @@
+## v68.15.14 — Basyouni Tool Execution Boundary
+- Added static contracts proving Gemini tool dispatch can only prepare mutations.
+- Confirmed direct manager/movement execution remains behind pending-plan confirmation.
+- No business-rule or permission changes.
+
+## v68.15.13 — Basyouni Pending Plan Hardening
+- Bind confirmation plans to the current user and active role.
+- Expire pending confirmation plans after 10 minutes.
+- Centralize pending-plan storage/consumption in `assistant/pending.py`.
+- Preserve final permission and current-state checks at execution time.
+
+# Changelog
+
+## v68.15.12 — Basyouni Execute Current-State Audit
+- Audited sensitive execute branches for stale-plan usage.
+- Added contracts requiring current DB reloads before mutation for governance, branch, employee, user, movement, entry-assignment, and delegation operations.
+- Added contracts ensuring role and movement operations re-check current state before mutation.
+- No business-rule or permission expansion.
+
+## v68.15.11 — Basyouni Execute Transaction Boundary
+- Wrapped `assistant.manager.execute()` in a single transaction boundary.
+- Failed execution results now rollback pending SQLAlchemy mutations before returning.
+- Unexpected execution exceptions rollback the current transaction before propagating.
+- Kept the existing inner business logic and single final commit point unchanged.
+- Added regression contracts for rollback ownership and commit-point uniqueness.
+
+## v68.15.10 — Basyouni Manager Resolver Boundary
+
+- Centralized active governorate-supervisor name resolution in `assistant/manager_resolvers.py`.
+- Moved supervisor-role filtering into the database query instead of loading active users and filtering roles in Python.
+- Reused the resolver for first-entry assignment, delegation creation, and delegation revocation paths.
+- Preserved the existing confirmation/execute split: `plan()` resolves and previews; `execute()` rechecks the application-manager role before mutation.
+- Added architecture contracts for centralized supervisor resolution and plan/execute boundaries.
+- Compile/static checks pass; runtime pytest remains blocked by missing Flask in the review environment.
+
+## v68.15.9 — Basyouni Permission Boundary Audit
+
+- Centralized assistant movement employee and destination scope checks.
+- Fixed duplicated assistant route logic that could treat governorate supervisors as globally scoped for leave/permission selection.
+- Preserved wider supervisor scope for assignments only.
+- Added regression contract coverage.
+- Compile/static checks pass; runtime pytest remains blocked by missing Flask in the review environment.
+
+## v68.15.8 — Assistant Render Query Optimization
+
+- Removed unbounded employee movement history loading from `assistant/render.py`; employee history is capped at 20 rows and latest movement fields are resolved directly with bounded queries.
+- Replaced Python-side per-employee duplicate filtering in today movement/assignment reports with database-side latest-row selection.
+- Batched candidate record loading instead of repeated `session.get()` calls.
+- Eager-loaded entry assignment employee/supervisor relationships for branch information rendering.
+- Added performance contracts covering bounded employee history and database-side latest-movement selection.
+- Compile/static checks passed. Full pytest remains unavailable in the current review environment because Flask is not installed.
+
+# Changelog
+
+## v68.15.7 — Performance Audit Continuation
+- نقل فلترة المحافظات إلى استعلامات DB محدودة داخل مساعد التطبيق.
+- استبدال فحص تعارض فروع المدخل الأول ببحث وجود مباشر بدل تحميل كل التكليفات النشطة.
+- تقليل نطاق تنظيف صلاحيات الدور عند سحب الدور.
+- تحسين مسارات عرض موظفي المحافظة/الحركات داخل نطاق الفروع لتطبيق نطاق الفروع في قاعدة البيانات.
+- إضافة Contract tests لمنع عودة أنماط تحميل البيانات غير الضرورية.
+- لم تتغير قواعد الصلاحيات أو السلوك الوظيفي المقصود.
+
+## v68.15.3 — Performance Core: Movement Overlap Query
+
+- Reworked `movement_overlaps()` to filter conflicts in the database instead of loading all active movements with `.all()`.
+- Preserved existing conflict-message ordering and movement-overlap semantics.
+- Added `tests/test_movement_overlap_query_contract.py`.
+- No schema/index changes introduced; migration infrastructure remains unchanged.
+
+## v68.15.2 — Mission Print Permission Core
+
+- Added centralized `can_print_mission()` authorization guard.
+- Unified mission print/PDF route authorization without changing mutation permissions.
+- Removed an unused duplicate mission employee-scope helper.
+
+# v68.15.0 — Permission & Scope Core
+
+- إضافة حارس `governorate_ok()` مركزي في `access.py`.
+- توحيد فحوص نطاق المحافظة في عمليات إدارة الفروع داخل `catalog.py`.
+- إضافة `tests/test_permission_scope_core_contract.py`.
+- الحفاظ على سلوك اختيار محافظة العمل والنطاق التشغيلي كما هو.
+
+## v68.14.0 — Core cleanup: model attribute consistency
+## [68.14.1]
+
+- Strengthened model/attribute consistency regression coverage across all Python, HTML, and JavaScript project files.
+- Verified canonical `Movement.destination` relationship usage and preserved `destination_branch_id` as the database column/form field.
+- Corrected invalid `Movement.destination_branch` relationship references to the canonical `Movement.destination` relationship.
+- Preserved the `destination_branch_id` database column and form field names.
+- Added a static regression contract preventing the relationship-name mismatch from returning.
+- No business-rule, authorization, database-schema, or UI behavior changes intended.
+
+## v68.13.3 — Mission document services
+
+## v68.13.3 — Mission Lifecycle Service
+- Extracted mission close/reopen/edit and edit-request execution state changes into `services/mission_lifecycle.py`.
+- Preserved authorization, validation, audit events, and transaction boundaries.
+
+- Extracted mission PDF rendering and detailed Excel export into `services/mission_documents.py`.
+- Preserved routes, filters, authorization checks, lifecycle rules, and output formats.
+- Static validation only; runtime integration tests require the application dependencies.
+
+## v68.13.1 — Refactor Phase 2: shared date filter parsing
+- Centralized optional ISO date parsing for reports and mission filters.
+- Removed three duplicated nested date-parser implementations.
+- No permission, scope, workflow, or database behavior intentionally changed.
+
 # CHANGELOG
+
+## v68.13.0 — Code Hygiene Phase 1
+- Centralized duplicated assistant employee-visibility logic in `assistant/visibility.py`.
+- Preserved existing scope and role semantics; no functional permission expansion.
+- Synchronized package/version metadata.
+
 
 ## v68.12.0 — Mission Center Lifecycle & Edit Requests
 - Added date-range mission center filtering and mission-state filtering (تحت التحرير/مغلقة).
@@ -38,6 +151,23 @@
 - منع طباعة مأمورية غير نشطة من رابط الطباعة المباشر.
 
 # Changelog
+
+## v68.14.3 — Mission Edit Request Service
+- فصل إنشاء طلب تعديل المأمورية وقائمة الطلبات وسياق المراجعة والتحقق والتنفيذ إلى `services/mission_edit_request.py`.
+- إبقاء HTTP والصلاحيات والـredirect/flash داخل Blueprint.
+- الحفاظ على حالات الطلب، منع التكرار، التحقق من التواريخ والتعارض والحالة النهائية.
+- Python compile: PASS
+- UI integrity: PASS
+- Mission edit-request contract: PASS
+
+
+## v68.14.4 — Mission Query Service
+- استخراج منطق استعلام وفلاتر تقرير المأموريات من `blueprints/missions.py` إلى `services/mission_query.py`.
+- إبقاء الـBlueprint مسؤولًا عن HTTP والتحقق من الصلاحيات والعرض.
+- الحفاظ على نطاق المستخدم وجميع فلاتر التقرير وعدّاد طلبات التعديل.
+- إضافة اختبار Contract يمنع إعادة منطق الاستعلام إلى الـBlueprint.
+- Python compile: PASS.
+
 ## v68.11.5 — Destination Governorate Selection
 
 - Added explicit all-governorate destination selection for assignment registration.
@@ -107,6 +237,15 @@
 
 # Changelog
 
+## v68.14.3 — Mission Edit Request Service
+- فصل إنشاء طلب تعديل المأمورية وقائمة الطلبات وسياق المراجعة والتحقق والتنفيذ إلى `services/mission_edit_request.py`.
+- إبقاء HTTP والصلاحيات والـredirect/flash داخل Blueprint.
+- الحفاظ على حالات الطلب، منع التكرار، التحقق من التواريخ والتعارض والحالة النهائية.
+- Python compile: PASS
+- UI integrity: PASS
+- Mission edit-request contract: PASS
+
+
 ## v65.11.4 — Full Agreement Audit & Boundary Fixes
 - مراجعة فعلية للنسخة السابقة مقابل قواعد الأدوار والنطاقات وفصل وظائف الإدارة.
 - إضافة مشرف المحافظة إلى بوابة نطاق العمل التشغيلية وتثبيت نطاقه في الجلسة مثل باقي الأدوار التشغيلية.
@@ -131,3 +270,34 @@
 - Python compile: PASS
 - UI integrity: PASS
 - Full pytest: NOT CLAIMED (بيئة التنفيذ الحالية لا توفر Flask runtime).
+## v68.14.4
+- Fixed missing `movement_overlaps` import in mission edit flow.
+- Completed mission.py remainder audit; no additional confirmed domain refactor performed.
+
+## v68.15.1 — Permission & Scope Core: Movement Employee Access
+- Added `can_manage_movement_employee()` to centralize employee-selection scope for movement creation/preflight.
+- Preserved the existing rule: application administrators have global access; governorate supervisors may select employees globally for assignments; other movement types remain branch-scoped.
+- Removed duplicated `global_employee_access` role logic from movement routes.
+- Added a contract test for the centralized rule.
+- Compile check passed. Full runtime pytest is not claimed because Flask is unavailable in the review environment.
+
+## v68.15.4 — Basyouni Query Performance Core
+- Narrowed assistant employee search candidates in the database before Python-side visibility/normalization checks.
+- Pushed branch-scope filtering for assistant movement search into the database for non-global users.
+- Changed employee current-status lookup from `.all()` to `.first()` because only the newest matching movement is consumed.
+- Added assistant query-performance contract tests.
+- Python compile and contract tests passed. Full runtime pytest is not claimed because Flask is unavailable in the review environment.
+
+## v68.15.6 — Basyouni Performance Audit
+- Pushed assistant branch and governorate search filtering/limits into the database instead of loading full active directories into Python.
+- Replaced governorate-wide assignment reporting N+1 employee movement lookups with a single movement query.
+- Replaced branch-status per-employee current movement scans with one bounded current-movement query.
+- Narrowed selected assistant manager name/look-up searches before role/semantic checks.
+- Added regression contract tests for the performance-sensitive paths.
+- Python compile: PASS. Full Flask runtime pytest is not claimed until Flask is available in the review environment.
+
+## v68.15.5 — Basyouni Assistant Architecture Core
+- Extracted bounded movement lookup into `assistant/movement_queries.py`.
+- Preserved existing unique/multiple/no-match behavior.
+- Limited movement candidate loading to two rows, enough to distinguish unique from multiple.
+- Added regression contract test.

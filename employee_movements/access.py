@@ -346,6 +346,14 @@ def bids():
     ]
 
 
+def governorate_ok(i):
+    """Return whether a governorate is inside the user's effective operational scope."""
+    try:
+        return i is not None and int(i) in set(gids())
+    except (TypeError, ValueError):
+        return False
+
+
 def branch_ok(i):
     try:
         return i is not None and int(i) in set(bids())
@@ -378,6 +386,39 @@ def allowed_target_user(target):
 
 def can_manage_employee(e):
     return bool(e and branch_ok(e.branch_id) and can('manage_employees'))
+
+
+def can_manage_movement_employee(e, movement_type=None):
+    """Return whether the current user may select an employee for a movement.
+
+    Assignment creation has intentionally wider employee reach for governorate
+    supervisors; ordinary employee management remains branch-scoped. Keeping
+    this rule here prevents movement blueprints from duplicating role logic.
+    """
+    if not e or not getattr(e, 'is_active', False):
+        return False
+    rs = roles()
+    if 'مسؤول التطبيق' in rs:
+        return True
+    if 'مشرف محافظة' in rs and movement_type == 'انتداب':
+        return True
+    return branch_ok(e.branch_id)
+
+
+def can_manage_movement_destination(branch, movement_type=None):
+    """Return whether a movement destination branch is selectable.
+
+    Assignment destinations intentionally follow the same wider scope as
+    assignment employee selection for governorate supervisors.
+    """
+    if not branch or not getattr(branch, 'is_active', False):
+        return False
+    rs = roles()
+    if 'مسؤول التطبيق' in rs:
+        return True
+    if 'مشرف محافظة' in rs and movement_type == 'انتداب':
+        return True
+    return branch_ok(branch.id)
 
 
 def movement_is_closed(m):
@@ -421,6 +462,22 @@ def can_view_movement(m=None):
     if 'المدخل الأول' in rs and can('view_reports'):
         return bool(m and branch_ok(m.employee.branch_id))
     return False
+
+
+def can_print_mission(m=None):
+    """Return whether the current user may view/print an assignment mission.
+
+    Printing is a read operation and must not inherit mutation permissions.
+    Keeping the mission-specific checks here prevents print routes from
+    independently rebuilding the same authorization rule.
+    """
+    return bool(
+        m
+        and getattr(m, 'is_active', False)
+        and getattr(m, 'movement_type', None) == 'انتداب'
+        and can('view_reports')
+        and can_view_movement(m)
+    )
 
 
 def can_manage_movement(m=None):

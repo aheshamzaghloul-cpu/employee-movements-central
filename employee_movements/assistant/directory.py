@@ -3,6 +3,7 @@
 import re
 
 from ..access import bids, roles
+from ..extensions import db
 from ..models import Branch, Employee
 from .text import normalize_for_search
 
@@ -23,7 +24,21 @@ def find_employee(value):
     value = (value or '').strip()
     if not value:
         return None, []
-    rows = scope_employees()
+    # Keep normalization for exact Arabic matching, but let the DB narrow the
+    # candidate set first instead of loading the whole employee directory.
+    pattern = f"%{value}%"
+    rs = roles()
+    if 'مسؤول التطبيق' in rs or 'مشرف محافظة' in rs:
+        rows = (Employee.query.filter(
+            Employee.is_active == True,
+            db.or_(Employee.full_name.ilike(pattern), Employee.job_code.ilike(pattern), Employee.employee_code.ilike(pattern)),
+        ).order_by(Employee.full_name).limit(100).all())
+    else:
+        bs = bids()
+        rows = (Employee.query.filter(
+            Employee.is_active == True, Employee.branch_id.in_(bs),
+            db.or_(Employee.full_name.ilike(pattern), Employee.job_code.ilike(pattern), Employee.employee_code.ilike(pattern)),
+        ).order_by(Employee.full_name).limit(100).all()) if bs else []
     nv = normalize_for_search(value)
     exact = [
         e

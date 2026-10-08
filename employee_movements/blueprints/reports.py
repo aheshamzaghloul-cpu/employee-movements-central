@@ -7,7 +7,7 @@ from ..access import bids, can, gids, req
 from ..constants import MOVEMENT_TYPES, STATUSES
 from ..extensions import db
 from ..models import Audit, Branch, Employee, Governorate, Movement, User
-from ..validation import active_movement_types
+from ..validation import active_movement_types, parse_optional_iso_date
 
 bp = Blueprint('reports', __name__)
 
@@ -123,16 +123,8 @@ def employee_type_report(report_type):
     employee_id = request.args.get('employee_id', '').strip()
     date_from = request.args.get('date_from', '').strip()
     date_to = request.args.get('date_to', '').strip()
-    from datetime import date as _date
-
-    def _parse_report_date(value):
-        try:
-            return _date.fromisoformat(value) if value else None
-        except ValueError:
-            return None
-
-    date_from_obj = _parse_report_date(date_from)
-    date_to_obj = _parse_report_date(date_to)
+    date_from_obj = parse_optional_iso_date(date_from)
+    date_to_obj = parse_optional_iso_date(date_to)
     if date_from_obj and date_to_obj and (date_from_obj > date_to_obj):
         (date_from_obj, date_to_obj) = (date_to_obj, date_from_obj)
     if status in STATUSES:
@@ -419,16 +411,8 @@ def employee_type_report_csv(report_type):
     employee_id = request.args.get('employee_id', '').strip()
     date_from = request.args.get('date_from', '').strip()
     date_to = request.args.get('date_to', '').strip()
-    from datetime import date as _date
-
-    def _parse_report_date(value):
-        try:
-            return _date.fromisoformat(value) if value else None
-        except ValueError:
-            return None
-
-    date_from_obj = _parse_report_date(date_from)
-    date_to_obj = _parse_report_date(date_to)
+    date_from_obj = parse_optional_iso_date(date_from)
+    date_to_obj = parse_optional_iso_date(date_to)
     if date_from_obj and date_to_obj and (date_from_obj > date_to_obj):
         (date_from_obj, date_to_obj) = (date_to_obj, date_from_obj)
     if status in STATUSES:

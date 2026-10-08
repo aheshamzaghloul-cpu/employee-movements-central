@@ -3,22 +3,71 @@
 from datetime import date
 
 from markupsafe import Markup, escape
+from sqlalchemy.orm import joinedload
 
-from ..access import branch_ok, can, gids, roles
+from ..access import bids, branch_ok, can, gids, roles
+from .visibility import global_movement_actor, visible_employee
 from ..assignments import current_assignment_for_employee, employees_effectively_in_branches
 from ..extensions import db
 from ..models import Branch, Employee, EntryAssignment, EntryAssignmentBranch, Governorate, Movement
 
 
-def _global_movement_actor():
-    rs = roles()
-    return 'مسؤول التطبيق' in rs or 'مشرف محافظة' in rs
 
-def _visible_employee(e):
-    return bool(e and getattr(e, 'is_active', False) and (_global_movement_actor() or branch_ok(e.branch_id)))
+def _load_candidate_records(model, candidate_ids):
+    """Load candidate records in one query while preserving candidate order."""
+    ids = []
+    seen = set()
+    for value in candidate_ids or []:
+        try:
+            item_id = int(value)
+        except (TypeError, ValueError):
+            continue
+        if item_id not in seen:
+            seen.add(item_id)
+            ids.append(item_id)
+    if not ids:
+        return []
+    records = model.query.filter(model.id.in_(ids)).all()
+    by_id = {record.id: record for record in records}
+    return [by_id[item_id] for item_id in ids if item_id in by_id]
+
+
+def _latest_current_movements(employee_ids, on_date=None):
+    """Return one latest current movement per employee without loading duplicates."""
+    ids = {int(value) for value in (employee_ids or []) if value is not None}
+    if not ids:
+        return {}
+    today = on_date or date.today()
+    current_filter = db.or_(
+        (
+            (Movement.movement_type == 'إجازة')
+            & (Movement.from_date <= today)
+            & (Movement.to_date >= today)
+        ),
+        (
+            (Movement.movement_type == 'انتداب')
+            & (Movement.assignment_state != 'مغلق')
+            & (Movement.from_date <= today)
+            & (db.or_(Movement.to_date == None, Movement.to_date >= today))
+        ),
+        (Movement.movement_type == 'إذن') & (Movement.permission_date == today),
+    )
+    latest_ids = (
+        db.session.query(db.func.max(Movement.id).label('movement_id'))
+        .filter(
+            Movement.employee_id.in_(ids),
+            Movement.is_active == True,
+            current_filter,
+        )
+        .group_by(Movement.employee_id)
+        .subquery()
+    )
+    rows = Movement.query.filter(Movement.id.in_(db.select(latest_ids.c.movement_id))).all()
+    return {movement.employee_id: movement for movement in rows}
+
 
 def _visible_branch(b):
-    return bool(b and getattr(b, 'is_active', False) and (_global_movement_actor() or branch_ok(b.id)))
+    return bool(b and getattr(b, 'is_active', False) and (global_movement_actor() or branch_ok(b.id)))
 
 
 def topic_options(topic):
@@ -214,11 +263,7 @@ def topic_options(topic):
 def render_branch_entry(a):
     br = db.session.get(Branch, a.get('branch_id')) if a.get('branch_id') else None
     if not br:
-        matches = [
-            db.session.get(Branch, i)
-            for i in a.get('candidate_ids', [])
-            if db.session.get(Branch, i)
-        ]
+        matches = _load_candidate_records(Branch, a.get('candidate_ids', []))
         if len(matches) == 1:
             br = matches[0]
         elif matches:
@@ -249,6 +294,20 @@ def render_branch_entry(a):
     }
 
 
+def _movement_status_text(m):
+    if not m:
+        return 'لا توجد حركة حالية'
+    if m.movement_type == 'إجازة':
+        return f'إجازة — {m.leave_type or ''} — حتى {m.to_date}'
+    if m.movement_type == 'انتداب':
+        return (
+            f'انتداب مفتوح — {(m.destination.name if m.destination else 'غير محدد')}'
+            if m.to_date is None
+            else f'انتداب — {(m.destination.name if m.destination else 'غير محدد')} — حتى {m.to_date}'
+        )
+    return 'إذن اليوم'
+
+
 def employee_status_text(e):
     today = date.today()
     active = (
@@ -270,20 +329,9 @@ def employee_status_text(e):
             ),
         )
         .order_by(Movement.id.desc())
-        .all()
+        .first()
     )
-    if not active:
-        return 'لا توجد حركة حالية'
-    m = active[0]
-    if m.movement_type == 'إجازة':
-        return f'إجازة — {m.leave_type or ''} — حتى {m.to_date}'
-    if m.movement_type == 'انتداب':
-        return (
-            f'انتداب مفتوح — {(m.destination.name if m.destination else 'غير محدد')}'
-            if m.to_date is None
-            else f'انتداب — {(m.destination.name if m.destination else 'غير محدد')} — حتى {m.to_date}'
-        )
-    return 'إذن اليوم'
+    return _movement_status_text(active)
 
 
 def render_read(a):
@@ -307,28 +355,24 @@ def render_read(a):
             target_branch_ids = {branch.id}
             location_label = f'فرع {branch.name}'
         elif gov:
-            bs = (
-                Branch.query.filter_by(governorate_id=gov.id, is_active=True)
-                .order_by(Branch.name)
-                .all()
-            )
-            bs = [b for b in bs if branch_ok(b.id)]
+            visible_branch_ids = set(bids())
+            bs = (Branch.query
+                  .filter(Branch.governorate_id == gov.id, Branch.is_active == True, Branch.id.in_(visible_branch_ids))
+                  .order_by(Branch.name)
+                  .all()) if visible_branch_ids else []
             target_branch_ids = {b.id for b in bs}
             location_label = f'محافظة {gov.name}'
         else:
             # بحث عام داخل كل الفروع المتاحة للمستخدم.
-            target_branch_ids = {
-                b.id
-                for b in Branch.query.filter_by(is_active=True).all()
-                if branch_ok(b.id)
-            }
+            target_branch_ids = set(bids())
             location_label = 'النطاق المتاح لك'
 
         rows = []
         if mt == 'إجازة':
             if target_branch_ids:
-                moves = (
-                    Movement.query.join(Employee, Movement.employee_id == Employee.id)
+                latest_ids = (
+                    db.session.query(db.func.max(Movement.id).label('movement_id'))
+                    .join(Employee, Movement.employee_id == Employee.id)
                     .filter(
                         Employee.is_active == True,
                         Employee.branch_id.in_(target_branch_ids),
@@ -337,19 +381,21 @@ def render_read(a):
                         Movement.from_date <= today,
                         Movement.to_date >= today,
                     )
-                    .order_by(Employee.full_name, Movement.id.desc())
-                    .all()
+                    .group_by(Movement.employee_id)
+                    .subquery()
                 )
-                seen = set()
-                for m in moves:
-                    if m.employee_id in seen:
-                        continue
-                    seen.add(m.employee_id)
-                    rows.append((m.employee, m, None))
-        elif mt == 'إذن':
-            if target_branch_ids:
                 moves = (
                     Movement.query.join(Employee, Movement.employee_id == Employee.id)
+                    .filter(Movement.id.in_(db.select(latest_ids.c.movement_id)))
+                    .order_by(Employee.full_name)
+                    .all()
+                )
+                rows.extend((m.employee, m, None) for m in moves)
+        elif mt == 'إذن':
+            if target_branch_ids:
+                latest_ids = (
+                    db.session.query(db.func.max(Movement.id).label('movement_id'))
+                    .join(Employee, Movement.employee_id == Employee.id)
                     .filter(
                         Employee.is_active == True,
                         Employee.branch_id.in_(target_branch_ids),
@@ -357,20 +403,22 @@ def render_read(a):
                         Movement.movement_type == 'إذن',
                         Movement.permission_date == today,
                     )
-                    .order_by(Employee.full_name, Movement.id.desc())
+                    .group_by(Movement.employee_id)
+                    .subquery()
+                )
+                moves = (
+                    Movement.query.join(Employee, Movement.employee_id == Employee.id)
+                    .filter(Movement.id.in_(db.select(latest_ids.c.movement_id)))
+                    .order_by(Employee.full_name)
                     .all()
                 )
-                seen = set()
-                for m in moves:
-                    if m.employee_id in seen:
-                        continue
-                    seen.add(m.employee_id)
-                    rows.append((m.employee, None, None))
+                rows.extend((m.employee, None, None) for m in moves)
         else:
             # انتداب: «في المكان» تعني أن الوجهة الحالية داخل المكان.
             if target_branch_ids:
-                moves = (
-                    Movement.query.join(Employee, Movement.employee_id == Employee.id)
+                latest_ids = (
+                    db.session.query(db.func.max(Movement.id).label('movement_id'))
+                    .join(Employee, Movement.employee_id == Employee.id)
                     .filter(
                         Employee.is_active == True,
                         Movement.is_active == True,
@@ -380,15 +428,16 @@ def render_read(a):
                         (Movement.to_date == None) | (Movement.to_date >= today),
                         Movement.destination_branch_id.in_(target_branch_ids),
                     )
-                    .order_by(Employee.full_name, Movement.id.desc())
+                    .group_by(Movement.employee_id)
+                    .subquery()
+                )
+                moves = (
+                    Movement.query.join(Employee, Movement.employee_id == Employee.id)
+                    .filter(Movement.id.in_(db.select(latest_ids.c.movement_id)))
+                    .order_by(Employee.full_name)
                     .all()
                 )
-                seen = set()
-                for m in moves:
-                    if m.employee_id in seen:
-                        continue
-                    seen.add(m.employee_id)
-                    rows.append((m, m.employee.branch, m.destination))
+                rows.extend((m, m.employee.branch, m.destination) for m in moves)
 
         if not rows:
             labels = {'إجازة': 'في إجازة', 'انتداب': 'منتدبين', 'إذن': 'عندهم إذن'}
@@ -428,26 +477,40 @@ def render_read(a):
                 'title': 'انتدابات اليوم',
                 'error': 'لا توجد محافظة مطابقة أو ليست ضمن نطاق صلاحياتك.',
             }
+        visible_branch_ids = set(bids())
         branches = (
-            Branch.query.filter_by(governorate_id=gov.id, is_active=True)
+            Branch.query
+            .filter(Branch.governorate_id == gov.id, Branch.is_active == True, Branch.id.in_(visible_branch_ids))
             .order_by(Branch.name)
             .all()
-        )
-        branches = [b for b in branches if _visible_branch(b)]
+        ) if visible_branch_ids else []
         branch_ids = {b.id for b in branches}
         rows = []
-        # الانتداب الحالي إلى فرع داخل المحافظة.
-        for e in (
-            Employee.query.filter(Employee.is_active == True)
-            .order_by(Employee.full_name)
-            .all()
-        ):
-            m = current_assignment_for_employee(e.id, date.today())
-            if not m or not m.destination_branch_id or m.destination_branch_id not in branch_ids:
-                continue
-            dest = db.session.get(Branch, m.destination_branch_id)
-            origin = e.branch
-            rows.append((e, m, origin, dest))
+        # الانتداب الحالي إلى فرع داخل المحافظة — استعلام واحد بدل حركة لكل موظف.
+        if branch_ids:
+            latest_ids = (
+                db.session.query(db.func.max(Movement.id).label('movement_id'))
+                .join(Employee, Movement.employee_id == Employee.id)
+                .filter(
+                    Employee.is_active == True,
+                    Movement.is_active == True,
+                    Movement.movement_type == 'انتداب',
+                    Movement.assignment_state != 'مغلق',
+                    Movement.from_date != None,
+                    Movement.from_date <= date.today(),
+                    db.or_(Movement.to_date == None, Movement.to_date >= date.today()),
+                    Movement.destination_branch_id.in_(branch_ids),
+                )
+                .group_by(Movement.employee_id)
+                .subquery()
+            )
+            moves = (
+                Movement.query.join(Employee, Movement.employee_id == Employee.id)
+                .filter(Movement.id.in_(db.select(latest_ids.c.movement_id)))
+                .order_by(Employee.full_name)
+                .all()
+            )
+            rows.extend((m.employee, m, m.employee.branch, m.destination) for m in moves)
         if not rows:
             return {
                 'title': f'منتدبو اليوم في محافظة {gov.name}',
@@ -473,12 +536,13 @@ def render_read(a):
                 'title': 'موظفو المحافظة',
                 'error': 'لا توجد محافظة مطابقة أو ليست ضمن نطاق صلاحياتك.',
             }
+        visible_branch_ids = set(bids())
         branches = (
-            Branch.query.filter_by(governorate_id=gov.id, is_active=True)
+            Branch.query
+            .filter(Branch.governorate_id == gov.id, Branch.is_active == True, Branch.id.in_(visible_branch_ids))
             .order_by(Branch.name)
             .all()
-        )
-        branches = [b for b in branches if _visible_branch(b)]
+        ) if visible_branch_ids else []
         employees = (
             (
                 Employee.query.filter(
@@ -506,15 +570,11 @@ def render_read(a):
         }
     if intent == 'employee_status':
         e = db.session.get(Employee, a.get('employee_id')) if a.get('employee_id') else None
-        if not _visible_employee(e):
+        if not visible_employee(e):
             return {
                 'title': 'نتيجة البحث',
                 'error': 'لم أجد موظفًا واحدًا مطابقًا.',
-                'choices': [
-                    db.session.get(Employee, i)
-                    for i in a.get('candidate_ids', [])
-                    if db.session.get(Employee, i)
-                ],
+                'choices': _load_candidate_records(Employee, a.get('candidate_ids', [])),
             }
         cur = current_assignment_for_employee(e.id)
         display_branch = cur.destination if cur and cur.destination else e.branch
@@ -529,15 +589,16 @@ def render_read(a):
             return {
                 'title': 'نتيجة البحث',
                 'error': 'لم أجد فرعًا واحدًا مطابقًا.',
-                'choices': [
-                    db.session.get(Branch, i)
-                    for i in a.get('candidate_ids', [])
-                    if db.session.get(Branch, i)
-                ],
+                'choices': _load_candidate_records(Branch, a.get('candidate_ids', [])),
             }
         employees = employees_effectively_in_branches([b.id])
         entry_links = (
-            EntryAssignmentBranch.query.join(EntryAssignment)
+            EntryAssignmentBranch.query
+            .options(
+                joinedload(EntryAssignmentBranch.assignment).joinedload(EntryAssignment.employee),
+                joinedload(EntryAssignmentBranch.assignment).joinedload(EntryAssignment.supervisor),
+            )
+            .join(EntryAssignment)
             .filter(EntryAssignmentBranch.branch_id == b.id, EntryAssignment.is_active == True)
             .all()
         )
@@ -555,23 +616,19 @@ def render_read(a):
 
         # الموظفون المنتدبون فعليًا إلى هذا الفرع: فرع التعيين مختلف،
         # والانتداب الحالي يجعل الفرع الحالي هو هذا الفرع.
-        inbound = []
-        for e in employees:
-            cur = current_assignment_for_employee(e.id)
-            if cur and cur.destination_branch_id == b.id and (e.branch_id != b.id):
-                inbound.append((e, cur))
+        employee_ids = [e.id for e in employees]
+        current_moves = {}
+        if employee_ids:
+            current_moves = _latest_current_movements(employee_ids, date.today())
 
-        leave_count = sum((1 for e in employees if 'إجازة' in employee_status_text(e)))
-        assignment_count = sum(
-            1
-            for e in employees
-            if 'انتداب' in employee_status_text(e)
-        )
-        permission_count = sum(
-            1
-            for e in employees
-            if employee_status_text(e) == 'إذن اليوم'
-        )
+        inbound = [
+            (e, m) for e in employees
+            for m in [current_moves.get(e.id)]
+            if m and m.movement_type == 'انتداب' and m.destination_branch_id == b.id and e.branch_id != b.id
+        ]
+        leave_count = sum(1 for m in current_moves.values() if m.movement_type == 'إجازة')
+        assignment_count = sum(1 for m in current_moves.values() if m.movement_type == 'انتداب')
+        permission_count = sum(1 for m in current_moves.values() if m.movement_type == 'إذن')
 
         def esc(v):
             return str(escape(v if v is not None else ''))
@@ -589,8 +646,7 @@ def render_read(a):
 
         current_cards = []
         for e in employees:
-            cur = current_assignment_for_employee(e.id)
-            status = employee_status_text(e)
+            status = _movement_status_text(current_moves.get(e.id))
             current_cards.append(
                 f'<div class="branch-employee-card"><div class="branch-employee-name">{esc(e.full_name)}</div><div class="branch-employee-meta"><span>{esc(status)}</span><span>فرع التعيين: {esc(e.branch.name if e.branch else 'غير محدد')}</span></div></div>',
             )
@@ -626,30 +682,33 @@ def render_read(a):
         return {'title': f'بيانات فرع {b.name}', 'html': Markup(answer)}
     if intent == 'employee_info':
         e = db.session.get(Employee, a.get('employee_id')) if a.get('employee_id') else None
-        if not _visible_employee(e):
+        if not visible_employee(e):
             return {
                 'title': 'نتيجة البحث',
                 'error': 'لم أجد موظفًا واحدًا مطابقًا.',
-                'choices': [
-                    db.session.get(Employee, i)
-                    for i in a.get('candidate_ids', [])
-                    if db.session.get(Employee, i)
-                ],
+                'choices': _load_candidate_records(Employee, a.get('candidate_ids', [])),
             }
         cur = current_assignment_for_employee(e.id)
         cb = cur.destination if cur and cur.destination else e.branch
         ms = (
             Movement.query.filter_by(employee_id=e.id, is_active=True)
             .order_by(Movement.id.desc())
+            .limit(20)
             .all()
         )
+        latest_by_kind = {}
+        for kind in ('إجازة', 'انتداب', 'إذن'):
+            latest_by_kind[kind] = (
+                Movement.query.filter_by(
+                    employee_id=e.id, is_active=True, movement_type=kind,
+                )
+                .order_by(Movement.id.desc())
+                .first()
+            )
 
-        def latest(kind):
-            return next((m for m in ms if m.movement_type == kind), None)
-
-        leave = latest('إجازة')
-        assignment = latest('انتداب')
-        permission = latest('إذن')
+        leave = latest_by_kind['إجازة']
+        assignment = latest_by_kind['انتداب']
+        permission = latest_by_kind['إذن']
         field = a.get('employee_field') or 'basic'
 
         def movement_text(m):
@@ -759,15 +818,11 @@ def render_read(a):
         }
     if intent == 'employee_movements':
         e = db.session.get(Employee, a.get('employee_id')) if a.get('employee_id') else None
-        if not _visible_employee(e):
+        if not visible_employee(e):
             return {
                 'title': 'نتيجة البحث',
                 'error': 'لم أجد موظفًا واحدًا مطابقًا.',
-                'choices': [
-                    db.session.get(Employee, i)
-                    for i in a.get('candidate_ids', [])
-                    if db.session.get(Employee, i)
-                ],
+                'choices': _load_candidate_records(Employee, a.get('candidate_ids', [])),
             }
         ms = (
             Movement.query.filter_by(employee_id=e.id, is_active=True)

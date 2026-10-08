@@ -17,6 +17,8 @@ from ..models import (Branch, Employee, Governorate, Lookup, User, UserGovernora
 from ..constants import LOGIN_ROLES, PERMISSIONS, ROLE_DEFAULT_PERMISSIONS
 from ..validation import parse_date, valid_email, valid_password
 from .directory import find_branch, find_employee
+from .movement_queries import resolve_movement_for_employee
+from .manager_resolvers import resolve_active_supervisor_by_name
 from ..assignments import sync_role_accounts
 
 ADMIN_ROLE = 'مسؤول التطبيق'
@@ -30,11 +32,16 @@ def _match_gov(name):
     if not name:
         return None, []
     q = str(name).strip().lower()
-    rows = Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all()
-    exact = [g for g in rows if (g.name or '').strip().lower() == q]
+    exact = (Governorate.query.filter(
+        Governorate.is_active == True,
+        Governorate.name.ilike(q),
+    ).order_by(Governorate.name).limit(2).all())
     if len(exact) == 1:
         return exact[0], []
-    partial = [g for g in rows if q in (g.name or '').strip().lower()]
+    partial = (Governorate.query.filter(
+        Governorate.is_active == True,
+        Governorate.name.ilike(f'%{q}%'),
+    ).order_by(Governorate.name).limit(11).all())
     return (partial[0], partial[1:]) if len(partial) == 1 else (None, partial[:10])
 
 
@@ -254,8 +261,7 @@ def plan(a):
             branches = list({b.id: b for b in branches}.values())
             sup = db.session.get(User, int(a['supervisor_id'])) if a.get('supervisor_id') else None
             if not sup and a.get('supervisor_name'):
-                matches = [u for u in User.query.filter_by(is_active=True).all() if a['supervisor_name'].strip().lower() in (u.full_name or '').lower() and 'مشرف محافظة' in actual_roles(u)]
-                sup = matches[0] if len(matches) == 1 else None
+                sup = resolve_active_supervisor_by_name(a['supervisor_name'])
             if not sup:
                 return {'title': 'المدخل الأول', 'error': 'اذكر المشرف المسؤول عن المدخل الأول باسمه.'}
             if 'مشرف محافظة' not in actual_roles(sup) or not sup.is_active:
@@ -286,11 +292,9 @@ def plan(a):
             if not gov and gm:
                 return {'title': 'تحديد المحافظة', 'choices': gm, 'error': 'وجدت أكثر من محافظة مطابقة.'}
         if not sup and a.get('supervisor_name'):
-            matches = [u for u in User.query.filter_by(is_active=True).all() if a['supervisor_name'].strip().lower() in u.full_name.lower() and 'مشرف محافظة' in actual_roles(u)]
-            sup = matches[0] if len(matches)==1 else None
+            sup = resolve_active_supervisor_by_name(a['supervisor_name'])
         if not delegate and a.get('delegate_name'):
-            matches = [u for u in User.query.filter_by(is_active=True).all() if a['delegate_name'].strip().lower() in u.full_name.lower() and 'مشرف محافظة' in actual_roles(u)]
-            delegate = matches[0] if len(matches)==1 else None
+            delegate = resolve_active_supervisor_by_name(a['delegate_name'])
         starts, ends = parse_date(a.get('starts_at')), parse_date(a.get('ends_at'))
         if not sup or not delegate or not gov or not starts or not ends or starts > ends:
             return {'title': 'إنشاء تفويض', 'error': 'أحتاج المشرف الأصلي والمشرف البديل والمحافظة وتاريخ البداية والنهاية.'}
@@ -418,26 +422,16 @@ def plan(a):
     if intent in ('movement_edit', 'movement_delete', 'movement_close', 'movement_reopen'):
         movement = db.session.get(Movement, int(a['movement_id'])) if a.get('movement_id') else None
         if not movement and a.get('employee_id'):
-            q = Movement.query.filter_by(employee_id=int(a['employee_id']), is_active=True)
-            if a.get('movement_type'):
-                q = q.filter_by(movement_type=a.get('movement_type'))
-            rows = q.order_by(Movement.created_at.desc(), Movement.id.desc()).all()
-            if len(rows) == 1:
-                movement = rows[0]
-            elif len(rows) > 1:
+            movement, multiple = resolve_movement_for_employee(a['employee_id'], a.get('movement_type'))
+            if multiple:
                 return {'title': 'تحديد الحركة', 'error': 'يوجد أكثر من حركة مطابقة. اذكر رقم الحركة.'}
         if not movement and a.get('employee_name'):
             e, matches = find_employee(a.get('employee_name'))
             if not e and matches:
                 return {'title': 'تحديد الموظف', 'choices': matches, 'error': 'حدد الموظف المقصود.'}
             if e:
-                q = Movement.query.filter_by(employee_id=e.id, is_active=True)
-                if a.get('movement_type'):
-                    q = q.filter_by(movement_type=a.get('movement_type'))
-                rows = q.order_by(Movement.created_at.desc(), Movement.id.desc()).all()
-                if len(rows) == 1:
-                    movement = rows[0]
-                elif len(rows) > 1:
+                movement, multiple = resolve_movement_for_employee(e.id, a.get('movement_type'))
+                if multiple:
                     return {'title': 'تحديد الحركة', 'error': 'يوجد أكثر من حركة مطابقة للموظف. اذكر رقم الحركة.'}
         if not movement:
             return {'title': 'إدارة الحركة', 'error': 'لم أجد الحركة المطلوبة.'}
@@ -508,8 +502,8 @@ def plan(a):
             return {'title':'تأكيد إضافة عنصر قائمة','plan':{'kind':intent,'lookup_kind':kind,'name':name},'preview':f'إضافة «{name}» إلى قائمة {"الحركات" if kind=="movement" else "أنواع الإجازات"}'}
         x = db.session.get(Lookup, int(a['lookup_id'])) if a.get('lookup_id') else None
         if not x and a.get('lookup_name'):
-            q=(a.get('lookup_name') or '').strip(); rows=Lookup.query.filter_by(kind=kind).all(); mm=[z for z in rows if q.lower() in z.name.lower()]; x=mm[0] if len(mm)==1 else None
-            if not x and mm: return {'title':'تحديد عنصر القائمة','choices':mm,'error':'وجدت أكثر من عنصر مطابق.'}
+            q=(a.get('lookup_name') or '').strip(); rows=Lookup.query.filter(Lookup.kind == kind, Lookup.name.ilike(f'%{q}%')).limit(20).all(); x=rows[0] if len(rows)==1 else None
+            if not x and len(rows) > 1: return {'title':'تحديد عنصر القائمة','choices':rows,'error':'وجدت أكثر من عنصر مطابق.'}
         if not x: return {'title':'إدارة القائمة','error':'لم أجد عنصر القائمة المطلوب.'}
         if intent == 'lookup_edit':
             new=(a.get('new_name') or '').strip()
@@ -528,9 +522,9 @@ def plan(a):
         if not d and a.get('supervisor_name') and a.get('governorate_name'):
             gov, _ = _match_gov(a['governorate_name'])
             if gov:
-                sups = [u for u in User.query.filter_by(is_active=True).all() if a['supervisor_name'].strip().lower() in (u.full_name or '').lower()]
-                if len(sups) == 1:
-                    d = ApprovalDelegation.query.filter_by(supervisor_id=sups[0].id, governorate_id=gov.id, is_active=True).order_by(ApprovalDelegation.id.desc()).first()
+                sup = resolve_active_supervisor_by_name(a['supervisor_name'])
+                if sup:
+                    d = ApprovalDelegation.query.filter_by(supervisor_id=sup.id, governorate_id=gov.id, is_active=True).order_by(ApprovalDelegation.id.desc()).first()
         if not d:
             return {'title': 'إلغاء التفويض', 'error': 'لم أجد التفويض المطلوب.'}
         return {'title': 'تأكيد إلغاء التفويض', 'plan': {'kind': intent, 'id': d.id, 'reason': a.get('reason') or 'إلغاء من مدير التطبيق'}, 'preview': 'إلغاء التفويض المحدد'}
@@ -587,7 +581,24 @@ def plan(a):
 
 
 def execute(plan):
-    """Execute a previously previewed plan, reloading all records and rechecking admin role."""
+    """Execute a previously previewed plan inside one atomic DB transaction.
+
+    A failed validation must never leave partial mutations pending in the
+    current SQLAlchemy session. The inner executor keeps the existing business
+    logic; this wrapper owns transaction rollback/commit boundaries.
+    """
+    try:
+        ok, message = _execute(plan)
+        if not ok:
+            db.session.rollback()
+        return ok, message
+    except Exception:
+        db.session.rollback()
+        raise
+
+
+def _execute(plan):
+    """Execute a previously previewed plan, reloading records and rechecking admin role."""
     if not is_app_manager():
         return False, 'لم تعد تملك صلاحية مسؤول التطبيق.'
     kind = plan.get('kind')
@@ -817,8 +828,12 @@ def execute(plan):
         e = db.session.get(Employee, plan['employee_id']); sup = db.session.get(User, plan['supervisor_id'])
         if not e or not e.is_active or not sup or 'مشرف محافظة' not in actual_roles(sup): return False, 'بيانات التكليف غير صالحة.'
         if EntryAssignment.query.filter_by(employee_id=e.id, is_active=True).first(): return False, 'الموظف لديه مدخل أول بالفعل.'
-        taken = {x.branch_id for x in EntryAssignmentBranch.query.join(EntryAssignment).filter(EntryAssignment.is_active == True).all()}
-        if set(plan['branch_ids']) & taken: return False, 'أحد الفروع مسند بالفعل إلى مدخل أول آخر.'
+        branch_ids = [int(x) for x in plan['branch_ids']]
+        taken = (EntryAssignmentBranch.query
+                 .join(EntryAssignment)
+                 .filter(EntryAssignment.is_active == True, EntryAssignmentBranch.branch_id.in_(branch_ids))
+                 .first())
+        if taken: return False, 'أحد الفروع مسند بالفعل إلى مدخل أول آخر.'
         a = EntryAssignment(employee_id=e.id, supervisor_id=sup.id, is_active=True); db.session.add(a); db.session.flush()
         for bid in plan['branch_ids']: db.session.add(EntryAssignmentBranch(entry_assignment_id=a.id, branch_id=bid))
         log('AI_MANAGER_ROLE','Employee',e.id,'تعيين مدخل أول تنظيمي'); message='تم تعيين المدخل الأول وفروع مسؤوليته.'
@@ -878,8 +893,11 @@ def execute(plan):
             keep_perms = set()
             for rr in remaining_roles:
                 keep_perms |= ROLE_DEFAULT_PERMISSIONS.get(rr, set())
-            for up in UserPermission.query.filter_by(user_id=u.id).all():
-                if up.permission in ROLE_DEFAULT_PERMISSIONS.get(role, set()) and up.permission not in keep_perms:
+            removable_perms = ROLE_DEFAULT_PERMISSIONS.get(role, set()) - keep_perms
+            for up in UserPermission.query.filter(
+                UserPermission.user_id == u.id,
+                UserPermission.permission.in_(removable_perms),
+            ).all():
                     db.session.delete(up)
         db.session.flush()
         sync_role_accounts(u)

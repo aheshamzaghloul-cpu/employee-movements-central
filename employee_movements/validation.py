@@ -52,43 +52,73 @@ def parse_date_value(v):
 
 
 def movement_overlaps(employee_id, mt, fd, td, pd, exclude_id=None):
-    q = Movement.query.filter(Movement.employee_id == employee_id, Movement.is_active == True)
-    if exclude_id:
-        q = q.filter(Movement.id != exclude_id)
+    """Return the first movement-overlap validation message without loading all rows."""
     start = parse_date_value(fd)
     end = parse_date_value(td)
     day = parse_date_value(pd)
-    for x in q.all():
-        if mt == 'إذن':
-            if day and x.movement_type == 'إذن' and (x.permission_date == day):
+
+    def active(q):
+        q = q.filter(Movement.employee_id == employee_id, Movement.is_active == True)
+        if exclude_id:
+            q = q.filter(Movement.id != exclude_id)
+        return q
+
+    if mt == 'إذن':
+        if day:
+            if active(Movement.query.filter(
+                Movement.movement_type == 'إذن',
+                Movement.permission_date == day,
+            )).first():
                 return 'يوجد إذن آخر للموظف في نفس التاريخ.'
-            if day and x.from_date and x.to_date and (x.from_date <= day <= x.to_date):
+
+            if active(Movement.query.filter(
+                Movement.from_date.isnot(None),
+                Movement.to_date.isnot(None),
+                Movement.from_date <= day,
+                Movement.to_date >= day,
+            )).first():
                 return 'تاريخ الإذن يتعارض مع حركة أخرى للموظف.'
-        elif start:
-            if (
-                x.movement_type == 'انتداب'
-                and x.assignment_state != 'مغلق'
-                and x.from_date
-                and x.to_date is None
-            ):
-                if end is None or end >= x.from_date:
-                    return 'يوجد انتداب مفتوح للموظف؛ أغلقه أو عدّل مدته قبل تسجيل حركة متعارضة.'
-            if (
-                x.from_date
-                and x.to_date
-                and (end is None or start <= x.to_date)
-                and (end is None or end >= x.from_date)
-            ):
-                return 'فترة الحركة تتعارض مع حركة أخرى للموظف.'
-            if (
-                x.movement_type == 'إذن'
-                and x.permission_date
-                and (
-                    end is None and x.permission_date >= start
-                    or end is not None and start <= x.permission_date <= end
-                )
-            ):
-                return 'فترة الحركة تتعارض مع إذن للموظف.'
+        return None
+
+    if not start:
+        return None
+
+    open_assignment = active(Movement.query.filter(
+        Movement.movement_type == 'انتداب',
+        Movement.assignment_state != 'مغلق',
+        Movement.from_date.isnot(None),
+        Movement.to_date.is_(None),
+    ))
+    if end is not None:
+        open_assignment = open_assignment.filter(Movement.from_date <= end)
+    if open_assignment.first():
+        return 'يوجد انتداب مفتوح للموظف؛ أغلقه أو عدّل مدته قبل تسجيل حركة متعارضة.'
+
+    dated = active(Movement.query.filter(
+        Movement.from_date.isnot(None),
+        Movement.to_date.isnot(None),
+    ))
+    if end is not None:
+        dated = dated.filter(
+            Movement.from_date <= end,
+            Movement.to_date >= start,
+        )
+    if dated.first():
+        return 'فترة الحركة تتعارض مع حركة أخرى للموظف.'
+
+    permission = active(Movement.query.filter(
+        Movement.movement_type == 'إذن',
+        Movement.permission_date.isnot(None),
+    ))
+    if end is None:
+        permission = permission.filter(Movement.permission_date >= start)
+    else:
+        permission = permission.filter(
+            Movement.permission_date >= start,
+            Movement.permission_date <= end,
+        )
+    if permission.first():
+        return 'فترة الحركة تتعارض مع إذن للموظف.'
     return None
 
 
@@ -111,6 +141,16 @@ def validate_movement_fields(mt, leave_type, dest, fd, td, pd):
     if fd and td and (fd > td):
         return 'من لا يجوز أن يكون بعد إلى.'
     return None
+
+
+def parse_optional_iso_date(v):
+    """Parse an optional YYYY-MM-DD filter value without raising."""
+    if not v:
+        return None
+    try:
+        return datetime.strptime(v, '%Y-%m-%d').date()
+    except ValueError:
+        return None
 
 
 def parse_date(v):

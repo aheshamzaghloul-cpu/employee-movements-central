@@ -13,10 +13,12 @@ import urllib.request
 
 from flask import current_app, request, session
 
-from ..access import actual_roles, branch_ok, can, effective_user_gov_ids, me, roles, user_gov_ids
+from ..access import actual_roles, bids, branch_ok, can, effective_user_gov_ids, me, roles, user_gov_ids
 from ..extensions import db
 from ..models import Branch, Employee, Governorate, Movement
 from .directory import find_branch, find_employee
+from .pending import store_pending_plan
+from .visibility import visible_employee
 from .llm import DEFAULT_MODEL
 
 logger = logging.getLogger(__name__)
@@ -245,16 +247,6 @@ def _tool_context_text(ctx):
     }, ensure_ascii=False)
 
 
-def _visible_employee(e):
-    if not e or not getattr(e, "is_active", False):
-        return False
-    try:
-        rs = roles()
-        return True if ('مسؤول التطبيق' in rs or 'مشرف محافظة' in rs) else branch_ok(e.branch_id)
-    except Exception:
-        return False
-
-
 def _employee_summary(e):
     branch = getattr(e, "branch", None)
     gov = getattr(branch, "governorate", None) if branch else None
@@ -282,20 +274,29 @@ def tool_execute(name, args, ctx):
         limit = max(1, min(10, _safe_int(args.get("limit")) or 8))
         if not q:
             return {"ok": False, "error": "أدخل اسم الموظف أو الكود."}
+        pattern = f"%{q}%"
+        candidate_query = Employee.query.filter(
+            Employee.is_active == True,
+            db.or_(
+                Employee.full_name.ilike(pattern),
+                Employee.employee_code.ilike(pattern),
+                Employee.job_code.ilike(pattern),
+                Employee.company_phone.ilike(pattern),
+                Employee.personal_phone.ilike(pattern),
+            ),
+        ).order_by(Employee.full_name).limit(max(limit * 5, 20))
         rows = []
-        for e in Employee.query.order_by(Employee.full_name).all():
-            if not _visible_employee(e):
+        for e in candidate_query.all():
+            if not visible_employee(e):
                 continue
-            hay = " ".join(filter(None, [e.full_name, e.employee_code, e.job_code, e.company_phone, e.personal_phone])).lower()
-            if q in hay:
-                rows.append(_employee_summary(e))
-                if len(rows) >= limit:
-                    break
+            rows.append(_employee_summary(e))
+            if len(rows) >= limit:
+                break
         return {"ok": True, "count": len(rows), "employees": rows}
     if name == "get_employee_profile":
         eid = _safe_int(args.get("employee_id"))
         e = db.session.get(Employee, eid) if eid else None
-        if not _visible_employee(e):
+        if not visible_employee(e):
             return {"ok": False, "error": "الموظف غير موجود أو خارج نطاق الصلاحية."}
         session["assistant_context_employee_id"] = e.id
         movements = (Movement.query.filter_by(employee_id=e.id).order_by(Movement.id.desc()).limit(8).all())
@@ -307,7 +308,7 @@ def tool_execute(name, args, ctx):
                 "from_date": str(m.from_date) if m.from_date else None,
                 "to_date": str(m.to_date) if m.to_date else None,
                 "permission_date": str(m.permission_date) if m.permission_date else None,
-                "destination_branch": m.destination_branch.name if getattr(m, "destination_branch", None) else None,
+                "destination_branch": m.destination.name if m.destination else None,
                 "status": m.status,
                 "assignment_state": m.assignment_state,
             } for m in movements],
@@ -316,31 +317,36 @@ def tool_execute(name, args, ctx):
         q = str(args.get("query") or "").strip().lower()
         limit = max(1, min(10, _safe_int(args.get("limit")) or 8))
         gid = _safe_int(args.get("governorate_id"))
-        rows = []
-        for b in Branch.query.filter_by(is_active=True).order_by(Branch.name).all():
-            if gid and b.governorate_id != gid:
-                continue
-            if not ('مسؤول التطبيق' in roles() or 'مشرف محافظة' in roles()) and not branch_ok(b.id):
-                continue
-            if q and q not in (b.name or "").lower() and q not in str(b.code or "").lower():
-                continue
-            rows.append({"id": b.id, "name": b.name, "code": b.code, "governorate": b.governorate.name if b.governorate else None, "governorate_id": b.governorate_id})
-            if len(rows) >= limit:
-                break
-        return {"ok": True, "count": len(rows), "branches": rows}
+        pattern = f"%{q}%" if q else None
+        query = Branch.query.filter(Branch.is_active == True)
+        if gid:
+            query = query.filter(Branch.governorate_id == gid)
+        if pattern:
+            query = query.filter(db.or_(Branch.name.ilike(pattern), Branch.code.ilike(pattern)))
+        if not ('مسؤول التطبيق' in roles() or 'مشرف محافظة' in roles()):
+            allowed = set(bids())
+            if not allowed:
+                return {"ok": True, "count": 0, "branches": []}
+            query = query.filter(Branch.id.in_(allowed))
+        rows = query.order_by(Branch.name).limit(limit).all()
+        return {"ok": True, "count": len(rows), "branches": [{
+            "id": b.id, "name": b.name, "code": b.code,
+            "governorate": b.governorate.name if b.governorate else None,
+            "governorate_id": b.governorate_id,
+        } for b in rows]}
     if name == "search_governorates":
         q = str(args.get("query") or "").strip().lower()
         limit = max(1, min(10, _safe_int(args.get("limit")) or 8))
-        rows = []
-        for g in Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all():
-            if q and q not in (g.name or "").lower():
-                continue
-            if not (set(effective_user_gov_ids(me())) & {g.id}) and 'مسؤول التطبيق' not in roles():
-                continue
-            rows.append({"id": g.id, "name": g.name})
-            if len(rows) >= limit:
-                break
-        return {"ok": True, "count": len(rows), "governorates": rows}
+        query = Governorate.query.filter(Governorate.is_active == True)
+        if q:
+            query = query.filter(Governorate.name.ilike(f"%{q}%"))
+        if 'مسؤول التطبيق' not in roles():
+            allowed = set(effective_user_gov_ids(me()))
+            if not allowed:
+                return {"ok": True, "count": 0, "governorates": []}
+            query = query.filter(Governorate.id.in_(allowed))
+        rows = query.order_by(Governorate.name).limit(limit).all()
+        return {"ok": True, "count": len(rows), "governorates": [{"id": g.id, "name": g.name} for g in rows]}
     if name == "search_movements":
         query = Movement.query.join(Employee).filter(Employee.is_active == True)
         eid = _safe_int(args.get("employee_id"))
@@ -351,10 +357,13 @@ def tool_execute(name, args, ctx):
         if mt: query = query.filter(Movement.movement_type == mt)
         if gid: query = query.filter(Employee.branch.has(governorate_id=gid))
         if bid: query = query.filter(Employee.branch_id == bid)
+        if not ('مسؤول التطبيق' in roles() or 'مشرف محافظة' in roles()):
+            allowed_branches = bids()
+            if not allowed_branches:
+                return {"ok": True, "count": 0, "movements": []}
+            query = query.filter(Employee.branch_id.in_(allowed_branches))
         rows = []
         for m in query.order_by(Movement.id.desc()).limit(30).all():
-            if not ('مسؤول التطبيق' in roles() or 'مشرف محافظة' in roles()) and not branch_ok(m.employee.branch_id):
-                continue
             date_filter = str(args.get("date") or "").strip()
             if date_filter:
                 candidates = [m.from_date, m.to_date, m.permission_date]
@@ -366,7 +375,7 @@ def tool_execute(name, args, ctx):
                 "from_date": str(m.from_date) if m.from_date else None,
                 "to_date": str(m.to_date) if m.to_date else None,
                 "permission_date": str(m.permission_date) if m.permission_date else None,
-                "destination_branch": m.destination_branch.name if getattr(m, "destination_branch", None) else None,
+                "destination_branch": m.destination.name if m.destination else None,
                 "status": m.status, "assignment_state": m.assignment_state,
             })
         return {"ok": True, "count": len(rows), "movements": rows}
@@ -512,9 +521,9 @@ def run_agent(prompt, prior_chat, workspace_context):
             if result.get("needs_confirmation") and result.get("plan"):
                 pending_result = result
                 if result.get("plan_kind") == "manager":
-                    session["assistant_manager_pending"] = result["plan"]
+                    store_pending_plan("assistant_manager_pending", result["plan"])
                 else:
-                    session["assistant_pending"] = result["plan"]
+                    store_pending_plan("assistant_pending", result["plan"])
             if result.get("navigate"):
                 navigation = result["navigate"]
                 context["navigate"] = result["navigate"]

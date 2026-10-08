@@ -1,3 +1,6 @@
+## v68.15.19 — Review Access Guard Fix
+- Fixed missing Flask `abort` import in the temporary review-access route so disabled/invalid review access returns the intended 404 instead of raising NameError.
+
 ## v68.15.14 — Basyouni Tool Execution Boundary
 - Added static contracts proving Gemini tool dispatch can only prepare mutations.
 - Confirmed direct manager/movement execution remains behind pending-plan confirmation.

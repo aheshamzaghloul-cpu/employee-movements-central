@@ -83,6 +83,8 @@ def validate_and_execute_mission_edit_request(
     if (
         not destination
         or not destination.is_active
+        or not destination.governorate
+        or not destination.governorate.is_active
         or not from_date
         or final_state not in ('مغلقة', 'تحت التحرير')
     ):

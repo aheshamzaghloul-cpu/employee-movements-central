@@ -46,7 +46,7 @@ def mission_edit(movement_id):
         return redirect('/reports/assignments/print-missions')
     bs = bids()
     branches = (
-        Branch.query.filter(Branch.is_active == True).order_by(Branch.name.asc()).all()
+        Branch.query.join(Governorate, Governorate.id == Branch.governorate_id).filter(Branch.is_active == True, Governorate.is_active == True).order_by(Branch.name.asc()).all()
     )
     destination_governorates = Governorate.query.filter(Governorate.is_active == True).order_by(Governorate.name.asc()).all()
     return render_template('mission_edit.html', m=m, branches=branches, destination_governorates=destination_governorates)
@@ -74,6 +74,8 @@ def mission_edit_save(movement_id):
     if (
         not destination
         or not destination.is_active
+        or not destination.governorate
+        or not destination.governorate.is_active
     ):
         flash('اختر جهة مأمورية صحيحة من الفروع النشطة.')
         return redirect(url_for('missions.mission_edit', movement_id=movement_id))
@@ -246,8 +248,8 @@ def mission_pdf(movement_id):
 def mission_print_list():
     if not can('view_reports'):
         abort(403)
-    # المأموريات تعمل داخل نطاق المحافظة المختارة لمسؤول التطبيق وManager،
-    # وداخل محافظات المشرف للمشرف؛ لا تُعرض بيانات تشغيلية قبل تحديد النطاق.
+    # المدير المركزي ومسؤول التطبيق والمشرف يمكنهم متابعة المأموريات عبر المحافظات؛
+    # نطاق المدير المركزي هنا شامل، مع بقاء باقي الصفحات التشغيلية خاضعة لنطاقها المعتاد.
     from ..services.mission_query import build_mission_report_context
 
     context = build_mission_report_context(
@@ -290,7 +292,11 @@ def mission_edit_requests():
     rs = roles()
     if not ({'مسؤول التطبيق', 'Manager Application Support'} & rs) or not can('manage_movements'):
         abort(403)
-    rows = list_pending_mission_edit_requests(rs, bids())
+    if 'مسؤول التطبيق' in rs or 'Manager Application Support' in rs:
+        all_branch_ids = {b.id for b in Branch.query.join(Governorate, Governorate.id == Branch.governorate_id).filter(Branch.is_active == True, Governorate.is_active == True).all()}
+        rows = list_pending_mission_edit_requests({'مسؤول التطبيق'}, all_branch_ids)
+    else:
+        rows = list_pending_mission_edit_requests(rs, bids())
     return render_template('mission_edit_requests.html', rows=rows)
 
 
@@ -303,7 +309,7 @@ def mission_edit_request_review(request_id):
     r = db.session.get(MissionEditRequest, request_id)
     if not r or r.status != 'قيد المراجعة':
         abort(404)
-    if 'مسؤول التطبيق' not in rs and not branch_ok(r.movement.employee.branch_id):
+    if not ({'مسؤول التطبيق', 'Manager Application Support'} & rs) and not branch_ok(r.movement.employee.branch_id):
         abort(403)
     branches, govs = mission_edit_request_review_context(r)
     return render_template('mission_edit_request_review.html', request_row=r, m=r.movement, branches=branches, destination_governorates=govs)
@@ -319,7 +325,7 @@ def mission_edit_request_save(request_id):
     if not r or r.status != 'قيد المراجعة':
         abort(404)
     m = r.movement
-    if 'مسؤول التطبيق' not in rs and not branch_ok(m.employee.branch_id):
+    if not ({'مسؤول التطبيق', 'Manager Application Support'} & rs) and not branch_ok(m.employee.branch_id):
         abort(403)
     dest_id = (request.form.get('destination_branch_id') or '').strip()
     destination = db.session.get(Branch, int(dest_id)) if dest_id.isdigit() else None
@@ -343,7 +349,7 @@ def mission_export_xlsx():
     if not can('view_reports'):
         abort(403)
     rs = roles()
-    global_actor = 'مسؤول التطبيق' in rs or 'مشرف محافظة' in rs
+    global_actor = bool({'مسؤول التطبيق', 'Manager Application Support', 'مشرف محافظة'} & rs)
     allowed_bids = set(bids())
     q = Movement.query.join(Employee).filter(
         Movement.is_active == True,
@@ -389,8 +395,8 @@ def mission_monthly_aggregation():
     """Monthly closed-mission aggregation for Manager/Admin incentive preparation.
 
     This is intentionally a factual aggregation only: it does not invent or apply
-    an incentive formula. Manager scope remains the selected work governorate;
-    application admin remains global.
+    an incentive formula. Manager and application admin both receive a
+    cross-governorate aggregation.
     """
     rs = roles()
     if not ({'مسؤول التطبيق', 'Manager Application Support'} & rs) or not can('view_reports'):
@@ -410,10 +416,8 @@ def mission_monthly_aggregation():
     next_month = (month_start.replace(day=28) + _timedelta(days=4)).replace(day=1)
     month_value = month_start.strftime('%Y-%m')
 
-    if 'مسؤول التطبيق' in rs:
-        scope_branch_ids = {
-            b.id for b in Branch.query.filter_by(is_active=True).all()
-        }
+    if {'مسؤول التطبيق', 'Manager Application Support'} & rs:
+        scope_branch_ids = {b.id for b in Branch.query.join(Governorate, Governorate.id == Branch.governorate_id).filter(Branch.is_active == True, Governorate.is_active == True).all()}
     else:
         scope_branch_ids = set(bids())
 

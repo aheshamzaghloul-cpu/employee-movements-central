@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 from flask import abort, Blueprint, flash, redirect, render_template, request, url_for
 
 from ..assignments import resolve_current_movement
-from ..access import bids, branch_ok, can, can_manage_movement, can_manage_movement_employee, gids, log, me, req, roles
+from ..access import bids, branch_ok, can, can_manage_movement, can_manage_movement_destination, can_manage_movement_employee, gids, log, me, req, roles
 from ..constants import ASSIGNMENT_ALERT_DAYS
 from ..extensions import db
 from ..models import Branch, Employee, Governorate, Movement, MovementHistory, User
@@ -39,17 +39,17 @@ def movement_employees_api():
             return {'results': [], 'branches': []}
     branch_rows = (
         (
-            Branch.query.filter(Branch.governorate_id == gov.id, Branch.is_active == True)
+            Branch.query.join(Governorate, Governorate.id == Branch.governorate_id).filter(Branch.governorate_id == gov.id, Branch.is_active == True, Governorate.is_active == True)
             .order_by(Branch.name.asc())
             .all()
         )
         if gov
-        else Branch.query.filter_by(is_active=True).order_by(Branch.name.asc()).all()
+        else Branch.query.join(Governorate, Governorate.id == Branch.governorate_id).filter(Branch.is_active == True, Governorate.is_active == True).order_by(Branch.name.asc()).all()
     )
-    # Supervisors may pick an employee from any active branch only for
-    # assignment/mission registration. Leave and permission remain scoped.
+    # Supervisors and the central Manager may pick an employee from any active
+    # branch only for assignment/mission registration. Leave and permission remain scoped.
     rs = roles()
-    global_assignment_picker = movement_type == 'انتداب' and ('مسؤول التطبيق' in rs or 'مشرف محافظة' in rs)
+    global_assignment_picker = movement_type == 'انتداب' and bool(rs & {'مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'})
     if not global_assignment_picker and 'مسؤول التطبيق' not in rs:
         branch_rows = [b for b in branch_rows if branch_ok(b.id)]
     branch_ids = [b.id for b in branch_rows]
@@ -116,7 +116,9 @@ def movement_preflight_api():
     destination_id = int(destination_raw) if destination_raw.isdigit() else None
     if movement_type == 'انتداب' and destination_id is not None:
         destination = db.session.get(Branch, destination_id)
-        if not destination or not destination.is_active:
+        if not destination or not destination.is_active or not destination.governorate or not destination.governorate.is_active:
+            abort(403)
+        if not can_manage_movement_destination(destination, movement_type):
             abort(403)
     if movement_type == 'انتداب' and open_assignment:
         to_date = None
@@ -200,7 +202,7 @@ def movements_page_filters_api():
         else set(gids())
     )
     allowed_bids = (
-        {b.id for b in Branch.query.filter_by(is_active=True).all()}
+        {b.id for b in Branch.query.join(Governorate, Governorate.id == Branch.governorate_id).filter(Branch.is_active == True, Governorate.is_active == True).all()}
         if global_movement_picker
         else set(bids())
     )
@@ -301,7 +303,9 @@ def movement_create():
     to_date = None if (movement_type == 'انتداب' and form.get('open_assignment') == '1') else ((form.get('leave_to_date') if movement_type == 'إجازة' else form.get('assignment_to_date')) or None)
     permission_date = form.get('permission_date') or None
     destination_id = destination.id if destination else None
-    if movement_type == 'انتداب' and (destination is None or not destination.is_active):
+    if movement_type == 'انتداب' and (destination is None or not destination.is_active or not destination.governorate or not destination.governorate.is_active):
+        abort(403)
+    if movement_type == 'انتداب' and not can_manage_movement_destination(destination, movement_type):
         abort(403)
 
     error = validate_movement_fields(
@@ -357,7 +361,7 @@ def movements():
     global_assignment_actor = 'مسؤول التطبيق' in rs or 'مشرف محافظة' in rs
     bs = bids()
     scoped_branches = (
-        Branch.query.filter(Branch.is_active == True).order_by(Branch.name.asc()).all()
+        Branch.query.join(Governorate, Governorate.id == Branch.governorate_id).filter(Branch.is_active == True, Governorate.is_active == True).order_by(Branch.name.asc()).all()
         if global_assignment_actor
         else (
             Branch.query.filter(Branch.id.in_(bs), Branch.is_active == True)
@@ -416,7 +420,7 @@ def movements():
         )
     ]
     followup_rows.sort(key=lambda m: (m.to_date or date.max, m.id))
-    destination_branches = Branch.query.filter(Branch.is_active == True).order_by(Branch.name.asc()).all()
+    destination_branches = Branch.query.join(Governorate, Governorate.id == Branch.governorate_id).filter(Branch.is_active == True, Governorate.is_active == True).order_by(Branch.name.asc()).all()
     return render_template(
         'movements.html',
         rows=rows,
@@ -470,7 +474,12 @@ def movement_edit(i):
         )
         if mt == 'انتداب':
             destination = db.session.get(Branch, dest) if dest else None
-            if destination is None or not destination.is_active:
+            if (
+                destination is None
+                or not destination.is_active
+                or not destination.governorate
+                or not destination.governorate.is_active
+            ):
                 abort(403)
         fd = f.get('from_date')
         td = f.get('to_date')
@@ -526,11 +535,11 @@ def movement_edit(i):
             .order_by(Employee.full_name).all()
         ),
         bs=(
-            Branch.query.filter(Branch.is_active == True).order_by(Branch.name.asc()).all()
+            Branch.query.join(Governorate, Governorate.id == Branch.governorate_id).filter(Branch.is_active == True, Governorate.is_active == True).order_by(Branch.name.asc()).all()
             if ('مسؤول التطبيق' in roles() or 'مشرف محافظة' in roles())
             else Branch.query.filter(Branch.id.in_(bids()), Branch.is_active == True).all()
         ),
-        destination_branches=Branch.query.filter(Branch.is_active == True).order_by(Branch.name.asc()).all(),
+        destination_branches=Branch.query.join(Governorate, Governorate.id == Branch.governorate_id).filter(Branch.is_active == True, Governorate.is_active == True).order_by(Branch.name.asc()).all(),
         destination_governorates=Governorate.query.filter(Governorate.is_active == True).order_by(Governorate.name.asc()).all(),
         leave_types=active_leave_types(),
         movement_types=active_movement_types(),

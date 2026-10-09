@@ -3,13 +3,109 @@
 from flask import abort, Blueprint, render_template, request
 from datetime import date, timedelta
 
-from ..access import bids, can, gids, req
+from ..access import bids, can, gids, req, roles
 from ..constants import MOVEMENT_TYPES, STATUSES
 from ..extensions import db
-from ..models import Audit, Branch, Employee, Governorate, Movement, User
+from ..models import Audit, Branch, Employee, Governorate, Movement, User, MissionEditRequest
 from ..validation import active_movement_types, parse_optional_iso_date
 
 bp = Blueprint('reports', __name__)
+
+
+def _report_branch_scope():
+    """Resolve report scope without letting query parameters expand permissions.
+
+    Manager/Admin reports default to all active governorates. A selected
+    governorate narrows those reports. Supervisors remain limited to their
+    authorized branch set even if they alter the query string.
+    """
+    rs = roles()
+    raw_gid = (request.args.get('governorate_id') or '').strip()
+    central = bool({'مسؤول التطبيق', 'Manager Application Support'} & rs)
+    if central:
+        branch_query = Branch.query.filter_by(is_active=True)
+        if raw_gid:
+            if not raw_gid.isdigit():
+                abort(404)
+            governorate = db.session.get(Governorate, int(raw_gid))
+            if not governorate or not governorate.is_active:
+                abort(404)
+            branch_query = branch_query.filter(Branch.governorate_id == governorate.id)
+        return {b.id for b in branch_query.all()}, central
+
+    allowed = set(bids())
+    if raw_gid:
+        if not raw_gid.isdigit() or int(raw_gid) not in set(gids()):
+            abort(403)
+        branch_ids = {
+            b.id for b in Branch.query.filter_by(
+                is_active=True, governorate_id=int(raw_gid)
+            ).all()
+        }
+        allowed &= branch_ids
+    return allowed, central
+
+
+@bp.get('/manager')
+@req
+def manager_hub():
+    """Central cross-governorate workspace for Manager Application Support and admins.
+
+    The Manager is the central operational lead above all governorate supervisors.
+    This workspace intentionally aggregates every active governorate; it does not
+    inherit the selected work-governorate filter used by daily operational pages.
+    """
+    from ..access import roles
+    rs = roles()
+    if not ({'مسؤول التطبيق', 'Manager Application Support'} & rs) or not can('view_reports'):
+        abort(403)
+
+    # Manager and Admin both have global oversight in this dedicated workspace.
+    branches = Branch.query.filter_by(is_active=True).order_by(Branch.name.asc()).all()
+    governorates = Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all()
+    allowed_branch_ids = {b.id for b in branches}
+
+    pending_q = MissionEditRequest.query.filter_by(status='قيد المراجعة').join(Movement).join(
+        Employee, Movement.employee_id == Employee.id
+    )
+    if allowed_branch_ids:
+        pending_q = pending_q.filter(Employee.branch_id.in_(allowed_branch_ids))
+    else:
+        pending_q = pending_q.filter(False)
+    pending_requests = pending_q.order_by(
+        MissionEditRequest.created_at.asc(), MissionEditRequest.id.asc()
+    ).limit(8).all()
+    pending_count = pending_q.count()
+
+    governorate_reports = []
+    for governorate in governorates:
+        gov_branch_ids = {b.id for b in branches if b.governorate_id == governorate.id}
+        if not gov_branch_ids:
+            continue
+        employee_q = Employee.query.filter(Employee.branch_id.in_(gov_branch_ids), Employee.is_active == True)
+        movement_q = Movement.query.join(Employee).filter(
+            Employee.branch_id.in_(gov_branch_ids), Movement.is_active == True
+        )
+        governorate_reports.append({
+            'governorate': governorate,
+            'branches': len(gov_branch_ids),
+            'employees': employee_q.count(),
+            'leave': movement_q.filter(Movement.movement_type == 'إجازة').count(),
+            'assignments': movement_q.filter(Movement.movement_type == 'انتداب').count(),
+            'permissions': movement_q.filter(Movement.movement_type == 'إذن').count(),
+            'closed_missions': movement_q.filter(
+                Movement.movement_type == 'انتداب', Movement.mission_state == 'مغلقة'
+            ).count(),
+        })
+
+    return render_template(
+        'manager_hub.html',
+        pending_requests=pending_requests,
+        pending_count=pending_count,
+        governorate_reports=governorate_reports,
+        scope_has_data=bool(allowed_branch_ids),
+        manager_hub_is_admin='مسؤول التطبيق' in rs,
+    )
 
 
 @bp.get('/audit')
@@ -32,7 +128,8 @@ def audit():
 def reports_missions():
     if not (can('view_reports') or can('manage_movements')):
         abort(403)
-    bs = bids()
+    bs, is_central_manager = _report_branch_scope()
+    requested_gid = (request.args.get('governorate_id') or '').strip()
     movement_q = (
         Movement.query.join(Employee).filter(Employee.branch_id.in_(bs), Movement.is_active == True)
         if bs else Movement.query.filter(False)
@@ -64,7 +161,16 @@ def reports_missions():
             Movement.to_date <= week_end,
         ).count(),
     }
-    return render_template('reports_missions.html', report_stats=stats, report_today=today, report_week_end=week_end)
+    selected_governorate = None
+    if is_central_manager and requested_gid.isdigit():
+        selected_governorate = db.session.get(Governorate, int(requested_gid))
+        if not selected_governorate or not selected_governorate.is_active:
+            abort(404)
+    return render_template(
+        'reports_missions.html', report_stats=stats, report_today=today,
+        report_week_end=week_end, selected_governorate=selected_governorate,
+        manager_global_report=is_central_manager and not requested_gid.isdigit(),
+    )
 
 
 @bp.get('/reports')
@@ -72,7 +178,7 @@ def reports_missions():
 def reports():
     if not can('view_reports'):
         abort(403)
-    bs = bids()
+    bs, _central_report = _report_branch_scope()
     q = (
         Movement.query.join(Employee).filter(Employee.branch_id.in_(bs), Movement.is_active == True)
         if bs
@@ -106,7 +212,7 @@ def employee_type_report(report_type):
     if report_type not in mapping:
         abort(404)
     mt = mapping[report_type]
-    bs = bids()
+    bs, central_report = _report_branch_scope()
     q = (
         (
             Movement.query.join(Employee)
@@ -135,16 +241,11 @@ def employee_type_report(report_type):
     report_branch = request.args.get('branch_id', '').strip()
     if report_gov.isdigit():
         gid = int(report_gov)
-        gov_allowed = (
-            {
-                g.id
-                for g in Governorate.query.filter(Governorate.is_active == True).all()
-                if g.id in set(gids())
-            }
-            if gids()
-            else set()
+        allowed_ids = (
+            {g.id for g in Governorate.query.filter_by(is_active=True).all()}
+            if central_report else set(gids())
         )
-        if gid in gov_allowed:
+        if gid in allowed_ids:
             q = q.filter(Employee.branch.has(Branch.governorate_id == gid))
     if report_branch.isdigit():
         bid = int(report_branch)
@@ -180,7 +281,10 @@ def employee_type_report(report_type):
     selected_gov = request.args.get('governorate_id', '').strip()
     selected_branch = request.args.get('branch_id', '').strip()
 
-    allowed_gov_ids = set(gids())
+    allowed_gov_ids = (
+        {g.id for g in Governorate.query.filter_by(is_active=True).all()}
+        if central_report else set(gids())
+    )
     allowed_govs = (
         (
             Governorate.query.filter(

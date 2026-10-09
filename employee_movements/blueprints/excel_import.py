@@ -2,6 +2,7 @@
 
 import io
 import json
+import logging
 import os
 import re
 import secrets
@@ -16,6 +17,7 @@ from ..models import Branch, Employee, Governorate
 from ..validation import valid_email
 
 bp = Blueprint('excel_import', __name__)
+logger = logging.getLogger(__name__)
 
 
 # ---------- Excel import helpers ----------
@@ -411,8 +413,9 @@ def excel_import_preview(kind):
             return redirect(url_for('excel_import.excel_import_page', kind=kind))
         session['excel_import_token'] = token
         return _render_mapping(kind, token, path)
-    except Exception as ex:
-        flash('تعذر قراءة ملف Excel: ' + str(ex))
+    except Exception:
+        logger.exception('Excel import preview failed (kind=%s)', kind)
+        flash('تعذر قراءة ملف Excel. تحقق من سلامة الملف وحجمه ثم حاول مرة أخرى.')
         return redirect(url_for('excel_import.excel_import_page', kind=kind))
 
 
@@ -722,14 +725,16 @@ def excel_import_confirm(kind):
             errors=errors,
             fields=fields,
         )
-    except Exception as ex:
+    except Exception:
+        logger.exception('Excel import confirmation failed (kind=%s)', kind)
         try:
             wb.close()
         except Exception:
             pass
         _remove_pending_excel(token)
         session.pop('excel_import_token', None)
-        flash('تعذر تحليل ملف Excel: ' + str(ex))
+        session.pop('excel_review_token', None)
+        flash('تعذر تحليل ملف Excel. لم يتم حفظ أي تغييرات؛ راجع الملف وحاول مرة أخرى.')
         return redirect(url_for('excel_import.excel_import_page', kind=kind))
 
 
@@ -742,17 +747,29 @@ def excel_import_apply(kind):
     review_path = _pending_excel_review_path(token) if token else None
     if (
         not token
+        or session.get('excel_import_token') != token
         or not path
         or not os.path.isfile(path)
         or not review_path
         or not os.path.isfile(review_path)
     ):
-        flash('انتهت جلسة مراجعة ملف Excel. ارفع الملف مرة أخرى.')
+        _remove_pending_excel(token)
+        session.pop('excel_import_token', None)
+        session.pop('excel_review_token', None)
+        flash('انتهت جلسة مراجعة ملف Excel أو لم تعد متطابقة. ارفع الملف وراجعه مرة أخرى.')
         return redirect(url_for('excel_import.excel_import_page', kind=kind))
     try:
         with open(review_path, 'r', encoding='utf-8') as fh:
             review = json.load(fh)
+        if not isinstance(review, dict) or review.get('kind') != kind:
+            _remove_pending_excel(token)
+            session.pop('excel_import_token', None)
+            session.pop('excel_review_token', None)
+            flash('نوع ملف المراجعة لا يطابق العملية المطلوبة. ارفع الملف وراجعه مرة أخرى.')
+            return redirect(url_for('excel_import.excel_import_page', kind=kind))
         actions = review.get('actions', [])
+        if not isinstance(actions, list):
+            raise ValueError('Invalid review actions structure')
         selected = set(request.form.getlist('change'))
         added = updated = skipped = 0
         errors = list(review.get('errors', []))
@@ -825,7 +842,7 @@ def excel_import_apply(kind):
                         changed = True
                     if changed:
                         updated += 1
-        db.session.commit()
+        # Keep imported records and their audit entry in one transaction.
         log(
             'IMPORT',
             'Governorate' if kind == 'governorates' else ('Branch' if kind == 'branches' else 'Employee'),
@@ -845,10 +862,11 @@ def excel_import_apply(kind):
             skipped=skipped,
             errors=errors,
         )
-    except Exception as ex:
+    except Exception:
         db.session.rollback()
+        logger.exception('Excel import apply failed (kind=%s)', kind)
         _remove_pending_excel(token)
         session.pop('excel_import_token', None)
         session.pop('excel_review_token', None)
-        flash('تعذر تطبيق تغييرات Excel: ' + str(ex))
+        flash('تعذر تطبيق تغييرات Excel. تم التراجع عن العملية؛ راجع سجل التشغيل للتفاصيل.')
         return redirect(url_for('excel_import.excel_import_page', kind=kind))

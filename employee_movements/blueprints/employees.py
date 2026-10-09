@@ -3,6 +3,7 @@
 from datetime import date, datetime
 
 from flask import abort, Blueprint, flash, redirect, render_template, request, url_for
+from sqlalchemy import func
 
 from ..access import (
     actual_roles,
@@ -43,6 +44,14 @@ from ..models import (
 from ..validation import parse_date, valid_email
 
 bp = Blueprint('employees', __name__)
+
+
+def _safe_parse_date(value):
+    """Parse a form date without turning invalid user input into a 500 error."""
+    try:
+        return parse_date(value)
+    except (TypeError, ValueError):
+        return None
 
 
 @bp.get('/employee-role-select')
@@ -167,7 +176,7 @@ def employees():
         )
         branch_obj = db.session.get(Branch, bid)
         name = request.form.get('full_name', '').strip()
-        email = request.form.get('email', '').strip()
+        email = request.form.get('email', '').strip().lower()
         job_title = request.form.get('job_title', '').strip()
         job_code = request.form.get('job_code', '').strip()
         hire_date = request.form.get('hire_date', '').strip()
@@ -179,10 +188,20 @@ def employees():
             flash('جميع البيانات الأساسية للموظف مطلوبة.')
         elif not valid_email(email):
             flash('البريد الإلكتروني مطلوب ويجب أن يكون بصيغة صحيحة.')
-        elif not parse_date(hire_date):
+        elif not _safe_parse_date(hire_date):
             flash('تاريخ التعيين مطلوب وبصيغة صحيحة.')
         else:
-            existing = Employee.query.filter_by(email=email).first()
+            # Email and HR code are compared case-insensitively across active and
+            # historical employees; a resigned record must not permit a duplicate.
+            existing = Employee.query.filter(func.lower(Employee.email) == email).first()
+            duplicate_code_query = Employee.query.filter(
+                func.lower(func.trim(Employee.job_code)) == job_code.lower(),
+            )
+            if existing:
+                duplicate_code_query = duplicate_code_query.filter(Employee.id != existing.id)
+            if duplicate_code_query.first():
+                flash('كود شئون العاملين مستخدم بالفعل لموظف آخر.')
+                return redirect(url_for('employees.employees'))
             if existing:
                 if existing.is_active:
                     flash('البريد الإلكتروني مستخدم بالفعل لموظف آخر.')
@@ -198,7 +217,7 @@ def employees():
                 existing.branch_id = bid
                 existing.job_title = job_title
                 existing.job_code = job_code
-                existing.hire_date = parse_date(hire_date)
+                existing.hire_date = _safe_parse_date(hire_date)
                 existing.company_phone = company_phone
                 existing.personal_phone = personal_phone
                 existing.is_active = True
@@ -215,12 +234,12 @@ def employees():
                 branch_id=bid,
                 job_title=job_title,
                 job_code=job_code,
-                hire_date=parse_date(hire_date),
+                hire_date=_safe_parse_date(hire_date),
                 company_phone=company_phone,
                 personal_phone=personal_phone,
             )
             db.session.add(e)
-            db.session.commit()
+            db.session.flush()
             log('ADD', 'Employee', e.id, e.full_name)
             db.session.commit()
             flash('تمت إضافة الموظف بنجاح. يمكنك الآن تسجيل أول حركة له.')
@@ -489,7 +508,13 @@ def employee_edit(i):
     ):
         abort(403)
     if request.method == 'POST':
-        bid = int(request.form['branch_id'])
+        # Treat missing or malformed branch IDs as invalid form input rather
+        # than letting int(...) raise an unhandled ValueError/KeyError (500).
+        raw_branch_id = (request.form.get('branch_id') or '').strip()
+        if not raw_branch_id.isdigit():
+            flash('اختر فرعًا صحيحًا ضمن نطاق صلاحيتك.')
+            return redirect(url_for('employees.employee_edit', i=i))
+        bid = int(raw_branch_id)
         if not branch_ok(bid):
             abort(403)
         submitted_gid = (
@@ -502,7 +527,7 @@ def employee_edit(i):
             flash('يجب اختيار فرع تابع للمحافظة المحددة.')
             return redirect(url_for('employees.employee_edit', i=i))
         name = request.form.get('full_name', '').strip()
-        email = request.form.get('email', '').strip()
+        email = request.form.get('email', '').strip().lower()
         job_title = request.form.get('job_title', '').strip()
         job_code = request.form.get('job_code', '').strip()
         hire_date = request.form.get('hire_date', '').strip()
@@ -514,11 +539,20 @@ def employee_edit(i):
         if not valid_email(email):
             flash('البريد الإلكتروني مطلوب ويجب أن يكون بصيغة صحيحة.')
             return redirect(url_for('employees.employee_edit', i=i))
-        dup = Employee.query.filter(Employee.email == email, Employee.id != i).first()
+        dup = Employee.query.filter(
+            func.lower(Employee.email) == email, Employee.id != i,
+        ).first()
         if dup:
             flash('البريد الإلكتروني مستخدم بالفعل لموظف آخر.')
             return redirect(url_for('employees.employee_edit', i=i))
-        if not parse_date(hire_date):
+        duplicate_code = Employee.query.filter(
+            func.lower(func.trim(Employee.job_code)) == job_code.lower(),
+            Employee.id != i,
+        ).first()
+        if duplicate_code:
+            flash('كود شئون العاملين مستخدم بالفعل لموظف آخر.')
+            return redirect(url_for('employees.employee_edit', i=i))
+        if not _safe_parse_date(hire_date):
             flash('تاريخ التعيين مطلوب وبصيغة صحيحة.')
             return redirect(url_for('employees.employee_edit', i=i))
         e.full_name = name
@@ -529,7 +563,7 @@ def employee_edit(i):
         if e.user_id:
             linked_user = db.session.get(User, e.user_id)
             if linked_user:
-                other = User.query.filter(User.email == email, User.id != linked_user.id).first()
+                other = User.query.filter(func.lower(User.email) == email, User.id != linked_user.id).first()
                 if other:
                     flash('البريد الإلكتروني مستخدم بالفعل لحساب آخر.')
                     return redirect(url_for('employees.employee_edit', i=i))
@@ -537,7 +571,7 @@ def employee_edit(i):
                 linked_user.full_name = name
                 linked_user.job_title = job_title
                 linked_user.job_code = job_code
-        e.hire_date = parse_date(hire_date)
+        e.hire_date = _safe_parse_date(hire_date)
         e.company_phone = company_phone
         e.personal_phone = personal_phone
         log('EDIT', 'Employee', i, e.full_name)
@@ -676,7 +710,7 @@ def employee_resign(i):
         flash('الموظف موجود بالفعل ضمن الموظفين المستقيلين.')
         return redirect('/employees')
     raw_date = (request.form.get('resignation_date') or '').strip()
-    resignation_date = parse_date(raw_date)
+    resignation_date = _safe_parse_date(raw_date)
     if not resignation_date:
         flash('يجب تحديد تاريخ الاستقالة.')
         return redirect('/employees')
@@ -734,10 +768,10 @@ def employee_resign(i):
 @req
 def employee_delete(i):
     e = db.session.get(Employee, i)
-    if not can_manage_employee(e) or not can('manage_employees'):
-        abort(403)
     if not e:
         abort(404)
+    if not can_manage_employee(e) or not can('manage_employees'):
+        abort(403)
     # حذف منطقي إداري استثنائي؛ مسار دورة حياة الموظف الطبيعي هو «استقالة».
     e.is_active = False
     e.deleted_at = datetime.utcnow()
@@ -759,10 +793,12 @@ def resigned_employees():
     # الموظفون المستقيلون يُعرضون من نطاق الفروع السابق، مع إبقاء السجل محفوظًا.
     bs = bids()
     q = Employee.query.filter(
+        Employee.is_active == False,
         Employee.resignation_date.isnot(None) | Employee.deleted_at.isnot(None),
     )
-    if bs:
-        q = q.filter(Employee.branch_id.in_(bs))
+    # This endpoint is operational-scope-bound. An empty scope means no data,
+    # never an unfiltered query (which would expose every governorate's records).
+    q = q.filter(Employee.branch_id.in_(bs))
     rows = (
         q.order_by(
             Employee.resignation_date.desc().nullslast(),
@@ -781,10 +817,13 @@ def employee_reactivate(i):
     e = db.session.get(Employee, i)
     if not e or (e.resignation_date is None and e.deleted_at is None):
         abort(404)
+    if e.is_active:
+        flash('الموظف مفعّل بالفعل ولا يحتاج إلى إعادة تعيين.')
+        return redirect(url_for('employees.employee_card', i=e.id))
     if not can_manage_employee(e) or not can('manage_employees'):
         abort(403)
     raw_date = (request.form.get('rehire_date') or '').strip()
-    rehire_date = parse_date(raw_date)
+    rehire_date = _safe_parse_date(raw_date)
     if not rehire_date:
         flash('يجب تحديد تاريخ إعادة التعيين.')
         return redirect(url_for('employees.resigned_employees'))
@@ -818,7 +857,7 @@ def employee_card(i):
     # البحث في الرئيسية عالمي ومتعمد أن يتجاوز محافظة العمل، لكن فتح البطاقة
     # نفسها يجب أن يظل خاضعًا لنطاق المستخدم التشغيلي. مسؤول التطبيق فقط
     # يستطيع فتح أي بطاقة مباشرة.
-    if 'مسؤول التطبيق' not in actual_roles(me()) and not branch_ok(e.branch_id):
+    if 'مسؤول التطبيق' not in roles(me()) and not branch_ok(e.branch_id):
         abort(403)
     if not e.is_active and (not (can('manage_employees') and can_manage_employee(e))):
         abort(403)

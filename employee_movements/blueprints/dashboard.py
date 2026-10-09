@@ -170,7 +170,15 @@ def home():
         search_branch_ids = {search_branch_id}
     candidates = []
     if movement_name_query or search_branch_id:
-        q = Employee.query.filter(Employee.is_active == True)
+        q = (
+            Employee.query.join(Branch, Employee.branch_id == Branch.id)
+            .join(Governorate, Governorate.id == Branch.governorate_id)
+            .filter(
+                Employee.is_active == True,
+                Branch.is_active == True,
+                Governorate.is_active == True,
+            )
+        )
         if search_branch_ids:
             q = q.filter(Employee.branch_id.in_(search_branch_ids))
         if movement_name_query:
@@ -181,11 +189,15 @@ def home():
 
     if movement_employee_id.isdigit():
         candidate = db.session.get(Employee, int(movement_employee_id))
-        if candidate and candidate.is_active:
+        if (
+            candidate and candidate.is_active and candidate.branch
+            and candidate.branch.is_active and candidate.branch.governorate
+            and candidate.branch.governorate.is_active
+        ):
             if (
                 (
                     not search_gov_id
-                    or candidate.branch and candidate.branch.governorate_id == search_gov_id
+                    or candidate.branch.governorate_id == search_gov_id
                 )
                 and (not search_branch_id or candidate.branch_id == search_branch_id)
             ):
@@ -555,7 +567,7 @@ def home():
         else []
     )
     # جهة الانتداب قد تكون في محافظة مختلفة؛ هذا الاختيار لا يمنح المستخدم نطاقًا تشغيليًا عليها.
-    home_movement_branches = Branch.query.filter(Branch.is_active == True).order_by(Branch.name.asc()).all()
+    home_movement_branches = Branch.query.join(Governorate, Governorate.id == Branch.governorate_id).filter(Branch.is_active == True, Governorate.is_active == True).order_by(Branch.name.asc()).all()
 
     # بحث الموظف في الرئيسية متاح لكل المحافظات، حتى لو كان نطاق العمل الحالي محافظة واحدة.
     return render_template(
@@ -607,8 +619,9 @@ def home():
             else []
         ),
         movement_search_all_branches=(
-            Branch.query.filter_by(is_active=True)
-            .order_by(Branch.name.asc())
+            Branch.query.join(Governorate, Governorate.id == Branch.governorate_id)
+            .filter(Branch.is_active == True, Governorate.is_active == True)
+            .order_by(Governorate.name.asc(), Branch.name.asc())
             .all()
         ),
         home_movement_governorates=home_movement_governorates,

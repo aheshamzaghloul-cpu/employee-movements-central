@@ -12,7 +12,7 @@ def build_mission_report_context(*, roles, allowed_bids, args):
     This service is deliberately read-only. Authorization decisions remain in the
     Blueprint; the service only applies the already-resolved scope to the query.
     """
-    global_actor = 'مسؤول التطبيق' in roles or 'مشرف محافظة' in roles
+    global_actor = bool({'مسؤول التطبيق', 'Manager Application Support', 'مشرف محافظة'} & set(roles))
     allowed_bids = set(allowed_bids)
 
     q = (
@@ -58,9 +58,11 @@ def build_mission_report_context(*, roles, allowed_bids, args):
     destination_governorates = Governorate.query.filter(
         Governorate.is_active == True
     ).order_by(Governorate.name.asc()).all()
-    destination_branches = Branch.query.filter(
-        Branch.is_active == True
-    ).order_by(Branch.name.asc()).all()
+    destination_branches = (
+        Branch.query.join(Governorate, Governorate.id == Branch.governorate_id)
+        .filter(Branch.is_active == True, Governorate.is_active == True)
+        .order_by(Governorate.name.asc(), Branch.name.asc()).all()
+    )
 
     selected_gov = None
     if gov.isdigit() and any(g.id == int(gov) for g in govs):
@@ -106,8 +108,8 @@ def build_mission_report_context(*, roles, allowed_bids, args):
         branch = ''
 
     employee_scope_ids = (
-        [b.id for b in Branch.query.filter(Branch.is_active == True).all()]
-        if ('مسؤول التطبيق' in roles or 'مشرف محافظة' in roles)
+        [b.id for b in Branch.query.join(Governorate, Governorate.id == Branch.governorate_id).filter(Branch.is_active == True, Governorate.is_active == True).all()]
+        if ('مسؤول التطبيق' in roles or 'مشرف محافظة' in roles or 'Manager Application Support' in roles)
         else list(allowed_bids)
     )
     employees_q = (

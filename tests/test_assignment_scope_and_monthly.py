@@ -29,3 +29,13 @@ def test_manager_employee_filter_is_scope_limited():
     text = MISSIONS.read_text()
     assert "employee_scope_ids" in text
     assert "Employee.branch_id.in_(employee_scope_ids)" in text
+
+
+def test_central_manager_global_assignment_employee_and_destination_access():
+    text = ACCESS.read_text(encoding="utf-8")
+    assert "rs & {'مشرف محافظة', 'Manager Application Support'} and movement_type == 'انتداب'" in text
+    movement_text = MOVEMENTS.read_text(encoding="utf-8")
+    assert "'مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'" in movement_text
+    # The exception is limited to assignments; ordinary employee data remains scoped.
+    assert "return branch_ok(e.branch_id)" in text
+    assert "return branch_ok(branch.id)" in text

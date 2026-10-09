@@ -400,7 +400,7 @@ def can_manage_movement_employee(e, movement_type=None):
     rs = roles()
     if 'مسؤول التطبيق' in rs:
         return True
-    if 'مشرف محافظة' in rs and movement_type == 'انتداب':
+    if rs & {'مشرف محافظة', 'Manager Application Support'} and movement_type == 'انتداب':
         return True
     return branch_ok(e.branch_id)
 
@@ -416,7 +416,7 @@ def can_manage_movement_destination(branch, movement_type=None):
     rs = roles()
     if 'مسؤول التطبيق' in rs:
         return True
-    if 'مشرف محافظة' in rs and movement_type == 'انتداب':
+    if rs & {'مشرف محافظة', 'Manager Application Support'} and movement_type == 'انتداب':
         return True
     return branch_ok(branch.id)
 
@@ -440,9 +440,10 @@ def movement_is_closed(m):
 def can_view_movement(m=None):
     """Return whether the user may view/print a movement regardless of edit rights.
 
-    Supervisors can view and print movements for any employee. Manager support
-    remains tied to the selected work-governorate, while first-level entry stays
-    tied to assigned branches. Closed-state restrictions apply to mutation, not printing.
+    The central Manager and application administrator can view all governorates.
+    Supervisors can view and print assignments globally, while leave/permission
+    records remain within their operational scope. First-level entry stays branch-scoped.
+    Closed-state restrictions apply to mutation, not printing.
     """
     rs = roles()
     if 'مسؤول التطبيق' in rs:
@@ -458,7 +459,15 @@ def can_view_movement(m=None):
             return True
         return branch_ok(m.employee.branch_id) if getattr(m, 'employee', None) else False
     if 'Manager Application Support' in rs and can('view_reports'):
-        return bool(m is None or branch_ok(m.employee.branch_id))
+        # Central Manager can review/print assignments across all governorates.
+        # Leave and permission records remain in the selected operational scope.
+        if m is None:
+            return True
+        if not getattr(m, 'is_active', False) or not getattr(m, 'employee', None):
+            return False
+        if getattr(m, 'movement_type', None) == 'انتداب':
+            return True
+        return branch_ok(m.employee.branch_id)
     if 'المدخل الأول' in rs and can('view_reports'):
         return bool(m and branch_ok(m.employee.branch_id))
     return False
@@ -485,7 +494,15 @@ def can_manage_movement(m=None):
     if 'مسؤول التطبيق' in rs:
         return True
     if 'Manager Application Support' in rs and can('manage_movements'):
-        return bool(m is None or branch_ok(m.employee.branch_id))
+        # Central Manager may manage assignments across all governorates, including
+        # closed missions. Leave and permission editing remains work-scope-bound.
+        if m is None:
+            return True
+        if not getattr(m, 'is_active', False) or not getattr(m, 'employee', None):
+            return False
+        if getattr(m, 'movement_type', None) == 'انتداب':
+            return True
+        return branch_ok(m.employee.branch_id)
     if 'مشرف محافظة' in rs and can('manage_movements'):
         # Only assignments/missions have global employee reach for supervisors.
         # Leave and permission remain restricted to the supervisor's operational scope.

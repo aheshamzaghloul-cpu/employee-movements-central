@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}المدير | مركز المتابعة{% endblock %}
+{% block content %}
+<section class="ui-page-head">
+  <div><span class="home-kicker">مركز المتابعة الإدارية</span><h1>المدير</h1><p class="ui-muted">مركز إشرافي موحّد لمتابعة جميع المحافظات وطلبات مشرفيها وتقارير المأموريات.</p></div>
+  <div class="ui-actions"><a class="ui-btn ui-tone-teal" href="/reports/assignments/edit-requests">طلبات التعديل{% if pending_count %} ({{ pending_count }}){% endif %}</a><a class="ui-btn ui-btn-secondary" href="/reports/assignments/monthly">التقرير الشهري للمأموريات</a></div>
+</section>
+<div class="ui-grid ui-grid-3-gap-16 ui-mb-16">
+  <article class="ui-card ui-pad-18"><div class="ui-card-head compact"><div><span class="ui-eyebrow">قيد المراجعة</span><h2>طلبات تعديل المأموريات</h2></div><span class="ui-tag">{{ pending_count }}</span></div><p class="ui-muted">طلبات مرسلة من المشرفين بعد إغلاق المأمورية، مع السبب وبيانات المأمورية قبل التعديل.</p><a class="ui-btn ui-tone-teal" href="/reports/assignments/edit-requests">مراجعة الطلبات</a></article>
+  <article class="ui-card ui-pad-18"><div class="ui-card-head compact"><div><span class="ui-eyebrow">المأموريات</span><h2>التقرير الشهري</h2></div></div><p class="ui-muted">إجمالي المأموريات المغلقة وأيامها حسب الموظف والفرع خلال الشهر المختار.</p><a class="ui-btn ui-btn-secondary" href="/reports/assignments/monthly">فتح التقرير الشهري</a></article>
+  <article class="ui-card ui-pad-18"><div class="ui-card-head compact"><div><span class="ui-eyebrow">التقارير</span><h2>تقارير الحركات</h2></div></div><p class="ui-muted">متابعة الإجازات والانتدابات والأذونات والمأموريات وطباعة النماذج والتصدير.</p><div class="ui-actions"><a class="ui-btn ui-btn-secondary" href="/reports-missions">التقارير والمأموريات</a><a class="ui-btn ui-btn-secondary" href="/reports/assignments/print-missions">طباعة المأموريات</a></div></article>
+</div>
+<section class="ui-card ui-pad-18 ui-mb-16">
+  <div class="ui-card-head"><div><span class="ui-eyebrow">أحدث الطلبات</span><h2>طلبات التعديل التي تحتاج إلى مراجعة</h2></div><a href="/reports/assignments/edit-requests" class="ui-btn ui-btn-secondary ui-btn-mini">عرض الكل</a></div>
+  {% if pending_requests %}<div class="ui-table-wrap"><table class="ui-mission-table"><thead><tr><th>رقم الطلب</th><th>المأمورية</th><th>الموظف</th><th>طالب التعديل</th><th>سبب الطلب</th><th>تاريخ الإرسال</th><th></th></tr></thead><tbody>{% for r in pending_requests %}<tr><td>#{{ r.id }}</td><td>#{{ r.movement_id }}</td><td>{{ r.movement.employee.full_name if r.movement and r.movement.employee else '—' }}</td><td>{{ r.requester.full_name if r.requester else '—' }}</td><td>{{ r.reason }}</td><td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at else '—' }}</td><td><a class="ui-btn ui-tone-teal ui-btn-mini" href="/reports/assignments/edit-requests/{{ r.id }}">فتح الطلب</a></td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="ui-empty">لا توجد طلبات تعديل معلّقة من أي محافظة.</div>{% endif %}
+</section>
+<section class="ui-card ui-pad-18">
+  <div class="ui-card-head"><div><span class="ui-eyebrow">ملخص حسب المحافظة</span><h2>تقارير المحافظات</h2></div><span class="ui-tag">{{ governorate_reports|length }} محافظة</span></div>
+  {% if not scope_has_data and not manager_hub_is_admin %}<div class="ui-empty">لا توجد فروع نشطة حاليًا في قاعدة البيانات.</div>
+  {% elif governorate_reports %}<div class="ui-table-wrap"><table class="ui-mission-table"><thead><tr><th>المحافظة</th><th>الفروع النشطة</th><th>الموظفون النشطون</th><th>الإجازات</th><th>الانتدابات</th><th>الأذونات</th><th>المأموريات المغلقة</th><th></th></tr></thead><tbody>{% for row in governorate_reports %}<tr><td><b>{{ row.governorate.name }}</b></td><td>{{ row.branches }}</td><td>{{ row.employees }}</td><td>{{ row.leave }}</td><td>{{ row.assignments }}</td><td>{{ row.permissions }}</td><td>{{ row.closed_missions }}</td><td><a class="ui-btn ui-btn-secondary ui-btn-mini" href="/reports-missions?governorate_id={{ row.governorate.id }}">تفاصيل التقارير</a></td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="ui-empty">لا توجد بيانات فروع نشطة لعرضها في التقرير.</div>{% endif %}
+</section>
+{% endblock %}

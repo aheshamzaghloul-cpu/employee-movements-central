@@ -6,15 +6,15 @@
 {% else %}
 <div class="ui-page reports-workspace smart-reports-workspace">
   <header class="ui-page-head smart-reports-head">
-    <div><span class="ui-eyebrow">مركز القراءة والقرار</span><h1>تقارير ومأموريات</h1><p>الوصول إلى المعلومة، ثم تنفيذ الإجراء من نفس المسار.</p></div>
+    <div><span class="ui-eyebrow">مركز القراءة والقرار</span><h1>تقارير ومأموريات{% if selected_governorate %} — {{ selected_governorate.name }}{% elif manager_global_report %} — جميع المحافظات{% endif %}</h1><p>الوصول إلى المعلومة، ثم تنفيذ الإجراء من نفس المسار.</p></div>
     <div class="ui-head-stats"><span><b>{{report_stats.total}}</b> إجمالي الحركات</span><span><b>{{report_stats.open_assignments}}</b> انتداب مفتوح</span><span><b>{{report_stats.follow_up_7d}}</b> يحتاج متابعة خلال 7 أيام</span></div>
   </header>
 
   <section class="smart-report-metrics">
-    <a href="/reports" class="smart-report-metric total"><span>إجمالي الحركات</span><strong>{{report_stats.total}}</strong><small>كل الحركات النشطة داخل نطاقك</small></a>
-    <a href="/reports?movement_type=إجازة" class="smart-report-metric leave"><span>الإجازات</span><strong>{{report_stats.leave}}</strong><small>انتقل مباشرة إلى تقرير الإجازات</small></a>
-    <a href="/reports?movement_type=انتداب" class="smart-report-metric assignment"><span>الانتدابات</span><strong>{{report_stats.assignment}}</strong><small>{{report_stats.open_assignments}} مفتوحة حاليًا</small></a>
-    <a href="/reports?movement_type=إذن" class="smart-report-metric permission"><span>الأذونات</span><strong>{{report_stats.permission}}</strong><small>عرض السجل وتصفية النتائج</small></a>
+    <a href="/reports{% if selected_governorate %}?governorate_id={{ selected_governorate.id }}{% endif %}" class="smart-report-metric total"><span>إجمالي الحركات</span><strong>{{report_stats.total}}</strong><small>{% if manager_global_report %}كل الحركات النشطة في جميع المحافظات{% elif selected_governorate %}الحركات النشطة في {{ selected_governorate.name }}{% else %}كل الحركات النشطة داخل نطاقك{% endif %}</small></a>
+    <a href="/reports?movement_type=إجازة{% if selected_governorate %}&governorate_id={{ selected_governorate.id }}{% endif %}" class="smart-report-metric leave"><span>الإجازات</span><strong>{{report_stats.leave}}</strong><small>انتقل مباشرة إلى تقرير الإجازات</small></a>
+    <a href="/reports?movement_type=انتداب{% if selected_governorate %}&governorate_id={{ selected_governorate.id }}{% endif %}" class="smart-report-metric assignment"><span>الانتدابات</span><strong>{{report_stats.assignment}}</strong><small>{{report_stats.open_assignments}} مفتوحة حاليًا</small></a>
+    <a href="/reports?movement_type=إذن{% if selected_governorate %}&governorate_id={{ selected_governorate.id }}{% endif %}" class="smart-report-metric permission"><span>الأذونات</span><strong>{{report_stats.permission}}</strong><small>عرض السجل وتصفية النتائج</small></a>
   </section>
 
   <section class="smart-report-command-grid">
@@ -41,12 +41,12 @@
     <div class="ui-work-card">
       <div class="ui-card-head compact"><div><span class="ui-eyebrow">قراءة فورية</span><h2>حركة اليوم</h2></div><span class="smart-report-date">{{report_today}}</span></div>
       <div class="smart-report-live-number"><strong>{{report_stats.today}}</strong><span>حركة مرتبطة باليوم الحالي</span></div>
-      <div class="smart-report-mini-actions"><a href="/reports">استكشاف التقرير ←</a><a href="/reports/assignments/print-missions">المأموريات ←</a></div>
+      <div class="smart-report-mini-actions"><a href="/reports{% if selected_governorate %}?governorate_id={{ selected_governorate.id }}{% endif %}">استكشاف التقرير ←</a><a href="/reports/assignments/print-missions">المأموريات ←</a></div>
     </div>
     <div class="ui-work-card">
       <div class="ui-card-head compact"><div><span class="ui-eyebrow">الفترة الحالية</span><h2>هذا الشهر</h2></div></div>
       <div class="smart-report-live-number"><strong>{{report_stats.month}}</strong><span>حركة بدأت أو انتهت أو سُجلت خلال الشهر</span></div>
-      <div class="smart-report-mini-actions"><a href="/reports">عرض التفاصيل ←</a><a href="/reports.csv">تصدير CSV ←</a></div>
+      <div class="smart-report-mini-actions"><a href="/reports{% if selected_governorate %}?governorate_id={{ selected_governorate.id }}{% endif %}">عرض التفاصيل ←</a><a href="/reports.csv">تصدير CSV ←</a></div>
     </div>
     <div class="ui-work-card smart-report-print-card">
       <div class="ui-card-head compact"><div><span class="ui-eyebrow">إخراج رسمي</span><h2>المأمورية</h2></div></div>

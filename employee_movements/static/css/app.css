@@ -835,3 +835,12 @@ body{color:var(--ux-text);-webkit-font-smoothing:antialiased}
 .premium-breadcrumb strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ui-top-actions{min-width:0}
 @media (max-width:900px){.premium-breadcrumb>span{display:none}.premium-breadcrumb>b{display:none}.premium-breadcrumb strong{max-width:42vw}}
+
+
+/* Home priority workflow: global employee search, cross-governorate assignment, and mission printing. */
+.home-primary-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start;gap:16px}
+.home-primary-actions>.search-card,.home-primary-actions>.register-card{min-width:0;height:100%}
+.home-primary-actions>.home-mission-shortcut{grid-column:1/-1;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:16px;padding:16px 20px!important;background:linear-gradient(110deg,#fff 0%,#f8fafb 100%)!important}
+.home-mission-shortcut .smart-action-head{margin:0}.home-mission-shortcut p{margin:0;color:var(--ui-muted,#747d86);font-size:12px;line-height:1.8}.home-mission-shortcut>.ui-btn{white-space:nowrap}
+.home-primary-actions .smart-search-results{max-height:300px;overflow:auto}.home-primary-actions .smart-action-head h2{font-size:17px}.home-primary-actions .smart-eyebrow{letter-spacing:0}
+@media(max-width:900px){.home-primary-actions{grid-template-columns:minmax(0,1fr)}.home-primary-actions>.home-mission-shortcut{grid-column:auto;grid-template-columns:auto minmax(0,1fr)}.home-mission-shortcut>.ui-btn{grid-column:1/-1;justify-self:stretch}}

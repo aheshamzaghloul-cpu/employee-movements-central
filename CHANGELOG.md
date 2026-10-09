@@ -1,3 +1,89 @@
+## v68.15.35 — Home workflows and global mission filtering
+
+- The home employee search now excludes employees assigned to inactive branches/governorates, including direct employee selection through query parameters, while remaining global across all active governorates and independent of the selected work governorate.
+- Mission list employee filtering is usable across all governorates without first selecting a branch; employee options now identify their governorate. Destination and employee filters exclude inactive branches/governorates.
+- Assignment destination permissions are now checked by the same centralized scope guard in both movement preflight and final POST, so first-level users cannot post to an out-of-scope destination while authorized supervisors, Manager, and Admin retain cross-governorate assignment access.
+- Added source-contract regression checks. Static Python compilation and UI integrity checks pass; Flask request/database tests could not run because Flask is not installed in this environment. No GitHub, Blitz, environment, or database changes were made.
+
+## v68.15.32 — Branch role access and inactive-parent guard
+
+- Corrected branch-route decorators so branch-management routes can reach their existing governorate-scope checks for supervisors; they remain unavailable to Manager Application Support, preserving the rule that global mission access does not grant global structure administration.
+- Prevented reactivating a branch while its parent governorate is inactive, with a clear Arabic message.
+- Added source-contract regression checks. Static validation only; Flask runtime/database tests remain unavailable in this environment.
+
+## v68.15.31 — Prevent duplicate branch codes within a governorate
+
+- Branch creation and editing now reject a branch code already used in the same governorate, case-insensitively and ignoring surrounding whitespace in stored codes.
+- The check excludes the branch being edited, so retaining its existing code remains valid.
+- Added a source-contract regression test. This does not migrate or alter existing duplicate records.
+- Validation is static only; Flask runtime/database integration tests were not run in this environment.
+
+## v68.15.30 — Protect governorate deletion from delegation references
+
+- Governorate deletion now checks active and historical approval-delegation rows before attempting deletion.
+- If a delegation references the governorate, deletion is refused with the existing safe guidance to deactivate instead.
+- Added a source-contract test for the governorate deletion guard.
+- Validation is static only; Flask runtime/database integration tests were not run in this environment.
+
+## v68.15.29 — Safe employee-edit branch input
+
+- Reject missing or malformed `branch_id` values with a normal Arabic validation message instead of an unhandled `KeyError`/`ValueError` response.
+- Added a source-contract regression test for malformed branch IDs.
+- This patch was statically checked; full Flask request tests remain unrun in this environment because Flask is unavailable.
+
+## v68.15.28 — Active-role card access and safe structure deletion
+
+- Employee-card cross-governorate bypass now checks the active role, not all roles stored on a multi-role account, so switching away from Admin cannot retain global card access.
+- Branch deletion now detects organizational first-entry branch links and asks the administrator to deactivate rather than reaching a foreign-key failure.
+- Governorate, branch, and lookup creation now write their audit event in the same database transaction as the new record.
+- Added source-contract tests for the active-role boundary, branch-link deletion guard, and atomic catalog audit writes.
+- Static checks only; Flask/database runtime tests were not run because Flask is unavailable in this review environment. No GitHub, Blitz, environment, or database changes were made.
+
+## v68.15.27 — Duplicate identity checks and fail-closed employee scope
+
+- Normalize employee email addresses to lowercase on create/edit and check email duplicates case-insensitively.
+- Prevent duplicate HR (`job_code`) values case-insensitively across active and historical employee records, excluding the same employee when editing/restoring.
+- Make the resigned/hidden employee listing always filter by the current operational branch scope; an empty scope now returns no records instead of falling back to a global query.
+- Added source-contract checks for duplicate identity checks and the empty-scope security boundary.
+- Static checks only; Flask/database runtime tests were not run because Flask is unavailable in this review environment. No GitHub, Blitz, environment, or database changes were made.
+
+## v68.15.26 — Reactivated employee lifecycle consistency
+
+- The resigned/administratively hidden list now excludes active employees who have been rehired, while retaining their historical resignation date on the employee record.
+- The reactivation endpoint now rejects repeat reactivation of an already-active employee rather than allowing the same historical record to be processed again.
+- Added source-contract checks for employee date validation, atomic creation/audit, missing-record handling, and reactivation/list consistency.
+- Python compile, UI integrity, and targeted source assertions pass. Full pytest/runtime remains blocked because Flask is not installed in this review environment. No GitHub, Blitz, environment, or database changes were made.
+
+## v68.15.25 — Employee lifecycle form and audit safety
+
+- Invalid or malformed dates entered in employee add/edit, resignation, and reactivation forms now produce the existing validation path instead of raising an uncaught `ValueError`.
+- Employee creation and its audit event now share one database transaction; a failed audit write cannot leave a newly created employee committed without its audit record.
+- Corrected the missing-employee delete path to return 404 before checking object permissions.
+- Static checks only; Flask runtime tests were not run because Flask is unavailable in this environment. No GitHub, Blitz, environment, or database changes were made.
+
+## v68.15.24 — Central Manager cross-governorate assignment selection
+
+- Fixed centralized employee and destination authorization so `Manager Application Support`, like a governorate supervisor, can select active employees and destination branches across governorates for assignment (`انتداب`) only.
+- Updated the movement employee/branch picker to expose global active branches to the central Manager only when the selected movement type is assignment. Leave and permission remain constrained by operational scope.
+- Added source-contract coverage for the Manager assignment exception and retained scoped fallbacks for ordinary employee/branch operations.
+- Static/source checks only; Flask runtime tests were not run in this environment. No GitHub, Blitz, environment, or database changes were made.
+
+## v68.15.23 — Excel import transaction and review-session hardening
+- Verify that the reviewed Excel token still matches the upload token and requested import type before applying changes; stale or cross-type review sessions are discarded.
+- Commit imported records and the corresponding audit event in one database transaction, avoiding a committed import without its audit record.
+- Log detailed import exceptions server-side and show safe Arabic messages to users rather than exposing raw exception details.
+- Synchronize application/package version identifiers to v68.15.23.
+- Python compilation, UI integrity, archive integrity, and targeted static assertions: PASS.
+- Full Flask/database runtime tests: NOT RUN because Flask is unavailable in this environment.
+
+## v68.15.22 — Central Manager mission access correction
+- Corrected Manager Application Support access so assignment mission review, printing, editing, and exports are not incorrectly limited by the selected work governorate. Leave/permission viewing and editing remain limited to the selected operational scope.
+- Included Manager Application Support in the global mission report query and XLSX export actor set.
+- Preserved governorate/branch scope for supervisors and first-entry users; this change does not grant cross-governorate employee/branch administration.
+- Synchronized VERSION.md and pyproject.toml to v68.15.22.
+- Python compile, UI integrity, and static regression assertions: PASS.
+- Full Flask runtime tests: NOT RUN because Flask is unavailable and package installation is blocked by network access.
+
 ## v68.15.16 — Basyouni Employee Add Intent Boundary
 
 - Fixed a real assistant routing bug where a clear employee-add request such as «عايز أضيف موظف» was correctly detected locally as `employee_add`, then overwritten by a generic Gemini `topic_options` response.
@@ -16,6 +102,28 @@
 - Preserve final permission and current-state checks at execution time.
 
 # Changelog
+
+## v68.15.20 — Assistant Error Containment
+- Added server-side exception logging for unexpected assistant-turn failures so the cause can be diagnosed from runtime logs rather than only seeing a generic browser error.
+- Roll back failed assistant turns and clear any pending assistant mutation plans after an unexpected exception, preventing stale plans from being confirmed.
+- Return a safe Arabic error message instead of allowing an unexpected assistant exception to become an unhandled HTTP 500.
+- Added a static contract test for this failure path. This improves diagnostics and containment; it does not by itself prove the original runtime cause is fixed.
+
+
+## v68.15.19 — Global Manager Oversight
+- Corrected the Manager workspace to aggregate all active governorates, regardless of the daily work-governorate selector.
+- Made the Manager's mission edit-request queue and review/save authorization cross-governorate, matching the Manager's central position above governorate supervisors.
+- Made the monthly closed-mission report global for Manager and Admin.
+- Kept ordinary operational pages scoped; this change applies to the central Manager workspace, request handling, and monthly management report.
+- Added static contract checks for the cross-governorate Manager behavior.
+
+
+## v68.15.18 — Manager Workspace
+- Added a dedicated «المدير» navigation entry for Manager Application Support and the application administrator.
+- Added a central workspace for pending closed-mission edit requests, monthly mission summaries, mission reports, and governorate-level movement summaries.
+- Manager report data follows the selected work-governorate scope; the application administrator retains global oversight.
+- Added the manager workspace to operational scope handling so manager requests and reports do not bypass governorate selection.
+- Static Python/Jinja/UI integrity checks passed. Full Flask runtime tests were not run in this environment because Flask is not installed.
 
 ## v68.15.17
 - Comprehensive Basyouni boundary hardening: preserve high-confidence local employee-add intent, fix movement scope imports, prevent persisted assistant replies/live record content from being sent to Gemini, and redact selected record IDs from model-visible workspace context.
@@ -311,3 +419,26 @@
 - Preserved existing unique/multiple/no-match behavior.
 - Limited movement candidate loading to two rows, enough to distinguish unique from multiple.
 - Added regression contract test.
+
+## v68.15.21 — Central report scope correction
+- Corrected the Manager/Admin report drill-down so `/reports-missions` and general movement reports aggregate all active governorates by default.
+- Governorate-specific report links now narrow the central report to the selected active governorate.
+- Kept supervisor report queries constrained to their already-authorized governorate/branch scope; query parameters cannot expand access.
+- Updated report wording to distinguish central all-governorate reporting from a governorate-specific report.
+- Static checks only; runtime Flask tests still require installing the project dependencies in a suitable environment.
+
+
+## v68.15.33 — Inactive governorate destination safeguards
+
+- Excluded branches under inactive governorates from employee-movement and mission destination pickers, including the Home quick-action picker.
+- Enforced the active-parent-governorate rule in movement preflight/create/edit and mission edit/request execution paths, not only in dropdown presentation.
+- Kept historical movement/mission records intact; this only prevents choosing an inactive destination for new or edited assignment data.
+- Static checks only; Flask runtime tests remain unavailable in this environment.
+
+
+## v68.15.34 — Home priority workflows
+- Reprioritized the home page around global employee search, cross-governorate assignment registration, and direct mission printing.
+- Kept global search, assignment selection, and mission printing available even before an operational work governorate is selected; the work-scope selector remains required for scoped operational monitoring.
+- Made assignment the default movement action and hid leave/permission choices for an out-of-scope employee, while preserving the server-side permission checks.
+- Made the mission-report employee filter include employees from every active governorate for application administrators, governorate supervisors, and Manager Application Support.
+- Clarified that the mission list and print workflow covers all governorates.

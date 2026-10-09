@@ -49,3 +49,63 @@ def test_assistant_movement_scope_uses_central_employee_and_destination_guards()
     assert "can_manage_movement_destination(dest, mt)" in routes
     assert "can_manage_movement_destination(dest, a.get('movement_type'))" in routes
     assert "global_actor = 'مسؤول التطبيق' in roles() or 'مشرف محافظة' in roles()" not in routes
+
+
+def test_branch_management_routes_allow_scoped_supervisor_but_not_central_manager():
+    text = CATALOG.read_text(encoding='utf-8')
+    for route in (
+        "@bp.route('/branches', methods=['GET', 'POST'])",
+        "@bp.post('/branches/<int:i>/edit')",
+        "@bp.post('/branches/<int:i>/toggle')",
+        "@bp.post('/branches/<int:i>/delete')",
+    ):
+        start = text.index(route)
+        section = text[max(0, start - 100):start]
+        assert "@only('مسؤول التطبيق', 'مشرف محافظة')" in section
+        assert "Manager Application Support" not in section
+
+
+def test_branch_cannot_be_reactivated_under_inactive_governorate():
+    text = CATALOG.read_text(encoding='utf-8')
+    start = text.index("def branch_toggle(i):")
+    end = text.index("@bp.post('/branches/<int:i>/delete')", start)
+    block = text[start:end]
+    assert "if not x.is_active:" in block
+    assert "if not parent or not parent.is_active:" in block
+    assert "لا يمكن تفعيل الفرع قبل تفعيل المحافظة التابعة له." in block
+
+
+def test_branch_management_routes_allow_scoped_supervisor_but_not_central_manager():
+    text = CATALOG.read_text(encoding='utf-8')
+    for route in (
+        "@bp.route('/branches', methods=['GET', 'POST'])",
+        "@bp.post('/branches/<int:i>/edit')",
+        "@bp.post('/branches/<int:i>/toggle')",
+        "@bp.post('/branches/<int:i>/delete')",
+    ):
+        start = text.index(route)
+        section = text[max(0, start - 100):start]
+        assert "@only('مسؤول التطبيق', 'مشرف محافظة')" in section
+        assert "Manager Application Support" not in section
+
+
+def test_branch_cannot_be_reactivated_under_inactive_governorate():
+    text = CATALOG.read_text(encoding='utf-8')
+    start = text.index("def branch_toggle(i):")
+    end = text.index("@bp.post('/branches/<int:i>/delete')", start)
+    block = text[start:end]
+    assert "if not x.is_active:" in block
+    assert "if not parent or not parent.is_active:" in block
+    assert "لا يمكن تفعيل الفرع قبل تفعيل المحافظة التابعة له." in block
+
+
+def test_movement_post_and_preflight_share_destination_scope_guard():
+    movement_text = (ROOT / "employee_movements" / "blueprints" / "movements.py").read_text(encoding="utf-8")
+    assert "can_manage_movement_destination" in movement_text.splitlines()[7]
+    assert "if not can_manage_movement_destination(destination, movement_type):" in movement_text
+
+
+def test_mission_employee_filter_is_available_for_global_all_governorates_search():
+    template = (ROOT / "employee_movements" / "templates" / "mission_reports.html").read_text(encoding="utf-8")
+    assert "{% if not employees %}disabled{% endif %}" in template
+    assert "{% if not selected_branch %}disabled{% endif %}" not in template

@@ -2,15 +2,12 @@
 {% block title %}الرئيسية — نظام إدارة حركات الموظفين{% endblock %}
 {% block content %}
 {% if scope_required and not scope_selected %}
-<section class="smart-scope-gate">
+<section class="smart-scope-gate home-scope-notice">
   <div class="smart-scope-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg></div>
-  <div><span class="smart-eyebrow">نطاق العمل</span><h1>اختر محافظة العمل</h1></div>
+  <div><span class="smart-eyebrow">نطاق العمل التشغيلي</span><h1>اختر محافظة العمل</h1><p>البحث العام عن الموظفين والانتدابات وطباعة المأموريات متاح عبر كل المحافظات حتى قبل تحديد نطاق العمل.</p></div>
   <form method="get" action="/" class="smart-scope-form"><label><span>المحافظة</span><select name="governorate_id" required><option value="">اختر المحافظة</option>{% for g in scope_governorates %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label><button class="ui-btn ui-btn-primary" type="submit">دخول مساحة العمل <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></form>
 </section>
-<section class="smart-home-pre-scope-search">
-  {% include 'home_global_search.html' %}
-</section>
-{% else %}
+{% endif %}
 <div class="smart-home">
   <header class="smart-home-head">
     <div><span class="smart-eyebrow">مركز التشغيل</span><h1>مرحبًا، {{me.full_name.split(' ')[0]}}</h1><p>كل ما تحتاجه لإدارة حركة الموظفين من مساحة واحدة.</p></div>
@@ -28,18 +25,26 @@
         {% if can('manage_movements') %}
         <section class="smart-action-card register-card" id="movement-register">
           <div class="smart-action-head"><span class="smart-action-icon accent"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><div><span class="smart-eyebrow">إجراء مباشر</span><h2>تسجيل حركة</h2></div></div>
-          {% if movement_employee and movement_employee_in_scope %}
+          {% if movement_employee and (movement_employee_in_scope or is_admin or is_manager_support or 'مشرف محافظة' in roles) %}
           <div class="smart-register-selected"><span>الموظف المحدد</span><b>{{movement_employee.full_name}}</b><small>{{movement_employee.branch.name if movement_employee.branch else '—'}}</small></div>
           <form method="post" action="/movements/create" class="smart-movement-form" id="homeMovementForm">
-            <input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="employee_id" value="{{movement_employee.id}}"><input type="hidden" name="movement_type" id="homeMovementType" value="إجازة">
-            <div class="smart-movement-tabs" role="tablist"><button type="button" class="is-active leave" data-movement-action="إجازة">إجازة</button><button type="button" class="assign" data-movement-action="انتداب">انتداب</button><button type="button" class="permit" data-movement-action="إذن">إذن</button></div>
+            <input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="employee_id" value="{{movement_employee.id}}"><input type="hidden" name="movement_type" id="homeMovementType" value="انتداب">
+            <div class="smart-movement-tabs" role="tablist">{% if movement_employee_in_scope %}<button type="button" class="leave" data-movement-action="إجازة">إجازة</button>{% endif %}<button type="button" class="is-active assign" data-movement-action="انتداب">انتداب</button>{% if movement_employee_in_scope %}<button type="button" class="permit" data-movement-action="إذن">إذن</button>{% endif %}</div>
             <div data-movement-fields="إجازة" class="smart-movement-fields"><label><span>نوع الإجازة</span><select name="leave_type"><option value="">اختر النوع</option>{% for x in leave_types %}<option value="{{x}}">{{x}}</option>{% endfor %}</select></label><div class="smart-date-grid"><label><span>من</span><input type="date" name="leave_from_date"></label><label><span>إلى</span><input type="date" name="leave_to_date"></label></div></div>
             <div data-movement-fields="انتداب" class="smart-movement-fields" hidden><label><span>الفرع المنتدب إليه</span><select name="destination_branch_id"><option value="">اختر الفرع</option>{% for b in home_movement_branches %}<option value="{{b.id}}">{{b.name}} — {{b.governorate.name}}</option>{% endfor %}</select></label><div class="smart-date-grid"><label><span>من</span><input type="date" name="assignment_from_date" data-assignment-field></label><label><span>إلى</span><input type="date" name="assignment_to_date" data-assignment-field></label></div><label class="smart-open-check"><input type="checkbox" name="open_assignment" value="1"><span>انتداب مفتوح بلا تاريخ نهاية</span></label></div>
             <div data-movement-fields="إذن" class="smart-movement-fields" hidden><label><span>تاريخ الإذن</span><input type="date" name="permission_date"></label></div>
             <div class="smart-form-footer"><span id="homeMovementHint">تسجيل إجازة</span><button class="ui-btn ui-btn-primary" type="submit">تسجيل الحركة</button></div>
           </form>
-          {% elif movement_employee %}<div class="smart-blocked-state"><b>الموظف خارج محافظة العمل الحالية.</b><span>يمكنك فتح ملفه، ولتسجيل حركة غيّر محافظة العمل إلى محافظته.</span></div>
+          {% elif movement_employee %}<div class="smart-blocked-state"><b>لا يمكن تسجيل هذه الحركة ضمن صلاحياتك الحالية.</b><span>يمكنك فتح ملف الموظف أو اختيار موظف آخر.</span></div>
           {% else %}<div class="smart-register-empty"><div>1</div><b>ابحث عن موظف أولًا</b><span>بعد اختيار الموظف ستظهر هنا الخطوة التالية تلقائيًا.</span><a href="#employee-search" class="ui-btn ui-btn-secondary">اختيار موظف</a></div>{% endif %}
+        </section>
+        {% endif %}
+
+        {% if can('view_reports') %}
+        <section class="smart-action-card home-mission-shortcut" id="home-mission-print">
+          <div class="smart-action-head"><span class="smart-action-icon accent"><svg viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/></svg></span><div><span class="smart-eyebrow">وصول مباشر</span><h2>طباعة المأمورية</h2></div></div>
+          <p>ابحث عن المأموريات من جميع المحافظات، ثم افتح النموذج واطبعه مباشرة.</p>
+          <a class="ui-btn ui-btn-primary" href="/reports/assignments/print-missions">فتح المأموريات والطباعة <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
         </section>
         {% endif %}
       </section>
@@ -85,5 +90,4 @@ document.addEventListener('DOMContentLoaded',()=>{
   const es=document.getElementById('inline-entry-employee-search'),ei=document.getElementById('inline-entry-employee'),el=document.getElementById('inline-entry-employees');if(es&&ei&&el){const sync=()=>{const o=[...el.options].find(x=>x.value===es.value.trim());ei.value=o?.dataset.id||''};es.addEventListener('input',sync);es.addEventListener('change',sync);}
 });
 </script>
-{% endif %}
 {% endblock %}

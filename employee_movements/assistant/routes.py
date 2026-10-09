@@ -649,7 +649,26 @@ def assistant():
             prior_chat = list(chat)
             _save_chat_message('user', prompt)
             db.session.commit()
-            result = answer_prompt(prompt, prior_chat, workspace_context or session.get("assistant_workspace_context"))
+            try:
+                result = answer_prompt(
+                    prompt,
+                    prior_chat,
+                    workspace_context or session.get("assistant_workspace_context"),
+                )
+            except Exception:
+                # A failed assistant turn must not turn the whole POST into HTTP 500,
+                # and must never leave a partially prepared action available to confirm.
+                db.session.rollback()
+                session.pop('assistant_pending', None)
+                session.pop('assistant_manager_pending', None)
+                current_app.logger.exception(
+                    'Unhandled assistant turn failure for user_id=%s',
+                    me().id if me() else None,
+                )
+                result = {
+                    'title': 'تعذر إكمال الرد',
+                    'error': 'حدث خطأ داخلي أثناء معالجة الرسالة. لم يتم اعتماد أي إجراء؛ راجع سجل التشغيل لمعرفة السبب.',
+                }
         if prompt and result:
             _save_chat_message('assistant', history_text(result), result.get('title', 'المساعد الذكي'))
             _trim_chat()

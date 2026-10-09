@@ -1,12 +1,15 @@
 """Governorates, branches and lookup lists."""
 
 from flask import abort, Blueprint, flash, redirect, render_template, request
+from sqlalchemy import func
 
 from ..access import actual_roles, can, gids, governorate_ok, has_role, log, only, req, roles, user_branch_ids
 from ..extensions import db
 from ..models import (
+    ApprovalDelegation,
     Branch,
     Employee,
+    EntryAssignmentBranch,
     Governorate,
     Lookup,
     Movement,
@@ -31,7 +34,7 @@ def governorates():
         else:
             x = Governorate(name=name)
             db.session.add(x)
-            db.session.commit()
+            db.session.flush()
             log('ADD', 'Governorate', x.id, name)
             db.session.commit()
             flash('تمت الإضافة.')
@@ -80,6 +83,7 @@ def governorate_delete(i):
     if (
         Branch.query.filter_by(governorate_id=i).count()
         or UserGovernorate.query.filter_by(governorate_id=i).count()
+        or ApprovalDelegation.query.filter_by(governorate_id=i).count()
     ):
         flash('لا يمكن الحذف لوجود ارتباطات؛ استخدم التعطيل.')
     else:
@@ -92,7 +96,7 @@ def governorate_delete(i):
 
 @bp.route('/branches', methods=['GET', 'POST'])
 @req
-@only('مسؤول التطبيق')
+@only('مسؤول التطبيق', 'مشرف محافظة')
 def branches():
     if not can('manage_structure') or not has_role('مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'):
         abort(403)
@@ -135,6 +139,11 @@ def branches():
             abort(403)
         elif Branch.query.filter_by(governorate_id=g.id, name=name).first():
             flash('الفرع موجود بالفعل في هذه المحافظة.')
+        elif Branch.query.filter(
+            Branch.governorate_id == g.id,
+            func.lower(func.trim(Branch.code)) == code.lower(),
+        ).first():
+            flash('كود الفرع مستخدم بالفعل في هذه المحافظة.')
         else:
             x = Branch(governorate_id=g.id, name=name, code=code)
             db.session.add(x)
@@ -151,7 +160,6 @@ def branches():
                         or g.id in {b.governorate_id for b in Branch.query.filter(Branch.id.in_(user_branch_ids(eu))).all()}
                     ):
                         db.session.add(UserBranch(user_id=eu.id, branch_id=x.id))
-            db.session.commit()
             log('ADD', 'Branch', x.id, name)
             db.session.commit()
             flash('تمت إضافة الفرع وربطه بالمدخل الأول تلقائيًا.')
@@ -170,7 +178,7 @@ def branches():
 
 @bp.post('/branches/<int:i>/edit')
 @req
-@only('مسؤول التطبيق')
+@only('مسؤول التطبيق', 'مشرف محافظة')
 def branch_edit(i):
     if not can('manage_structure') or not has_role('مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'):
         abort(403)
@@ -190,8 +198,15 @@ def branch_edit(i):
         Branch.query.filter(Branch.governorate_id == g.id, Branch.name == n, Branch.id != i)
         .first()
     )
+    duplicate_code = Branch.query.filter(
+        Branch.governorate_id == g.id,
+        func.lower(func.trim(Branch.code)) == code.lower(),
+        Branch.id != i,
+    ).first()
     if dup:
         flash('الفرع موجود بالفعل في هذه المحافظة.')
+    elif duplicate_code:
+        flash('كود الفرع مستخدم بالفعل في هذه المحافظة.')
     else:
         x.governorate_id = g.id
         x.name = n
@@ -204,7 +219,7 @@ def branch_edit(i):
 
 @bp.post('/branches/<int:i>/toggle')
 @req
-@only('مسؤول التطبيق')
+@only('مسؤول التطبيق', 'مشرف محافظة')
 def branch_toggle(i):
     if not can('manage_structure') or not has_role('مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'):
         abort(403)
@@ -213,6 +228,12 @@ def branch_toggle(i):
         abort(404)
     if 'مسؤول التطبيق' not in roles() and not governorate_ok(x.governorate_id):
         abort(403)
+    # A branch must not be reactivated while its parent governorate is inactive.
+    if not x.is_active:
+        parent = db.session.get(Governorate, x.governorate_id)
+        if not parent or not parent.is_active:
+            flash('لا يمكن تفعيل الفرع قبل تفعيل المحافظة التابعة له.')
+            return redirect('/branches')
     x.is_active = not x.is_active
     log('TOGGLE', 'Branch', i)
     db.session.commit()
@@ -221,7 +242,7 @@ def branch_toggle(i):
 
 @bp.post('/branches/<int:i>/delete')
 @req
-@only('مسؤول التطبيق')
+@only('مسؤول التطبيق', 'مشرف محافظة')
 def branch_delete(i):
     if not can('manage_structure') or not has_role('مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'):
         abort(403)
@@ -233,6 +254,7 @@ def branch_delete(i):
     if (
         Employee.query.filter_by(branch_id=i).count()
         or UserBranch.query.filter_by(branch_id=i).count()
+        or EntryAssignmentBranch.query.filter_by(branch_id=i).count()
         or Movement.query.filter_by(destination_branch_id=i).count()
     ):
         flash('لا يمكن حذف الفرع لوجود موظفين أو مستخدمين أو حركات مرتبطة به؛ استخدم التعطيل.')
@@ -258,7 +280,7 @@ def lookups():
         else:
             x = Lookup(kind=kind, name=name)
             db.session.add(x)
-            db.session.commit()
+            db.session.flush()
             log('ADD', 'Lookup', x.id, name)
             db.session.commit()
             flash('تمت الإضافة.')

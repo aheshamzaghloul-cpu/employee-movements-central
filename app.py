@@ -9,7 +9,7 @@ from flask_wtf.csrf import CSRFProtect
 from sqlalchemy import inspect, text
 from werkzeug.security import generate_password_hash, check_password_hash
 
-APP_VERSION = '1.0.4-cyan-admin' 
+APP_VERSION = '1.0.5-cyan-bootstrap' 
 APP_ENV = os.getenv('APP_ENV', 'development').strip().lower()
 app = Flask(__name__)
 secret_key = os.getenv('SECRET_KEY', '').strip()

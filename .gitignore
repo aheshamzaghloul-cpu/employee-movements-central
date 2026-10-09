@@ -1,52 +1,5 @@
-# Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-.venv/
-venv/
-env/
-ENV/
-
-# Environment / secrets
 .env
-.env.*
-!.env.example
-
-# Local databases / runtime data
-*.db
-*.sqlite
-*.sqlite3
 instance/
-
-# Logs / temporary files
-*.log
-logs/
-*.tmp
-*.bak
-*.swp
-
-# IDE / OS
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
-
-# Test / coverage
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Build artifacts
-dist/
-build/
-*.egg-info/
-
-# Local backups
-backups/
-
-# Generated uploads
-uploads/
-
-.ruff_cache/
+*.db

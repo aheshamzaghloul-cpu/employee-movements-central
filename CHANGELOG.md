@@ -1,5 +1,8 @@
-## v68.15.19 — Review Access Guard Fix
-- Fixed missing Flask `abort` import in the temporary review-access route so disabled/invalid review access returns the intended 404 instead of raising NameError.
+## v68.15.16 — Basyouni Employee Add Intent Boundary
+
+- Fixed a real assistant routing bug where a clear employee-add request such as «عايز أضيف موظف» was correctly detected locally as `employee_add`, then overwritten by a generic Gemini `topic_options` response.
+- Explicit employee-add and movement-registration intents now retain priority over generic `help/topic_options/employee_topic` classifications.
+- The employee-add action now opens the actual employee form anchor `/employees#employee-add`.
 
 ## v68.15.14 — Basyouni Tool Execution Boundary
 - Added static contracts proving Gemini tool dispatch can only prepare mutations.
@@ -13,6 +16,10 @@
 - Preserve final permission and current-state checks at execution time.
 
 # Changelog
+
+## v68.15.17
+- Comprehensive Basyouni boundary hardening: preserve high-confidence local employee-add intent, fix movement scope imports, prevent persisted assistant replies/live record content from being sent to Gemini, and redact selected record IDs from model-visible workspace context.
+
 
 ## v68.15.12 — Basyouni Execute Current-State Audit
 - Audited sensitive execute branches for stale-plan usage.

@@ -1,10 +1,9 @@
 """Login, logout, role switching and password change."""
 
 import secrets
-import hmac
 from datetime import datetime
 
-from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..access import actual_roles, log, me, req, safe_next_url, user_branch_ids, user_gov_ids
@@ -57,50 +56,6 @@ def login():
     user.last_login = datetime.utcnow()
     log('LOGIN', 'User', user.id)
     db.session.commit()
-    return redirect(url_for('dashboard.home'))
-
-
-
-@bp.get('/review-access')
-def review_access():
-    """Temporary diagnostic for the dedicated review account."""
-    if not current_app.config.get('REVIEW_ACCESS_ENABLED'):
-        current_app.logger.warning('Review access: disabled by configuration.')
-        return 'Review access is disabled. Check REVIEW_ACCESS_ENABLED=1.', 503
-
-    token = request.args.get('token', '')
-    expected = current_app.config.get('REVIEW_ACCESS_TOKEN', '')
-
-    if not expected or len(expected) < 32 or not hmac.compare_digest(token, expected):
-        current_app.logger.warning('Review access: token rejected.')
-        return 'Review token rejected. Check the token in Blitz.', 403
-
-    username = current_app.config.get('REVIEW_USERNAME', 'full_review_test')
-    user = User.query.filter_by(username=username).first()
-
-    if not user:
-        current_app.logger.warning('Review access: configured account not found.')
-        return 'Review account not found in the connected database.', 404
-
-    if not user.is_active:
-        current_app.logger.warning('Review access: configured account is inactive.')
-        return 'Review account exists but is inactive.', 403
-
-    session.clear()
-    session['uid'] = user.id
-    session['csrf'] = secrets.token_urlsafe(24)
-    session['review_mode'] = True
-
-    real_roles = actual_roles(user)
-    for preferred in LOGIN_ROLES:
-        if preferred in real_roles:
-            session['active_role'] = preferred
-            break
-
-    user.last_login = datetime.utcnow()
-    log('REVIEW_LOGIN', 'User', user.id, 'Temporary review access')
-    db.session.commit()
-    current_app.logger.warning('Review access succeeded.')
     return redirect(url_for('dashboard.home'))
 
 

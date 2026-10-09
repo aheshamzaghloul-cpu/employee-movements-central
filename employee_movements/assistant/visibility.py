@@ -5,13 +5,22 @@ They do not grant permissions; they only answer whether an active record is
 visible to the current assistant user.
 """
 
-from ..access import branch_ok, roles
+from ..access import branch_ok, can_view_movement, roles
 
 
 def global_movement_actor() -> bool:
-    """Whether the current user has the global movement-read role."""
+    """Whether the current user has global employee-read visibility.
+
+    This remains intentionally broad for the Home employee search. Operational
+    movement/branch reads use their dedicated central scope checks instead.
+    """
     current_roles = roles()
     return 'مسؤول التطبيق' in current_roles or 'مشرف محافظة' in current_roles
+
+
+def visible_movement(movement) -> bool:
+    """Return whether a movement is readable under the central access rules."""
+    return bool(movement and can_view_movement(movement))
 
 
 def visible_employee(employee) -> bool:

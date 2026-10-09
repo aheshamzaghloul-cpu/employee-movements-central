@@ -240,7 +240,9 @@ def _tool_context_text(ctx):
         "path": ctx.get("path"),
         "heading": ctx.get("heading"),
         "hash": ctx.get("hash"),
-        "selected": ctx.get("selected", {}),
+        "selected": {
+            key: True for key, value in (ctx.get("selected", {}) or {}).items() if value is not None
+        },
         "scope_governorate_id": ctx.get("scope_governorate_id"),
         "active_role": session.get("active_role"),
         "roles": roles(),
@@ -417,7 +419,7 @@ def _prepare_action(args, ctx):
     # Prefer explicit IDs, then current workspace selection, then names locally.
     selected = ctx.get("selected", {})
     if not normalized.get("employee_id"):
-        normalized["employee_id"] = selected.get("employee_id")
+        normalized["employee_id"] = selected.get("employee_id") or _safe_int(session.get("assistant_context_employee_id"))
     if not normalized.get("movement_id"):
         normalized["movement_id"] = selected.get("movement_id")
     if not normalized.get("branch_id"):
@@ -484,11 +486,15 @@ def run_agent(prompt, prior_chat, workspace_context):
     """Run one conversational turn with local application tools and confirmation-ready mutations."""
     context = _workspace_context(workspace_context)
     history = []
+    # Persisted assistant replies may contain live employee/movement data returned
+    # by local tools. Never send those replies back to Gemini. Keep only user-authored
+    # language history; records are resolved locally by application tools.
     for item in (prior_chat or [])[-30:]:
-        role = "user" if item.get("role") == "user" else "model"
+        if item.get("role") != "user":
+            continue
         text = str(item.get("text") or "").strip()
         if text:
-            history.append({"role": role, "parts": [{"text": text[:1800]}]})
+            history.append({"role": "user", "parts": [{"text": text[:1800]}]})
     history.append({"role": "user", "parts": [{"text": str(prompt)[:4000]}]})
     contents = history
 

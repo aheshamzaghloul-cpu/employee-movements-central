@@ -2,7 +2,16 @@
 
 from flask import abort, Blueprint, current_app, flash, redirect, render_template, request, session
 
-from ..access import branch_ok, can, log, me, req, roles
+from ..access import (
+    branch_ok,
+    can,
+    can_manage_movement_destination,
+    can_manage_movement_employee,
+    log,
+    me,
+    req,
+    roles,
+)
 from ..extensions import db
 from ..models import AssistantMessage, Branch, Employee, Governorate, Movement
 from ..validation import (
@@ -210,6 +219,19 @@ def answer_prompt(prompt, prior_chat, workspace_context=None):
     if local_fast.get('intent') == 'greeting':
         return {'title': 'بسيوني في الخدمة', 'answer': local_fast.get('reply') or greeting_reply(prompt)}
 
+    # High-confidence local intents must not be overridden by the conversational
+    # model. This is especially important for direct actions such as employee_add:
+    # Gemini may legitimately answer with a generic topic suggestion even though
+    # the local parser already identified a concrete application action.
+    if local_fast.get('intent') == 'employee_add':
+        if not can('manage_employees'):
+            return {'title': 'إضافة موظف جديد', 'error': 'لا تملك صلاحية إضافة موظف جديد.'}
+        return {
+            'title': 'إضافة موظف جديد',
+            'answer': 'بالتأكيد. يمكنك إضافة موظف جديد. سأفتح لك شاشة الإضافة مباشرة لتسجيل البيانات المطلوبة.',
+            'actions': [{'label': 'بدء إضافة موظف جديد', 'url': '/employees#employee-add'}],
+        }
+
     agent_result = run_agent(prompt, prior_chat, workspace_context)
     if agent_result:
         if agent_result.get("preview"):
@@ -248,6 +270,13 @@ def answer_prompt(prompt, prior_chat, workspace_context=None):
         # إذا فهم Gemini طلبًا تنفيذيًا بشكل أوضح، نستخدمه ثم نحل الكيانات محليًا.
         # أما في الاستعلامات العامة، يبقى التعرف المحلي هو مصدر الحقيقة.
         if (
+            local_a.get('intent') in ('register_movement', 'employee_add')
+            and a.get('intent') in ('help', 'topic_options', 'employee_topic')
+        ):
+            # الطلب التنفيذي الواضح محليًا له الأولوية على تصنيف Gemini العام.
+            # مثال: «عايز أضيف موظف» لا يجب أن يتحول إلى «خيارات الموظفين».
+            a = local_a
+        elif (
             local_a.get('intent') not in ('register_movement', 'employee_add')
             and a.get('intent') in ('help', 'topic_options', 'employee_topic')
         ):
@@ -348,7 +377,7 @@ def answer_prompt(prompt, prior_chat, workspace_context=None):
             result = {
                 'title': 'إضافة موظف جديد',
                 'answer': 'بالتأكيد. يمكنك إضافة موظف جديد. سأفتح لك شاشة الإضافة مباشرة لتسجيل البيانات المطلوبة: المحافظة، الفرع، الاسم، البريد الإلكتروني، الوظيفة، الكود الوظيفي، تاريخ التعيين، هاتف الشركة والهاتف الشخصي.',
-                'actions': [{'label': 'بدء إضافة موظف جديد', 'url': '/employees'}],
+                'actions': [{'label': 'بدء إضافة موظف جديد', 'url': '/employees#employee-add'}],
             }
     elif a.get('intent') == 'navigate':
         nav = a.get('navigate_url') or ''

@@ -140,12 +140,15 @@ def _history_for_language(chat):
     """Keep recent user/assistant turns so follow-up phrases retain their meaning."""
     history = []
     for item in (chat or [])[-MAX_HISTORY_MESSAGES:]:
-        role = item.get('role')
+        # Assistant replies may contain live employee/movement data. Keep only
+        # user-authored language history for semantic parsing.
+        if item.get('role') != 'user':
+            continue
         text = str(item.get('text') or '').strip()
-        if role not in ('user', 'assistant') or not text:
+        if not text:
             continue
         history.append({
-            'role': role,
+            'role': 'user',
             'parts': [{'text': text[:MAX_HISTORY_TEXT_CHARS]}],
         })
     return history

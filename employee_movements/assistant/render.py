@@ -67,7 +67,9 @@ def _latest_current_movements(employee_ids, on_date=None):
 
 
 def _visible_branch(b):
-    return bool(b and getattr(b, 'is_active', False) and (global_movement_actor() or branch_ok(b.id)))
+    # Branch reads are operationally scoped. Home employee search remains global,
+    # but a supervisor must not use branch_info as a way to bypass selected scope.
+    return bool(b and getattr(b, 'is_active', False) and (('مسؤول التطبيق' in roles()) or branch_ok(b.id)))
 
 
 def topic_options(topic):

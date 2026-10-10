@@ -397,6 +397,18 @@ def can_manage_movement_employee(e, movement_type=None):
     """
     if not e or not getattr(e, 'is_active', False):
         return False
+    # A movement cannot be registered for an employee whose current branch or
+    # parent governorate is inactive, even when the actor has global assignment
+    # scope. This is a data-validity rule, not a restriction to the work governorate.
+    employee_branch = getattr(e, 'branch', None)
+    employee_governorate = getattr(employee_branch, 'governorate', None) if employee_branch else None
+    if (
+        not employee_branch
+        or not getattr(employee_branch, 'is_active', False)
+        or not employee_governorate
+        or not getattr(employee_governorate, 'is_active', False)
+    ):
+        return False
     rs = roles()
     if 'مسؤول التطبيق' in rs:
         return True
@@ -412,6 +424,11 @@ def can_manage_movement_destination(branch, movement_type=None):
     assignment employee selection for governorate supervisors.
     """
     if not branch or not getattr(branch, 'is_active', False):
+        return False
+    # A destination is selectable only when both the branch and its parent
+    # governorate are active. Global cross-governorate scope does not bypass this.
+    destination_governorate = getattr(branch, 'governorate', None)
+    if not destination_governorate or not getattr(destination_governorate, 'is_active', False):
         return False
     rs = roles()
     if 'مسؤول التطبيق' in rs:

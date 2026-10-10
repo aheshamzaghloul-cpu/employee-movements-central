@@ -62,9 +62,9 @@ OPERATIONAL_SCOPE_ENDPOINTS = frozenset(
         'reports.reports',
         'reports.employee_type_report',
         'reports.reports_missions',
-        'missions.mission_print_list',
-        'missions.mission_print',
-        'missions.mission_print_date',
+        # Mission search and print are global read workflows; they must not
+        # require selecting an operational work-governorate first. Their
+        # route-level authorization still checks can_print_mission().
         'notifications.notifications',
         # Direct operational actions must inherit the same selected-work-governorate
         # as their parent pages; a direct URL/POST must never bypass the scope gate.
@@ -94,9 +94,7 @@ OPERATIONAL_SCOPE_ENDPOINTS = frozenset(
         'missions.mission_edit_save',
         'missions.mission_close',
         'missions.mission_reopen',
-        'missions.mission_print_date',
-        'missions.mission_print_date_save',
-        'missions.mission_pdf',
-        'missions.mission_print',
+        # Global mission print endpoints intentionally stay outside the
+        # operational scope gate. Printing does not grant edit/close rights.
     }
 )

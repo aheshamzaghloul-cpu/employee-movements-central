@@ -123,7 +123,8 @@ def movement_preflight_api():
     if movement_type == 'انتداب' and open_assignment:
         to_date = None
     validation = validate_movement_fields(
-        movement_type, leave_type, destination_id, from_date, to_date, permission_date
+        movement_type, leave_type, destination_id, from_date, to_date, permission_date,
+        destination_scope_checked=(movement_type == 'انتداب' and destination_id is not None),
     )
     if validation:
         return {'ready': False, 'ok': False, 'level': 'error', 'message': validation, 'suggestion': 'أكمل البيانات المطلوبة أو صححها قبل المتابعة.'}
@@ -193,14 +194,19 @@ def movements_page_filters_api():
     """فلاتر صفحة الحركات: المحافظات ضمن النطاق ثم الفروع ثم موظفو الفرع فقط."""
     rs = roles()
     movement_type = (request.args.get('movement_type') or '').strip()
-    # Only assignment/mission registration gets the supervisor's global
-    # employee picker. Leave/permission employee selection remains scoped.
-    global_movement_picker = 'مسؤول التطبيق' in rs or ('مشرف محافظة' in rs and movement_type == 'انتداب')
+    # Assignment registration is a cross-governorate workflow for the central
+    # Manager and governorate supervisors. Leave/permission remain work-scoped.
+    global_movement_picker = (
+        'مسؤول التطبيق' in rs
+        or (bool(rs & {'مشرف محافظة', 'Manager Application Support'}) and movement_type == 'انتداب')
+    )
     allowed_gids = (
         {g.id for g in Governorate.query.filter_by(is_active=True).all()}
         if global_movement_picker
         else set(gids())
     )
+    # Always validate the parent governorate too: a branch can be flagged active
+    # while its governorate is inactive, and must not appear in the picker.
     allowed_bids = (
         {b.id for b in Branch.query.join(Governorate, Governorate.id == Branch.governorate_id).filter(Branch.is_active == True, Governorate.is_active == True).all()}
         if global_movement_picker
@@ -212,7 +218,7 @@ def movements_page_filters_api():
     bid = int(bid_raw) if bid_raw.isdigit() else None
     if gid is not None and gid not in allowed_gids:
         return {'branches': [], 'employees': []}
-    branch_q = Branch.query.filter(Branch.is_active == True, Branch.id.in_(allowed_bids))
+    branch_q = Branch.query.join(Governorate, Governorate.id == Branch.governorate_id).filter(Branch.is_active == True, Governorate.is_active == True, Branch.id.in_(allowed_bids))
     if gid is not None:
         branch_q = branch_q.filter(Branch.governorate_id == gid)
     branches = branch_q.order_by(Branch.name.asc()).all()
@@ -309,7 +315,8 @@ def movement_create():
         abort(403)
 
     error = validate_movement_fields(
-        movement_type, leave_type, destination_id, from_date, to_date, permission_date
+        movement_type, leave_type, destination_id, from_date, to_date, permission_date,
+        destination_scope_checked=(movement_type == 'انتداب' and destination is not None),
     )
     if error:
         flash(error)
@@ -358,7 +365,7 @@ def movement_create():
 def movements():
     # صفحة الحركات للمتابعة والسجل فقط؛ تسجيل الحركة يتم من الرئيسية.
     rs = roles()
-    global_assignment_actor = 'مسؤول التطبيق' in rs or 'مشرف محافظة' in rs
+    global_assignment_actor = bool(rs & {'مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'})
     bs = bids()
     scoped_branches = (
         Branch.query.join(Governorate, Governorate.id == Branch.governorate_id).filter(Branch.is_active == True, Governorate.is_active == True).order_by(Branch.name.asc()).all()
@@ -376,8 +383,8 @@ def movements():
             .order_by(Movement.created_at.desc())
             .all()
         )
-    elif 'مشرف محافظة' in rs:
-        # المشرف يرى كل الانتدابات/المأموريات، لكن الإجازات والأذونات
+    elif rs & {'مشرف محافظة', 'Manager Application Support'}:
+        # المشرف والـManager يريان كل الانتدابات/المأموريات، لكن الإجازات والأذونات
         # تبقى محكومة بنطاق الفروع التشغيلي.
         rows = (
             Movement.query.join(Employee)
@@ -445,7 +452,7 @@ def movements():
         movement_filter_governorates=(
             Governorate.query.filter(Governorate.is_active == True)
             .order_by(Governorate.name.asc()).all()
-            if ('مسؤول التطبيق' in roles() or 'مشرف محافظة' in roles())
+            if (roles() & {'مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'})
             else (
                 Governorate.query.filter(Governorate.id.in_(gids()), Governorate.is_active == True)
                 .order_by(Governorate.name.asc()).all()
@@ -481,6 +488,8 @@ def movement_edit(i):
                 or not destination.governorate.is_active
             ):
                 abort(403)
+            if not can_manage_movement_destination(destination, mt):
+                abort(403)
         fd = f.get('from_date')
         td = f.get('to_date')
         pd = f.get('permission_date')
@@ -489,7 +498,10 @@ def movement_edit(i):
         if m.movement_type == 'انتداب' and m.assignment_state == 'مغلق' and mt == 'انتداب' and not td:
             flash('المأمورية المغلقة يجب أن تحتفظ بتاريخ نهاية. لإعادتها مفتوحة استخدم إجراء إعادة الفتح أولًا.')
             return redirect(url_for('movements.movement_edit', i=i))
-        err = validate_movement_fields(mt, f.get('leave_type') or None, dest, fd, td, pd)
+        err = validate_movement_fields(
+            mt, f.get('leave_type') or None, dest, fd, td, pd,
+            destination_scope_checked=(mt == 'انتداب' and dest is not None),
+        )
         if err:
             flash(err)
             return redirect(url_for('movements.movement_edit', i=i))

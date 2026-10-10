@@ -25,6 +25,8 @@ def test_gemini_history_excludes_persisted_assistant_replies():
     llm = (ROOT / "llm.py").read_text(encoding="utf-8")
     assert 'if item.get("role") != "user":' in agent
     assert "if item.get('role') != 'user':" in llm
+    assert "MAX_CONVERSATION_TURNS = 20" in agent
+    assert "MAX_CONTEXT_TURNS = 20" in llm
 
 
 def test_model_visible_workspace_context_redacts_selected_record_ids():

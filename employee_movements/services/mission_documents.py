@@ -21,6 +21,7 @@ def mission_template_pdf(
     root_path,
     creator=None,
     print_to_date=None,
+    closer=None,
 ):
     """Render the supplied mission PDF template without changing its geometry."""
     template = os.path.join(root_path, 'static', 'mission', 'mission_template.pdf')
@@ -67,10 +68,15 @@ def mission_template_pdf(
     status = 'مغلقة' if mission_state_label(mission) == 'مغلقة' else 'تحت التحرير'
     put(fitz.Rect(498.0, 74.2, 552.8, 87.9), f'{mission.id} {status}', 8.0403004, 'right', 'ltr')
 
-    creator_name = creator.full_name if creator else ''
+    # The existing top-right name slot shows exactly one person: the creator
+    # while the mission is open, or the closer after it is closed. Keep the
+    # template geometry and all other printed content unchanged.
+    is_closed = mission_state_label(mission) == 'مغلقة'
+    display_user = closer if is_closed else creator
+    display_name = display_user.full_name if display_user else ''
     creator_job = creator.job_title if creator and creator.job_title else ''
-    if creator_name:
-        put(fitz.Rect(462.5, 90.2, 552.8, 98.2), f'- {creator_name}', 6.0002327, 'right', 'rtl')
+    if display_name:
+        put(fitz.Rect(462.5, 90.2, 552.8, 98.2), f'- {display_name}', 6.0002327, 'right', 'rtl')
     if creator_job:
         put(fitz.Rect(462.5, 97.3, 552.8, 106.0), creator_job, 6.0002327, 'right', 'rtl')
 

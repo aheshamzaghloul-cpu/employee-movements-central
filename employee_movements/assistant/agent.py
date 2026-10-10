@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 
 GEMINI_INTERACTION_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 MAX_AGENT_ROUNDS = 2
+MAX_CONVERSATION_TURNS = 20
+MAX_CONVERSATION_CHARS = 16000
 
 PAGE_NAMES = {
     "/": "الرئيسية",
@@ -59,7 +61,8 @@ SYSTEM = """
 وافهم العامية المصرية والفصحى والضمائر والعبارات المختصرة مثل «هو»، «نفسه»، «عدّلها»،
 «خلّيها»، «تمام»، «نفّذ»، «اللي قدامك»، و«من هنا».
 
-أنت لست مقيدًا بصفحة معينة: يمكنك الانتقال والتعامل مع أي جزء من النظام من نفس المحادثة. صلاحياتك التنفيذية هي نفس صلاحيات المستخدم الحالي، والتطبيق هو صاحب القرار النهائي في الصلاحيات والنطاق والتحقق. إذا كان المستخدم مسؤول التطبيق، تعامل معه كمستخدم إداري كامل ولا تطلب منه العودة إلى صفحة الإدارة لمجرد تنفيذ إجراء متاح له.
+أنت لست مقيدًا بصفحة معينة: يمكنك الانتقال والتعامل مع أي جزء من النظام من نفس المحادثة. لا تضع قيودًا اصطناعية على أنواع الأسئلة أو الصفحات؛ استخدم كل الأدوات المتاحة لك عندما تكون مفيدة. صلاحياتك التنفيذية هي نفس صلاحيات المستخدم الحالي، والتطبيق هو صاحب القرار النهائي في الصلاحيات والنطاق والتحقق. إذا كان المستخدم مسؤول التطبيق، تعامل معه كمستخدم إداري كامل ولا تطلب منه العودة إلى صفحة الإدارة لمجرد تنفيذ إجراء متاح له.
+افهم المحادثة كوحدة واحدة: اربط الطلب الحالي بما سبق، واحتفظ بالأسماء والحقول التي ذكرها المستخدم بالفعل، واستنتج مرجع الضمير من آخر سجل أو طلب واضح. إذا كانت هناك معلومة واحدة ناقصة فقط فاسأل عنها مباشرة بدل إعادة الطلب من البداية. لا تعتبر «تمام» موافقة على عملية جديدة إلا إذا كان هناك إجراء معلّق واضح.
 استخدم أدوات التطبيق بدل التخمين. لا تخترع اسم موظف أو فرع أو محافظة أو نتيجة.
 إذا احتجت بيانات حقيقية فاستدع الأداة المناسبة أولًا.
 
@@ -485,18 +488,40 @@ def _call_gemini(contents, context):
 def run_agent(prompt, prior_chat, workspace_context):
     """Run one conversational turn with local application tools and confirmation-ready mutations."""
     context = _workspace_context(workspace_context)
-    history = []
-    # Persisted assistant replies may contain live employee/movement data returned
-    # by local tools. Never send those replies back to Gemini. Keep only user-authored
-    # language history; records are resolved locally by application tools.
+    # Keep conversational continuity without forwarding assistant replies that may
+    # contain live employee/movement data. Pack recent user turns into one clear
+    # context message so follow-ups are interpreted against the whole request.
+    prior = []
     for item in (prior_chat or [])[-30:]:
         if item.get("role") != "user":
             continue
         text = str(item.get("text") or "").strip()
         if text:
-            history.append({"role": "user", "parts": [{"text": text[:1800]}]})
-    history.append({"role": "user", "parts": [{"text": str(prompt)[:4000]}]})
-    contents = history
+            prior.append(text[:1200])
+    prior = prior[-MAX_CONVERSATION_TURNS:]
+    current_section = "رسالة المستخدم الحالية:\n" + str(prompt or "").strip()[:4000]
+    # Reserve space for the current request and fill remaining space from the
+    # newest prior turns backwards. Never let older context cut off the prompt.
+    budget = MAX_CONVERSATION_CHARS - len(current_section) - 2
+    selected = []
+    used = 0
+    for value in reversed(prior):
+        entry = f"{len(prior) - len(selected)}. {value}"
+        cost = len(entry) + (1 if selected else 0)
+        if cost > budget - used:
+            remaining = budget - used
+            if remaining > 8:
+                selected.append(entry[:remaining])
+            break
+        selected.append(entry)
+        used += cost
+    selected.reverse()
+    sections = []
+    if selected:
+        sections.append("رسائل المستخدم السابقة بالترتيب (الأحدث أقرب للرسالة الحالية):\n" + "\n".join(selected))
+    sections.append(current_section)
+    packed = "\n\n".join(sections)
+    contents = [{"role": "user", "parts": [{"text": packed[-MAX_CONVERSATION_CHARS:]}]}]
 
     pending_result = None
     navigation = None

@@ -60,9 +60,10 @@ def test_branch_management_routes_allow_scoped_supervisor_but_not_central_manage
         "@bp.post('/branches/<int:i>/delete')",
     ):
         start = text.index(route)
-        section = text[max(0, start - 100):start]
-        assert "@only('مسؤول التطبيق', 'مشرف محافظة')" in section
-        assert "Manager Application Support" not in section
+        def_start = text.index('def ', start)
+        decorator_block = text[start:def_start]
+        assert "@only('مسؤول التطبيق', 'مشرف محافظة')" in decorator_block
+        assert "Manager Application Support" not in decorator_block
 
 
 def test_branch_cannot_be_reactivated_under_inactive_governorate():
@@ -73,20 +74,6 @@ def test_branch_cannot_be_reactivated_under_inactive_governorate():
     assert "if not x.is_active:" in block
     assert "if not parent or not parent.is_active:" in block
     assert "لا يمكن تفعيل الفرع قبل تفعيل المحافظة التابعة له." in block
-
-
-def test_branch_management_routes_allow_scoped_supervisor_but_not_central_manager():
-    text = CATALOG.read_text(encoding='utf-8')
-    for route in (
-        "@bp.route('/branches', methods=['GET', 'POST'])",
-        "@bp.post('/branches/<int:i>/edit')",
-        "@bp.post('/branches/<int:i>/toggle')",
-        "@bp.post('/branches/<int:i>/delete')",
-    ):
-        start = text.index(route)
-        section = text[max(0, start - 100):start]
-        assert "@only('مسؤول التطبيق', 'مشرف محافظة')" in section
-        assert "Manager Application Support" not in section
 
 
 def test_branch_cannot_be_reactivated_under_inactive_governorate():

@@ -18,7 +18,8 @@ def test_mission_documents_are_extracted_from_blueprint():
 def test_mission_routes_still_delegate_document_generation():
     text = MISSIONS.read_text()
     assert "mission_template_pdf(" in text
-    assert "build_mission_export_xlsx(rows)" in text
+    assert "mission_export_xlsx as build_mission_export_xlsx" in text
+    assert "out = build_mission_export_xlsx(context['rows'])" in text
     assert "mission-{m.id}.pdf" in text
     assert "المأموريات.xlsx" in text
 

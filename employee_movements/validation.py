@@ -122,7 +122,7 @@ def movement_overlaps(employee_id, mt, fd, td, pd, exclude_id=None):
     return None
 
 
-def validate_movement_fields(mt, leave_type, dest, fd, td, pd):
+def validate_movement_fields(mt, leave_type, dest, fd, td, pd, destination_scope_checked=False):
     if mt not in active_movement_types():
         return 'نوع الحركة غير صحيح.'
     if mt == 'إجازة':
@@ -131,7 +131,10 @@ def validate_movement_fields(mt, leave_type, dest, fd, td, pd):
         if not fd or not td:
             return 'حدد تاريخ البداية والنهاية.'
     elif mt == 'انتداب':
-        if not dest or not branch_ok(dest):
+        # Cross-governorate assignment destinations are allowed only when the
+        # calling route has already validated the destination with its role-aware
+        # access helper. Other callers retain the default branch-scope check.
+        if not dest or (not destination_scope_checked and not branch_ok(dest)):
             return 'فرع الانتداب غير مسموح.'
         if not fd:
             return 'حدد تاريخ بداية الانتداب.'

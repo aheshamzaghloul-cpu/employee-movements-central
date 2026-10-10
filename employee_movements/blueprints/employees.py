@@ -89,9 +89,11 @@ def employee_search():
     rows = (
         Employee.query
         .join(Branch, Employee.branch_id == Branch.id)
+        .join(Governorate, Governorate.id == Branch.governorate_id)
         .filter(
             Employee.is_active == True,
             Branch.is_active == True,
+            Governorate.is_active == True,
             db.or_(
                 Employee.full_name.ilike(like),
                 Employee.job_code.ilike(like),
@@ -129,7 +131,7 @@ def employee_search():
                 if mv.from_date and mv.to_date:
                     dates = f"{mv.from_date.strftime('%Y-%m-%d')} ← {mv.to_date.strftime('%Y-%m-%d')}"
                 return {
-                    'label': mv.destination.name if mv.destination else 'انتداب',
+                    'label': (f"{mv.destination.name} — {mv.destination.governorate.name}" if mv.destination and mv.destination.governorate else (mv.destination.name if mv.destination else 'انتداب')),
                     'detail': dates,
                     'status': mv.status,
                 }

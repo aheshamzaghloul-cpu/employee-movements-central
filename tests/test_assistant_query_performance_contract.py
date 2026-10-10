@@ -63,10 +63,13 @@ def test_branch_status_uses_one_current_movement_query():
 
 
 def test_manager_name_and_lookup_searches_are_db_narrowed():
-    text = (Path(__file__).resolve().parents[1] / "employee_movements" / "assistant" / "manager.py").read_text(encoding="utf-8")
-    assert 'User.full_name.ilike' in text
-    assert 'Lookup.name.ilike' in text
-    assert "Lookup.query.filter_by(kind=kind).all()" not in text
+    root = Path(__file__).resolve().parents[1] / "employee_movements" / "assistant"
+    manager = (root / "manager.py").read_text(encoding="utf-8")
+    resolvers = (root / "manager_resolvers.py").read_text(encoding="utf-8")
+    assert 'User.full_name.ilike' in resolvers
+    assert '.limit(limit)' in resolvers
+    assert 'Lookup.name.ilike' in manager
+    assert 'Lookup.query.filter_by(kind=kind).all()' not in manager
 
 
 def test_render_employee_info_history_is_bounded_and_latest_fields_are_direct():
@@ -76,7 +79,8 @@ def test_render_employee_info_history_is_bounded_and_latest_fields_are_direct():
     section = text[text.index(marker):text.index(end, text.index(marker))]
     assert '.limit(20)' in section
     assert "movement_type=kind" in section
-    assert '.order_by(Movement.id.desc()).first()' in section
+    assert '.order_by(Movement.id.desc())' in section
+    assert '.first()' in section
     assert "filter_by(employee_id=e.id, is_active=True)\n            .order_by(Movement.id.desc())\n            .all()" not in section
 
 

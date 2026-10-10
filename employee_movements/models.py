@@ -250,6 +250,7 @@ class Movement(db.Model):
     mission_state = db.Column(db.String(30), default='تحت التحرير', nullable=False)
     closed_by = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'))
     closed_at = db.Column(db.DateTime)
+    closed_by_user = db.relationship('User', foreign_keys=[closed_by])
     closure_reason = db.Column(db.Text)
     last_assignment_notice_at = db.Column(db.DateTime)
 

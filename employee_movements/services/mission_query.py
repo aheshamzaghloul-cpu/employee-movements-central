@@ -45,13 +45,18 @@ def build_mission_report_context(*, roles, allowed_bids, args):
     govs = Governorate.query.filter(
         Governorate.is_active == True
     ).order_by(Governorate.name.asc()).all()
+    # Filter choices by both branch and parent-governorate status. A branch
+    # may remain flagged active after its governorate has been deactivated; it
+    # must not appear as a selectable current filter in the global report.
+    active_branch_query = (
+        Branch.query.join(Governorate, Governorate.id == Branch.governorate_id)
+        .filter(Branch.is_active == True, Governorate.is_active == True)
+    )
     branches = (
-        Branch.query.filter(Branch.is_active == True)
-        .order_by(Branch.name.asc()).all()
+        active_branch_query.order_by(Governorate.name.asc(), Branch.name.asc()).all()
         if global_actor else (
-            Branch.query.filter(
-                Branch.id.in_(allowed_bids), Branch.is_active == True
-            ).order_by(Branch.name.asc()).all()
+            active_branch_query.filter(Branch.id.in_(allowed_bids))
+            .order_by(Governorate.name.asc(), Branch.name.asc()).all()
             if allowed_bids else []
         )
     )
@@ -151,7 +156,8 @@ def build_mission_report_context(*, roles, allowed_bids, args):
     if df and dt and df > dt:
         df, dt = dt, df
     if df:
-        q = q.filter(Movement.to_date >= df)
+        # Include open missions (NULL to_date): they continue beyond the filter start.
+        q = q.filter(db.or_(Movement.to_date.is_(None), Movement.to_date >= df))
     if dt:
         q = q.filter(Movement.from_date <= dt)
 

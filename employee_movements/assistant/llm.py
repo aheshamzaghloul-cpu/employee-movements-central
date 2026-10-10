@@ -20,7 +20,8 @@ logger = logging.getLogger(__name__)
 GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent'
 DEFAULT_MODEL = 'gemini-3.8-flash'
 REQUEST_TIMEOUT_SECONDS = 8
-MAX_HISTORY_MESSAGES = 50
+MAX_HISTORY_MESSAGES = 60
+MAX_CONTEXT_TURNS = 20
 MAX_HISTORY_TEXT_CHARS = 1800
 
 
@@ -116,7 +117,7 @@ INTENT_SCHEMA = {
 
 SYSTEM_INSTRUCTION = """
 أنت العقل اللغوي لمساعد إداري عربي داخل نظام إدارة حركات الموظفين.
-افهم الحوار كحوار مستمر، وليس كرسائل منفصلة. استخرج نية المستخدم والحقول التي ذكرها،
+افهم الحوار كحوار مستمر، وليس كرسائل منفصلة. اجمع المعلومات التي ذكرها المستخدم عبر الرسائل السابقة والحالية في طلب واحد متماسك، ولا تُسقط حقولًا سابقة ما زالت لازمة للطلب الجاري. استخرج نية المستخدم والحقول التي ذكرها،
 وافهم الإشارات مثل «هو»، «له»، «نفس الموظف»، «تمام»، «نفّذ»، و«عدّلها» من سياق الحوار.
 لا تنفذ أي إجراء ولا تخمن بيانات قاعدة البيانات.
 
@@ -136,22 +137,45 @@ SYSTEM_INSTRUCTION = """
 """.strip()
 
 
-def _history_for_language(chat):
-    """Keep recent user/assistant turns so follow-up phrases retain their meaning."""
-    history = []
+def _history_for_language(chat, current_text=''):
+    """Pack recent user-authored turns into one explicit, compact conversation context.
+
+    Do not forward assistant replies: they can contain live employee or movement data.
+    A single user message also avoids a run of consecutive user roles and makes
+    elliptical follow-ups ("عدّلها", "نفس الموظف", "كمّل") easier to resolve.
+    """
+    prior = []
     for item in (chat or [])[-MAX_HISTORY_MESSAGES:]:
-        # Assistant replies may contain live employee/movement data. Keep only
-        # user-authored language history for semantic parsing.
         if item.get('role') != 'user':
             continue
         text = str(item.get('text') or '').strip()
-        if not text:
-            continue
-        history.append({
-            'role': 'user',
-            'parts': [{'text': text[:MAX_HISTORY_TEXT_CHARS]}],
-        })
-    return history
+        if text:
+            prior.append(text[:MAX_HISTORY_TEXT_CHARS])
+    prior = prior[-MAX_CONTEXT_TURNS:]
+    current_section = 'رسالة المستخدم الحالية:\n' + str(current_text or '').strip()[:4000]
+    # Reserve space for the current request first. Add the newest prior turns
+    # backwards so a long history can never truncate the current request or the
+    # most recent context at the front of the packed prompt.
+    budget = 16000 - len(current_section) - 2
+    selected = []
+    used = 0
+    for value in reversed(prior):
+        entry = f'{len(prior) - len(selected)}. {value}'
+        cost = len(entry) + (1 if selected else 0)
+        if cost > budget - used:
+            remaining = budget - used
+            if remaining > 8:
+                selected.append(entry[:remaining])
+            break
+        selected.append(entry)
+        used += cost
+    selected.reverse()
+    sections = []
+    if selected:
+        sections.append('رسائل المستخدم السابقة بالترتيب (الأحدث أقرب للرسالة الحالية):\n' + '\n'.join(selected))
+    sections.append(current_section)
+    packed = '\n\n'.join(sections)
+    return [{'role': 'user', 'parts': [{'text': packed[-16000:]}]}]
 
 
 def build_live_context(text, local_a=None):
@@ -179,8 +203,7 @@ def llm_parse(text, chat=None, live_context=''):
         'هذا الدور معلومة سياقية لغوية فقط؛ لا تستخدمه لاتخاذ قرار صلاحية.\n'
         'لا توجد أي بيانات موظفين أو فروع أو محافظات متاحة للنموذج.\n'
     )
-    contents = _history_for_language(chat)
-    contents.append({'role': 'user', 'parts': [{'text': str(text)[:4000]}]})
+    contents = _history_for_language(chat, text)
 
     payload = {
         'system_instruction': {'parts': [{'text': SYSTEM_INSTRUCTION + '\n\n' + language_context}]},

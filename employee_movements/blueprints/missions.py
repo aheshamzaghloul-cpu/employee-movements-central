@@ -201,6 +201,7 @@ def mission_print_date_save(movement_id):
         current_app.root_path,
         creator,
         print_to_date=print_to_date,
+        closer=m.closed_by_user,
     )
     from flask import Response
     return Response(
@@ -234,7 +235,10 @@ def mission_pdf(movement_id):
     branch = db.session.get(Branch, employee.branch_id) if employee else None
     destination = m.destination
     creator = db.session.get(User, m.created_by) if m.created_by else None
-    data = mission_template_pdf(m, employee, branch, destination, current_app.root_path, creator)
+    data = mission_template_pdf(
+        m, employee, branch, destination, current_app.root_path, creator,
+        closer=m.closed_by_user,
+    )
     from flask import Response
     return Response(
         data,
@@ -278,10 +282,12 @@ def mission_edit_request_create(movement_id):
     if len(reason) < 5:
         flash('يجب تسجيل سبب واضح للتعديل.')
         return redirect('/reports/assignments/print-missions')
-    if MissionEditRequest.query.filter_by(movement_id=m.id, status='قيد المراجعة').first():
+    # The service owns duplicate-pending detection and persistence so the route
+    # does not perform a second, race-prone query against the request table.
+    created_request = create_mission_edit_request(m, reason)
+    if created_request is None:
         flash('يوجد بالفعل طلب تعديل قيد المراجعة لهذه المأمورية.')
         return redirect('/reports/assignments/print-missions')
-    create_mission_edit_request(m, reason)
     flash('تم إرسال طلب التعديل إلى الـManager مع كامل التفاصيل والسبب.')
     return redirect('/reports/assignments/print-missions')
 
@@ -348,38 +354,17 @@ def mission_edit_request_save(request_id):
 def mission_export_xlsx():
     if not can('view_reports'):
         abort(403)
-    rs = roles()
-    global_actor = bool({'مسؤول التطبيق', 'Manager Application Support', 'مشرف محافظة'} & rs)
-    allowed_bids = set(bids())
-    q = Movement.query.join(Employee).filter(
-        Movement.is_active == True,
-        Movement.movement_type == 'انتداب',
+    # Keep the spreadsheet in parity with the visible report: same authorization
+    # scope and every active filter (employee, origin/destination, state and dates).
+    from ..services.mission_query import build_mission_report_context
+
+    context = build_mission_report_context(
+        roles=roles(),
+        allowed_bids=bids(),
+        args=request.args,
     )
-    if not global_actor:
-        q = q.filter(Employee.branch_id.in_(allowed_bids)) if allowed_bids else Movement.query.filter(False)
-    mission_state = request.args.get('mission_state', '').strip()
-    date_from = request.args.get('date_from', '').strip()
-    date_to = request.args.get('date_to', '').strip()
-    if mission_state in ('تحت التحرير', 'مغلقة'):
-        q = q.filter(Movement.mission_state == mission_state)
-    from datetime import date as _date
-    try:
-        df = _date.fromisoformat(date_from) if date_from else None
-    except ValueError:
-        df = None
-    try:
-        dt = _date.fromisoformat(date_to) if date_to else None
-    except ValueError:
-        dt = None
-    if df and dt and df > dt:
-        df, dt = dt, df
-    if df:
-        q = q.filter(Movement.to_date >= df)
-    if dt:
-        q = q.filter(Movement.from_date <= dt)
-    rows = q.order_by(Movement.from_date.asc(), Movement.id.asc()).all()
+    out = build_mission_export_xlsx(context['rows'])
     from flask import send_file
-    out = build_mission_export_xlsx(rows)
     return send_file(
         out,
         as_attachment=True,

@@ -632,7 +632,13 @@ def _execute(plan):
             if Branch.query.filter(Branch.governorate_id == x.governorate_id, Branch.name == plan['new_name'], Branch.id != x.id).first(): return False, 'اسم الفرع مستخدم بالفعل.'
             if plan.get('code') and Branch.query.filter(Branch.governorate_id == x.governorate_id, Branch.code == plan['code'], Branch.id != x.id).first(): return False, 'كود الفرع مستخدم بالفعل.'
             x.name, x.code = plan['new_name'], plan['code']
-        else: x.is_active = bool(plan['new_active'])
+        else:
+            new_active = bool(plan['new_active'])
+            if new_active:
+                parent = db.session.get(Governorate, x.governorate_id)
+                if not parent or not parent.is_active:
+                    return False, 'لا يمكن تفعيل الفرع قبل تفعيل المحافظة التابعة له.'
+            x.is_active = new_active
         log('AI_MANAGER_EDIT' if kind=='branch_edit' else 'AI_MANAGER_TOGGLE','Branch',x.id,x.name); message='تم تحديث الفرع.'
     elif kind in ('employee_delete','employee_restore','employee_edit'):
         x = db.session.get(Employee, plan['id'])
@@ -642,7 +648,9 @@ def _execute(plan):
         else:
             if 'branch_id' in plan['updates']:
                 b=db.session.get(Branch, int(plan['updates']['branch_id']))
-                if not b or not b.is_active: return False, 'فرع الموظف الجديد غير موجود أو غير نشط.'
+                parent = db.session.get(Governorate, b.governorate_id) if b else None
+                if not b or not b.is_active or not parent or not parent.is_active:
+                    return False, 'فرع الموظف الجديد غير موجود أو غير نشط، أو محافظته غير نشطة.'
             if 'email' in plan['updates'] and plan['updates']['email']:
                 other=Employee.query.filter(Employee.email==plan['updates']['email'], Employee.id!=x.id).first()
                 if other: return False, 'البريد الإلكتروني مستخدم بالفعل.'

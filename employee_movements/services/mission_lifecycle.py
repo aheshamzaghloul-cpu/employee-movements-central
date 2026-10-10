@@ -11,10 +11,14 @@ from ..validation import record_movement_history
 
 
 def close_mission(movement):
-    """Close an already validated mission and audit the transition."""
+    """Close a validated mission and record the user who performed the closure."""
+    actor = me()
+    now = datetime.utcnow()
     movement.mission_state = 'مغلقة'
-    movement.modified_by = me().id
-    movement.modified_at = datetime.utcnow()
+    movement.closed_by = actor.id if actor else None
+    movement.closed_at = now
+    movement.modified_by = actor.id if actor else None
+    movement.modified_at = now
     record_movement_history(
         movement, movement.status, movement.status, 'MISSION_CLOSE',
         'إغلاق المأمورية بعد مراجعة بياناتها',
@@ -24,9 +28,12 @@ def close_mission(movement):
 
 
 def reopen_mission(movement):
-    """Reopen an already validated closed mission and audit the transition."""
+    """Reopen a validated mission and clear the current closure attribution."""
+    actor = me()
     movement.mission_state = 'تحت التحرير'
-    movement.modified_by = me().id
+    movement.closed_by = None
+    movement.closed_at = None
+    movement.modified_by = actor.id if actor else None
     movement.modified_at = datetime.utcnow()
     record_movement_history(
         movement, movement.status, movement.status, 'MISSION_REOPEN',
@@ -57,9 +64,17 @@ def execute_edit_request(request_row, movement, destination, from_date, to_date,
     movement.destination_branch_id = destination.id
     movement.from_date = from_date
     movement.to_date = to_date
+    actor = me()
+    now = datetime.utcnow()
     movement.mission_state = final_state
-    movement.modified_by = me().id
-    movement.modified_at = datetime.utcnow()
+    if final_state == 'مغلقة':
+        movement.closed_by = actor.id if actor else None
+        movement.closed_at = now
+    else:
+        movement.closed_by = None
+        movement.closed_at = None
+    movement.modified_by = actor.id if actor else None
+    movement.modified_at = now
     request_row.status = 'تم التنفيذ'
     request_row.reviewed_by = me().id
     request_row.reviewed_at = datetime.utcnow()

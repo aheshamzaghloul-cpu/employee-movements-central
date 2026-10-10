@@ -625,6 +625,10 @@ def home():
             .all()
         ),
         home_movement_governorates=home_movement_governorates,
+        # وجهات الانتداب متاحة عبر جميع المحافظات النشطة، بصرف النظر عن نطاق العمل الحالي.
+        home_assignment_governorates=(
+            Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all()
+        ),
         home_movement_branches=home_movement_branches,
         movement_search_employees=(
             Employee.query.filter_by(is_active=True)

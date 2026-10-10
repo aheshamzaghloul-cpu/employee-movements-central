@@ -724,3 +724,42 @@ body{color:var(--ux-text);-webkit-font-smoothing:antialiased}
 .home-mission-shortcut .smart-action-head{margin:0}.home-mission-shortcut p{margin:0;color:var(--ui-muted,#747d86);font-size:12px;line-height:1.8}.home-mission-shortcut>.ui-btn{white-space:nowrap}
 .home-primary-actions .smart-search-results{max-height:300px;overflow:auto}.home-primary-actions .smart-action-head h2{font-size:17px}.home-primary-actions .smart-eyebrow{letter-spacing:0}
 @media(max-width:900px){.home-primary-actions{grid-template-columns:minmax(0,1fr)}.home-primary-actions>.home-mission-shortcut{grid-column:auto;grid-template-columns:auto minmax(0,1fr)}.home-mission-shortcut>.ui-btn{grid-column:1/-1;justify-self:stretch}}
+
+
+/* v68.16.1 — cyan consistency and readable data surfaces */
+:root{
+  --ui-neutral-hover:var(--ui-surface-2);
+  --ui-neutral-border:var(--ui-line-soft);
+}
+h1,h2,h3{color:var(--ui-ink)}
+.ui-btn-primary,.employees-primary,.ui-tone-teal,.ui-primary-btn,
+.ui-filter-pill.active,.section-tab.active{background:var(--ui-brand)!important;border-color:var(--ui-brand)!important;color:#fff!important}
+.ui-btn-primary:hover,.employees-primary:hover,.ui-tone-teal:hover,.ui-primary-btn:hover{background:#066d78!important;border-color:#066d78!important}
+.ui-icon-tile,.employee-panel-icon,.ui-card-icon,.ui-launch-icon,.ui-report-group-icon,.ui-admin-task-icon{background:var(--ui-brand-soft)!important;color:var(--ui-brand)!important}
+.ui-table-wrap th,.ui-table th,.ui-data-table th,.ui-mission-table th,
+.ui-table-wrap>table[data-smart-table] thead th{background:var(--ui-surface-3)!important;color:var(--ui-ink-2)!important;border-bottom-color:var(--ui-line)!important;font-size:12px!important;line-height:1.5}
+.ui-table-wrap td,.ui-table td,.ui-data-table td,.ui-mission-table td{color:var(--ui-ink-2)!important;border-bottom-color:var(--ui-line-soft)!important;font-size:12.5px!important;line-height:1.6}
+.ui-table-wrap tbody tr:hover td,.ui-table tbody tr:hover td,.ui-table-wrap>table[data-smart-table] tbody tr:hover{background:var(--ui-surface-2)!important}
+.badge,.status-badge,.movement-chip,.ui-badge,.ui-tag,.ui-status,.ui-status-chip,.ui-state,.home-status-chip{font-size:11px!important;line-height:1.5}
+.ui-grid label,.wide-form label,.quick-form label,.excel-import-page label{color:var(--ui-ink-2);font-size:12px}
+.ui-grid input,.ui-grid select,.ui-grid textarea,.wide-form input,.wide-form select,.wide-form textarea,.quick-form input,.quick-form select,.quick-form textarea,.smart-data-search input{font-size:13px!important}
+.ui-grid input:focus,.ui-grid select:focus,.ui-grid textarea:focus,.wide-form input:focus,.wide-form select:focus,.wide-form textarea:focus,.quick-form input:focus,.quick-form select:focus,.quick-form textarea:focus,.smart-data-search input:focus{border-color:var(--ui-brand)!important;box-shadow:var(--ui-focus)!important}
+.ui-table-wrap,.ui-card,.ui-module-card,.ui-work-card,.ui-report-group,.ui-admin-guide,.ui-admin-hero,.ui-mission-filter-card{border-color:var(--ui-line)}
+.ui-table-wrap tbody tr:has(a:focus),.ui-table-wrap tbody tr:has(button:focus){background:var(--ui-brand-soft)}
+.workflow-form-section{border-top-color:var(--ui-line-soft)}
+.workflow-form-summary,.workflow-progress,.smart-data-toolbar,.movement-step,.ui-report-flow>*,.ui-report-note,.node-title,.ui-group-head,.assistant-dock-context,.assistant-dock-composer input,.interactive-palette-search,.interactive-result:hover,.ui-choice-item:hover,.choice-item:hover{background:var(--ui-surface-2)!important;border-color:var(--ui-line-soft)!important}
+.workflow-progress span{font-size:12px;color:var(--ui-muted)}
+.workflow-progress span.active{background:var(--ui-brand)!important;color:#fff!important}
+.smart-data-summary strong{color:var(--ui-ink);font-size:13px}.smart-data-summary span{color:var(--ui-muted);font-size:12px}
+.smart-data-search input{color:var(--ui-ink)!important}
+.interactive-confirm-mark{background:var(--ui-brand-soft);color:var(--ui-brand)}
+.interactive-confirm-dialog{border-color:var(--ui-line);box-shadow:var(--ui-shadow-lg)}
+.interactive-confirm-copy p{color:var(--ui-muted)}
+.interactive-command-trigger:hover,.interactive-notification-trigger:hover{background:var(--ui-brand-soft);border-color:var(--ui-line);color:var(--ui-brand)}
+.assistant-dock-trigger{background:linear-gradient(145deg,var(--ui-brand-2),var(--ui-brand))!important}
+.assistant-dock-send{background:var(--ui-brand)!important;color:#fff!important}
+.ui-empty{color:var(--ui-muted)!important}
+@media(max-width:700px){
+  .ui-table-wrap th,.ui-table th,.ui-data-table th,.ui-mission-table th{font-size:11.5px!important}
+  .ui-table-wrap td,.ui-table td,.ui-data-table td,.ui-mission-table td{font-size:12px!important}
+}

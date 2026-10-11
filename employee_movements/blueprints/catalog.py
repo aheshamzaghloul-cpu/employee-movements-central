@@ -194,6 +194,18 @@ def branch_edit(i):
         and (not governorate_ok(x.governorate_id) or not governorate_ok(g.id))
     ):
         abort(403)
+    # Changing a branch's parent governorate changes the effective scope of every
+    # linked employee, movement and entry assignment. Do not silently migrate a
+    # populated branch; administrators must first resolve those relationships.
+    if x.governorate_id != g.id and (
+        Employee.query.filter_by(branch_id=i).count()
+        or UserBranch.query.filter_by(branch_id=i).count()
+        or EntryAssignmentBranch.query.filter_by(branch_id=i).count()
+        or Movement.query.filter_by(branch_id=i).count()
+        or Movement.query.filter_by(destination_branch_id=i).count()
+    ):
+        flash('لا يمكن نقل فرع مرتبط بموظفين أو مستخدمين أو حركات إلى محافظة أخرى؛ عالج الارتباطات أولًا.')
+        return redirect('/branches')
     dup = (
         Branch.query.filter(Branch.governorate_id == g.id, Branch.name == n, Branch.id != i)
         .first()
@@ -255,6 +267,9 @@ def branch_delete(i):
         Employee.query.filter_by(branch_id=i).count()
         or UserBranch.query.filter_by(branch_id=i).count()
         or EntryAssignmentBranch.query.filter_by(branch_id=i).count()
+        # Both source and destination references must be checked before deleting
+        # a branch; historical movements can still point to it as their origin.
+        or Movement.query.filter_by(branch_id=i).count()
         or Movement.query.filter_by(destination_branch_id=i).count()
     ):
         flash('لا يمكن حذف الفرع لوجود موظفين أو مستخدمين أو حركات مرتبطة به؛ استخدم التعطيل.')

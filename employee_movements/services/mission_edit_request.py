@@ -6,6 +6,7 @@ Authorization and HTTP redirects/flash messages remain in the blueprint.
 
 from ..access import log, me
 from ..extensions import db
+from sqlalchemy.exc import IntegrityError
 from ..models import Branch, Employee, Governorate, MissionEditRequest, Movement
 from ..validation import movement_overlaps
 from .mission_lifecycle import execute_edit_request
@@ -33,15 +34,28 @@ def create_mission_edit_request(movement, reason):
         status=PENDING_STATUS,
     )
     db.session.add(row)
-    db.session.flush()
-    log(
-        'MISSION_EDIT_REQUEST',
-        'MissionEditRequest',
-        row.id,
-        f'طلب تعديل مأمورية #{movement.id}: {reason}',
-    )
-    db.session.commit()
-    return row
+    try:
+        # The database unique constraint is the final guard against two
+        # simultaneous submissions passing the pending-request lookup.
+        db.session.flush()
+        log(
+            'MISSION_EDIT_REQUEST',
+            'MissionEditRequest',
+            row.id,
+            f'طلب تعديل مأمورية #{movement.id}: {reason}',
+        )
+        db.session.commit()
+        return row
+    except IntegrityError:
+        # A concurrent request may have won the unique-constraint race.
+        # Roll back the failed transaction so the next request can use the
+        # scoped session safely, and report the same duplicate state as the
+        # ordinary pre-check above.
+        db.session.rollback()
+        return None
+    except Exception:
+        db.session.rollback()
+        raise
 
 
 def list_pending_mission_edit_requests(roles, allowed_branch_ids):
@@ -75,6 +89,7 @@ def validate_and_execute_mission_edit_request(
     to_date,
     final_state,
     notes,
+    allowed_destination_branch_ids=None,
 ):
     """Validate the reviewed values and execute the existing lifecycle operation.
 
@@ -82,6 +97,10 @@ def validate_and_execute_mission_edit_request(
     """
     if (
         not destination
+        or (
+            allowed_destination_branch_ids is not None
+            and destination.id not in set(allowed_destination_branch_ids)
+        )
         or not destination.is_active
         or not destination.governorate
         or not destination.governorate.is_active

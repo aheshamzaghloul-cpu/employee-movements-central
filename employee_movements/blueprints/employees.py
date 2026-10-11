@@ -525,8 +525,14 @@ def employee_edit(i):
             else 0
         )
         branch_obj = db.session.get(Branch, bid)
-        if not branch_obj or branch_obj.governorate_id != submitted_gid:
-            flash('يجب اختيار فرع تابع للمحافظة المحددة.')
+        if (
+            not branch_obj
+            or not branch_obj.is_active
+            or not branch_obj.governorate
+            or not branch_obj.governorate.is_active
+            or branch_obj.governorate_id != submitted_gid
+        ):
+            flash('يجب اختيار فرع ومحافظة نشطين ومتطابقين ضمن نطاق صلاحيتك.')
             return redirect(url_for('employees.employee_edit', i=i))
         name = request.form.get('full_name', '').strip()
         email = request.form.get('email', '').strip().lower()
@@ -557,22 +563,27 @@ def employee_edit(i):
         if not _safe_parse_date(hire_date):
             flash('تاريخ التعيين مطلوب وبصيغة صحيحة.')
             return redirect(url_for('employees.employee_edit', i=i))
+        # Validate a linked login's email before mutating either ORM object.
+        # This keeps rejected form submissions free of partially staged changes.
+        linked_user = db.session.get(User, e.user_id) if e.user_id else None
+        if linked_user:
+            other = User.query.filter(
+                func.lower(User.email) == email, User.id != linked_user.id,
+            ).first()
+            if other:
+                flash('البريد الإلكتروني مستخدم بالفعل لحساب آخر.')
+                return redirect(url_for('employees.employee_edit', i=i))
+
         e.full_name = name
         e.email = email
         e.branch_id = bid
         e.job_title = job_title
         e.job_code = job_code
-        if e.user_id:
-            linked_user = db.session.get(User, e.user_id)
-            if linked_user:
-                other = User.query.filter(func.lower(User.email) == email, User.id != linked_user.id).first()
-                if other:
-                    flash('البريد الإلكتروني مستخدم بالفعل لحساب آخر.')
-                    return redirect(url_for('employees.employee_edit', i=i))
-                linked_user.email = email
-                linked_user.full_name = name
-                linked_user.job_title = job_title
-                linked_user.job_code = job_code
+        if linked_user:
+            linked_user.email = email
+            linked_user.full_name = name
+            linked_user.job_title = job_title
+            linked_user.job_code = job_code
         e.hire_date = _safe_parse_date(hire_date)
         e.company_phone = company_phone
         e.personal_phone = personal_phone

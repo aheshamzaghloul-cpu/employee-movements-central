@@ -1,0 +1,31 @@
+{
+  "version": "68.22.12",
+  "artifact_type": "review_candidate",
+  "runtime_tests_passed": false,
+  "python_syntax_check": "passed",
+  "javascript_syntax_check": "passed",
+  "ui_integrity_check": "passed",
+  "home_workflow_contracts": "passed",
+  "production_database_modified": false,
+  "deployed": false,
+  "notes": "v68.22.12: Supervisor-side first-level entry edits now require full governorate coverage and roll back on invalid scope/required employee fields. Includes previous Excel dimension bounds and prior integrity/security fixes. Static checks only; Flask runtime/database tests not run. Production database unchanged; not deployed.",
+  "post_route_security_check": "passed",
+  "production_secure_cookie_enforced": true,
+  "excel_archive_safety_check": "passed",
+  "excel_preview_failure_cleanup_check": "added",
+  "branch_parent_change_integrity_check": "passed",
+  "user_deletion_integrity_check": "added",
+  "first_entry_assignment_integrity_check": "added",
+  "qa_report": "docs/QA_REVIEW_v68.22.12.md",
+  "checks": {
+    "python_compileall": "passed",
+    "javascript_syntax": "passed",
+    "manifest_json": "passed",
+    "ui_integrity": "passed: 45 templates, 1 CSS, 6 JS",
+    "home_workflow_contracts": "13/13 passed",
+    "post_route_security": "54 routes reviewed; passed",
+    "contract_test_functions": "19/19 passed",
+    "zip_integrity": "passed",
+    "flask_runtime_tests": "not run: Flask unavailable in review environment"
+  }
+}

@@ -4,7 +4,7 @@
     const sidebar=document.getElementById('appSidebar');
     const toggle=document.getElementById('sidebarToggle');
     const collapse=document.getElementById('sidebarCollapse');
-    toggle?.addEventListener('click',()=>sidebar?.classList.toggle('open'));
+    toggle?.addEventListener('click',()=>sidebar?.classList.toggle('is-open'));
     const saved=window.localStorage?.getItem('emc-sidebar-collapsed');
     if(saved==='1') document.body.classList.add('ui-sidebar-collapsed');
     collapse?.addEventListener('click',()=>{

@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 from flask import abort, Blueprint, flash, redirect, render_template, request, url_for
 
 from ..assignments import resolve_current_movement
-from ..access import bids, branch_ok, can, can_manage_movement, can_manage_movement_destination, can_manage_movement_employee, gids, log, me, req, roles
+from ..access import bids, branch_ok, can, can_manage_movement, can_manage_movement_destination, can_manage_movement_employee, can_view_movement, gids, log, me, req, roles
 from ..constants import ASSIGNMENT_ALERT_DAYS
 from ..extensions import db
 from ..models import Branch, Employee, Governorate, Movement, MovementHistory, User
@@ -46,11 +46,14 @@ def movement_employees_api():
         if gov
         else Branch.query.join(Governorate, Governorate.id == Branch.governorate_id).filter(Branch.is_active == True, Governorate.is_active == True).order_by(Branch.name.asc()).all()
     )
-    # Supervisors and the central Manager may pick an employee from any active
-    # branch only for assignment/mission registration. Leave and permission remain scoped.
+    # Home-page employee search is intentionally global for every role and is
+    # read-only: it returns identifying/search fields, not operational records.
+    # Movement pickers remain separately scoped, except assignment destinations
+    # and employee selection which follow the explicit cross-governorate rule.
     rs = roles()
     global_assignment_picker = movement_type == 'انتداب' and bool(rs & {'مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'})
-    if not global_assignment_picker and 'مسؤول التطبيق' not in rs:
+    global_home_search = bool(q) and not movement_type
+    if not global_home_search and not global_assignment_picker and 'مسؤول التطبيق' not in rs:
         branch_rows = [b for b in branch_rows if branch_ok(b.id)]
     branch_ids = [b.id for b in branch_rows]
     if bid.isdigit():
@@ -471,6 +474,11 @@ def movement_edit(i):
     # الحركات معلومات تشغيلية مباشرة ويمكن تعديلها دون انتظار اعتماد.
     if not can_manage_movement(m) or not can('manage_movements'):
         abort(403)
+    # A closed assignment is an audited lifecycle boundary. Only the
+    # application administrator or Manager may edit it; supervisors must
+    # explicitly reopen it through the dedicated action first.
+    if m.movement_type == 'انتداب' and m.assignment_state == 'مغلق' and not ({'مسؤول التطبيق', 'Manager Application Support'} & roles()):
+        abort(403)
     if request.method == 'POST':
         f = request.form
         mt = f.get('movement_type')
@@ -490,6 +498,12 @@ def movement_edit(i):
                 abort(403)
             if not can_manage_movement_destination(destination, mt):
                 abort(403)
+            if (
+                'Manager Application Support' in roles()
+                and 'مسؤول التطبيق' not in roles()
+                and destination.id not in set(bids())
+            ):
+                abort(403)
         fd = f.get('from_date')
         td = f.get('to_date')
         pd = f.get('permission_date')
@@ -505,6 +519,13 @@ def movement_edit(i):
         if err:
             flash(err)
             return redirect(url_for('movements.movement_edit', i=i))
+        try:
+            parsed_from = parse_date(fd) if fd else None
+            parsed_to = parse_date(td) if td else None
+            parsed_permission = parse_date(pd) if pd else None
+        except ValueError:
+            flash('التاريخ غير صحيح.')
+            return redirect(url_for('movements.movement_edit', i=i))
         overlap = movement_overlaps(m.employee_id, mt, fd, td, pd, i)
         if overlap:
             flash(overlap)
@@ -513,9 +534,9 @@ def movement_edit(i):
         m.movement_type = mt
         m.leave_type = f.get('leave_type') or None
         m.destination_branch_id = dest
-        m.from_date = parse_date(fd)
-        m.to_date = parse_date(td)
-        m.permission_date = parse_date(pd)
+        m.from_date = parsed_from
+        m.to_date = parsed_to
+        m.permission_date = parsed_permission
         if mt == 'انتداب':
             # Editing a closed assignment is allowed only to Manager/Admin.
             # The edit must not silently reopen it; reopening remains an explicit action.
@@ -551,8 +572,22 @@ def movement_edit(i):
             if ('مسؤول التطبيق' in roles() or 'مشرف محافظة' in roles())
             else Branch.query.filter(Branch.id.in_(bids()), Branch.is_active == True).all()
         ),
-        destination_branches=Branch.query.join(Governorate, Governorate.id == Branch.governorate_id).filter(Branch.is_active == True, Governorate.is_active == True).order_by(Branch.name.asc()).all(),
-        destination_governorates=Governorate.query.filter(Governorate.is_active == True).order_by(Governorate.name.asc()).all(),
+        destination_branches=(
+            Branch.query.join(Governorate, Governorate.id == Branch.governorate_id)
+            .filter(Branch.is_active == True, Governorate.is_active == True)
+            .order_by(Branch.name.asc()).all()
+            if ('مسؤول التطبيق' in roles() or 'Manager Application Support' not in roles())
+            else Branch.query.filter(Branch.id.in_(bids()), Branch.is_active == True)
+            .join(Governorate, Governorate.id == Branch.governorate_id)
+            .filter(Governorate.is_active == True).order_by(Branch.name.asc()).all()
+        ),
+        destination_governorates=(
+            Governorate.query.filter(Governorate.is_active == True)
+            .order_by(Governorate.name.asc()).all()
+            if ('مسؤول التطبيق' in roles() or 'Manager Application Support' not in roles())
+            else Governorate.query.filter(Governorate.id.in_(gids()), Governorate.is_active == True)
+            .order_by(Governorate.name.asc()).all()
+        ),
         leave_types=active_leave_types(),
         movement_types=active_movement_types(),
     )
@@ -562,7 +597,11 @@ def movement_edit(i):
 @req
 def movement_submit(i):
     m = db.session.get(Movement, i)
-    if not m or not m.is_active or (not can_manage_movement(m)):
+    # Submission changes operational state, so both the explicit mutation
+    # permission and the movement's scope must be checked on the server.
+    if not m or not m.is_active:
+        abort(403)
+    if not can('manage_movements') or not can_manage_movement(m):
         abort(403)
     old_status = m.status
     m.status = 'مسجلة'
@@ -590,9 +629,24 @@ def close_assignment(i):
     if m.assignment_state == 'مغلق':
         flash('الانتداب مغلق بالفعل.')
         return redirect('/movements')
-    close_date = parse_date(request.form.get('close_date') or '') or date.today()
+    raw_close_date = (request.form.get('close_date') or '').strip()
+    try:
+        close_date = parse_date(raw_close_date) if raw_close_date else date.today()
+    except ValueError:
+        flash('تاريخ الإغلاق غير صحيح. اختر تاريخًا صالحًا من التقويم.')
+        return redirect('/movements')
+    if close_date is None:
+        flash('تاريخ الإغلاق غير صحيح. اختر تاريخًا صالحًا من التقويم.')
+        return redirect('/movements')
     if m.from_date and close_date < m.from_date:
         flash('تاريخ الإغلاق لا يجوز أن يسبق بداية الانتداب.')
+        return redirect('/movements')
+    # Re-check the proposed closure date against every other active movement
+    # before persisting the end date. This protects against a closure date that
+    # would make the assignment overlap another registered movement.
+    overlap = movement_overlaps(m.employee_id, 'انتداب', m.from_date.isoformat() if m.from_date else None, close_date.isoformat(), None, m.id)
+    if overlap:
+        flash(f'تعذر إغلاق الانتداب في هذا التاريخ: {overlap}')
         return redirect('/movements')
     m.assignment_state = 'مغلق'
     m.to_date = close_date
@@ -620,8 +674,23 @@ def reopen_assignment(i):
         abort(403)
     if not can('manage_movements') or not can_manage_movement(m):
         abort(403)
+    if not ({'مسؤول التطبيق', 'Manager Application Support'} & roles()):
+        abort(403)
     if m.assignment_state != 'مغلق':
         flash('الانتداب مفتوح بالفعل.')
+        return redirect('/movements')
+    # Reopening removes the end boundary. Validate the resulting open-ended
+    # interval before clearing closure metadata or changing the assignment state.
+    overlap = movement_overlaps(
+        m.employee_id,
+        'انتداب',
+        m.from_date.isoformat() if m.from_date else None,
+        None,
+        None,
+        m.id,
+    )
+    if overlap:
+        flash(f'تعذر إعادة فتح الانتداب بسبب تعارض مع حركة أخرى: {overlap}')
         return redirect('/movements')
     m.assignment_state = 'ساري'
     m.closed_by = None
@@ -677,7 +746,8 @@ def movement_history(i):
     m = db.session.get(Movement, i)
     if not m:
         abort(403)
-    if not can('view_audit'):
+    # Audit permission alone must not reveal another scope's movement history.
+    if not can('view_audit') or not can_view_movement(m):
         abort(403)
     rows = (
         MovementHistory.query.filter_by(movement_id=i)

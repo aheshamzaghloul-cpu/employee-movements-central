@@ -59,3 +59,20 @@ def test_database_backend_labels_are_safe():
     assert database_backend('postgresql+psycopg2://u:p@host/db') == 'postgresql'
     assert database_backend('sqlite:///local.db') == 'sqlite'
     assert database_backend('https://example.invalid') == 'other'
+
+
+def test_production_rejects_insecure_session_cookie(monkeypatch):
+    monkeypatch.setenv('APP_ENV', 'production')
+    monkeypatch.setenv('SECRET_KEY', 'a' * 48)
+    monkeypatch.setenv('DATABASE_URL', 'postgresql://u:p@h:5432/db')
+    monkeypatch.setenv('COOKIE_SECURE', '0')
+    with pytest.raises(ConfigError, match='COOKIE_SECURE=1'):
+        load_config()
+
+
+def test_production_accepts_secure_session_cookie(monkeypatch):
+    monkeypatch.setenv('APP_ENV', 'production')
+    monkeypatch.setenv('SECRET_KEY', 'a' * 48)
+    monkeypatch.setenv('DATABASE_URL', 'postgresql://u:p@h:5432/db')
+    monkeypatch.setenv('COOKIE_SECURE', '1')
+    assert load_config()['SESSION_COOKIE_SECURE'] is True

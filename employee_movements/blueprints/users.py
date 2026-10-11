@@ -5,6 +5,7 @@ from werkzeug.security import generate_password_hash
 
 from ..access import (
     actual_roles,
+    CUSTOM_PERMISSION_SET_MARKER,
     allowed_create_user,
     allowed_target_user,
     bids,
@@ -24,11 +25,13 @@ from ..assignments import supervisor_for_entry, supervisor_for_governorate, sync
 from ..constants import GRANTABLE_BY_SUPERVISOR, LOGIN_ROLES, PERMISSIONS, ROLE_DEFAULT_PERMISSIONS, ROLES
 from ..extensions import db
 from ..models import (
+    ApprovalDelegation,
     Branch,
     Employee,
     EntryAssignment,
     EntryAssignmentBranch,
     Governorate,
+    MissionEditRequest,
     Movement,
     RoleAccount,
     SupervisorEntry,
@@ -110,6 +113,8 @@ def users():
             selected_perms |= defaults
             for perm in selected_perms:
                 db.session.add(UserPermission(user_id=nu.id, permission=perm))
+            # Persist custom mode explicitly; an empty set must not mean "use defaults".
+            db.session.add(UserPermission(user_id=nu.id, permission=CUSTOM_PERMISSION_SET_MARKER))
             if 'مشرف محافظة' in selected_roles:
                 chosen = {int(x) for x in request.form.getlist('governorate_id') if x.isdigit()}
                 allowed = (
@@ -353,6 +358,8 @@ def user_edit(i):
                 db.session.add(UserRole(user_id=i, role=r))
             for perm in selected_perm_set:
                 db.session.add(UserPermission(user_id=i, permission=perm))
+            # Sentinel preserves intentionally empty custom permissions across requests.
+            db.session.add(UserPermission(user_id=i, permission=CUSTOM_PERMISSION_SET_MARKER))
             sync_role_accounts(target)
             # Always clear old scope assignments first so removing a role also removes its old scope.
             UserGovernorate.query.filter_by(user_id=i).delete()
@@ -397,6 +404,7 @@ def user_edit(i):
                 if (
                     not appointment_branch
                     or not appointment_branch.is_active
+                    or appointment_bid not in chosen
                     or (
                         'مسؤول التطبيق' not in roles()
                         and appointment_branch.governorate_id not in set(gids())
@@ -419,13 +427,17 @@ def user_edit(i):
                 sup = db.session.get(User, int(sid)) if sid.isdigit() else None
                 if not sup and len(chosen_gids) == 1:
                     sup = supervisor_for_governorate(next(iter(chosen_gids)))
-                if (
+                if not (
                     sup
                     and sup.is_active
                     and 'مشرف محافظة' in actual_roles(sup)
-                    and chosen_gids & user_gov_ids(sup)
+                    and chosen_gids
+                    and chosen_gids.issubset(user_gov_ids(sup))
                 ):
-                    db.session.add(SupervisorEntry(supervisor_id=sup.id, entry_id=i))
+                    db.session.rollback()
+                    flash('يجب اختيار مشرف نشط يغطي جميع المحافظات المسندة للمدخل الأول.')
+                    return redirect(url_for('users.user_edit', i=i))
+                db.session.add(SupervisorEntry(supervisor_id=sup.id, entry_id=i))
                 linked_emp = Employee.query.filter_by(user_id=i).first()
                 hire_date_raw = request.form.get('employee_hire_date', '').strip()
                 company_phone = request.form.get('employee_company_phone', '').strip()
@@ -477,12 +489,15 @@ def user_edit(i):
             UserPermission.query.filter_by(user_id=i).delete()
             for perm in selected_perm_set:
                 db.session.add(UserPermission(user_id=i, permission=perm))
+            # Supervisor-edited entry accounts also use an explicit custom set.
+            db.session.add(UserPermission(user_id=i, permission=CUSTOM_PERMISSION_SET_MARKER))
             sync_role_accounts(target)
             chosen = (
                 {int(x) for x in request.form.getlist('branch_id') if x.isdigit()}
                 & set(bids())
             )
             if not chosen:
+                db.session.rollback()
                 flash('يجب إسناد فرع واحد على الأقل ضمن فروع مسؤولية المدخل الأول.')
                 return redirect(url_for('users.user_edit', i=i))
             appointment_raw = request.form.get('employee_branch_id', '').strip()
@@ -495,8 +510,10 @@ def user_edit(i):
             if (
                 not appointment_branch
                 or not appointment_branch.is_active
+                or appointment_bid not in chosen
                 or appointment_branch.governorate_id not in set(gids())
             ):
+                db.session.rollback()
                 flash('يجب اختيار فرع تعيين تابع لمحافظة ضمن نطاقك.')
                 return redirect(url_for('users.user_edit', i=i))
             UserBranch.query.filter_by(user_id=i).delete()
@@ -509,8 +526,17 @@ def user_edit(i):
                 if db.session.get(Branch, bid)
             }
             sup = me() if 'مشرف محافظة' in actual_roles(me()) else None
-            if sup and sup.is_active and chosen_gids & user_gov_ids(sup):
-                db.session.add(SupervisorEntry(supervisor_id=sup.id, entry_id=i))
+            if not (
+                sup
+                and sup.is_active
+                and 'مشرف محافظة' in actual_roles(sup)
+                and chosen_gids
+                and chosen_gids.issubset(user_gov_ids(sup))
+            ):
+                db.session.rollback()
+                flash('تعذر حفظ المدخل الأول: يجب أن يغطي نطاقك جميع المحافظات التابعة للفروع المسندة.')
+                return redirect(url_for('users.user_edit', i=i))
+            db.session.add(SupervisorEntry(supervisor_id=sup.id, entry_id=i))
             linked_emp = Employee.query.filter_by(user_id=i).first()
             hire_date_raw = request.form.get('employee_hire_date', '').strip()
             company_phone = request.form.get('employee_company_phone', '').strip()
@@ -521,6 +547,7 @@ def user_edit(i):
                 or not company_phone
                 or not personal_phone
             ):
+                db.session.rollback()
                 flash(
                     'بيانات الموظف للمدخل الأول مكتملة إلزاميًا: تاريخ التعيين وهاتف الشركة والهاتف الشخصي.',
                 )
@@ -611,18 +638,26 @@ def user_delete(i):
         u = db.session.get(User, i)
         if not u:
             abort(404)
-        if (
-            Movement.query.filter(
-                (
-                    (Movement.created_by == i)
-                    | (Movement.modified_by == i)
-                    | (Movement.reviewed_by == i)
-                    | (Movement.approved_by == i)
-                ),
-            )
-            .count()
-        ):
-            flash('لا يمكن حذف المستخدم لوجود حركات مرتبطة به؛ استخدم التعطيل.')
+        has_movement_history = Movement.query.filter(
+            (
+                (Movement.created_by == i)
+                | (Movement.modified_by == i)
+                | (Movement.reviewed_by == i)
+                | (Movement.approved_by == i)
+                | (Movement.approver_id == i)
+                | (Movement.closed_by == i)
+            ),
+        ).count() > 0
+        has_employee_record = Employee.query.filter_by(user_id=i).count() > 0
+        has_entry_assignments = EntryAssignment.query.filter_by(supervisor_id=i).count() > 0
+        has_delegations = ApprovalDelegation.query.filter(
+            (ApprovalDelegation.supervisor_id == i)
+            | (ApprovalDelegation.delegate_id == i)
+            | (ApprovalDelegation.created_by == i)
+        ).count() > 0
+        has_mission_requests = MissionEditRequest.query.filter_by(requested_by=i).count() > 0
+        if any((has_movement_history, has_employee_record, has_entry_assignments, has_delegations, has_mission_requests)):
+            flash('لا يمكن حذف الحساب لارتباطه بسجلات موظفين أو حركات أو تكليفات أو تفويضات أو طلبات تعديل تاريخية؛ استخدم التعطيل للحفاظ على الترابط وسجل التدقيق.')
         else:
             db.session.delete(u)
             log('DELETE', 'User', i)
@@ -639,8 +674,10 @@ def user_toggle(i):
         flash('لا يمكن تعطيل الحساب المستخدم حاليًا.')
     else:
         u = db.session.get(User, i)
+        if not u:
+            abort(404)
         u.is_active = not u.is_active
-        log('TOGGLE', 'User', i)
+        log('TOGGLE', 'User', i, 'تفعيل الحساب' if u.is_active else 'تعطيل الحساب')
         db.session.commit()
     return redirect('/users')
 
@@ -675,8 +712,20 @@ def user_reset_password(i):
 @req
 @only('مسؤول التطبيق')
 def user_update_governorates(i):
+    u = db.session.get(User, i)
+    if not u:
+        abort(404)
     allowed = {g.id for g in Governorate.query.filter_by(is_active=True)}
-    chosen = {int(x) for x in request.form.getlist('governorate_id')}
+    raw_ids = request.form.getlist('governorate_id')
+    # Reject a malformed or stale forged value before deleting any existing
+    # assignments. An intentionally empty selection still means clear all.
+    if any(not x.isdigit() for x in raw_ids):
+        flash('تعذر حفظ المحافظات: توجد قيمة غير صالحة. لم يتم تغيير الإسنادات الحالية.')
+        return redirect('/users')
+    chosen = {int(x) for x in raw_ids}
+    if not chosen.issubset(allowed):
+        flash('تعذر حفظ المحافظات: توجد محافظة غير نشطة أو غير موجودة. لم يتم تغيير الإسنادات الحالية.')
+        return redirect('/users')
     UserGovernorate.query.filter_by(user_id=i).delete()
     for gid in chosen & allowed:
         db.session.add(UserGovernorate(user_id=i, governorate_id=gid))
@@ -695,7 +744,15 @@ def user_update_branches(i):
     if not allowed_target_user(u):
         abort(403)
     allowed = set(bids())
-    chosen = {int(x) for x in request.form.getlist('branch_id') if x.isdigit()} & allowed
+    raw_ids = request.form.getlist('branch_id')
+    if any(not x.isdigit() for x in raw_ids):
+        flash('تعذر حفظ الفروع: توجد قيمة غير صالحة. لم يتم تغيير الإسنادات الحالية.')
+        return redirect('/users')
+    submitted = {int(x) for x in raw_ids}
+    if not submitted.issubset(allowed):
+        flash('تعذر حفظ الفروع: توجد فروع خارج النطاق أو غير متاحة. لم يتم تغيير الإسنادات الحالية.')
+        return redirect('/users')
+    chosen = submitted
     if not chosen:
         flash('يجب إسناد فرع واحد على الأقل للمدخل الأول.')
         return redirect('/users')

@@ -6,7 +6,7 @@ from functools import wraps
 
 from flask import abort, has_request_context, redirect, request, session, url_for
 
-from .constants import LOGIN_ROLES, OPERATIONAL_SCOPE_ENDPOINTS, ROLE_DEFAULT_PERMISSIONS, ROLES
+from .constants import LOGIN_ROLES, OPERATIONAL_SCOPE_ENDPOINTS, PERMISSIONS, ROLE_DEFAULT_PERMISSIONS, ROLES
 from .extensions import db
 from .models import (
     ApprovalDelegation,
@@ -126,26 +126,46 @@ def can_for_user(u, permission):
     )
 
 
+# Internal marker stored in UserPermission to distinguish an intentionally empty
+# custom permission set from legacy users who still inherit role defaults.
+CUSTOM_PERMISSION_SET_MARKER = '__CUSTOM_PERMISSION_SET__'
+
+
 def user_permissions(u):
     """Return permissions allowed by the user's effective login role.
 
     A stored explicit permission must never turn a supervisor/manager session into
     an administrator session. The active role is a security boundary, not only a
     navigation preference. Administrators retain full system permissions.
+
+    Legacy accounts with no permission rows inherit role defaults. Accounts whose
+    permission editor has been saved carry a marker, so an intentionally empty
+    custom permission set stays empty instead of silently restoring defaults.
     """
-    explicit = {x.permission for x in UserPermission.query.filter_by(user_id=u.id).all()}
+    rows = UserPermission.query.filter_by(user_id=u.id).all() if u else []
+    custom_mode = any(x.permission == CUSTOM_PERMISSION_SET_MARKER for x in rows)
+    explicit = {x.permission for x in rows if x.permission != CUSTOM_PERMISSION_SET_MARKER}
     selected = None
     if u and has_request_context() and (u.id == session.get('uid')):
-        selected = session.get('active_role')
+        candidate_role = session.get('active_role')
+        # Never trust a stale session role directly here. In particular, an
+        # invalid 'مسؤول التطبيق' value must not grant the admin permission set.
+        if candidate_role in (actual_roles(u) - {'المدخل الأول'}):
+            selected = candidate_role
+        elif candidate_role:
+            session.pop('active_role', None)
 
     if selected:
         if selected == 'مسؤول التطبيق':
             return set(PERMISSIONS)
         allowed = set(ROLE_DEFAULT_PERMISSIONS.get(selected, set()))
-        return (explicit & allowed) if explicit else allowed
+        return (explicit & allowed) if (custom_mode or explicit) else allowed
 
-    effective = actual_roles(u) - {'المدخل الأول'}
-    if explicit:
+    if u and has_request_context() and u.id == session.get('uid'):
+        effective = roles(u)
+    else:
+        effective = actual_roles(u) - {'المدخل الأول'} if u else set()
+    if custom_mode or explicit:
         allowed = set()
         for r in effective:
             allowed |= ROLE_DEFAULT_PERMISSIONS.get(r, set())
@@ -241,9 +261,13 @@ def scope_governorate_id():
         session.pop('operational_scope_uid', None)
         session.pop('operational_scope_role', None)
         return None
-    if selected and (not Governorate.query.filter_by(id=int(selected), is_active=True).first()):
-        session.pop('operational_governorate_id', None)
-        return None
+    # Treat malformed/stale session values as no selection rather than raising
+    # ValueError and turning an otherwise recoverable request into a 500.
+    if selected is not None:
+        selected_text = str(selected).strip()
+        if not selected_text.isdigit() or not Governorate.query.filter_by(id=int(selected_text), is_active=True).first():
+            session.pop('operational_governorate_id', None)
+            return None
     return selected
 
 

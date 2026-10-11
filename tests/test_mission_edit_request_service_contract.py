@@ -35,3 +35,21 @@ def test_edit_request_routes_delegate_domain_work_to_service():
         "PENDING_STATUS",
     ):
         assert marker in service, f"Mission edit-request service lost required behavior: {marker}"
+
+
+def test_concurrent_duplicate_mission_edit_requests_roll_back_cleanly():
+    service = SERVICE.read_text(encoding="utf-8")
+    assert "from sqlalchemy.exc import IntegrityError" in service
+    assert "except IntegrityError:" in service
+    assert "db.session.rollback()" in service
+    assert "return None" in service[service.index("except IntegrityError:"):service.index("except Exception:")]
+    assert "db.session.commit()" in service
+
+
+def test_reviewed_mission_edit_enforces_destination_scope_server_side():
+    route = MISSIONS.read_text(encoding="utf-8")
+    service = SERVICE.read_text(encoding="utf-8")
+    save_body = route[route.index("def mission_edit_request_save"):route.index("@bp.get('/reports/assignments/export.xlsx')")]
+    assert "allowed_destination_ids = None if 'مسؤول التطبيق' in rs else set(bids())" in save_body
+    assert "allowed_destination_branch_ids=allowed_destination_ids" in save_body
+    assert "destination.id not in set(allowed_destination_branch_ids)" in service

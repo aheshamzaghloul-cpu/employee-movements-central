@@ -52,7 +52,13 @@ def load_config(overrides=None):
         'SESSION_COOKIE_HTTPONLY': True,
         'SESSION_COOKIE_SAMESITE': 'Lax',
         'SESSION_COOKIE_SECURE': os.getenv('COOKIE_SECURE', '0') == '1',
+        # Bound both the complete request body and multipart form parsing. The
+        # latter limits prevent a small request with excessive form fields from
+        # consuming disproportionate memory/CPU; normal app forms and the Excel
+        # upload wizard use far fewer parts.
         'MAX_CONTENT_LENGTH': 2 * 1024 * 1024,
+        'MAX_FORM_MEMORY_SIZE': 512 * 1024,
+        'MAX_FORM_PARTS': 100,
         'SECRET_KEY': os.getenv('SECRET_KEY', '').strip(),
         'ADMIN_USERNAME': os.getenv('ADMIN_USERNAME', 'admin').strip() or 'admin',
         'ADMIN_PASSWORD': os.getenv('ADMIN_PASSWORD', ''),
@@ -98,7 +104,10 @@ def validate_config(cfg):
         cfg['SECRET_KEY'] = secrets.token_urlsafe(48)
         logger.warning('SECRET_KEY غير مضبوط: استُخدم مفتاح مؤقت للتطوير فقط (تنتهي الجلسات عند إعادة التشغيل).')
     if production and not cfg['SESSION_COOKIE_SECURE']:
-        logger.warning('COOKIE_SECURE=0 في وضع الإنتاج: فعّله (COOKIE_SECURE=1) عند التشغيل عبر HTTPS.')
+        raise ConfigError(
+            'COOKIE_SECURE=1 مطلوب في الإنتاج لحماية جلسات الدخول. ' 
+            'استخدم HTTPS واضبط COOKIE_SECURE=1 في متغيرات البيئة.'
+        )
     if production and not cfg.get('DATABASE_URL_CONFIGURED'):
         raise ConfigError('DATABASE_URL مطلوب في الإنتاج لمنع فقدان قاعدة البيانات والحسابات عند إعادة النشر. استخدم PostgreSQL ثابتة.')
     backend = database_backend(cfg['SQLALCHEMY_DATABASE_URI'])

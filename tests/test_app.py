@@ -52,6 +52,18 @@ def test_successful_login(login):
     assert login().get('/healthz').status_code == 200
 
 
+def test_logout_requires_post_and_csrf(login):
+    client = login()
+    assert client.get('/logout').status_code == 405
+    with client.session_transaction() as sess:
+        token = sess['csrf']
+    assert client.post('/logout').status_code == 400
+    response = client.post('/logout', data={'_csrf': token})
+    assert response.status_code == 302
+    assert '/login' in response.headers['Location']
+    assert client.get('/').status_code == 302
+
+
 def test_switch_role_rejects_external_redirect(login):
     client = login()
     with client.session_transaction() as sess:

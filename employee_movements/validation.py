@@ -53,9 +53,15 @@ def parse_date_value(v):
 
 def movement_overlaps(employee_id, mt, fd, td, pd, exclude_id=None):
     """Return the first movement-overlap validation message without loading all rows."""
-    start = parse_date_value(fd)
-    end = parse_date_value(td)
-    day = parse_date_value(pd)
+    # This helper is called by both HTML forms and assistant/API flows. Some
+    # callers run overlap validation before converting dates for persistence, so
+    # malformed input must produce a validation message rather than a 500.
+    try:
+        start = parse_date_value(fd)
+        end = parse_date_value(td)
+        day = parse_date_value(pd)
+    except ValueError:
+        return 'التاريخ غير صحيح.'
 
     def active(q):
         q = q.filter(Movement.employee_id == employee_id, Movement.is_active == True)
@@ -78,6 +84,18 @@ def movement_overlaps(employee_id, mt, fd, td, pd, exclude_id=None):
                 Movement.to_date >= day,
             )).first():
                 return 'تاريخ الإذن يتعارض مع حركة أخرى للموظف.'
+
+            # An open assignment has no end date, so it is not included in the
+            # bounded date-range query above. Treat it as active from its start
+            # date onward when validating a one-day permission.
+            if active(Movement.query.filter(
+                Movement.movement_type == 'انتداب',
+                Movement.assignment_state != 'مغلق',
+                Movement.from_date.isnot(None),
+                Movement.from_date <= day,
+                Movement.to_date.is_(None),
+            )).first():
+                return 'تاريخ الإذن يتعارض مع انتداب مفتوح للموظف.'
         return None
 
     if not start:
@@ -141,8 +159,17 @@ def validate_movement_fields(mt, leave_type, dest, fd, td, pd, destination_scope
     elif mt == 'إذن':
         if not pd:
             return 'حدد تاريخ الإذن.'
-    if fd and td and (fd > td):
-        return 'من لا يجوز أن يكون بعد إلى.'
+    # Validate actual calendar dates here, not only in the persistence layer.
+    # This helper is shared by HTML forms and API/preflight callers; reject bad
+    # dates consistently before any write is attempted.
+    try:
+        parsed_start = parse_date_value(fd)
+        parsed_end = parse_date_value(td)
+        parse_date_value(pd)
+    except ValueError:
+        return 'التاريخ غير صحيح.'
+    if parsed_start and parsed_end and parsed_start > parsed_end:
+        return 'تاريخ البداية لا يجوز أن يكون بعد تاريخ النهاية.'
     return None
 
 

@@ -6,10 +6,12 @@ import logging
 import os
 import re
 import secrets
+import zipfile
 from datetime import date, datetime
 
 from flask import abort, Blueprint, flash, redirect, render_template, request, session, url_for
 from openpyxl import load_workbook, Workbook
+from sqlalchemy import func
 
 from ..access import bids, can, gids, has_role, log, req, roles
 from ..extensions import db
@@ -65,6 +67,22 @@ def _header_map(ws):
 
 def _excel_headers(ws):
     return [_excel_text(c.value) for c in ws[1]]
+
+
+# Bound spreadsheet dimensions as well as ZIP expansion and upload bytes.
+# Read-only mode limits memory use, but a workbook with millions of declared
+# rows can still consume excessive CPU during preview/confirmation.
+MAX_EXCEL_ROWS = 50001  # header + at most 50,000 data rows
+MAX_EXCEL_COLUMNS = 64
+
+
+def _validate_excel_dimensions(ws):
+    rows = getattr(ws, 'max_row', None)
+    columns = getattr(ws, 'max_column', None)
+    if rows is not None and rows > MAX_EXCEL_ROWS:
+        raise ValueError('Excel workbook exceeds the permitted row limit')
+    if columns is not None and columns > MAX_EXCEL_COLUMNS:
+        raise ValueError('Excel workbook exceeds the permitted column limit')
 
 
 def _cell_by_index(row, index):
@@ -338,10 +356,46 @@ def _pending_excel_review_path(token):
     return os.path.join(_pending_excel_dir(), f'{token}.json')
 
 
+def _validate_excel_archive(path):
+    """Reject malformed or suspiciously expansive XLSX ZIP containers before parsing.
+
+    Upload size is capped at the HTTP layer; these limits also bound decompressed
+    workbook contents so a tiny ZIP bomb cannot consume excessive resources.
+    """
+    try:
+        with zipfile.ZipFile(path) as archive:
+            infos = archive.infolist()
+            if not infos or len(infos) > 256:
+                raise ValueError('Excel archive has an invalid number of entries')
+            total_uncompressed = 0
+            for info in infos:
+                if info.flag_bits & 0x1:
+                    raise ValueError('Encrypted Excel archives are not supported')
+                if info.file_size < 0 or info.compress_size < 0:
+                    raise ValueError('Excel archive contains invalid size metadata')
+                total_uncompressed += info.file_size
+                if total_uncompressed > 64 * 1024 * 1024:
+                    raise ValueError('Excel archive expands beyond the permitted limit')
+                if info.file_size > 1024 * 1024 and info.compress_size == 0:
+                    raise ValueError('Excel archive contains suspicious compression metadata')
+                if info.compress_size and info.file_size / info.compress_size > 1000:
+                    raise ValueError('Excel archive compression ratio is excessive')
+            required = {'[Content_Types].xml', 'xl/workbook.xml'}
+            if not required.issubset({info.filename for info in infos}):
+                raise ValueError('File is not a valid Excel workbook')
+    except (OSError, zipfile.BadZipFile, zipfile.LargeZipFile) as exc:
+        raise ValueError('File is not a valid Excel ZIP archive') from exc
+
+
 def _save_pending_excel(f):
     token = secrets.token_urlsafe(24)
     path = _pending_excel_path(token)
     f.save(path)
+    try:
+        _validate_excel_archive(path)
+    except Exception:
+        _remove_pending_excel(token)
+        raise
     return token, path
 
 
@@ -399,12 +453,14 @@ def excel_import_preview(kind):
     if not f or not f.filename.lower().endswith(('.xlsx', '.xlsm', '.xltx')):
         flash('اختر ملف Excel بصيغة .xlsx أو .xlsm أو .xltx.')
         return redirect(url_for('excel_import.excel_import_page', kind=kind))
+    token = None
     try:
         old = session.pop('excel_import_token', None)
         _remove_pending_excel(old)
         (token, path) = _save_pending_excel(f)
         wb = load_workbook(path, read_only=True, data_only=True)
         ws = wb.active
+        _validate_excel_dimensions(ws)
         headers = _excel_headers(ws)
         wb.close()
         if not headers or not any(headers):
@@ -415,6 +471,11 @@ def excel_import_preview(kind):
         return _render_mapping(kind, token, path)
     except Exception:
         logger.exception('Excel import preview failed (kind=%s)', kind)
+        # If the upload was persisted but parsing/mapping failed, remove both
+        # temporary artifacts so repeated invalid uploads cannot accumulate.
+        _remove_pending_excel(token)
+        session.pop('excel_import_token', None)
+        session.pop('excel_review_token', None)
         flash('تعذر قراءة ملف Excel. تحقق من سلامة الملف وحجمه ثم حاول مرة أخرى.')
         return redirect(url_for('excel_import.excel_import_page', kind=kind))
 
@@ -459,6 +520,7 @@ def excel_import_confirm(kind):
     try:
         wb = load_workbook(path, read_only=True, data_only=True)
         ws = wb.active
+        _validate_excel_dimensions(ws)
         headers = _excel_headers(ws)
         if any((i < 1 or i > len(headers) for i in mapping.values())):
             wb.close()
@@ -773,6 +835,50 @@ def excel_import_apply(kind):
         selected = set(request.form.getlist('change'))
         added = updated = skipped = 0
         errors = list(review.get('errors', []))
+
+        # Revalidate every database reference at apply time. The preview may be
+        # several minutes old, and a branch/employee can be disabled or removed
+        # between preview and confirmation. Never trust preview-time IDs alone.
+        for action in actions:
+            if not isinstance(action, dict) or not isinstance(action.get('type'), str):
+                raise ValueError('Invalid Excel review action')
+            action_type = action['type']
+            if kind == 'branches' and action_type == 'new_branch':
+                governorate_id = action.get('governorate_id')
+                governorate = db.session.get(Governorate, governorate_id) if isinstance(governorate_id, int) else None
+                if not governorate or not governorate.is_active:
+                    raise ValueError('Excel branch import references a missing or inactive governorate')
+            elif kind == 'branches' and action_type == 'branch':
+                branch = db.session.get(Branch, action.get('id'))
+                if not branch or not branch.is_active or not branch.governorate or not branch.governorate.is_active:
+                    raise ValueError('Excel branch update references a missing or inactive branch')
+            elif kind == 'employees' and action_type == 'new_employee':
+                branch_id = action.get('branch_id')
+                branch = db.session.get(Branch, branch_id) if isinstance(branch_id, int) else None
+                if not branch or not branch.is_active or not branch.governorate or not branch.governorate.is_active:
+                    raise ValueError('Excel employee import references a missing or inactive branch')
+                values = action.get('values') or {}
+                job_code = str(values.get('job_code') or '').strip().casefold()
+                email = str(values.get('email') or '').strip().casefold()
+                if not job_code or not email:
+                    raise ValueError('Excel employee import is missing a required identity field')
+                if Employee.query.filter(func.lower(func.trim(Employee.job_code)) == job_code).first():
+                    raise ValueError('Excel employee import conflicts with an existing personnel code')
+                if Employee.query.filter(func.lower(Employee.email) == email).first():
+                    raise ValueError('Excel employee import conflicts with an existing email')
+            elif kind == 'employees' and action_type == 'employee':
+                employee = db.session.get(Employee, action.get('id'))
+                if not employee or employee.deleted_at is not None:
+                    raise ValueError('Excel employee update references a missing or deleted employee')
+                branch_key = f"employee:{action.get('id')}:branch_id"
+                if branch_key in selected and 'branch_id' in (action.get('changes') or {}):
+                    try:
+                        branch_id = int(action['changes']['branch_id']['new'])
+                    except (TypeError, ValueError, KeyError):
+                        raise ValueError('Excel employee update contains an invalid branch reference')
+                    branch = db.session.get(Branch, branch_id)
+                    if not branch or not branch.is_active or not branch.governorate or not branch.governorate.is_active:
+                        raise ValueError('Excel employee update references a missing or inactive branch')
         if kind == 'governorates':
             for a in actions:
                 if a['type'] != 'new_governorate':

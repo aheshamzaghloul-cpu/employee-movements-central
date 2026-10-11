@@ -634,13 +634,18 @@ def excel_import_confirm(kind):
                         },
                     )
         else:
-            managed_branch_ids = set(bids())
+            # This importer is restricted to the application administrator.
+            # Do not use bids() here: that helper represents the active
+            # operational/work scope for ordinary users and can be narrowed
+            # to the currently selected governorate. Employee administration
+            # imports must resolve every active branch in every active
+            # governorate the administrator manages, independent of the
+            # current workspace selector.
             branch_cache = {}
             for b in (
                 Branch.query.filter(
                     Branch.is_active == True,
                     Branch.governorate_id.in_(allowed_gids),
-                    Branch.id.in_(managed_branch_ids),
                 )
                 .all()
             ):

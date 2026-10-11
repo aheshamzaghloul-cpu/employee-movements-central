@@ -46,7 +46,7 @@
 }
 *{box-sizing:border-box}
 html{min-width:320px;scroll-behavior:smooth}
-body{margin:0;min-width:320px;width:100%;overflow-x:hidden;background:var(--ui-bg);color:var(--ui-ink);font-family:"Cairo",Tahoma,Arial,sans-serif;font-size:17px;line-height:1.6}
+body{margin:0;min-width:320px;width:100%;overflow-x:hidden;background:var(--ui-page);color:var(--ui-ink);font-family:"Cairo",Tahoma,Arial,sans-serif;font-size:15px;line-height:1.7;font-weight:400;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 body,button,input,select,textarea{font-family:inherit}
 img,svg,video,canvas{max-width:100%}
 button,input,select,textarea{font:inherit;min-width:0}
@@ -239,7 +239,6 @@ label{display:grid;gap:4px;color:var(--ui-ink-2);font-size:14.5px;font-weight:80
 
 /* ===== v61.2 readability / layout / Arabic ===== */
 html{text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased}
-body{font-size:16.5px;line-height:1.75;letter-spacing:0;color:var(--ui-ink)}
 h1,h2,h3,p,small,label,td,th,a,span,b,strong,em,button,input,select,textarea{
   letter-spacing:0;
   overflow-wrap:anywhere;
@@ -357,13 +356,11 @@ textarea{min-height:96px;padding:10px 12px}
 
 
 /* v63 component refinements; all theme tokens are centralized at the top of this file. */
-html{background:var(--ui-bg);font-size:16px}
-body{background:var(--ui-bg);color:var(--ui-ink);font-size:16px;line-height:1.7;font-weight:400;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+html{background:var(--ui-page);font-size:16px}
 
 
 /* Premium layout refinements; visual tokens are sourced from the shared root. */
-html{background:var(--ui-bg)}
-body{background:var(--ui-bg);color:var(--ui-ink);font-family:"Cairo",Tahoma,Arial,sans-serif;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+html{background:var(--ui-page)}
 body *{scrollbar-color:#d8dce1 transparent;scrollbar-width:thin}
 a{color:inherit}
 button,input,select,textarea{font-family:inherit}
@@ -429,10 +426,6 @@ h1,h2,h3{color:#191d22}h1{font-weight:800}h2,h3{font-weight:750}
 .ui-icon-tile,.employee-panel-icon,.ui-card-icon,.ui-launch-icon,.ui-report-group-icon,.ui-admin-task-icon{background:#f0f1f3;color:#4c555f;border-radius:11px}
 
 /* ---------- controls ---------- */
-input,select,textarea{min-height:42px;border:1px solid #dde1e5!important;border-radius:11px!important;background:#fff!important;color:#2b3037!important;box-shadow:none!important;padding:7px 11px;transition:border-color .16s ease,box-shadow .16s ease,background .16s ease}
-input:hover,select:hover,textarea:hover{border-color:#cfd4d9!important}
-input:focus,select:focus,textarea:focus{border-color:#9ca5ae!important;box-shadow:var(--ui-focus)!important;outline:0}
-input::placeholder,textarea::placeholder{color:#a1a7ae}
 label>span,label>strong,label{font-size:11px;color:#626a73;font-weight:700}
 .ui-btn,.ui-primary-btn,.ui-danger-btn,.ui-link-btn,.employees-primary{min-height:38px;border:1px solid #dfe2e6;border-radius:10px;padding:0 13px;background:#fff;color:#3e464f;font-size:11px;font-weight:800;box-shadow:none;transition:background .18s ease,border-color .18s ease,color .18s ease,transform .18s ease}
 .ui-btn:hover,.ui-link-btn:hover{background:#f5f6f7;border-color:#cfd4d9;transform:translateY(-1px)}
@@ -494,7 +487,6 @@ label>span,label>strong,label{font-size:11px;color:#626a73;font-weight:700}
 @media print{.premium-sidebar,.premium-topbar,.premium-commandbar,.assistant-dock{display:none!important}.premium-main,.premium-main.with-shell{margin:0!important;width:100%!important;padding:0!important;background:#fff!important}}
 
 /* Shared interactive components use the same application design tokens. */
-body{background:var(--ui-bg);color:var(--ui-ink);font-size:15px;line-height:1.7}
 .premium-sidebar{width:var(--ui-sidebar);padding:18px 13px 13px;background:#f8fcfc;border-left:1px solid var(--ui-line);box-shadow:none;gap:9px}
 .premium-brand{min-height:54px;padding:2px 5px 15px;border-bottom:1px solid var(--ui-line-soft)}
 .premium-brand .ui-brand-mark{width:40px;height:40px;flex-basis:40px;border-radius:13px;background:linear-gradient(145deg,#0b98a5,#086d79);box-shadow:0 6px 18px rgba(8,127,140,.2)}
@@ -524,8 +516,6 @@ body{background:var(--ui-bg);color:var(--ui-ink);font-size:15px;line-height:1.7}
 .ui-icon-tile,.employee-panel-icon,.ui-card-icon,.ui-launch-icon,.ui-report-group-icon,.ui-admin-task-icon{background:var(--ui-brand-soft);color:var(--ui-brand);border-radius:10px}
 .ui-btn,.ui-primary-btn,.ui-danger-btn,.ui-link-btn,.employees-primary{min-height:38px;border-radius:11px;padding:0 13px;border-color:var(--ui-line);font-size:12.5px;font-weight:700;box-shadow:none}
 .ui-btn:hover,.ui-link-btn:hover{background:#f7f8fa;border-color:#d6dadd}.ui-btn-primary,.employees-primary,.ui-tone-teal,.ui-primary-btn{background:var(--ui-brand);border-color:var(--ui-brand);color:#fff}.ui-btn-primary:hover,.employees-primary:hover,.ui-tone-teal:hover,.ui-primary-btn:hover{background:#066a75;border-color:#066a75}
-input,select,textarea{border-color:var(--ui-line)!important;border-radius:11px!important;background:#fff!important;color:#30353b!important;min-height:39px;font-size:13px!important;box-shadow:none!important}
-input:focus,select:focus,textarea:focus{border-color:#bfc4c9!important;box-shadow:var(--ui-focus)!important}
 .ui-table-wrap{border:1px solid var(--ui-line);border-radius:16px;background:#fff;box-shadow:var(--ui-shadow-sm);overflow:auto}.ui-table-wrap table{border-collapse:separate;border-spacing:0}.ui-table-wrap th{background:#f3fafb;color:#777e86;font-size:10.5px;font-weight:800;border-bottom:1px solid var(--ui-line)}.ui-table-wrap td{font-size:12.5px;border-bottom:1px solid var(--ui-line-soft)}.ui-table-wrap tbody tr:hover{background:#fafbfc}
 .home-primary-actions .smart-action-card{border:1px solid var(--ui-line);border-radius:20px;background:#fff;box-shadow:var(--ui-shadow-sm)}
 .home-primary-actions .smart-action-card:hover{border-color:#a9d8de;box-shadow:var(--ui-shadow-md);transform:translateY(-1px)}
@@ -625,7 +615,6 @@ body.ui-sidebar-collapsed .premium-nav a{justify-content:center;padding-inline:0
 }
 
 /* Interaction polish: one tactile language across every workspace. */
-body{color:var(--ux-text);-webkit-font-smoothing:antialiased}
 .ui-toolbar,.ui-page-head,.ui-report-page-head{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;padding:0 2px 18px;margin-bottom:4px}
 .ui-toolbar>div:first-child,.ui-page-head>div:first-child,.ui-report-page-head>div:first-child{min-width:0}
 .ui-toolbar h1,.ui-page-head h1,.ui-report-page-head h1{margin:0;line-height:1.25;font-weight:800;color:#171b20}
@@ -741,6 +730,7 @@ h1,h2,h3{color:var(--ui-ink)}
   --ui-brand-soft: #e8f6f7;
   --ui-page: #f4f7f9;
   --ui-canvas: #f4f7f9;
+  --ui-bg: #f4f7f9;
   --ui-surface: #ffffff;
   --ui-surface-2: #f8fafb;
   --ui-ink: #172b3a;
@@ -756,7 +746,6 @@ h1,h2,h3{color:var(--ui-ink)}
   --ui-shadow-lg: 0 18px 48px rgba(20,42,58,.14);
 }
 html { background: var(--ui-page); scroll-behavior: smooth; text-size-adjust: 100%; -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: var(--ui-page); color: var(--ui-ink); font-family: 'Cairo', Tahoma, sans-serif; font-size: 14px; line-height: 1.65; }
 button, input, select, textarea { font: inherit; }
 button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 :focus-visible { outline: 3px solid rgba(8,127,140,.24); outline-offset: 2px; }
@@ -787,8 +776,6 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .smart-secondary-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 22px 0 12px; }
 .smart-secondary-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
 .smart-overview-card { padding: 16px; }
-input:not([type=checkbox]):not([type=radio]), select, textarea { max-width: 100%; border: 1px solid #d5e0e6; border-radius: 9px; background: #fff; color: var(--ui-ink); }
-input:not([type=checkbox]):not([type=radio]):focus, select:focus, textarea:focus { border-color: var(--ui-brand); box-shadow: 0 0 0 3px rgba(8,127,140,.10); outline: none; }
 .ui-btn { min-height: 38px; border-radius: 10px; font-weight: 800; transition: background-color .15s ease, box-shadow .15s ease; }
 .ui-btn-primary { background: var(--ui-brand); border-color: var(--ui-brand); box-shadow: 0 3px 8px rgba(8,127,140,.13); }
 .ui-btn-primary:hover { background: var(--ui-brand-strong); }
@@ -811,3 +798,197 @@ th, td { border-color: var(--ui-line-soft); }
 .assistant-dock-trigger:hover{background:linear-gradient(145deg,#087f8c,#075d67)!important}
 .assistant-dock-trigger:focus-visible{outline:3px solid rgba(8,127,140,.28);outline-offset:3px}
 @media(max-width:480px){.assistant-dock-trigger{width:46px;height:46px;min-width:46px;min-height:46px;border-radius:14px!important}}
+
+/* v68.22.16 — authoritative shared form-control layer */
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+  border: 1px solid var(--ui-line);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface);
+  color: var(--ui-ink);
+  box-shadow: none;
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+input:not([type="checkbox"]):not([type="radio"]):hover,
+select:hover,
+textarea:hover { border-color: var(--ui-brand); }
+input:not([type="checkbox"]):not([type="radio"]):focus,
+select:focus,
+textarea:focus {
+  border-color: var(--ui-brand);
+  box-shadow: var(--ui-focus);
+  outline: 0;
+}
+input::placeholder, textarea::placeholder { color: var(--ui-muted); opacity: .8; }
+
+/* v68.22.17 — unified cross-page visual contract (authoritative layer)
+   Consolidates shared shell, spacing, cards, controls, tables and responsive behavior.
+   Specialized workflow selectors remain intact to avoid changing business interactions.
+*/
+:root {
+  --ui-page: #f4f7f9;
+  --ui-bg: var(--ui-page);
+  --ui-canvas: var(--ui-page);
+  --ui-surface: #ffffff;
+  --ui-surface-2: #f8fafb;
+  --ui-surface-3: #edf4f6;
+  --ui-ink: #1b303d;
+  --ui-ink-2: #405968;
+  --ui-muted: #687e8b;
+  --ui-faint: #8497a1;
+  --ui-line: #d9e4e9;
+  --ui-line-soft: #e8eef1;
+  --ui-brand: #087f8c;
+  --ui-brand-strong: #066b76;
+  --ui-brand-2: #0b98a5;
+  --ui-brand-soft: #e4f4f5;
+  --ui-radius-sm: 9px;
+  --ui-radius-md: 13px;
+  --ui-radius: 15px;
+  --ui-radius-lg: 18px;
+  --ui-shadow-sm: 0 2px 8px rgba(25, 53, 68, .045), 0 5px 16px rgba(25, 53, 68, .025);
+  --ui-shadow-md: 0 8px 24px rgba(25, 53, 68, .075);
+  --ui-shadow-lg: 0 18px 48px rgba(25, 53, 68, .14);
+  --ui-focus: 0 0 0 3px rgba(8, 127, 140, .18);
+}
+
+html { background: var(--ui-page); color-scheme: light; }
+body { background: var(--ui-page); color: var(--ui-ink); font-family: "Cairo", Tahoma, Arial, sans-serif; }
+.ui-shell { background: var(--ui-page); }
+.ui-main, .premium-main { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.premium-main.with-shell { padding: 88px clamp(12px, 2vw, 28px) 32px; }
+.premium-main.with-shell > *, .premium-main.with-shell .premium-page-intro,
+.premium-main.with-shell .premium-commandbar { width: 100%; max-width: var(--ui-content); }
+.premium-page-intro { gap: 16px; padding: 0 0 14px; }
+.premium-page-intro h1, .ui-page-head h1, .ui-report-page-head h1 { color: var(--ui-ink); letter-spacing: 0; }
+.premium-page-intro p, .ui-subtitle, .ui-hint, .ui-muted { color: var(--ui-muted); }
+.premium-sidebar { background: #fff; border-inline-start: 1px solid var(--ui-line); box-shadow: 0 3px 18px rgba(25,53,68,.04); }
+.premium-brand, .premium-side-user, .premium-side-footer { border-color: var(--ui-line-soft); }
+.premium-nav a { color: var(--ui-ink-2); border-radius: 10px; }
+.premium-nav a:hover { color: var(--ui-ink); background: var(--ui-surface-2); }
+.premium-nav a.active { color: var(--ui-brand-strong); background: var(--ui-brand-soft); box-shadow: none; }
+.premium-topbar { background: rgba(255,255,255,.96); border-bottom-color: var(--ui-line); }
+
+/* One shared surface treatment for all page families. */
+.ui-card, .ui-module-card, .ui-work-card, .ui-report-group, .ui-admin-guide,
+.ui-admin-hero, .ui-mission-filter-card, .home-workspace-card, .home-section,
+.home-mini-card, .home-history-card, .employee-card, .employee-panel,
+.premium-commandbar, .ui-report-filter-card, .ui-report-results {
+  border-color: var(--ui-line);
+}
+.ui-card, .ui-module-card, .ui-work-card, .ui-report-group, .ui-admin-guide,
+.ui-admin-hero, .ui-mission-filter-card, .home-workspace-card, .home-section,
+.home-mini-card, .home-history-card, .employee-card, .employee-panel {
+  border-radius: var(--ui-radius);
+  box-shadow: var(--ui-shadow-sm);
+}
+.ui-card, .ui-module-card, .ui-work-card { background: var(--ui-surface); }
+.ui-section-title, .ui-module-head, .ui-card-head, .ui-admin-section-head,
+.ui-report-group-head, .employee-panel-head, .home-section-head { min-width: 0; }
+
+/* Consistent button hierarchy and accessible focus states. */
+.ui-btn, .ui-primary-btn, .ui-danger-btn, .ui-link-btn, .employees-primary,
+button.ui-btn, a.ui-btn, input[type="submit"], button[type="submit"] {
+  border-radius: 9px;
+  font-weight: 800;
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease;
+}
+.ui-btn-primary, .ui-primary-btn, .employees-primary, .ui-tone-teal {
+  background: var(--ui-brand); border-color: var(--ui-brand); color: #fff;
+}
+.ui-btn-primary:hover, .ui-primary-btn:hover, .employees-primary:hover, .ui-tone-teal:hover {
+  background: var(--ui-brand-strong); border-color: var(--ui-brand-strong); color: #fff;
+}
+:where(a, button, input, select, textarea, summary):focus-visible { outline: 2px solid var(--ui-brand); outline-offset: 2px; }
+
+/* Shared fields: do not force a fixed height on multiline controls or checkboxes. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea {
+  box-sizing: border-box; max-width: 100%; min-width: 0;
+  border: 1px solid var(--ui-line); border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface); color: var(--ui-ink);
+}
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select { min-height: 40px; }
+textarea { min-height: 96px; height: auto; padding: 9px 11px; line-height: 1.65; resize: vertical; }
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):hover, select:hover, textarea:hover { border-color: #a9cbd0; }
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus, select:focus, textarea:focus {
+  border-color: var(--ui-brand); box-shadow: var(--ui-focus); outline: none;
+}
+input::placeholder, textarea::placeholder { color: var(--ui-faint); opacity: 1; }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--ui-brand); }
+input[type="file"] { max-width: 100%; }
+label { color: var(--ui-ink-2); }
+
+/* Tables stay readable; wrappers own horizontal scrolling on narrow screens. */
+.ui-table-wrap, .ui-movement-audit-table { max-width: 100%; min-width: 0; overflow-x: auto; border-color: var(--ui-line); border-radius: 12px; }
+.ui-table-wrap > table, .ui-table, .ui-data-table, .ui-mission-table { border-collapse: separate; border-spacing: 0; }
+.ui-table-wrap th, .ui-table th, .ui-data-table th, .ui-mission-table th {
+  background: var(--ui-surface-3) !important; color: var(--ui-ink-2) !important;
+  border-bottom-color: var(--ui-line) !important; font-size: 12px !important; line-height: 1.55;
+}
+.ui-table-wrap td, .ui-table td, .ui-data-table td, .ui-mission-table td {
+  color: var(--ui-ink-2) !important; border-bottom-color: var(--ui-line-soft) !important;
+  font-size: 13px !important; line-height: 1.65;
+}
+.ui-table-wrap tbody tr:hover td, .ui-table tbody tr:hover td { background: var(--ui-surface-2) !important; }
+
+/* Flexible layouts avoid off-screen controls and clipped headings. */
+img, svg, video, canvas { max-width: 100%; }
+.ui-grid > *, .ui-form-grid-employee > *, .employee-add-grid > *, .movement-create-top > *,
+.ui-filter-grid > *, .ui-report-filter-grid > *, .home-primary-actions > *, .ui-admin-control-grid > * { min-width: 0; }
+.home-primary-actions, .smart-home-grid, .ui-admin-control-grid, .ui-admin-shortcuts,
+.ui-admin-task-grid, .ui-report-launch-grid, .ui-report-stat-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+@media (max-width: 900px) {
+  .premium-main.with-shell { padding: 76px 14px 26px; }
+  .premium-page-intro { align-items: flex-start; flex-direction: column; }
+  .home-primary-actions, .ui-report-group-grid { grid-template-columns: minmax(0, 1fr); }
+  .ui-admin-hero { flex-direction: column; }
+}
+@media (max-width: 600px) {
+  .premium-main.with-shell { padding: 72px 10px 22px; }
+  .premium-page-intro h1, .ui-page-head h1, .ui-report-page-head h1 { font-size: 22px; }
+  .ui-card, .ui-module-card, .ui-work-card, .home-workspace-card, .home-section { border-radius: 12px; }
+  .ui-page-head, .ui-report-page-head, .ui-toolbar { align-items: stretch; flex-direction: column; }
+  .ui-actions { margin-inline-start: 0; }
+  .ui-form-actions, .ui-actions { flex-wrap: wrap; }
+  .ui-form-actions > *, .ui-actions > * { max-width: 100%; }
+  .ui-table-wrap > table, .ui-data-table, .ui-mission-table { min-width: 640px; }
+  .assistant-dock-panel { max-height: calc(100dvh - 84px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+
+
+/* v68.22.18 — responsive layout hardening for operational forms and tables */
+/* Keep intermediate desktop/tablet widths usable without squeezing Arabic labels. */
+@media (min-width: 701px) and (max-width: 1080px) {
+  .ui-grid.wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ui-form-grid-employee, .employee-add-grid,
+  .movement-create-top, .ui-report-filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .delegation-create-grid, .ui-filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .employee-search-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .employee-search-main { grid-column: 1 / -1; }
+}
+/* Narrow screens: make form actions wrap and keep wide data tables inside their own scroller. */
+@media (max-width: 700px) {
+  .ui-grid.wide, .ui-form-grid-employee, .employee-add-grid,
+  .movement-create-top, .ui-filter-grid, .ui-report-filter-grid,
+  .delegation-create-grid, .employee-search-grid { grid-template-columns: minmax(0, 1fr); }
+  .employee-search-main { grid-column: auto; }
+  .ui-form-actions, .ui-actions, .employee-add-actions { align-items: stretch; }
+  .ui-form-actions > button, .ui-form-actions > a,
+  .ui-actions > button, .ui-actions > a { max-width: 100%; white-space: normal; }
+  .ui-overflow-auto, .ui-table-wrap, .ui-movement-audit-table {
+    width: 100%; max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+/* Keyboard users should retain a visible focus ring without removing component layout. */
+:where(a, button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--ui-brand); outline-offset: 2px; box-shadow: var(--ui-focus);
+}

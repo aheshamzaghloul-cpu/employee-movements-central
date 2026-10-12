@@ -1,61 +1,69 @@
 /*
-   نظام الواجهة الموحد — v68.16.0
-   واجهة تشغيلية كاملة للتطبيق، لا تعتمد على طبقات تصميم انتقالية.
+   نظام الواجهة الموحد — v68.22.45
+   مرجع مركزي لمتغيرات التصميم الأساسية مع الحفاظ على قواعد الصفحات المتخصصة.
 */
-:root{
-  --ui-bg:#f1f8f9;
-  --ui-surface:#ffffff;
-  --ui-surface-2:#f6fbfc;
-  --ui-surface-3:#e8f4f6;
-  --ui-ink:#15313a;
-  --ui-ink-2:#294952;
-  --ui-muted:#58717a;
-  --ui-faint:#789099;
-  --ui-line:#d5e5e8;
-  --ui-line-soft:#e7f0f2;
-  --ui-brand:#087f8c;
-  --ui-brand-2:#0b98a5;
-  --ui-brand-soft:#def3f5;
-  --ui-green:#23734f;
-  --ui-green-soft:#e8f6ee;
-  --ui-amber:#8b5b12;
-  --ui-amber-soft:#fff3d8;
-  --ui-red:#a52d43;
-  --ui-red-soft:#fdecef;
-  --ui-violet:#6650a4;
-  --ui-violet-soft:#f0ebfc;
-  --ui-cyan:#087f8c;
-  --ui-cyan-soft:#def3f5;
-  --ui-shadow-sm:0 2px 5px rgba(12,75,84,.035),0 8px 24px rgba(12,75,84,.045);
-  --ui-shadow-md:0 12px 34px rgba(12,75,84,.09);
-  --ui-shadow-lg:0 24px 70px rgba(12,75,84,.16);
-  --ui-radius:18px;
-  --ui-radius-sm:12px;
-  --ui-sidebar:232px;
-  --ui-sidebar-collapsed:70px;
-  --ui-topbar:68px;
-  --ui-content:1680px;
-  --ui-focus:0 0 0 3px rgba(8,127,140,.17);
-  /* Canonical compatibility aliases: legacy component selectors inherit the current palette. */
-  --ui-text:var(--ui-ink);
-  --ui-border:var(--ui-line);
-  --ui-success:var(--ui-green);
-  --ui-success-soft:var(--ui-green-soft);
-  --p-brand:var(--ui-brand);
-  --p-brand-2:var(--ui-brand-2);
-  --p-ink:var(--ui-ink);
-  --p-line:var(--ui-line);
-  --p-line-soft:var(--ui-line-soft);
-  --p-muted:var(--ui-muted);
-  --p-surface-soft:var(--ui-surface-2);
-  --ux-accent:var(--ui-brand);
-  --ux-accent-soft:var(--ui-brand-soft);
-  --ux-line:var(--ui-line);
-  --ux-line-strong:#b7dce1;
-  --ux-text:var(--ui-ink);
-  --ux-muted:var(--ui-muted);
-  --ux-shadow:0 12px 34px rgba(8,127,140,.08);
-}
+:root {
+  --ui-bg: var(--ui-page);
+  --ui-surface: #fff;
+  --ui-surface-2: #f8fafc;
+  --ui-surface-3: #edf3f7;
+  --ui-ink: #183247;
+  --ui-ink-2: #3d586c;
+  --ui-muted: #6b8190;
+  --ui-faint: #8a9ba7;
+  --ui-line: #dce5ec;
+  --ui-line-soft: #eaf0f4;
+  --ui-brand: #087f8c;
+  --ui-brand-2: #0b98a5;
+  --ui-brand-soft: #def3f5;
+  --ui-green: #23734f;
+  --ui-green-soft: #e8f6ee;
+  --ui-amber: #8b5b12;
+  --ui-amber-soft: #fff3d8;
+  --ui-red: #a52d43;
+  --ui-red-soft: #fdecef;
+  --ui-violet: #6650a4;
+  --ui-violet-soft: #f0ebfc;
+  --ui-cyan: #087f8c;
+  --ui-cyan-soft: #def3f5;
+  --ui-shadow-sm: 0 2px 8px rgba(24,50,71,.045), 0 8px 22px rgba(24,50,71,.025);
+  --ui-shadow-md: 0 10px 28px rgba(24,50,71,.075);
+  --ui-shadow-lg: 0 18px 48px rgba(24,50,71,.14);
+  --ui-radius: 14px;
+  --ui-radius-sm: 10px;
+  --ui-sidebar: 232px;
+  --ui-sidebar-collapsed: 70px;
+  --ui-topbar: 68px;
+  --ui-content: 1480px;
+  --ui-focus: 0 0 0 3px rgba(8,127,140,.18);
+  --ui-text: var(--ui-ink);
+  --ui-border: var(--ui-line);
+  --ui-success: var(--ui-green);
+  --ui-success-soft: var(--ui-green-soft);
+  --p-brand: var(--ui-brand);
+  --p-brand-2: var(--ui-brand-2);
+  --p-ink: var(--ui-ink);
+  --p-line: var(--ui-line);
+  --p-line-soft: var(--ui-line-soft);
+  --p-muted: var(--ui-muted);
+  --p-surface-soft: var(--ui-surface-2);
+  --ux-accent: var(--ui-brand);
+  --ux-accent-soft: var(--ui-brand-soft);
+  --ux-line: var(--ui-line);
+  --ux-line-strong: #b7dce1;
+  --ux-text: var(--ui-ink);
+  --ux-muted: var(--ui-muted);
+  --ux-shadow: 0 12px 34px rgba(8,127,140,.08);
+  --ui-neutral-hover: var(--ui-surface-2);
+  --ui-neutral-border: var(--ui-line-soft);
+  --ui-brand-strong: #066b76;
+  --ui-page: #f3f6f9;
+  --ui-canvas: var(--ui-page);
+  --ui-radius-md: 13px;
+  --ui-radius-lg: 18px;
+  --ui-shadow: 0 5px 20px rgba(20,42,58,.06);
+  --ui-gap: 16px;
+} 
 *{box-sizing:border-box}
 html{min-width:320px;scroll-behavior:smooth}
 body{margin:0;min-width:320px;width:100%;overflow-x:hidden;background:var(--ui-page);color:var(--ui-ink);font-family:"Cairo",Tahoma,Arial,sans-serif;font-size:15px;line-height:1.7;font-weight:400;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
@@ -687,14 +695,11 @@ body.interactive-confirm-open{overflow:hidden}
 
 
 /* v68.16.1 — cyan consistency and readable data surfaces */
-:root{
-  --ui-neutral-hover:var(--ui-surface-2);
-  --ui-neutral-border:var(--ui-line-soft);
-}
+
 h1,h2,h3{color:var(--ui-ink)}
 .ui-btn-primary,.employees-primary,.ui-tone-teal,.ui-primary-btn,
 .ui-filter-pill.active,.section-tab.active{background:var(--ui-brand)!important;border-color:var(--ui-brand)!important;color:#fff!important}
-.ui-btn-primary:hover,.employees-primary:hover,.ui-tone-teal:hover,.ui-primary-btn:hover{background:#066d78!important;border-color:#066d78!important}
+.ui-btn-primary:hover,.employees-primary:hover,.ui-tone-teal:hover,.ui-primary-btn:hover{background:var(--ui-brand-strong)!important;border-color:var(--ui-brand-strong)!important}
 .ui-icon-tile,.employee-panel-icon,.ui-card-icon,.ui-launch-icon,.ui-report-group-icon,.ui-admin-task-icon{background:var(--ui-brand-soft)!important;color:var(--ui-brand)!important}
 .ui-table-wrap th,.ui-table th,.ui-data-table th,.ui-mission-table th,
 .ui-table-wrap>table[data-smart-table] thead th{background:var(--ui-surface-3)!important;color:var(--ui-ink-2)!important;border-bottom-color:var(--ui-line)!important;font-size:12px!important;line-height:1.5}
@@ -728,27 +733,7 @@ h1,h2,h3{color:var(--ui-ink)}
 
 
 /* v68.19.0 — consolidated unified design layer */
-:root {
-  --ui-brand: #087f8c;
-  --ui-brand-strong: #066b76;
-  --ui-brand-soft: #e8f6f7;
-  --ui-page: #f4f7f9;
-  --ui-canvas: #f4f7f9;
-  --ui-bg: #f4f7f9;
-  --ui-surface: #ffffff;
-  --ui-surface-2: #f8fafb;
-  --ui-ink: #172b3a;
-  --ui-ink-2: #526575;
-  --ui-muted: #718293;
-  --ui-line: #dce5ea;
-  --ui-line-soft: #eaf0f3;
-  --ui-radius-sm: 9px;
-  --ui-radius-md: 13px;
-  --ui-radius-lg: 17px;
-  --ui-shadow-sm: 0 2px 8px rgba(19,43,58,.045);
-  --ui-shadow: 0 5px 20px rgba(20,42,58,.06);
-  --ui-shadow-lg: 0 18px 48px rgba(20,42,58,.14);
-}
+
 html { background: var(--ui-page); scroll-behavior: smooth; text-size-adjust: 100%; -webkit-text-size-adjust: 100%; }
 button, input, select, textarea { font: inherit; }
 button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
@@ -833,32 +818,7 @@ input::placeholder, textarea::placeholder { color: var(--ui-muted); opacity: .8;
    Consolidates shared shell, spacing, cards, controls, tables and responsive behavior.
    Specialized workflow selectors remain intact to avoid changing business interactions.
 */
-:root {
-  --ui-page: #f4f7f9;
-  --ui-bg: var(--ui-page);
-  --ui-canvas: var(--ui-page);
-  --ui-surface: #ffffff;
-  --ui-surface-2: #f8fafb;
-  --ui-surface-3: #edf4f6;
-  --ui-ink: #1b303d;
-  --ui-ink-2: #405968;
-  --ui-muted: #687e8b;
-  --ui-faint: #8497a1;
-  --ui-line: #d9e4e9;
-  --ui-line-soft: #e8eef1;
-  --ui-brand: #087f8c;
-  --ui-brand-strong: #066b76;
-  --ui-brand-2: #0b98a5;
-  --ui-brand-soft: #e4f4f5;
-  --ui-radius-sm: 9px;
-  --ui-radius-md: 13px;
-  --ui-radius: 15px;
-  --ui-radius-lg: 18px;
-  --ui-shadow-sm: 0 2px 8px rgba(25, 53, 68, .045), 0 5px 16px rgba(25, 53, 68, .025);
-  --ui-shadow-md: 0 8px 24px rgba(25, 53, 68, .075);
-  --ui-shadow-lg: 0 18px 48px rgba(25, 53, 68, .14);
-  --ui-focus: 0 0 0 3px rgba(8, 127, 140, .18);
-}
+
 
 html { background: var(--ui-page); color-scheme: light; }
 body { background: var(--ui-page); color: var(--ui-ink); font-family: "Cairo", Tahoma, Arial, sans-serif; }
@@ -1026,23 +986,7 @@ img, svg, video, canvas { max-width: 100%; }
 
 
 /* v68.22.20 — shared cross-page visual contract (admin, auth, and operations). */
-:root {
-  --ui-bg: #f3f6f8;
-  --ui-surface: #ffffff;
-  --ui-surface-2: #f7fafb;
-  --ui-line: #d9e3e9;
-  --ui-line-soft: #e8eef2;
-  --ui-ink: #203746;
-  --ui-ink-2: #405968;
-  --ui-muted: #718491;
-  --ui-brand: #087f8c;
-  --ui-brand-strong: #076b76;
-  --ui-brand-soft: #e7f5f6;
-  --ui-radius: 14px;
-  --ui-radius-lg: 18px;
-  --ui-shadow-sm: 0 4px 16px rgba(24, 52, 67, .045);
-  --ui-shadow-md: 0 12px 30px rgba(24, 52, 67, .09);
-}
+
 html { background: var(--ui-bg); }
 body { color: var(--ui-ink); background: var(--ui-bg); font-family: Cairo, sans-serif; }
 .ui-main.with-shell { padding-block: 82px 28px; }
@@ -1119,12 +1063,7 @@ button svg:not([data-icon-fill]) *, a.ui-btn svg:not([data-icon-fill]) *,
 
 
 /* v68.22.21 — shared layout foundation: consistent surfaces and predictable overflow. */
-:root {
-  --ui-content: 1480px;
-  --ui-radius: 14px;
-  --ui-radius-sm: 10px;
-  --ui-gap: 16px;
-}
+
 .ui-shell, .ui-main, .premium-main, .ui-admin-shell, .admin-workspace,
 .ui-structure-workspace, .login-shell, .home-workspace, .ui-report-workspace {
   min-width: 0;
@@ -1197,33 +1136,7 @@ svg[data-icon-fill], svg[data-icon-fill] * { fill: currentColor; }
 /* v68.22.23 — authoritative unified visual system.
    Shared tokens and component behavior for home, operations, reports, administration and sign-in.
    Business rules, role gates and workflow-specific selectors remain unchanged. */
-:root {
-  --ui-page: #f3f6f9;
-  --ui-bg: var(--ui-page);
-  --ui-canvas: var(--ui-page);
-  --ui-surface: #fff;
-  --ui-surface-2: #f8fafc;
-  --ui-surface-3: #edf3f7;
-  --ui-ink: #183247;
-  --ui-ink-2: #3d586c;
-  --ui-muted: #6b8190;
-  --ui-faint: #8a9ba7;
-  --ui-line: #dce5ec;
-  --ui-line-soft: #eaf0f4;
-  --ui-brand: #1769aa;
-  --ui-brand-strong: #12558b;
-  --ui-brand-2: #287fbd;
-  --ui-brand-soft: #e8f2fb;
-  --ui-focus: 0 0 0 3px rgba(23,105,170,.16);
-  --ui-radius: 14px;
-  --ui-radius-sm: 10px;
-  --ui-radius-md: 13px;
-  --ui-radius-lg: 18px;
-  --ui-shadow-sm: 0 2px 8px rgba(24,50,71,.045), 0 8px 22px rgba(24,50,71,.025);
-  --ui-shadow-md: 0 10px 28px rgba(24,50,71,.075);
-  --ui-shadow-lg: 0 18px 48px rgba(24,50,71,.14);
-  --ui-content: 1480px;
-}
+
 html { background: var(--ui-page); }
 body { background: var(--ui-page); color: var(--ui-ink); font-family: "Cairo", Tahoma, Arial, sans-serif; }
 :is(.ui-card,.ui-module-card,.ui-work-card,.ui-report-group,.ui-admin-guide,.ui-admin-hero,
@@ -1274,8 +1187,8 @@ body { background: var(--ui-page); color: var(--ui-ink); font-family: "Cairo", T
 .premium-sidebar .premium-nav-label { color: #b7cadb; }
 .premium-sidebar .premium-nav a { color: #d0deeb; border-radius: 9px; }
 .premium-sidebar .premium-nav a:hover { color: #fff; background: rgba(255,255,255,.08); }
-.premium-sidebar .premium-nav a.active { color: #fff; background: #245783; box-shadow: inset -3px 0 #80b7e5; }
-.premium-sidebar .premium-side-footer a.active { background: #e8f2fb; color: #1769aa; }
+.premium-sidebar .premium-nav a.active { color: #fff; background: var(--ui-brand-strong); box-shadow: inset -3px 0 #80d5dc; }
+.premium-sidebar .premium-side-footer a.active { background: var(--ui-brand-soft); color: var(--ui-brand); }
 .premium-topbar {
   background: rgba(255,255,255,.94);
   border-bottom-color: var(--ui-line);
@@ -1287,8 +1200,8 @@ body { background: var(--ui-page); color: var(--ui-ink); font-family: "Cairo", T
 :is(.premium-page-intro,.ui-page-head,.ui-report-page-head) h1 { color: var(--ui-ink); }
 .login-shell { gap: 18px; }
 .login-hero {
-  background: linear-gradient(145deg,#163c5f,#245783) !important;
-  border: 1px solid #244d70 !important;
+  background: linear-gradient(145deg,#12414a,#087f8c) !important;
+  border: 1px solid #1c626c !important;
   box-shadow: var(--ui-shadow-md) !important;
 }
 .login-card {

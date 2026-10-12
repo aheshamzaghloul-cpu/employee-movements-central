@@ -1,52 +1,38 @@
 {
-  "version": "68.22.43",
+  "version": "68.22.45",
   "artifact_type": "review_candidate",
-  "runtime_tests_passed": false,
+  "focus": "Consolidate global CSS design tokens and restore cyan visual consistency",
+  "status": "Static checks passed; full Flask runtime tests and browser visual QA remain unverified",
   "python_syntax_check": "passed: compileall exit 0",
-  "javascript_syntax_check": "passed: node --check app.js",
+  "javascript_syntax_check": "passed: node --check on 6 JavaScript files",
   "ui_integrity_check": "passed: 45 templates, 1 CSS, 6 JS",
   "home_workflow_contracts": "13/13 passed",
-  "production_database_modified": false,
-  "deployed": false,
-  "notes": "Delegation workspace CSS-only design pass. Browser visual QA remains pending; no deployment or production database changes.",
   "post_route_security_check": "54 routes reviewed; passed",
+  "contract_tests": "26 passed",
+  "full_pytest": "blocked before tests ran: Flask is not installed in the packaging environment (ModuleNotFoundError); runtime integration tests not verified",
+  "css_parse_check": "passed: 2298 qualified rules, 0 parse errors, 1 global :root block, 60 global design tokens, no unresolved var() references detected",
+  "zip_integrity": "passed: unzip -t reported no errors; 244 project source files packaged at project root",
   "browser_visual_verification": false,
-  "summary": "Improved delegation form, status summary, search/filter tabs, table/revoke controls, responsive behavior, keyboard focus and reduced-motion handling. No workflow logic changes.",
+  "production_deploy": false,
+  "production_database_modified": false,
+  "changes": [
+    "Consolidate seven top-level :root design-token blocks into one canonical block containing 60 tokens",
+    "Restore cyan brand, strong brand, secondary brand, soft accent and focus-ring tokens after the final global block had switched them to blue",
+    "Align active sidebar navigation, active sidebar footer and login hero colors with the cyan design palette",
+    "Preserve responsive --ui-sidebar overrides inside media queries",
+    "Synchronize VERSION.md, pyproject.toml, application __version__, CSS cache-busting query and README with v68.22.45"
+  ],
   "checks": {
     "python_compileall": "passed",
-    "javascript_syntax": "passed",
-    "manifest_json": "passed",
-    "ui_integrity": "passed: 45 templates, 1 CSS, 6 JS",
+    "ui_integrity": "passed",
     "home_workflow_contracts": "13/13 passed",
     "post_route_security": "54 routes reviewed; passed",
     "contract_tests": "26/26 passed",
-    "zip_integrity": "pending",
-    "flask_runtime_tests": "not run: Flask runtime/browser environment not validated",
-    "browser_visual_verification": "pending"
-  },
-  "change_summary": [
-    "Improve delegation creation card and form control dimensions",
-    "Improve active/planned/closed summary cards",
-    "Improve delegation search and filter tabs",
-    "Improve delegation history table and revoke reason form on narrow screens",
-    "Add focus-visible and reduced-motion styling",
-    "No delegation workflow, authorization, model, or production database changes"
-  ],
-  "contract_tests": "26 passed",
-  "zip_integrity": "pending",
-  "css_parse_check": "passed: 1482 CSS rules, 0 parse errors",
-  "changes": [
-    "Add missing employee-profile CSS coverage and responsive rules",
-    "Normalize homepage design and restore readable table typography"
-  ],
-  "package_note": "ZIP archive starts at project root; no nested work-directory path.",
-  "review": {
-    "focus": "responsive rule safety audit",
-    "status": "static review completed; browser visual QA pending",
-    "production_deploy": false,
-    "production_database_changed": false
-  },
-  "review_focus": "Delegation workspace visual consistency and responsive behavior",
-  "status": "Static checks passed; browser visual verification pending",
-  "post_route_security": "54 routes reviewed; passed"
+    "css_syntax": "passed; 0 parse errors",
+    "css_variables": "passed; no unresolved var() references detected",
+    "flask_runtime_tests": "not run; Flask unavailable in packaging environment",
+    "browser_visual_verification": "not performed",
+    "zip_integrity": "passed: unzip -t reported no errors",
+    "javascript_syntax": "passed: 6 files"
+  }
 }

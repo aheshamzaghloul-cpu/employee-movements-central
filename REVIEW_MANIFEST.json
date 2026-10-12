@@ -1,22 +1,17 @@
 {
-  "version": "v68.22.18",
+  "version": "v68.22.31",
   "artifact_type": "review_candidate",
   "runtime_tests_passed": false,
   "python_syntax_check": "passed",
   "javascript_syntax_check": "passed",
-  "ui_integrity_check": "passed",
+  "ui_integrity_check": "passed: 45 templates, 1 CSS, 6 JS",
   "home_workflow_contracts": "13/13 passed",
   "production_database_modified": false,
   "deployed": false,
-  "notes": "Responsive form/filter/table layout hardening. Static checks only; browser/runtime visual verification pending; not deployed.",
-  "post_route_security_check": "passed",
-  "production_secure_cookie_enforced": true,
-  "excel_archive_safety_check": "passed",
-  "excel_preview_failure_cleanup_check": "added",
-  "branch_parent_change_integrity_check": "passed",
-  "user_deletion_integrity_check": "added",
-  "first_entry_assignment_integrity_check": "added",
-  "qa_report": "docs/QA_REVIEW_v68.22.18.md",
+  "notes": "No CSS behavior or business logic was changed. Browser and runtime verification remain pending.",
+  "post_route_security_check": "54 routes reviewed; passed",
+  "browser_visual_verification": false,
+  "summary": "Static responsive breakpoint audit identified overlapping layout media-query groups; deferred consolidation pending browser evidence. CSS cache version and review docs updated.",
   "checks": {
     "python_compileall": "passed",
     "javascript_syntax": "passed",
@@ -24,9 +19,27 @@
     "ui_integrity": "passed: 45 templates, 1 CSS, 6 JS",
     "home_workflow_contracts": "13/13 passed",
     "post_route_security": "54 routes reviewed; passed",
-    "contract_test_functions": "20/20 passed",
-    "zip_integrity": "will verify after archive creation",
-    "flask_runtime_tests": "not run: Flask unavailable in review environment",
-    "responsive_layout": "added tablet and mobile layout overrides"
+    "contract_tests": "23/23 passed",
+    "zip_integrity": "passed: archive contents verified",
+    "css_parser": "passed: 1473 top-level nodes, 0 parse errors; 285 selectors repeat across rule blocks",
+    "flask_runtime_tests": "not run: Flask unavailable in review environment"
+  },
+  "change_summary": [
+    "Remove one redundant html background declaration identical to the preceding global html background rule",
+    "Bump stylesheet cache version and release metadata",
+    "No business logic, authorization, or database changes"
+  ],
+  "contract_tests": "23/23 passed",
+  "zip_integrity": "passed",
+  "css_parse_check": "passed: 1482 CSS rules, 0 parse errors",
+  "changes": [
+    "Remove only confirmed duplicate utility CSS block and empty media query"
+  ],
+  "package_note": "ZIP archive starts at project root; no nested work-directory path.",
+  "review": {
+    "focus": "responsive rule safety audit",
+    "status": "static review completed; browser visual QA pending",
+    "production_deploy": false,
+    "production_database_changed": false
   }
 }

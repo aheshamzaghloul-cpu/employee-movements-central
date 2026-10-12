@@ -122,10 +122,6 @@ label{display:grid;gap:4px;color:var(--ui-ink-2);font-size:14.5px;font-weight:80
 /* Login */
 .login{width:min(430px,100%);padding:24px;background:#fff;border:1px solid var(--ui-line);border-radius:16px;box-shadow:var(--ui-shadow-md)}.login h1,.login h2{margin-bottom:6px}.login form{display:grid;gap:11px;margin-top:14px}.login .ui-btn{width:100%}
 
-/* Utility */
-.ui-toolbar{align-items:center}.ui-inline{display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap}.ui-self-end{align-self:end}.ui-overflow-auto{overflow:auto;max-width:100%}.ui-mt-8{margin-top:8px}.ui-mt-14{margin-top:14px}.ui-mt-18{margin-top:18px}.ui-mb-10{margin-bottom:10px}.ui-mb-14{margin-bottom:14px}.ui-pad-18{padding:18px}
-.ui-max-320{max-width:320px}.choice-list,.ui-choice-list{display:grid;gap:7px}.choice-item,.ui-choice-item{display:flex;align-items:flex-start;gap:7px;padding:7px 8px;border:1px solid var(--ui-line-soft);border-radius:9px;background:var(--ui-surface-2)}.choice-item input,.ui-choice-item input{width:auto;height:auto;margin-top:3px}.choice-tools{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px}
-
 /* Responsive */
 @media (max-width:1220px){
   .ui-sidebar{width:210px}.ui-topbar{right:210px}.ui-main{width:calc(100% - 210px);margin-right:210px;padding-inline:12px}
@@ -134,9 +130,6 @@ label{display:grid;gap:4px;color:var(--ui-ink-2);font-size:14.5px;font-weight:80
 @media (max-width:980px){
   .ui-sidebar{transform:translateX(110%);transition:transform .2s ease;box-shadow:none}.ui-sidebar.open{transform:translateX(0);box-shadow:-12px 0 30px rgba(9,30,48,.18)}.ui-topbar{right:0}.ui-main{width:100%;margin-right:0;padding:80px 10px 20px}.ui-mobile-menu{display:grid;place-items:center}.ui-user{margin-inline-start:auto}.ui-user-copy{display:none}.ui-top-actions{margin-inline-start:0}.ui-role-switch span{display:none}.ui-scope-form select{min-width:118px}.home-entry-grid,.movement-section-grid,.ui-report-group-grid,.home-bottom-grid{grid-template-columns:1fr}.home-status-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.employee-search-grid{grid-template-columns:1fr 1fr}.employee-search-main{grid-column:1/-1}.delegation-create-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.ui-grid.wide{grid-template-columns:repeat(2,minmax(0,1fr))}.ui-form-grid-employee,.employee-add-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ui-report-link-grid{grid-template-columns:1fr}.ui-report-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ui-admin-control-grid,.ui-admin-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
-@media (max-width:700px){
-}
-
 @media (max-width:480px){
   .ui-brand-copy{display:none}.ui-sidebar{width:210px}.home-employee-summary{grid-template-columns:38px minmax(0,1fr)}.home-employee-actions{grid-column:1/-1}.home-employee-meta{border-inline-start:0;padding-inline-start:0;border-top:1px solid var(--ui-line-soft);padding-top:8px}.home-entry-branches{grid-template-columns:1fr}.ui-grid.wide{grid-template-columns:1fr}.employee-search-panel .ui-module-head,.employee-add-panel .ui-module-head{align-items:flex-start}.ui-item-data{grid-template-columns:1fr}.ui-card,.ui-module-card,.ui-work-card{padding:12px}.ui-section-title,.ui-module-head,.ui-card-head{align-items:flex-start}
 }
@@ -360,7 +353,6 @@ html{background:var(--ui-page);font-size:16px}
 
 
 /* Premium layout refinements; visual tokens are sourced from the shared root. */
-html{background:var(--ui-page)}
 body *{scrollbar-color:#d8dce1 transparent;scrollbar-width:thin}
 a{color:inherit}
 button,input,select,textarea{font-family:inherit}
@@ -992,3 +984,374 @@ img, svg, video, canvas { max-width: 100%; }
 :where(a, button, input, select, textarea, summary):focus-visible {
   outline: 2px solid var(--ui-brand); outline-offset: 2px; box-shadow: var(--ui-focus);
 }
+
+/* v68.22.19: prevent inline outline icons from falling back to solid black fills. */
+.smart-action-icon svg,
+.smart-scope-icon svg,
+.home-scope-gate-icon svg,
+.home-mission-shortcut .smart-action-icon svg,
+.ui-icon-tile svg,
+.ui-card-icon svg,
+.ui-launch-icon svg,
+.ui-report-group-icon svg,
+.ui-admin-task-icon svg {
+  display: block;
+  width: 1.25em;
+  height: 1.25em;
+  max-width: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.smart-action-icon { overflow: hidden; }
+.smart-action-icon svg circle,
+.smart-action-icon svg path,
+.smart-scope-icon svg circle,
+.smart-scope-icon svg path { fill: none; }
+
+
+/* v68.22.20 — shared cross-page visual contract (admin, auth, and operations). */
+:root {
+  --ui-bg: #f3f6f8;
+  --ui-surface: #ffffff;
+  --ui-surface-2: #f7fafb;
+  --ui-line: #d9e3e9;
+  --ui-line-soft: #e8eef2;
+  --ui-ink: #203746;
+  --ui-ink-2: #405968;
+  --ui-muted: #718491;
+  --ui-brand: #087f8c;
+  --ui-brand-strong: #076b76;
+  --ui-brand-soft: #e7f5f6;
+  --ui-radius: 14px;
+  --ui-radius-lg: 18px;
+  --ui-shadow-sm: 0 4px 16px rgba(24, 52, 67, .045);
+  --ui-shadow-md: 0 12px 30px rgba(24, 52, 67, .09);
+}
+html { background: var(--ui-bg); }
+body { color: var(--ui-ink); background: var(--ui-bg); font-family: Cairo, sans-serif; }
+.ui-main.with-shell { padding-block: 82px 28px; }
+.ui-main.with-shell > *, .ui-main.with-shell .ui-admin-shell,
+.ui-main.with-shell .ui-admin-control-center, .ui-main.with-shell .admin-workspace,
+.ui-main.with-shell .ui-structure-workspace { width: 100%; max-width: var(--ui-content, 1440px); min-width: 0; }
+.premium-page-intro { padding: 0 0 14px; margin-bottom: 14px; border-bottom: 1px solid var(--ui-line-soft); }
+.premium-page-intro h1, .ui-page-head h1, .ui-report-page-head h1 { color: var(--ui-ink); }
+.ui-admin-hero, .ui-admin-hero-detailed, .ui-admin-guide, .ui-admin-control-card,
+.ui-admin-stat, .ui-admin-task, .ui-admin-shortcut-card, .ui-admin-health,
+.ui-admin-replacement, .ui-structure-card, .ui-structure-select,
+.ui-report-filter-card, .ui-report-results, .employee-search-panel,
+.home-workspace-card, .home-section, .movement-create-card, .movement-filter-card,
+.movement-list-card, .employee-list-panel, .employee-history, .login-card, .login-hero {
+  border-color: var(--ui-line) !important;
+  border-radius: var(--ui-radius) !important;
+  box-shadow: var(--ui-shadow-sm) !important;
+}
+.ui-admin-stat-strip { grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); }
+.ui-admin-task-grid, .ui-admin-control-grid, .ui-admin-shortcuts { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.ui-admin-task, .ui-admin-control-card, .ui-admin-shortcut-card { min-width: 0; }
+.login-shell { width: min(1080px, 100%); gap: 16px; }
+.login-hero { background: linear-gradient(145deg, #174454, #087f8c) !important; border-color: #d5e5e9 !important; }
+.login-card form input, .login-card form select, .login input, .login select {
+  min-width: 0; max-width: 100%; border-color: var(--ui-line); border-radius: 10px;
+}
+.login-card form button { background: var(--ui-brand); }
+/* Inline line icons must not inherit SVG's default solid-black fill.
+   Explicitly filled SVGs opt out via data-icon-fill on the root element. */
+.ui-nav svg:not([data-icon-fill]), .premium-nav svg:not([data-icon-fill]),
+.premium-side-footer svg:not([data-icon-fill]), .ui-btn svg:not([data-icon-fill]),
+button svg:not([data-icon-fill]), a.ui-btn svg:not([data-icon-fill]),
+.interactive-command-trigger svg:not([data-icon-fill]),
+.interactive-notification-trigger svg:not([data-icon-fill]),
+.smart-action-icon svg:not([data-icon-fill]), .smart-scope-icon svg:not([data-icon-fill]),
+.home-scope-gate-icon svg:not([data-icon-fill]), .home-mission-shortcut svg:not([data-icon-fill]),
+.ui-icon-tile svg:not([data-icon-fill]), .employee-panel-icon svg:not([data-icon-fill]),
+.ui-card-icon svg:not([data-icon-fill]), .ui-launch-icon svg:not([data-icon-fill]),
+.ui-report-group-icon svg:not([data-icon-fill]), .ui-admin-task-icon svg:not([data-icon-fill]),
+.ui-admin-icon svg:not([data-icon-fill]), .ui-structure-select-icon svg:not([data-icon-fill]),
+.login svg:not([data-icon-fill]), .interactive-palette svg:not([data-icon-fill]) {
+  fill: none; stroke: currentColor; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.ui-nav svg:not([data-icon-fill]) *, .premium-nav svg:not([data-icon-fill]) *,
+.premium-side-footer svg:not([data-icon-fill]) *, .ui-btn svg:not([data-icon-fill]) *,
+button svg:not([data-icon-fill]) *, a.ui-btn svg:not([data-icon-fill]) *,
+.interactive-command-trigger svg:not([data-icon-fill]) *,
+.interactive-notification-trigger svg:not([data-icon-fill]) *,
+.smart-action-icon svg:not([data-icon-fill]) *, .smart-scope-icon svg:not([data-icon-fill]) *,
+.home-scope-gate-icon svg:not([data-icon-fill]) *, .home-mission-shortcut svg:not([data-icon-fill]) *,
+.ui-icon-tile svg:not([data-icon-fill]) *, .employee-panel-icon svg:not([data-icon-fill]) *,
+.ui-card-icon svg:not([data-icon-fill]) *, .ui-launch-icon svg:not([data-icon-fill]) *,
+.ui-report-group-icon svg:not([data-icon-fill]) *, .ui-admin-task-icon svg:not([data-icon-fill]) *,
+.ui-admin-icon svg:not([data-icon-fill]) *, .ui-structure-select-icon svg:not([data-icon-fill]) *,
+.login svg:not([data-icon-fill]) *, .interactive-palette svg:not([data-icon-fill]) * {
+  vector-effect: non-scaling-stroke;
+}
+/* Keep intentionally filled status dots and badges filled. */
+.ui-status-dot, .interactive-notification-badge, .status-indicator { stroke: none; }
+@media (max-width: 900px) {
+  .ui-main.with-shell { padding: 76px 14px 24px; }
+  .ui-admin-hero { align-items: stretch; }
+  .ui-admin-stat-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .ui-main.with-shell { padding: 72px 10px 20px; }
+  .ui-admin-stat-strip, .ui-admin-task-grid, .ui-admin-control-grid,
+  .ui-admin-shortcuts { grid-template-columns: minmax(0, 1fr); }
+  .login-shell { grid-template-columns: minmax(0, 1fr); }
+  .login-card { padding: 20px !important; }
+  .ui-admin-hero-actions { display: grid; grid-template-columns: minmax(0, 1fr); }
+}
+
+
+/* v68.22.21 — shared layout foundation: consistent surfaces and predictable overflow. */
+:root {
+  --ui-content: 1480px;
+  --ui-radius: 14px;
+  --ui-radius-sm: 10px;
+  --ui-gap: 16px;
+}
+.ui-shell, .ui-main, .premium-main, .ui-admin-shell, .admin-workspace,
+.ui-structure-workspace, .login-shell, .home-workspace, .ui-report-workspace {
+  min-width: 0;
+}
+.ui-main.with-shell {
+  width: 100%;
+  max-width: none;
+  margin-inline: auto;
+}
+.ui-main.with-shell > .premium-page-intro {
+  width: 100%;
+  max-width: var(--ui-content);
+  margin-inline: auto;
+}
+.ui-main.with-shell > :not(.premium-page-intro) {
+  max-width: var(--ui-content);
+  margin-inline: auto;
+}
+.ui-card, .ui-panel, .ui-admin-control-card, .ui-admin-task,
+.ui-structure-card, .employee-search-panel, .home-workspace-card,
+.movement-create-card, .movement-list-card, .ui-report-filter-card,
+.ui-report-results, .login-card {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+input, select, textarea, button { max-width: 100%; }
+img, svg, canvas { max-width: 100%; }
+/* Catch inline line icons across legacy and premium pages, not only named icon classes. */
+button > svg, a > svg, label > svg, [role="button"] > svg {
+  flex: 0 0 auto;
+}
+button > svg:not([data-icon-fill]), a > svg:not([data-icon-fill]),
+label > svg:not([data-icon-fill]), [role="button"] > svg:not([data-icon-fill]) {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+button > svg > *, a > svg > *, label > svg > *,
+[role="button"] > svg > * { vector-effect: non-scaling-stroke; }
+@media (min-width: 1200px) {
+  .ui-admin-stat-strip { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  .ui-admin-task-grid, .ui-admin-control-grid, .ui-admin-shortcuts {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .ui-main.with-shell > :not(.premium-page-intro) { width: 100%; }
+  .ui-main.with-shell > .premium-page-intro { align-items: flex-start; }
+  .ui-table-wrap, .ui-overflow-auto { max-width: 100%; overflow-x: auto; }
+}
+
+
+/* v68.22.22 — prevent inherited solid fills on outline SVG icon geometry. */
+button > svg:not([data-icon-fill]) *,
+a > svg:not([data-icon-fill]) *,
+label > svg:not([data-icon-fill]) *,
+[role="button"] > svg:not([data-icon-fill]) *,
+.ui-nav svg:not([data-icon-fill]) *,
+.premium-nav svg:not([data-icon-fill]) *,
+.ui-icon-tile svg:not([data-icon-fill]) *,
+.ui-admin-icon svg:not([data-icon-fill]) *,
+.ui-admin-task-icon svg:not([data-icon-fill]) *,
+.login svg:not([data-icon-fill]) * {
+  fill: none;
+}
+/* Explicit filled icons can opt out with data-icon-fill on their SVG root. */
+svg[data-icon-fill], svg[data-icon-fill] * { fill: currentColor; }
+
+/* v68.22.23 — authoritative unified visual system.
+   Shared tokens and component behavior for home, operations, reports, administration and sign-in.
+   Business rules, role gates and workflow-specific selectors remain unchanged. */
+:root {
+  --ui-page: #f3f6f9;
+  --ui-bg: var(--ui-page);
+  --ui-canvas: var(--ui-page);
+  --ui-surface: #fff;
+  --ui-surface-2: #f8fafc;
+  --ui-surface-3: #edf3f7;
+  --ui-ink: #183247;
+  --ui-ink-2: #3d586c;
+  --ui-muted: #6b8190;
+  --ui-faint: #8a9ba7;
+  --ui-line: #dce5ec;
+  --ui-line-soft: #eaf0f4;
+  --ui-brand: #1769aa;
+  --ui-brand-strong: #12558b;
+  --ui-brand-2: #287fbd;
+  --ui-brand-soft: #e8f2fb;
+  --ui-focus: 0 0 0 3px rgba(23,105,170,.16);
+  --ui-radius: 14px;
+  --ui-radius-sm: 10px;
+  --ui-radius-md: 13px;
+  --ui-radius-lg: 18px;
+  --ui-shadow-sm: 0 2px 8px rgba(24,50,71,.045), 0 8px 22px rgba(24,50,71,.025);
+  --ui-shadow-md: 0 10px 28px rgba(24,50,71,.075);
+  --ui-shadow-lg: 0 18px 48px rgba(24,50,71,.14);
+  --ui-content: 1480px;
+}
+html { background: var(--ui-page); }
+body { background: var(--ui-page); color: var(--ui-ink); font-family: "Cairo", Tahoma, Arial, sans-serif; }
+:is(.ui-card,.ui-module-card,.ui-work-card,.ui-report-group,.ui-admin-guide,.ui-admin-hero,
+.ui-mission-filter-card,.ui-admin-control-card,.ui-admin-task,.ui-structure-card,
+.employee-search-panel,.home-workspace-card,.movement-create-card,.movement-list-card,
+.ui-report-filter-card,.ui-report-results,.login-card,.login-hero) {
+  border-radius: var(--ui-radius);
+}
+:is(.ui-card,.ui-module-card,.ui-work-card,.ui-report-group,.ui-admin-guide,
+.ui-admin-control-card,.ui-admin-task,.ui-structure-card,.employee-search-panel,
+.home-workspace-card,.movement-create-card,.movement-list-card,.ui-report-filter-card,
+.ui-report-results) {
+  border-color: var(--ui-line);
+  box-shadow: var(--ui-shadow-sm);
+}
+:is(.ui-btn,.ui-primary-btn,.ui-danger-btn,.ui-link-btn,.employees-primary,
+.login-card form button,.premium-logout-button) {
+  min-height: 36px;
+  border-radius: 9px;
+  transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+:is(input:not([type="checkbox"]):not([type="radio"]),select,textarea) {
+  border-color: var(--ui-line);
+  border-radius: 9px;
+  color: var(--ui-ink);
+  background-color: #fff;
+}
+:is(input:not([type="checkbox"]):not([type="radio"]),select,textarea):focus-visible {
+  border-color: var(--ui-brand);
+  box-shadow: var(--ui-focus);
+  outline: 0;
+}
+::placeholder { color: var(--ui-muted); opacity: .82; }
+:is(.ui-table-wrap,.ui-overflow-auto) { border-color: var(--ui-line); border-radius: var(--ui-radius); }
+:is(.ui-table-wrap th,.ui-table th,.ui-data-table th,.ui-mission-table th) {
+  background: var(--ui-surface-3);
+  color: var(--ui-ink-2);
+}
+:is(.ui-table-wrap td,.ui-table td,.ui-data-table td,.ui-mission-table td) { color: var(--ui-ink-2); }
+.premium-sidebar {
+  background: #142f4b;
+  color: #f3f7fc;
+  border-left-color: rgba(255,255,255,.08);
+  box-shadow: -8px 0 24px rgba(14,39,62,.08);
+}
+.premium-sidebar .ui-brand-copy strong { color: #fff; }
+.premium-sidebar .ui-brand-copy span,
+.premium-sidebar .premium-nav-label { color: #b7cadb; }
+.premium-sidebar .premium-nav a { color: #d0deeb; border-radius: 9px; }
+.premium-sidebar .premium-nav a:hover { color: #fff; background: rgba(255,255,255,.08); }
+.premium-sidebar .premium-nav a.active { color: #fff; background: #245783; box-shadow: inset -3px 0 #80b7e5; }
+.premium-sidebar .premium-side-footer a.active { background: #e8f2fb; color: #1769aa; }
+.premium-topbar {
+  background: rgba(255,255,255,.94);
+  border-bottom-color: var(--ui-line);
+  box-shadow: 0 1px 0 rgba(255,255,255,.75);
+}
+.premium-breadcrumb { color: var(--ui-muted); }
+.premium-breadcrumb strong { color: var(--ui-ink); }
+.premium-main { background: var(--ui-page); }
+:is(.premium-page-intro,.ui-page-head,.ui-report-page-head) h1 { color: var(--ui-ink); }
+.login-shell { gap: 18px; }
+.login-hero {
+  background: linear-gradient(145deg,#163c5f,#245783) !important;
+  border: 1px solid #244d70 !important;
+  box-shadow: var(--ui-shadow-md) !important;
+}
+.login-card {
+  border-color: var(--ui-line) !important;
+  box-shadow: var(--ui-shadow-md) !important;
+}
+.login-card form button { background: var(--ui-brand); }
+.login-card form button:hover { background: var(--ui-brand-strong); }
+/* Line icons remain outline-only; do not force fill onto explicitly filled SVGs. */
+:is(button,a,label,[role="button"]) > svg:not([data-icon-fill]) {
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+:is(button,a,label,[role="button"]) > svg:not([data-icon-fill]) * { vector-effect: non-scaling-stroke; }
+/* Root and child fill behavior is defined once in the earlier explicit-fill rule. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+@media (max-width: 800px) {
+  .premium-main.with-shell { padding-inline: 16px; }
+  .premium-topbar { padding-inline: 14px; }
+}
+@media (max-width: 600px) {
+  .premium-main.with-shell { padding: 76px 10px 22px; }
+  .login-shell { grid-template-columns: minmax(0,1fr); }
+  .login-hero { display: none; }
+  .login-card { padding: 22px !important; }
+  :is(.ui-card,.ui-module-card,.ui-work-card,.ui-report-group) { border-radius: 12px; }
+}
+
+/* v68.22.24 — deterministic sizing for homepage action icons.
+   The search and print icons must never inherit the browser's default SVG viewport. */
+.smart-action-icon {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  min-height: 42px;
+  flex: 0 0 42px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--ui-brand-soft);
+  color: var(--ui-brand);
+}
+.smart-action-icon.accent {
+  background: var(--ui-brand-soft);
+  color: var(--ui-brand-strong);
+}
+.smart-action-icon > svg {
+  display: block;
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px;
+  min-height: 22px;
+  max-width: 22px !important;
+  max-height: 22px !important;
+  fill: none !important;
+  stroke: currentColor !important;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.smart-action-icon > svg * { fill: none !important; }
+.smart-action-icon > svg [data-icon-fill] { fill: currentColor !important; }
+.smart-action-head { min-width: 0; }
+.smart-action-head > div { min-width: 0; }
+.home-mission-shortcut > .ui-btn > svg {
+  width: 16px !important;
+  height: 16px !important;
+  max-width: 16px !important;
+  max-height: 16px !important;
+  flex: 0 0 16px;
+}
+

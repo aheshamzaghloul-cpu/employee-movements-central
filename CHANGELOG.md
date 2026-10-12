@@ -1,3 +1,49 @@
+## v68.22.30 — تدقيق نقاط التوقف المتجاوبة
+- توثيق تداخل مجموعات media queries الخاصة بالتخطيط لتجنب حذف قواعد قد تكون لازمة دون اختبار بصري.
+- تحديث نسخة تحميل CSS.
+- لا تغييرات على منطق التطبيق أو الصلاحيات أو قاعدة البيانات.
+
+## v68.22.29 — تصحيح بنية حزمة التسليم
+- إعادة تجهيز ملف ZIP من جذر المشروع الصحيح بدل تضمين مجلدات العمل المتداخلة في مسار الاستخراج.
+- لا تغييرات على منطق التطبيق أو الصلاحيات أو قاعدة البيانات.
+- تحديث رقم الإصدار ووسم ذاكرة CSS المؤقتة.
+
+## v68.22.28 — تنظيف تكرار خلفية HTML
+- حذف تصريح `html{background:var(--ui-page)}` المكرر خارج أي media query؛ توجد قاعدة HTML عامة سابقة تحمل الخلفية نفسها.
+- لم تتغير قواعد الاستجابة أو أحجام العناصر أو منطق التطبيق؛ التغيير تنظيمي فقط.
+- تحديث إصدار CSS cache وتقرير المراجعة.
+- لا يُعد هذا إثباتًا للاعتماد البصري؛ يلزم اختبار المتصفح والتشغيل الفعلي.
+
+## v68.22.27 — تدقيق التكرارات الآمن لقواعد SVG
+- حذف تصريح CSS واحد مكرر حرفيًا لسلوك `fill` على SVG المعبأة؛ القاعدة السابقة تغطي العنصر الجذر والعناصر الداخلية بالفعل.
+- تدقيق تكرارات المحددات في بقية الملف؛ لم تُحذف القواعد التي تتكرر عبر media queries أو تختلف في ترتيبها/سياقها.
+- تحديث نسخة cache وإصدار المراجعة. لا تغييرات في منطق العمل أو الصلاحيات أو قاعدة البيانات.
+- الفحوصات الثابتة مطلوبة بعد التعديل؛ الاختبار البصري وتشغيل Flask ما زالا غير منفذين.
+
+## v68.22.26 — حماية الأيقونات المعبأة من قواعد SVG العامة
+- تضييق قواعد الأيقونات الخطية المشتركة بحيث تستثني SVG التي تحمل `data-icon-fill` على العنصر الجذر، بما يشمل قواعد العناصر الداخلية.
+- الهدف منع قواعد الأيقونات الخطية من تحويل الأيقونات المعبأة عمدًا إلى حدود فارغة أو التأثير على مظهرها.
+- لم يتغير منطق التطبيق أو الصلاحيات أو قاعدة البيانات.
+- فحوصات التشغيل الفعلية والمتصفح ما زالت مطلوبة؛ لم يتم النشر.
+
+## v68.22.25 — تنظيف آمن للتكرارات المؤكدة في CSS
+- حذف كتلة أدوات مساعدة مكررة كانت موجودة قبل الكتلة اللاحقة المكافئة، مع الإبقاء على الكتلة اللاحقة التي تحمل نفس القواعد.
+- حذف استعلام وسائط فارغ عند 700px لا يحتوي أي قواعد.
+- عدم حذف تكرارات أخرى تلقائيًا؛ ما زالت تحتاج مراجعة سياق الصفحة وترتيب التتالي.
+- تحديث إصدار CSS cache وبيانات الإصدار وتقرير المراجعة.
+
+## v68.22.24 — إصلاح حتمي لأيقونات الرئيسية وتدقيق CSS
+- تثبيت مساحة أيقونتي البحث والطباعة في الرئيسية بأبعاد صريحة لمنع تمددهما إلى دوائر/أشكال سوداء كبيرة.
+- فرض نمط outline على SVG داخل حاوية أيقونات الإجراءات الرئيسية، مع الحفاظ على أبعاد أيقونة رابط الطباعة.
+- تحديث رقم cache لملف CSS.
+- إضافة تقرير تدقيق يوضح حجم التكرار في CSS؛ لم تُحذف قواعد متكررة تلقائيًا لأن ترتيبها وسياق media قد يغيران السلوك.
+
+## v68.22.21 — Shared layout foundation and SVG normalization
+- Added a shared content-width and overflow foundation for admin, login, home, employee, movement, and report surfaces.
+- Applied line-icon defaults to inline SVGs inside buttons, links, labels, and role=button controls, while allowing explicit data-icon-fill opt-out.
+- Added responsive content-width behavior for wide and narrow screens.
+- Static validation only; browser visual inspection and Flask runtime/database tests remain pending. Not deployed.
+
 ## v68.22.17 — Unified cross-page visual contract
 - Added an authoritative shared visual layer for shell, typography surfaces, buttons, controls, tables, and responsive layouts.
 - Normalized design tokens and corrected field behavior for textarea, checkbox, radio, and file inputs.
@@ -361,3 +407,38 @@
 - تعزيز تمرير الجداول داخل حاوياتها على الهواتف دون توسيع الصفحة أفقيًا.
 - توحيد مؤشر التركيز المرئي للتنقل بلوحة المفاتيح.
 - التغيير لا يحذف قواعد CSS القديمة؛ يحتاج اختبارًا بصريًا بالمتصفح، ولم يتم النشر أو تعديل قاعدة الإنتاج.
+
+
+## v68.22.19 — Import branch matching and icon rendering
+- Employee Excel import now resolves a registered active branch by either its name or its registered code, while retaining the governorate key and active-branch/admin scope checks.
+- Applied a targeted outline-SVG style to common home/action icon containers to prevent browser default black fills from rendering outline icons as solid black shapes.
+- Static/runtime limits: Flask integration and browser screenshot verification were not available in this environment; this release is not deployed.
+
+## v68.22.20 — Cross-page UI consistency
+- Added shared design tokens and consistent surfaces for administration, login, reports, employee search, and movement workflows.
+- Unified line-icon SVG rendering across navigation, action buttons, cards, login, and print shortcut to prevent default solid-black icon fills.
+- Improved responsive administration grids and compact mobile layout.
+- Bumped CSS cache version.
+- Excel import remains unverified against live production records; no deployment or database changes were made.
+
+
+## v68.22.22 — Excel key normalization and icon fill fix
+- Normalize Arabic-Indic and Persian digits to Western digits for Excel lookup keys; normalize numeric code strings such as `255.0` to `255`.
+- Prevent default SVG child fills from turning outline icons into solid black shapes; provide an explicit `data-icon-fill` opt-in for intentionally filled icons.
+- Bumped CSS cache version.
+- Static checks only: browser rendering and live Excel import against production records remain unverified; not deployed.
+
+
+## v68.22.23 — توحيد بصري شامل للواجهة
+
+- توحيد رموز الألوان والخلفيات والحدود والظلال ونصف قطر البطاقات وحقول الإدخال في طبقة تصميم مشتركة.
+- توحيد مظهر القائمة الجانبية والشريط العلوي وصفحة تسجيل الدخول مع بقية التطبيق.
+- تثبيت أسلوب أيقونات SVG الخطية دون فرض تعبئة على الأيقونات المعلّمة صراحةً كممتلئة.
+- تحسين الاستجابة على الشاشات الصغيرة واحترام إعداد تقليل الحركة.
+- توحيد رقم الإصدار في التطبيق وبيانات الحزمة ورابط CSS. لم تتغير قواعد العمل أو الصلاحيات ولم يُجرَ نشر أو تعديل لقاعدة الإنتاج.
+- فحوصات ثابتة فقط؛ لا تزال معاينة المتصفح واختبارات Flask runtime غير متاحة في بيئة المراجعة الحالية.
+
+## v68.22.31 — Responsive Rule Safety Audit
+- Audited repeated mobile breakpoints (600px, 700px, 900px) and preserved page-specific rules where declarations differ.
+- Removed an empty 700px media block only if present; no functional declarations were changed.
+- Added a responsive audit report; browser-based visual QA remains pending.

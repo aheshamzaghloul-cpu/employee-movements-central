@@ -28,7 +28,14 @@ def _excel_key(value):
     s = s.replace('\u200f', '').replace('\u200e', '')
     s = s.replace('أ', 'ا').replace('إ', 'ا').replace('آ', 'ا')
     s = s.replace('ة', 'ه').replace('ى', 'ي')
-    s = re.sub('\\s+', ' ', s)
+    # Excel may provide branch codes using Arabic-Indic digits while the
+    # database stores Western digits (or vice versa). Normalize both forms.
+    digit_map = str.maketrans('٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹', '01234567890123456789')
+    s = s.translate(digit_map)
+    # Numeric Excel cells can arrive as a float-like string in some templates.
+    if re.fullmatch(r'\d+\.0+', s):
+        s = s.split('.', 1)[0]
+    s = re.sub(r'\s+', ' ', s)
     return s.lower()
 
 
@@ -649,7 +656,13 @@ def excel_import_confirm(kind):
                 )
                 .all()
             ):
-                branch_cache[_excel_key(b.governorate.name), _excel_key(b.name)] = b
+                governorate_key = _excel_key(b.governorate.name)
+                # Accept either the registered branch name or its registered
+                # code in the workbook. Keep the governorate in the key so a
+                # duplicate branch name in another governorate cannot match.
+                branch_cache[(governorate_key, _excel_key(b.name))] = b
+                if b.code not in (None, ''):
+                    branch_cache[(governorate_key, _excel_key(b.code))] = b
             emails = {
                 _excel_key(e.email): e
                 for e in Employee.query.filter(Employee.email.isnot(None)).all()
@@ -668,7 +681,9 @@ def excel_import_confirm(kind):
                         f'صف {rno}: المحافظة غير موجودة أو خارج نطاقك: {vals['governorate']}',
                     )
                     continue
-                b = branch_cache.get((_excel_key(vals['governorate']), _excel_key(vals['branch'])))
+                governorate_key = _excel_key(g.name)
+                branch_key = _excel_key(vals['branch'])
+                b = branch_cache.get((governorate_key, branch_key))
                 if not b:
                     errors.append(f'صف {rno}: الفرع غير موجود أو خارج نطاقك: {vals['branch']}')
                     continue

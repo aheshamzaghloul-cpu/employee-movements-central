@@ -1,17 +1,17 @@
 {
-  "version": "v68.22.31",
+  "version": "68.22.43",
   "artifact_type": "review_candidate",
   "runtime_tests_passed": false,
-  "python_syntax_check": "passed",
-  "javascript_syntax_check": "passed",
+  "python_syntax_check": "passed: compileall exit 0",
+  "javascript_syntax_check": "passed: node --check app.js",
   "ui_integrity_check": "passed: 45 templates, 1 CSS, 6 JS",
   "home_workflow_contracts": "13/13 passed",
   "production_database_modified": false,
   "deployed": false,
-  "notes": "No CSS behavior or business logic was changed. Browser and runtime verification remain pending.",
+  "notes": "Delegation workspace CSS-only design pass. Browser visual QA remains pending; no deployment or production database changes.",
   "post_route_security_check": "54 routes reviewed; passed",
   "browser_visual_verification": false,
-  "summary": "Static responsive breakpoint audit identified overlapping layout media-query groups; deferred consolidation pending browser evidence. CSS cache version and review docs updated.",
+  "summary": "Improved delegation form, status summary, search/filter tabs, table/revoke controls, responsive behavior, keyboard focus and reduced-motion handling. No workflow logic changes.",
   "checks": {
     "python_compileall": "passed",
     "javascript_syntax": "passed",
@@ -19,21 +19,25 @@
     "ui_integrity": "passed: 45 templates, 1 CSS, 6 JS",
     "home_workflow_contracts": "13/13 passed",
     "post_route_security": "54 routes reviewed; passed",
-    "contract_tests": "23/23 passed",
-    "zip_integrity": "passed: archive contents verified",
-    "css_parser": "passed: 1473 top-level nodes, 0 parse errors; 285 selectors repeat across rule blocks",
-    "flask_runtime_tests": "not run: Flask unavailable in review environment"
+    "contract_tests": "26/26 passed",
+    "zip_integrity": "pending",
+    "flask_runtime_tests": "not run: Flask runtime/browser environment not validated",
+    "browser_visual_verification": "pending"
   },
   "change_summary": [
-    "Remove one redundant html background declaration identical to the preceding global html background rule",
-    "Bump stylesheet cache version and release metadata",
-    "No business logic, authorization, or database changes"
+    "Improve delegation creation card and form control dimensions",
+    "Improve active/planned/closed summary cards",
+    "Improve delegation search and filter tabs",
+    "Improve delegation history table and revoke reason form on narrow screens",
+    "Add focus-visible and reduced-motion styling",
+    "No delegation workflow, authorization, model, or production database changes"
   ],
-  "contract_tests": "23/23 passed",
-  "zip_integrity": "passed",
+  "contract_tests": "26 passed",
+  "zip_integrity": "pending",
   "css_parse_check": "passed: 1482 CSS rules, 0 parse errors",
   "changes": [
-    "Remove only confirmed duplicate utility CSS block and empty media query"
+    "Add missing employee-profile CSS coverage and responsive rules",
+    "Normalize homepage design and restore readable table typography"
   ],
   "package_note": "ZIP archive starts at project root; no nested work-directory path.",
   "review": {
@@ -41,5 +45,8 @@
     "status": "static review completed; browser visual QA pending",
     "production_deploy": false,
     "production_database_changed": false
-  }
+  },
+  "review_focus": "Delegation workspace visual consistency and responsive behavior",
+  "status": "Static checks passed; browser visual verification pending",
+  "post_route_security": "54 routes reviewed; passed"
 }

@@ -11,8 +11,8 @@
     <input type="hidden" name="_csrf" value="{{csrf}}">
     {% for field,label in fields.items() %}
     <label class="ui-grid-full"><b>{{label}}</b>
-      <select name="map_{{field}}" required>
-        <option value="">— اختر عمود Excel —</option>
+      <select name="map_{{field}}" {% if not (kind=='employees' and field in ['email','company_phone','personal_phone']) %}required{% endif %}>
+        <option value="">— {% if kind=='employees' and field in ['email','company_phone','personal_phone'] %}اختياري: لا يوجد عمود{% else %}اختر عمود Excel{% endif %} —</option>
         {% for h in headers %}
         <option value="{{loop.index}}" {% if suggested.get(field)==loop.index %}selected{% endif %}>{{loop.index}} — {{h if h else '(بدون عنوان)'}}</option>
         {% endfor %}
@@ -96,7 +96,7 @@
   {% elif kind=='branches' %}
   <div class="ui-hint ui-mt-14">البيانات المطلوبة: <b>المحافظة، اسم الفرع، كود الفرع</b>. يمكنك تغيير ترتيب الأعمدة أو أسماءها، والنظام يقترح المطابقة تلقائيًا.</div>
   {% else %}
-  <div class="ui-hint ui-mt-14">البيانات المطلوبة: <b>المحافظة، الفرع، اسم الموظف، البريد الإلكتروني، الوظيفة، الكود الوظيفي، تاريخ التعيين، هاتف الشركة، الهاتف الشخصي</b>. ترتيب الأعمدة غير مهم.</div>
+  <div class="ui-hint ui-mt-14">البيانات الأساسية المطلوبة: <b>المحافظة، الفرع، اسم الموظف، الوظيفة، الكود الوظيفي، تاريخ التعيين</b>. البريد الإلكتروني وهاتف الشركة والهاتف الشخصي اختيارية، ويمكن تركها فارغة أو عدم مطابقة أعمدتها. ترتيب الأعمدة غير مهم. الأكواد الوظيفية المكررة تُعرض كأخطاء ولا تُستورد مرتين.</div>
   {% endif %}
 </div>
 {% endif %}

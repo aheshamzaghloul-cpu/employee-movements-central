@@ -139,6 +139,7 @@ EMP_IMPORT_HEADERS = {
         'governorate_name',
     ),
     'branch': ('الفرع', 'اسم الفرع', 'branch', 'branch name', 'branch_name'),
+    'branch_code': ('كود الفرع', 'كود الفرع/الفرع', 'كود الفرع للموظف', 'كود', 'branch code', 'branch_code'),
     'name': (
         'اسم الموظف',
         'الموظف',
@@ -215,6 +216,7 @@ def _field_labels(kind):
     return {
         'governorate': 'المحافظة',
         'branch': 'الفرع',
+        'branch_code': 'كود الفرع',
         'name': 'اسم الموظف',
         'email': 'البريد الإلكتروني',
         'job_title': 'الوظيفة',
@@ -509,7 +511,10 @@ def excel_import_confirm(kind):
                 mapping[field] = int(raw)
             except ValueError:
                 pass
-    missing = [fields[k] for k in spec if k not in mapping]
+    # Contact fields are optional in employee imports; many HR spreadsheets
+    # legitimately omit personal/company phones and email addresses.
+    optional_employee_fields = {'email', 'company_phone', 'personal_phone', 'branch_code'} if kind == 'employees' else set()
+    missing = [fields[k] for k in spec if k not in mapping and k not in optional_employee_fields]
     if missing:
         return _render_mapping(
             kind,
@@ -649,20 +654,54 @@ def excel_import_confirm(kind):
             # governorate the administrator manages, independent of the
             # current workspace selector.
             branch_cache = {}
-            for b in (
+            branches_by_code = {}
+            branches_by_name = {}
+            active_import_branches = (
                 Branch.query.filter(
                     Branch.is_active == True,
                     Branch.governorate_id.in_(allowed_gids),
                 )
                 .all()
-            ):
+            )
+            for b in active_import_branches:
                 governorate_key = _excel_key(b.governorate.name)
-                # Accept either the registered branch name or its registered
-                # code in the workbook. Keep the governorate in the key so a
-                # duplicate branch name in another governorate cannot match.
+                # Names are a compatibility fallback; normalized branch codes
+                # are the primary identifier whenever the workbook supplies one.
                 branch_cache[(governorate_key, _excel_key(b.name))] = b
+                branches_by_name.setdefault(_excel_key(b.name), []).append(b)
                 if b.code not in (None, ''):
-                    branch_cache[(governorate_key, _excel_key(b.code))] = b
+                    code_key = _excel_key(b.code)
+                    branches_by_code.setdefault(code_key, []).append(b)
+                    branch_cache[(governorate_key, code_key)] = b
+
+            def _resolve_employee_import_branch(branch_code, governorate_value, branch_name):
+                code_key = _excel_key(branch_code)
+                gov_key = _excel_key(governorate_value)
+                name_key = _excel_key(branch_name)
+                # A unique active branch code is authoritative: differences in
+                # spelling, hamza, spacing, or an outdated branch/governorate
+                # label in Excel cannot redirect or reject the employee.
+                if code_key:
+                    code_matches = branches_by_code.get(code_key, [])
+                    if len(code_matches) == 1:
+                        return code_matches[0], 'code'
+                    if len(code_matches) > 1:
+                        scoped = [b for b in code_matches if _excel_key(b.governorate.name) == gov_key]
+                        if len(scoped) == 1:
+                            return scoped[0], 'code+governorate'
+                        named = [b for b in code_matches if _excel_key(b.name) == name_key]
+                        if len(named) == 1:
+                            return named[0], 'code+name'
+                        return None, 'ambiguous_code'
+                # Backward compatibility for files without a recognized code,
+                # or codes not found in the active authorized branch catalog.
+                g = govs.get(gov_key)
+                if not g:
+                    return None, 'governorate_not_found'
+                named = branch_cache.get((_excel_key(g.name), name_key))
+                if named:
+                    return named, 'name'
+                return None, 'branch_not_found'
             emails = {
                 _excel_key(e.email): e
                 for e in Employee.query.filter(Employee.email.isnot(None)).all()
@@ -671,35 +710,43 @@ def excel_import_confirm(kind):
                 _excel_key(e.job_code): e
                 for e in Employee.query.filter(Employee.job_code.isnot(None)).all()
             }
+            seen_job_codes = set()
+            seen_emails = set()
             for (rno, row) in enumerate(ws.iter_rows(min_row=2, values_only=False), 2):
                 vals = {k: _mapped_value(row, mapping, k) for k in spec}
                 if not any(vals.values()):
                     continue
-                g = govs.get(_excel_key(vals['governorate']))
-                if not g:
-                    errors.append(
-                        f'صف {rno}: المحافظة غير موجودة أو خارج نطاقك: {vals['governorate']}',
-                    )
-                    continue
-                governorate_key = _excel_key(g.name)
-                branch_key = _excel_key(vals['branch'])
-                b = branch_cache.get((governorate_key, branch_key))
+                b, branch_match_method = _resolve_employee_import_branch(
+                    vals.get('branch_code', ''), vals.get('governorate', ''), vals.get('branch', '')
+                )
                 if not b:
-                    errors.append(f'صف {rno}: الفرع غير موجود أو خارج نطاقك: {vals['branch']}')
+                    if branch_match_method == 'ambiguous_code':
+                        errors.append(
+                            f"صف {rno}: كود الفرع {vals.get('branch_code', '')} غير فريد؛ أضف اسم المحافظة الصحيح أو صحح كود الفرع."
+                        )
+                    elif branch_match_method == 'governorate_not_found':
+                        errors.append(
+                            f"صف {rno}: لم يُعثر على المحافظة أو كود فرع نشط مطابق: {vals.get('governorate', '')}."
+                        )
+                    else:
+                        errors.append(
+                            f"صف {rno}: لم يُعثر على فرع مطابق. راجع كود الفرع {vals.get('branch_code', '')} أو اسم الفرع {vals.get('branch', '')} والمحافظة {vals.get('governorate', '')}."
+                        )
                     continue
-                required = [
-                    'name',
-                    'email',
-                    'job_title',
-                    'job_code',
-                    'hire_date',
-                    'company_phone',
-                    'personal_phone',
-                ]
-                if any((not vals[x] for x in required)):
-                    errors.append(f'صف {rno}: جميع بيانات الموظف مطلوبة.')
+                # Branch code determines the canonical branch and governorate.
+                # Do not trust mismatched labels in Excel over a unique code.
+                g = b.governorate
+                required = ['name', 'job_title', 'job_code', 'hire_date']
+                missing_values = [field for field in required if not vals.get(field)]
+                if missing_values:
+                    labels = {'name': 'اسم الموظف', 'job_title': 'الوظيفة', 'job_code': 'الكود الوظيفي', 'hire_date': 'تاريخ التعيين'}
+                    errors.append(f"صف {rno}: البيانات الأساسية المطلوبة ناقصة: {'، '.join(labels[x] for x in missing_values)}.")
                     continue
-                if not valid_email(vals['email']):
+                # Empty contact data is valid. Validate email only when supplied.
+                vals['email'] = (vals.get('email') or '').strip()
+                vals['company_phone'] = (vals.get('company_phone') or '').strip()
+                vals['personal_phone'] = (vals.get('personal_phone') or '').strip()
+                if vals['email'] and not valid_email(vals['email']):
                     errors.append(f'صف {rno}: البريد الإلكتروني غير صحيح.')
                     continue
                 hd = _excel_date(_cell_by_index(row, mapping.get('hire_date')))
@@ -707,8 +754,17 @@ def excel_import_confirm(kind):
                     errors.append(f'صف {rno}: تاريخ التعيين غير صحيح.')
                     continue
                 ck = _excel_key(vals['job_code'])
-                ek = _excel_key(vals['email'])
-                e = job_codes.get(ck) or emails.get(ek)
+                ek = _excel_key(vals['email']) if vals['email'] else ''
+                if ck in seen_job_codes:
+                    errors.append(f"صف {rno}: الكود الوظيفي مكرر داخل ملف Excel: {vals.get('job_code', '')}.")
+                    continue
+                if ek and ek in seen_emails:
+                    errors.append(f"صف {rno}: البريد الإلكتروني مكرر داخل ملف Excel: {vals.get('email', '')}.")
+                    continue
+                seen_job_codes.add(ck)
+                if ek:
+                    seen_emails.add(ek)
+                e = job_codes.get(ck) or (emails.get(ek) if ek else None)
                 if e:
                     # If email points to another employee while the job code points to this one, flag it.
                     if (
@@ -774,7 +830,7 @@ def excel_import_confirm(kind):
                 else:
                     if ck in job_codes or (ek and ek in emails):
                         errors.append(
-                            f'صف {rno}: يوجد تكرار داخل ملف Excel للكود الوظيفي أو البريد الإلكتروني.',
+                            f'صف {rno}: يوجد موظف مسجل مسبقًا بالكود الوظيفي أو البريد الإلكتروني.',
                         )
                         continue
                     actions.append(
@@ -880,11 +936,11 @@ def excel_import_apply(kind):
                 values = action.get('values') or {}
                 job_code = str(values.get('job_code') or '').strip().casefold()
                 email = str(values.get('email') or '').strip().casefold()
-                if not job_code or not email:
-                    raise ValueError('Excel employee import is missing a required identity field')
+                if not job_code:
+                    raise ValueError('Excel employee import is missing a personnel code')
                 if Employee.query.filter(func.lower(func.trim(Employee.job_code)) == job_code).first():
                     raise ValueError('Excel employee import conflicts with an existing personnel code')
-                if Employee.query.filter(func.lower(Employee.email) == email).first():
+                if email and Employee.query.filter(func.lower(Employee.email) == email).first():
                     raise ValueError('Excel employee import conflicts with an existing email')
             elif kind == 'employees' and action_type == 'employee':
                 employee = db.session.get(Employee, action.get('id'))
@@ -937,7 +993,7 @@ def excel_import_apply(kind):
                     v = a['values']
                     e = Employee(
                         employee_code=None,
-                        email=v['email'],
+                        email=(v.get('email') or '').strip() or None,
                         full_name=v['name'],
                         branch_id=a['branch_id'],
                         job_title=v['job_title'],

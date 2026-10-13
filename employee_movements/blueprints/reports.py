@@ -12,25 +12,137 @@ from ..validation import active_movement_types, parse_optional_iso_date
 bp = Blueprint('reports', __name__)
 
 
-def _report_branch_scope():
-    """Resolve report scope without letting query parameters expand permissions.
+def _apply_employee_type_report_filters(query, movement_type, branch_scope, args):
+    """Apply identical, fail-closed filters to HTML, XLSX and CSV reports."""
+    branch_scope = set(branch_scope or ())
+    status = (args.get('status') or '').strip()
+    employee_id = (args.get('employee_id') or '').strip()
+    date_from = (args.get('date_from') or '').strip()
+    date_to = (args.get('date_to') or '').strip()
+    governorate_id = (args.get('governorate_id') or '').strip()
+    branch_id = (args.get('branch_id') or '').strip()
+    filter_error = False
 
-    Manager/Admin reports default to all active governorates. A selected
-    governorate narrows those reports. Supervisors remain limited to their
-    authorized branch set even if they alter the query string.
+    if status:
+        if status in STATUSES:
+            query = query.filter(Movement.status == status)
+        else:
+            query = query.filter(False)
+            filter_error = True
+
+    if employee_id:
+        if employee_id.isdigit():
+            # Base query already carries the authorized branch scope.
+            query = query.filter(Movement.employee_id == int(employee_id))
+        else:
+            query = query.filter(False)
+            filter_error = True
+
+    scope_gov_ids = {
+        governorate.id for governorate in Governorate.query.filter(
+            Governorate.is_active == True, Governorate.id.in_(set(gids()) or {-1})
+        ).all()
+    }
+    allowed_scope_branches = {
+        branch.id: branch for branch in Branch.query.filter(
+            Branch.is_active == True, Branch.id.in_(branch_scope or {-1})
+        ).all()
+        if branch.governorate_id in scope_gov_ids
+    }
+    selected_gov_id = None
+    if governorate_id:
+        if governorate_id.isdigit() and int(governorate_id) in scope_gov_ids:
+            selected_gov_id = int(governorate_id)
+            if not any(b.governorate_id == selected_gov_id for b in allowed_scope_branches.values()):
+                query = query.filter(False)
+                filter_error = True
+            else:
+                query = query.filter(Employee.branch.has(Branch.governorate_id == selected_gov_id))
+        else:
+            query = query.filter(False)
+            filter_error = True
+
+    if branch_id:
+        if branch_id.isdigit() and int(branch_id) in allowed_scope_branches:
+            selected_branch = allowed_scope_branches[int(branch_id)]
+            if selected_gov_id is not None and selected_branch.governorate_id != selected_gov_id:
+                query = query.filter(False)
+                filter_error = True
+            else:
+                query = query.filter(Employee.branch_id == selected_branch.id)
+        else:
+            query = query.filter(False)
+            filter_error = True
+
+    date_from_obj = parse_optional_iso_date(date_from)
+    date_to_obj = parse_optional_iso_date(date_to)
+    if date_from and date_from_obj is None:
+        query = query.filter(False)
+        filter_error = True
+    if date_to and date_to_obj is None:
+        query = query.filter(False)
+        filter_error = True
+    if date_from_obj and date_to_obj and date_from_obj > date_to_obj:
+        date_from_obj, date_to_obj = date_to_obj, date_from_obj
+        date_from, date_to = date_to, date_from
+
+    if date_from_obj:
+        if movement_type == 'انتداب':
+            # An open assignment has no end date, but it still overlaps the
+            # requested period and must remain searchable.
+            query = query.filter(db.or_(Movement.to_date.is_(None), Movement.to_date >= date_from_obj))
+        elif movement_type == 'إجازة':
+            query = query.filter(Movement.to_date >= date_from_obj)
+        else:
+            query = query.filter(Movement.permission_date >= date_from_obj)
+    if date_to_obj:
+        if movement_type in ('إجازة', 'انتداب'):
+            query = query.filter(Movement.from_date <= date_to_obj)
+        else:
+            query = query.filter(Movement.permission_date <= date_to_obj)
+
+    return query, {
+        'status': status, 'employee_id': employee_id,
+        'date_from': date_from, 'date_to': date_to,
+        'date_from_obj': date_from_obj, 'date_to_obj': date_to_obj,
+        'governorate_id': governorate_id, 'branch_id': branch_id,
+        'filter_error': filter_error,
+    }
+
+
+def _report_branch_scope():
+    """Resolve the selected operational governorate for normal report pages.
+
+    Admin and Manager may choose any active governorate, but normal operational
+    reports still operate inside that one selected work scope. The dedicated
+    Manager hub remains the separate cross-governorate overview.
     """
     rs = roles()
     raw_gid = (request.args.get('governorate_id') or '').strip()
     central = bool({'مسؤول التطبيق', 'Manager Application Support'} & rs)
     if central:
-        branch_query = Branch.query.filter_by(is_active=True)
+        allowed_gov_ids = set(gids())
         if raw_gid:
             if not raw_gid.isdigit():
                 abort(404)
             governorate = db.session.get(Governorate, int(raw_gid))
             if not governorate or not governorate.is_active:
                 abort(404)
-            branch_query = branch_query.filter(Branch.governorate_id == governorate.id)
+            if governorate.id not in allowed_gov_ids:
+                abort(403)
+        # In scope-required endpoints gids() is already restricted to the active
+        # work governorate stored in the session. A query parameter may narrow it,
+        # but must never replace it with an unauthorized governorate.
+        if not allowed_gov_ids:
+            return set(), central
+        selected_gov_ids = set(allowed_gov_ids)
+        if raw_gid:
+            selected_gov_ids = {int(raw_gid)}
+        branch_query = Branch.query.filter(
+            Branch.is_active == True,
+            Branch.governorate_id.in_(selected_gov_ids),
+            Branch.governorate_id.in_(allowed_gov_ids),
+        )
         return {b.id for b in branch_query.all()}, central
 
     allowed = set(bids())
@@ -162,14 +274,17 @@ def reports_missions():
         ).count(),
     }
     selected_governorate = None
-    if is_central_manager and requested_gid.isdigit():
-        selected_governorate = db.session.get(Governorate, int(requested_gid))
-        if not selected_governorate or not selected_governorate.is_active:
-            abort(404)
+    if is_central_manager:
+        selected_scope_ids = gids()
+        selected_gid = selected_scope_ids[0] if selected_scope_ids else None
+        if selected_gid:
+            selected_governorate = db.session.get(Governorate, selected_gid)
+            if not selected_governorate or not selected_governorate.is_active:
+                abort(404)
     return render_template(
         'reports_missions.html', report_stats=stats, report_today=today,
         report_week_end=week_end, selected_governorate=selected_governorate,
-        manager_global_report=is_central_manager and not requested_gid.isdigit(),
+        manager_global_report=is_central_manager and selected_governorate is None,
     )
 
 
@@ -184,12 +299,21 @@ def reports():
         if bs
         else Movement.query.filter(False)
     )
-    status = request.args.get('status', '').strip()
-    mt = request.args.get('movement_type', '').strip()
-    if status in STATUSES:
-        q = q.filter(Movement.status == status)
-    if mt in active_movement_types():
-        q = q.filter(Movement.movement_type == mt)
+    status = (request.args.get('status') or '').strip()
+    mt = (request.args.get('movement_type') or '').strip()
+    filter_error = False
+    if status:
+        if status in STATUSES:
+            q = q.filter(Movement.status == status)
+        else:
+            q = q.filter(False)
+            filter_error = True
+    if mt:
+        if mt in active_movement_types():
+            q = q.filter(Movement.movement_type == mt)
+        else:
+            q = q.filter(False)
+            filter_error = True
     summary = {s: q.filter(Movement.status == s).count() for s in STATUSES}
     by_type = {t: q.filter(Movement.movement_type == t).count() for t in MOVEMENT_TYPES}
     return render_template(
@@ -200,6 +324,7 @@ def reports():
         movement_type=mt,
         statuses=STATUSES,
         movement_types=active_movement_types(),
+        filter_error=filter_error,
     )
 
 
@@ -212,7 +337,7 @@ def employee_type_report(report_type):
     if report_type not in mapping:
         abort(404)
     mt = mapping[report_type]
-    bs, central_report = _report_branch_scope()
+    bs, _central_report = _report_branch_scope()
     q = (
         (
             Movement.query.join(Employee)
@@ -225,42 +350,12 @@ def employee_type_report(report_type):
         if bs
         else Movement.query.filter(False)
     )
-    status = request.args.get('status', '').strip()
-    employee_id = request.args.get('employee_id', '').strip()
-    date_from = request.args.get('date_from', '').strip()
-    date_to = request.args.get('date_to', '').strip()
-    date_from_obj = parse_optional_iso_date(date_from)
-    date_to_obj = parse_optional_iso_date(date_to)
-    if date_from_obj and date_to_obj and (date_from_obj > date_to_obj):
-        (date_from_obj, date_to_obj) = (date_to_obj, date_from_obj)
-    if status in STATUSES:
-        q = q.filter(Movement.status == status)
-    if employee_id.isdigit():
-        q = q.filter(Movement.employee_id == int(employee_id))
-    report_gov = request.args.get('governorate_id', '').strip()
-    report_branch = request.args.get('branch_id', '').strip()
-    if report_gov.isdigit():
-        gid = int(report_gov)
-        allowed_ids = (
-            {g.id for g in Governorate.query.filter_by(is_active=True).all()}
-            if central_report else set(gids())
-        )
-        if gid in allowed_ids:
-            q = q.filter(Employee.branch.has(Branch.governorate_id == gid))
-    if report_branch.isdigit():
-        bid = int(report_branch)
-        if bid in set(bs):
-            q = q.filter(Employee.branch_id == bid)
-    if date_from_obj:
-        if mt in ('إجازة', 'انتداب'):
-            q = q.filter(Movement.to_date >= date_from_obj)
-        else:
-            q = q.filter(Movement.permission_date >= date_from_obj)
-    if date_to_obj:
-        if mt in ('إجازة', 'انتداب'):
-            q = q.filter(Movement.from_date <= date_to_obj)
-        else:
-            q = q.filter(Movement.permission_date <= date_to_obj)
+    q, filters = _apply_employee_type_report_filters(q, mt, bs, request.args)
+    status = filters['status']
+    employee_id = filters['employee_id']
+    date_from = filters['date_from']
+    date_to = filters['date_to']
+    filter_error = filters['filter_error']
     rows = (
         q.order_by(
             Employee.full_name.asc(),
@@ -281,10 +376,9 @@ def employee_type_report(report_type):
     selected_gov = request.args.get('governorate_id', '').strip()
     selected_branch = request.args.get('branch_id', '').strip()
 
-    allowed_gov_ids = (
-        {g.id for g in Governorate.query.filter_by(is_active=True).all()}
-        if central_report else set(gids())
-    )
+    # The normal report filters remain inside the one selected work governorate
+    # for central roles as well; cross-governorate aggregation belongs to /manager.
+    allowed_gov_ids = set(gids())
     allowed_govs = (
         (
             Governorate.query.filter(
@@ -350,6 +444,7 @@ def employee_type_report(report_type):
         selected_governorate=selected_gov,
         selected_branch=selected_branch,
         selected_employee=employee_id if employee_id.isdigit() else '',
+        filter_error=filter_error,
     )
 
 
@@ -362,57 +457,13 @@ def employee_type_report_xlsx(report_type):
     if report_type not in mapping:
         abort(404)
     mt = mapping[report_type]
-    bs = bids()
+    bs, _central_report = _report_branch_scope()
     q = (
-        (
-            Movement.query.join(Employee)
-            .filter(
-                Employee.branch_id.in_(bs),
-                Movement.is_active == True,
-                Movement.movement_type == mt,
-            )
-        )
-        if bs
-        else Movement.query.filter(False)
+        Movement.query.join(Employee).filter(
+            Employee.branch_id.in_(bs), Movement.is_active == True, Movement.movement_type == mt
+        ) if bs else Movement.query.filter(False)
     )
-    status = request.args.get('status', '').strip()
-    employee_id = request.args.get('employee_id', '').strip()
-    date_from = request.args.get('date_from', '').strip()
-    date_to = request.args.get('date_to', '').strip()
-    gov = request.args.get('governorate_id', '').strip()
-    branch = request.args.get('branch_id', '').strip()
-    if status in STATUSES:
-        q = q.filter(Movement.status == status)
-    if employee_id.isdigit():
-        q = q.filter(Movement.employee_id == int(employee_id))
-    allowed_gov_ids = set(gids())
-    if gov.isdigit() and int(gov) in allowed_gov_ids:
-        q = q.filter(Employee.branch.has(Branch.governorate_id == int(gov)))
-    if branch.isdigit() and int(branch) in set(bs):
-        q = q.filter(Employee.branch_id == int(branch))
-    from datetime import date as _date
-    try:
-        df = _date.fromisoformat(date_from) if date_from else None
-    except ValueError:
-        df = None
-    try:
-        dt = _date.fromisoformat(date_to) if date_to else None
-    except ValueError:
-        dt = None
-    if df and dt and (df > dt):
-        (df, dt) = (dt, df)
-    if df:
-        q = q.filter(
-            Movement.to_date >= df if mt in ('إجازة', 'انتداب') else Movement.permission_date >= df,
-        )
-    if dt:
-        q = q.filter(
-            (
-                Movement.from_date <= dt
-                if mt in ('إجازة', 'انتداب')
-                else Movement.permission_date <= dt
-            ),
-        )
+    q, _filters = _apply_employee_type_report_filters(q, mt, bs, request.args)
     rows = (
         q.order_by(
             Employee.full_name.asc(),
@@ -498,60 +549,13 @@ def employee_type_report_csv(report_type):
         abort(404)
     mt = mapping[report_type]
     import csv, io
-    bs = bids()
+    bs, _central_report = _report_branch_scope()
     q = (
-        (
-            Movement.query.join(Employee)
-            .filter(
-                Employee.branch_id.in_(bs),
-                Movement.is_active == True,
-                Movement.movement_type == mt,
-            )
-        )
-        if bs
-        else Movement.query.filter(False)
+        Movement.query.join(Employee).filter(
+            Employee.branch_id.in_(bs), Movement.is_active == True, Movement.movement_type == mt
+        ) if bs else Movement.query.filter(False)
     )
-    status = request.args.get('status', '').strip()
-    employee_id = request.args.get('employee_id', '').strip()
-    date_from = request.args.get('date_from', '').strip()
-    date_to = request.args.get('date_to', '').strip()
-    date_from_obj = parse_optional_iso_date(date_from)
-    date_to_obj = parse_optional_iso_date(date_to)
-    if date_from_obj and date_to_obj and (date_from_obj > date_to_obj):
-        (date_from_obj, date_to_obj) = (date_to_obj, date_from_obj)
-    if status in STATUSES:
-        q = q.filter(Movement.status == status)
-    if employee_id.isdigit():
-        q = q.filter(Movement.employee_id == int(employee_id))
-    report_gov = request.args.get('governorate_id', '').strip()
-    report_branch = request.args.get('branch_id', '').strip()
-    if report_gov.isdigit():
-        gid = int(report_gov)
-        gov_allowed = (
-            {
-                g.id
-                for g in Governorate.query.filter(Governorate.is_active == True).all()
-                if g.id in set(gids())
-            }
-            if gids()
-            else set()
-        )
-        if gid in gov_allowed:
-            q = q.filter(Employee.branch.has(Branch.governorate_id == gid))
-    if report_branch.isdigit():
-        bid = int(report_branch)
-        if bid in set(bs):
-            q = q.filter(Employee.branch_id == bid)
-    if date_from_obj:
-        if mt in ('إجازة', 'انتداب'):
-            q = q.filter(Movement.to_date >= date_from_obj)
-        else:
-            q = q.filter(Movement.permission_date >= date_from_obj)
-    if date_to_obj:
-        if mt in ('إجازة', 'انتداب'):
-            q = q.filter(Movement.from_date <= date_to_obj)
-        else:
-            q = q.filter(Movement.permission_date <= date_to_obj)
+    q, _filters = _apply_employee_type_report_filters(q, mt, bs, request.args)
     rows = (
         q.order_by(
             Employee.full_name.asc(),
@@ -613,18 +617,18 @@ def report_csv():
     if not can('view_reports'):
         abort(403)
     import csv, io
-    bs = bids()
+    bs, _central_report = _report_branch_scope()
     q = (
         Movement.query.join(Employee).filter(Employee.branch_id.in_(bs), Movement.is_active == True)
         if bs
         else Movement.query.filter(False)
     )
-    status = request.args.get('status', '').strip()
-    mt = request.args.get('movement_type', '').strip()
-    if status in STATUSES:
-        q = q.filter(Movement.status == status)
-    if mt in active_movement_types():
-        q = q.filter(Movement.movement_type == mt)
+    status = (request.args.get('status') or '').strip()
+    mt = (request.args.get('movement_type') or '').strip()
+    if status:
+        q = q.filter(Movement.status == status) if status in STATUSES else q.filter(False)
+    if mt:
+        q = q.filter(Movement.movement_type == mt) if mt in active_movement_types() else q.filter(False)
     rows = q.order_by(Movement.created_at.desc()).all()
     out = io.StringIO()
     w = csv.writer(out)

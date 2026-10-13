@@ -18,10 +18,10 @@
     catch(e){if(!items.length) list.innerHTML='<div class="interactive-notification-pop-empty"><b>تعذر تحديث المتابعة</b><span>حاول مرة أخرى.</span></div>';}
   }
   function open(){pop.hidden=false; trigger.setAttribute('aria-expanded','true'); load();}
-  function close(){pop.hidden=true; trigger.setAttribute('aria-expanded','false');}
+  function close(restoreFocus=false){pop.hidden=true; trigger.setAttribute('aria-expanded','false'); if(restoreFocus) trigger.focus({preventScroll:true});}
   trigger.addEventListener('click',()=>pop.hidden?open():close());
   document.addEventListener('click',e=>{if(!pop.hidden&&!pop.contains(e.target)&&!trigger.contains(e.target))close();});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!pop.hidden)close();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!pop.hidden){e.preventDefault();close(true);}});
   refresh?.addEventListener('click',load);
   pop.querySelectorAll('[data-notification-filter]').forEach(btn=>btn.addEventListener('click',()=>{filter=btn.dataset.notificationFilter;pop.querySelectorAll('[data-notification-filter]').forEach(x=>x.classList.toggle('active',x===btn));paintList();}));
   load();

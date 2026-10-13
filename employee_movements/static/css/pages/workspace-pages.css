@@ -1,0 +1,360 @@
+/* مساحات العمل المتبقية — v68.26.0
+   امتداد للتصميم المركزي: الفهرسة، الاستيراد، التقارير، الحساب، والملفات التفصيلية.
+   لا يغيّر هذا الملف منطق الصلاحيات أو قواعد الطباعة الرسمية.
+*/
+
+/* Shared page rhythm for legacy pages that do not have their own dedicated sheet. */
+:where(body[data-workspace-path^="/branches"],
+       body[data-workspace-path^="/governorates"],
+       body[data-workspace-path^="/lookups"],
+       body[data-workspace-path^="/excel-import"],
+       body[data-workspace-path^="/reports"],
+       body[data-workspace-path^="/reports-missions"],
+       body[data-workspace-path^="/manager"],
+       body[data-workspace-path^="/audit"],
+       body[data-workspace-path^="/notifications"],
+       body[data-workspace-path^="/change-password"],
+       body[data-workspace-path^="/replacement"],
+       body[data-workspace-path^="/employee/"],
+       body[data-workspace-path^="/employees/"]) #main {
+  gap: 16px;
+  align-content: start;
+}
+
+:where(body[data-workspace-path^="/branches"],
+       body[data-workspace-path^="/governorates"],
+       body[data-workspace-path^="/lookups"],
+       body[data-workspace-path^="/excel-import"],
+       body[data-workspace-path^="/reports"],
+       body[data-workspace-path^="/reports-missions"],
+       body[data-workspace-path^="/manager"],
+       body[data-workspace-path^="/audit"],
+       body[data-workspace-path^="/notifications"],
+       body[data-workspace-path^="/change-password"],
+       body[data-workspace-path^="/replacement"],
+       body[data-workspace-path^="/employee/"],
+       body[data-workspace-path^="/employees/"]) :is(.ui-toolbar,.ui-page-head,.ui-report-page-head) {
+  align-items: flex-end;
+  gap: 14px;
+  padding: 0 2px 14px;
+  margin: 0;
+}
+
+:where(body[data-workspace-path^="/branches"],
+       body[data-workspace-path^="/governorates"],
+       body[data-workspace-path^="/lookups"],
+       body[data-workspace-path^="/excel-import"],
+       body[data-workspace-path^="/reports"],
+       body[data-workspace-path^="/reports-missions"],
+       body[data-workspace-path^="/manager"],
+       body[data-workspace-path^="/audit"],
+       body[data-workspace-path^="/notifications"],
+       body[data-workspace-path^="/change-password"],
+       body[data-workspace-path^="/replacement"],
+       body[data-workspace-path^="/employee/"],
+       body[data-workspace-path^="/employees/"]) :is(.ui-toolbar,.ui-page-head,.ui-report-page-head) h1 {
+  color: var(--ui-ink);
+  font-size: clamp(23px, 2vw, 29px);
+  line-height: 1.35;
+  letter-spacing: -.02em;
+}
+
+:where(body[data-workspace-path^="/branches"],
+       body[data-workspace-path^="/governorates"],
+       body[data-workspace-path^="/lookups"],
+       body[data-workspace-path^="/excel-import"],
+       body[data-workspace-path^="/reports"],
+       body[data-workspace-path^="/reports-missions"],
+       body[data-workspace-path^="/manager"],
+       body[data-workspace-path^="/audit"],
+       body[data-workspace-path^="/notifications"],
+       body[data-workspace-path^="/change-password"],
+       body[data-workspace-path^="/replacement"],
+       body[data-workspace-path^="/employee/"],
+       body[data-workspace-path^="/employees/"]) :is(.ui-subtitle,.ui-muted,.ui-hint) {
+  color: var(--ui-muted);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+:where(body[data-workspace-path^="/branches"],
+       body[data-workspace-path^="/governorates"],
+       body[data-workspace-path^="/lookups"],
+       body[data-workspace-path^="/excel-import"],
+       body[data-workspace-path^="/reports"],
+       body[data-workspace-path^="/reports-missions"],
+       body[data-workspace-path^="/manager"],
+       body[data-workspace-path^="/audit"],
+       body[data-workspace-path^="/notifications"],
+       body[data-workspace-path^="/change-password"],
+       body[data-workspace-path^="/replacement"],
+       body[data-workspace-path^="/employee/"],
+       body[data-workspace-path^="/employees/"]) :is(.ui-card,.ui-module-card,.ui-work-card,.ui-report-group,.ui-mission-filter-card) {
+  border-color: var(--ui-line);
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-sm);
+}
+
+:where(body[data-workspace-path^="/branches"],
+       body[data-workspace-path^="/governorates"],
+       body[data-workspace-path^="/lookups"],
+       body[data-workspace-path^="/excel-import"],
+       body[data-workspace-path^="/reports"],
+       body[data-workspace-path^="/reports-missions"],
+       body[data-workspace-path^="/manager"],
+       body[data-workspace-path^="/audit"],
+       body[data-workspace-path^="/notifications"],
+       body[data-workspace-path^="/change-password"],
+       body[data-workspace-path^="/replacement"],
+       body[data-workspace-path^="/employee/"],
+       body[data-workspace-path^="/employees/"]) :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea) {
+  border-color: var(--ui-line);
+  border-radius: 10px;
+  color: var(--ui-ink);
+  background-color: #fff;
+}
+
+:where(body[data-workspace-path^="/branches"],
+       body[data-workspace-path^="/governorates"],
+       body[data-workspace-path^="/lookups"],
+       body[data-workspace-path^="/excel-import"],
+       body[data-workspace-path^="/reports"],
+       body[data-workspace-path^="/reports-missions"],
+       body[data-workspace-path^="/manager"],
+       body[data-workspace-path^="/audit"],
+       body[data-workspace-path^="/notifications"],
+       body[data-workspace-path^="/change-password"],
+       body[data-workspace-path^="/replacement"],
+       body[data-workspace-path^="/employee/"],
+       body[data-workspace-path^="/employees/"]) :is(input,select,textarea):focus-visible {
+  border-color: var(--ui-brand) !important;
+  box-shadow: var(--ui-focus) !important;
+}
+
+/* Branches, governorates and lookup catalogs. */
+:where(body[data-workspace-path^="/branches"],body[data-workspace-path^="/governorates"],body[data-workspace-path^="/lookups"]) :is(#branch-add,#governorate-add,#lookup-add) {
+  border-top: 3px solid var(--ui-brand);
+  padding: clamp(14px, 1.8vw, 22px);
+}
+:where(body[data-workspace-path^="/branches"],body[data-workspace-path^="/governorates"],body[data-workspace-path^="/lookups"]) .ui-table-wrap {
+  overflow: auto;
+  border-radius: 15px;
+  box-shadow: none;
+}
+:where(body[data-workspace-path^="/branches"],body[data-workspace-path^="/governorates"],body[data-workspace-path^="/lookups"]) .ui-section-title {
+  flex-wrap: wrap;
+}
+:where(body[data-workspace-path^="/branches"],body[data-workspace-path^="/governorates"],body[data-workspace-path^="/lookups"]) .ui-inline {
+  row-gap: 6px;
+}
+
+/* Excel import: step hierarchy, field mapping, and review table stay readable. */
+body[data-workspace-path^="/excel-import"] .ui-main.with-shell {
+  padding-bottom: 32px;
+}
+body[data-workspace-path^="/excel-import"] .ui-card {
+  padding: clamp(13px, 1.5vw, 21px);
+}
+body[data-workspace-path^="/excel-import"] .ui-section-title {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ui-line-soft);
+}
+body[data-workspace-path^="/excel-import"] .excel-map-field > label,
+body[data-workspace-path^="/excel-import"] .excel-map-field label {
+  color: var(--ui-ink-2);
+  font-size: 13px;
+}
+body[data-workspace-path^="/excel-import"] .ui-overflow-auto {
+  max-width: 100%;
+  max-height: min(62vh, 620px);
+  overflow: auto;
+  border: 1px solid var(--ui-line-soft);
+  border-radius: 12px;
+  overscroll-behavior: contain;
+}
+body[data-workspace-path^="/excel-import"] .ui-overflow-auto table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--ui-surface-3) !important;
+}
+body[data-workspace-path^="/excel-import"] .ui-status {
+  border: 1px solid var(--ui-line-soft);
+}
+
+/* Reports and mission overview. These components were present in markup without a page stylesheet. */
+.smart-reports-workspace { display: grid; gap: 17px; }
+.smart-reports-head { align-items: flex-start; }
+.smart-reports-head > div:first-child { display: grid; gap: 4px; min-width: 0; }
+.smart-reports-head .ui-eyebrow { color: var(--ui-brand); font-size: 12px; font-weight: 800; }
+.smart-reports-head h1 { max-width: 100%; overflow-wrap: anywhere; }
+.smart-reports-head .ui-head-stats { justify-content: flex-end; }
+.smart-reports-head .ui-head-stats span { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 4px 11px; border-color: var(--ui-line); background: #fff; font-size: 12px; }
+.smart-reports-head .ui-head-stats b { color: var(--ui-brand-strong); font-size: 14px; }
+.smart-report-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.smart-report-metric {
+  display: grid; align-content: start; gap: 5px; min-width: 0; min-height: 130px; padding: 16px;
+  border: 1px solid var(--ui-line); border-radius: 16px; background: #fff; box-shadow: var(--ui-shadow-sm);
+  transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+.smart-report-metric:hover { border-color: #a9d9de; box-shadow: var(--ui-shadow-md); transform: translateY(-1px); }
+.smart-report-metric > span { color: var(--ui-muted); font-size: 12px; font-weight: 800; }
+.smart-report-metric > strong { color: var(--ui-ink); font-size: clamp(24px, 2.2vw, 32px); line-height: 1.2; font-weight: 800; font-variant-numeric: tabular-nums; }
+.smart-report-metric > small { color: var(--ui-muted); font-size: 11px; line-height: 1.7; }
+.smart-report-metric.total { border-top: 3px solid var(--ui-brand); }
+.smart-report-metric.leave { border-top: 3px solid var(--ui-amber); }
+.smart-report-metric.assignment { border-top: 3px solid #3386b4; }
+.smart-report-metric.permission { border-top: 3px solid var(--ui-violet); }
+.smart-report-command-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(250px, .8fr); gap: 16px; align-items: stretch; }
+.smart-report-command-grid > * { min-width: 0; }
+.smart-report-primary,.smart-report-attention { padding: clamp(14px, 1.7vw, 22px); }
+.smart-report-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.smart-report-actions > a {
+  display: grid; align-content: start; gap: 5px; min-width: 0; padding: 13px; border: 1px solid var(--ui-line);
+  border-radius: 12px; background: var(--ui-surface-2); transition: border-color .16s ease, background .16s ease, transform .16s ease;
+}
+.smart-report-actions > a:hover { border-color: #a5dbe0; background: #f1fbfc; transform: translateY(-1px); }
+.smart-report-actions > a b { color: var(--ui-ink); font-size: 14px; }
+.smart-report-actions > a small { color: var(--ui-muted); font-size: 11px; line-height: 1.7; }
+.smart-report-actions > a span { color: var(--ui-brand-strong); font-size: 11px; font-weight: 800; }
+.smart-report-attention { display: flex; flex-direction: column; gap: 10px; }
+.smart-report-attention-item { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 2px 10px; align-content: start; padding: 12px; border: 1px solid var(--ui-line); border-radius: 12px; background: #fff; }
+.smart-report-attention-item > strong { grid-row: 1 / span 2; display: grid; place-items: center; min-width: 44px; min-height: 44px; padding: 4px; border-radius: 11px; background: var(--ui-brand-soft); color: var(--ui-brand-strong); font-size: 21px; }
+.smart-report-attention-item.urgent > strong { background: var(--ui-amber-soft); color: var(--ui-amber); }
+.smart-report-attention-item > span { color: var(--ui-ink); font-size: 12px; font-weight: 800; }
+.smart-report-attention-item > small { color: var(--ui-muted); font-size: 11px; line-height: 1.6; }
+.smart-report-live-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.smart-report-live-grid > .ui-work-card { display: flex; flex-direction: column; align-items: stretch; gap: 13px; min-width: 0; padding: 16px; }
+.smart-report-live-grid .ui-card-head { align-items: flex-start; margin: 0; }
+.smart-report-live-grid .ui-card-head h2 { font-size: 17px; }
+.smart-report-date { max-width: 50%; color: var(--ui-muted); font-size: 11px; text-align: left; }
+.smart-report-live-number { display: flex; align-items: baseline; gap: 10px; min-width: 0; padding: 14px; border: 1px solid var(--ui-line-soft); border-radius: 12px; background: var(--ui-surface-2); }
+.smart-report-live-number > strong { color: var(--ui-brand-strong); font-size: 31px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.smart-report-live-number > span { color: var(--ui-muted); font-size: 11px; line-height: 1.7; }
+.smart-report-mini-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: auto; }
+.smart-report-mini-actions a { color: var(--ui-brand-strong); font-size: 11px; font-weight: 800; }
+.smart-report-mini-actions a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.smart-report-print-card p { color: var(--ui-muted); font-size: 12px; line-height: 1.8; }
+.smart-report-print-card > .ui-btn { align-self: flex-start; white-space: normal; }
+.smart-report-note { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-color: #cfe8eb; background: #f2fbfc; }
+.smart-report-note > b { flex: 0 0 auto; color: var(--ui-brand-strong); font-size: 12px; }
+.smart-report-note > span { color: var(--ui-ink-2); font-size: 12px; line-height: 1.8; }
+
+/* Manager hub and monthly closed-mission report. */
+body[data-workspace-path="/manager"] .ui-grid-3-gap-16,
+body[data-workspace-path^="/reports/assignments/monthly"] .ui-grid-3-gap-16 {
+  display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; min-width: 0;
+}
+body[data-workspace-path="/manager"] .ui-grid > *,
+body[data-workspace-path^="/reports/assignments/monthly"] .ui-grid > * { min-width: 0; }
+body[data-workspace-path="/manager"] .ui-card,
+body[data-workspace-path^="/reports/assignments/monthly"] .ui-card { padding: clamp(14px, 1.7vw, 22px); }
+body[data-workspace-path="/manager"] .ui-card-head,
+body[data-workspace-path^="/reports/assignments/monthly"] .ui-card-head { align-items: flex-start; }
+body[data-workspace-path="/manager"] .ui-card > .ui-btn,
+body[data-workspace-path="/manager"] .ui-card .ui-actions .ui-btn { white-space: normal; }
+body[data-workspace-path^="/reports/assignments/monthly"] .ui-grid input[type="month"] { min-height: 42px; }
+body[data-workspace-path^="/reports/assignments/monthly"] .ui-grid .ui-actions { align-self: end; }
+body[data-workspace-path^="/reports/assignments/monthly"] .ui-table-wrap { overflow: auto; }
+
+/* Operational notification workspace. */
+.interactive-notifications-page { display: grid; gap: 16px; }
+.interactive-notifications-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.interactive-notifications-head > div:first-child { display: grid; gap: 4px; min-width: 0; }
+.interactive-notifications-head h1 { color: var(--ui-ink); font-size: clamp(24px, 2.2vw, 30px); }
+.interactive-notifications-head p { color: var(--ui-muted); font-size: 13px; line-height: 1.8; }
+.interactive-notification-summary { display: grid; gap: 1px; min-width: 135px; padding: 10px 14px; border: 1px solid var(--ui-line); border-radius: 14px; background: #fff; }
+.interactive-notification-summary strong { color: var(--ui-brand-strong); font-size: 25px; line-height: 1.25; font-variant-numeric: tabular-nums; }
+.interactive-notification-summary span { color: var(--ui-muted); font-size: 11px; }
+.interactive-notification-metrics { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+.interactive-notification-metric { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-width: 0; min-height: 70px; padding: 13px 16px; border: 1px solid var(--ui-line); border-radius: 15px; background: #fff; }
+.interactive-notification-metric b { font-size: 27px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.interactive-notification-metric span { color: var(--ui-muted); font-size: 12px; font-weight: 800; }
+.interactive-notification-metric.urgent { border-inline-start: 3px solid var(--ui-red); }
+.interactive-notification-metric.urgent b { color: var(--ui-red); }
+.interactive-notification-metric.warning { border-inline-start: 3px solid var(--ui-amber); }
+.interactive-notification-metric.warning b { color: var(--ui-amber); }
+.interactive-notification-metric.info { border-inline-start: 3px solid var(--ui-brand); }
+.interactive-notification-metric.info b { color: var(--ui-brand-strong); }
+.interactive-notification-list-card { padding: clamp(14px, 1.8vw, 22px); }
+.interactive-notification-list { display: grid; gap: 9px; }
+.interactive-notification-item { display: grid; grid-template-columns: 8px minmax(0,1fr) auto; align-items: start; gap: 12px; padding: 14px; border: 1px solid var(--ui-line); border-radius: 13px; background: #fff; }
+.interactive-notification-dot { width: 8px; height: 8px; margin-top: 7px; border-radius: 50%; background: var(--ui-brand); }
+.interactive-notification-item.urgent .interactive-notification-dot { background: var(--ui-red); }
+.interactive-notification-item.warning .interactive-notification-dot { background: var(--ui-amber); }
+.interactive-notification-content { display: grid; gap: 5px; min-width: 0; }
+.interactive-notification-title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 9px; }
+.interactive-notification-title b { color: var(--ui-ink); font-size: 13px; }
+.interactive-notification-title span { padding: 2px 7px; border-radius: 999px; background: var(--ui-surface-3); color: var(--ui-ink-2); font-size: 10px; font-weight: 800; }
+.interactive-notification-item.urgent .interactive-notification-title span { background: var(--ui-red-soft); color: var(--ui-red); }
+.interactive-notification-item.warning .interactive-notification-title span { background: var(--ui-amber-soft); color: var(--ui-amber); }
+.interactive-notification-content p { color: var(--ui-ink-2); font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.interactive-notification-content small { color: var(--ui-muted); font-size: 11px; overflow-wrap: anywhere; }
+.interactive-notification-actions { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 7px; }
+.interactive-notification-actions a { display: inline-flex; justify-content: center; align-items: center; min-height: 34px; padding: 5px 10px; border: 1px solid var(--ui-line); border-radius: 9px; background: #fff; color: var(--ui-ink-2); font-size: 11px; font-weight: 800; }
+.interactive-notification-actions a.primary { border-color: var(--ui-brand); background: var(--ui-brand); color: #fff; }
+.interactive-notification-actions a:hover { border-color: #a9d9de; background: var(--ui-brand-soft); color: var(--ui-brand-strong); }
+.interactive-notification-actions a.primary:hover { background: var(--ui-brand-strong); color: #fff; }
+.interactive-notification-empty { padding: 24px; border: 1px dashed var(--ui-border-strong); border-radius: 13px; background: var(--ui-surface-2); text-align: center; }
+
+/* Account, employee profile, edit, archive, and replacement workspaces. */
+.account-page { gap: 16px; }
+.account-panel,.password-panel,.replace-card { border-color: var(--ui-line); border-radius: 16px; padding: clamp(14px, 1.8vw, 22px); }
+.account-section-title { padding-bottom: 10px; border-bottom: 1px solid var(--ui-line-soft); }
+.account-data-grid { grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+.account-data { min-width: 0; padding: 12px; border: 1px solid var(--ui-line-soft); border-radius: 12px; background: var(--ui-surface-2); overflow-wrap: anywhere; }
+.account-data > span { color: var(--ui-muted); font-size: 11px; }
+.account-data > b { display: block; color: var(--ui-ink); font-size: 13px; overflow-wrap: anywhere; }
+.password-form { width: min(100%, 560px); gap: 13px; }
+.password-form input { min-height: 44px; }
+body[data-workspace-path^="/employees/"] .ui-toolbar .ui-actions { gap: 8px; }
+body[data-workspace-path^="/employees/"] .section-tabs { display: flex; flex-wrap: wrap; gap: 7px; padding: 5px; border: 1px solid var(--ui-line); border-radius: 14px; background: #fff; }
+body[data-workspace-path^="/employees/"] .section-tabs .section-tab { min-height: 38px; padding-inline: 13px; font-size: 12px !important; }
+body[data-workspace-path^="/employee/"] .smart-employee-hero { border-color: var(--ui-line); border-radius: 19px; box-shadow: var(--ui-shadow-sm); }
+body[data-workspace-path^="/employee/"] .smart-employee-card { border-color: var(--ui-line); border-radius: 16px; }
+body[data-workspace-path^="/employee/"] .smart-history-search input { min-height: 42px; }
+body[data-workspace-path^="/replacement"] .ui-grid.wide { grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; }
+body[data-workspace-path^="/replacement"] .ui-admin-replace-grid { gap: 12px; }
+body[data-workspace-path^="/audit"] .ui-card.ui-table-wrap { padding: 0; }
+body[data-workspace-path^="/audit"] .ui-card.ui-table-wrap table { min-width: 900px; }
+body[data-workspace-path^="/audit"] .ui-toolbar { margin-bottom: 0; }
+
+/* No clipped content, no forced desktop columns on mobile/tablet. */
+@media (max-width: 1180px) {
+  .smart-report-metrics { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .smart-report-command-grid { grid-template-columns: minmax(0,1fr); }
+  .smart-report-live-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  body[data-workspace-path="/manager"] .ui-grid-3-gap-16,
+  body[data-workspace-path^="/reports/assignments/monthly"] .ui-grid-3-gap-16 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  body[data-workspace-path^="/replacement"] .ui-grid.wide { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+@media (max-width: 850px) {
+  :where(body[data-workspace-path^="/branches"],body[data-workspace-path^="/governorates"],body[data-workspace-path^="/lookups"],body[data-workspace-path^="/excel-import"],body[data-workspace-path^="/reports"],body[data-workspace-path^="/reports-missions"],body[data-workspace-path^="/manager"],body[data-workspace-path^="/audit"],body[data-workspace-path^="/notifications"],body[data-workspace-path^="/change-password"],body[data-workspace-path^="/replacement"],body[data-workspace-path^="/employee/"],body[data-workspace-path^="/employees/"]) :is(.ui-toolbar,.ui-page-head,.ui-report-page-head) { align-items: stretch; flex-direction: column; }
+  .smart-reports-head .ui-head-stats { justify-content: flex-start; }
+  .interactive-notifications-head { align-items: stretch; flex-direction: column; }
+  .interactive-notification-summary { width: 100%; }
+  .interactive-notification-item { grid-template-columns: 8px minmax(0,1fr); }
+  .interactive-notification-actions { grid-column: 2; }
+  .account-data-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+@media (max-width: 620px) {
+  .smart-report-metrics,.smart-report-live-grid,.smart-report-actions,
+  .interactive-notification-metrics,body[data-workspace-path="/manager"] .ui-grid-3-gap-16,
+  body[data-workspace-path^="/reports/assignments/monthly"] .ui-grid-3-gap-16,
+  body[data-workspace-path^="/replacement"] .ui-grid.wide,
+  .account-data-grid { grid-template-columns: minmax(0,1fr); }
+  .smart-report-metric { min-height: 0; padding: 13px; }
+  .smart-report-live-number { align-items: flex-start; flex-direction: column; gap: 5px; }
+  .smart-report-note { flex-direction: column; gap: 4px; }
+  .interactive-notification-metric { min-height: 60px; }
+  .interactive-notification-list-card { padding: 12px; }
+  .interactive-notification-item { gap: 8px; padding: 11px; }
+  .interactive-notification-actions { flex-direction: column; align-items: stretch; }
+  .interactive-notification-actions a { width: 100%; }
+  body[data-workspace-path^="/employees/"] .section-tabs { overflow-x: auto; flex-wrap: nowrap; }
+  body[data-workspace-path^="/employees/"] .section-tabs .section-tab { white-space: nowrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .smart-report-metric,.smart-report-actions > a { transition: none; transform: none; }
+}

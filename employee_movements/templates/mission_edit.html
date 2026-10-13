@@ -1,18 +1,81 @@
 {% extends 'base.html' %}
 {% block title %}تعديل المأمورية{% endblock %}
 {% block content %}
-<div class="ui-page-head">
-  <div><h1>تعديل المأمورية #{{m.id}}</h1><p class="ui-muted">الحالة: <strong>تحت التحرير</strong> — يمكن تعديل جهة المأمورية وتاريخ البداية، وتاريخ النهاية إذا كان مسجلًا. الانتداب المفتوح يمكن طباعته بتاريخ نهاية مؤقت دون إغلاقه.</p></div>
-  <div class="ui-actions"><a class="ui-btn ui-btn-secondary" href="/reports/assignments/print-missions"><svg class="ui-icon ui-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6 3 12l6 6"/><path d="M4 12h11a5 5 0 0 1 5 5v1"/></svg> العودة للمأموريات</a><a class="ui-btn ui-tone-teal" href="/reports/assignments/mission-pdf/{{m.id}}" target="_blank"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="M18 12h.01"/></svg>️ PDF مطابق</a></div>
+<div class="ui-page movement-edit-page mission-edit-page">
+  <header class="ui-page-head">
+    <div>
+      <span class="ui-eyebrow">إدارة المأموريات</span>
+      <h1>تعديل المأمورية <bdi dir="ltr">#{{m.id}}</bdi></h1>
+      <p class="ui-subtitle">الحالة: <strong>تحت التحرير</strong> — عدّل الجهة وتاريخ البداية والنهاية عند الحاجة. الانتداب المفتوح يظل مفتوحًا إذا كان تاريخ النهاية فارغًا؛ ولا يؤدي تاريخ الطباعة المؤقت إلى إغلاقه.</p>
+    </div>
+    <div class="ui-actions">
+      <a class="ui-btn ui-btn-secondary" href="/reports/assignments/print-missions">العودة للمأموريات</a>
+      <a class="ui-btn ui-tone-teal" href="/reports/assignments/mission-pdf/{{m.id}}" target="_blank" rel="noopener">معاينة PDF</a>
+    </div>
+  </header>
+
+  <section class="ui-card ui-mission-edit-card" aria-label="نموذج تعديل المأمورية">
+    <form method="post" class="ui-grid ui-grid-3-gap-16 mission-edit-form" id="missionEditForm">
+      <input type="hidden" name="_csrf" value="{{csrf}}">
+      <div class="ui-grid-full mission-edit-employee">
+        <label for="missionEditEmployee">الموظف</label>
+        <input id="missionEditEmployee" value="{{m.employee.full_name}} — {{m.employee.job_code or '—'}}" disabled>
+      </div>
+      <div>
+        <label for="missionDestinationGovernorate">محافظة جهة المأمورية</label>
+        <select id="missionDestinationGovernorate" required>
+          <option value="">اختر المحافظة</option>
+          {% for g in destination_governorates %}<option value="{{g.id}}" {% if m.destination and m.destination.governorate_id==g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="missionDestinationBranch">فرع جهة المأمورية</label>
+        <select name="destination_branch_id" id="missionDestinationBranch" required>
+          <option value="">اختر الفرع</option>
+          {% for b in branches %}<option value="{{b.id}}" data-governorate-id="{{b.governorate_id}}" {% if m.destination_branch_id==b.id %}selected{% endif %}>{{b.name}}</option>{% endfor %}
+        </select>
+        <small class="ui-hint">تُعرض الفروع المتاحة داخل المحافظة المختارة.</small>
+      </div>
+      <div>
+        <label for="missionEditFromDate">من تاريخ البداية</label>
+        <input type="date" name="from_date" id="missionEditFromDate" value="{{m.from_date.isoformat() if m.from_date else ''}}" required autocomplete="off">
+      </div>
+      <div>
+        <label for="missionEditToDate">إلى تاريخ النهاية <span class="ui-field-optional">اختياري للانتداب المفتوح</span></label>
+        <input type="date" name="to_date" id="missionEditToDate" value="{{m.to_date.isoformat() if m.to_date else ''}}" min="{{m.from_date.isoformat() if m.from_date else ''}}" autocomplete="off">
+        <small class="ui-hint">يجب ألا يسبق تاريخ النهاية تاريخ البداية.</small>
+      </div>
+      <div class="ui-actions ui-grid-full mission-edit-actions">
+        <button class="ui-btn ui-tone-teal" type="submit">حفظ التعديل</button>
+        <a class="ui-btn ui-btn-secondary" href="/reports/assignments/print-missions">إلغاء والعودة</a>
+        <span>يتحقق الخادم من النطاق والتواريخ والتعارضات قبل الحفظ.</span>
+      </div>
+    </form>
+  </section>
 </div>
-<div class="ui-card ui-mission-edit-card">
-<form method="post" class="ui-grid ui-grid-3-gap-16"><input type="hidden" name="_csrf" value="{{csrf}}">
-  <div class="ui-grid-full"><label>الموظف</label><input value="{{m.employee.full_name}} — {{m.employee.job_code or '—'}}" disabled></div>
-  <div><label>محافظة جهة المأمورية</label><select id="missionDestinationGovernorate" required><option value="">اختر المحافظة</option>{% for g in destination_governorates %}<option value="{{g.id}}" {% if m.destination and m.destination.governorate_id==g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></div><div><label>فرع جهة المأمورية</label><select name="destination_branch_id" id="missionDestinationBranch" required><option value="">اختر الفرع</option>{% for b in branches %}<option value="{{b.id}}" data-governorate-id="{{b.governorate_id}}" {% if m.destination_branch_id==b.id %}selected{% endif %}>{{b.name}}</option>{% endfor %}</select></div>
-  <div><label>من تاريخ</label><input type="date" name="from_date" value="{{m.from_date.isoformat() if m.from_date else ''}}" required></div>
-  <div><label>إلى تاريخ</label><input type="date" name="to_date" value="{{m.to_date.isoformat() if m.to_date else ''}}" min="{{m.from_date.isoformat() if m.from_date else ''}}"></div>
-  <div class="ui-actions ui-grid-full"><button class="ui-btn ui-tone-teal">حفظ التعديل</button><a class="ui-btn ui-btn-secondary" href="/reports/assignments/print-missions">إلغاء</a></div>
-<script>(function(){const g=document.getElementById('missionDestinationGovernorate'),b=document.getElementById('missionDestinationBranch');if(!g||!b)return;const all=[...b.options].slice(1).map(o=>({value:o.value,text:o.textContent,gov:o.dataset.governorateId}));function sync(){const selected=b.value,gid=g.value;b.innerHTML='<option value="">اختر الفرع</option>';all.filter(x=>x.gov===gid).forEach(x=>{const o=document.createElement('option');o.value=x.value;o.textContent=x.text;if(x.value===selected)o.selected=true;b.appendChild(o);});if(selected&&!all.some(x=>x.value===selected&&x.gov===gid))b.value='';b.disabled=!gid;}g.addEventListener('change',sync);sync();})();</script>
-</form>
-</div>
+<script>
+(function(){
+  const governorate=document.getElementById('missionDestinationGovernorate');
+  const branch=document.getElementById('missionDestinationBranch');
+  const from=document.getElementById('missionEditFromDate');
+  const to=document.getElementById('missionEditToDate');
+  const all=branch?[...branch.options].slice(1).map(o=>({value:o.value,text:o.textContent,gov:o.dataset.governorateId})):[];
+  function syncBranches(){
+    if(!governorate||!branch)return;
+    const selected=branch.value,gid=governorate.value;
+    branch.innerHTML='<option value="">'+(gid?'اختر الفرع':'اختر المحافظة أولًا')+'</option>';
+    all.filter(x=>x.gov===gid).forEach(x=>{const option=document.createElement('option');option.value=x.value;option.textContent=x.text;if(x.value===selected)option.selected=true;branch.appendChild(option);});
+    if(selected&&!all.some(x=>x.value===selected&&x.gov===gid))branch.value='';
+    branch.disabled=!gid;
+  }
+  function validateDates(){
+    if(!from||!to)return;
+    to.min=from.value||'';
+    to.setCustomValidity(from.value&&to.value&&to.value<from.value?'تاريخ النهاية لا يجوز أن يسبق تاريخ البداية.':'');
+  }
+  governorate?.addEventListener('change',syncBranches);
+  from?.addEventListener('input',validateDates);to?.addEventListener('input',validateDates);
+  syncBranches();validateDates();
+})();
+</script>
 {% endblock %}

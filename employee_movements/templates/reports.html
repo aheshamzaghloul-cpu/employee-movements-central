@@ -29,7 +29,8 @@
   {% endfor %}
 </div>
 
-<div class="ui-card ui-report-launch-card">
+<div class="ui-card ui-report-quick-filter-card">
+  {% if filter_error %}<div class="ui-alert ui-alert-warning" role="status">تعذر تطبيق أحد المرشحات؛ لم يتم توسيع النتائج. راجع الحالة ونوع الحركة.</div>{% endif %}
   <div class="ui-section-title"><div><h3>تصفية سريعة</h3><small>اختياري — يمكنك أيضًا الدخول إلى أي بطاقة تقرير مباشرة.</small></div></div>
   <form method="get" class="ui-report-launch-form" onsubmit="this.action='/reports/'+this.report_type.value; return true;">
     <label>نوع التقرير<select name="report_type" required><option value="">اختر نوع التقرير</option><option value="leaves">تقرير الإجازات</option><option value="assignments">تقرير الانتدابات</option><option value="permissions">تقرير الأذونات</option></select></label>

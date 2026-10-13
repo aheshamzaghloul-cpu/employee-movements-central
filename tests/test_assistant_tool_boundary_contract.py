@@ -38,7 +38,7 @@ def test_no_direct_execute_calls_inside_agent_tool_dispatch():
 
 def test_confirm_is_the_only_route_from_pending_plan_to_execution():
     confirm = ROUTES[ROUTES.index("def assistant_confirm"):]
-    assert "take_pending_plan('assistant_manager_pending')" in confirm
-    assert "take_pending_plan('assistant_pending')" in confirm
-    assert "manager_execute(manager_pending)" in confirm
-    assert "_execute_movement_plan(a)" in confirm
+    assert 'take_single_pending_plan()' in confirm
+    assert 'manager_execute(pending_plan)' in confirm
+    assert '_execute_movement_plan(pending_plan)' in confirm
+    assert 'if conflict:' in confirm

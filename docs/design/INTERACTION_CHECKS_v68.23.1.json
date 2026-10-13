@@ -1,0 +1,45 @@
+{
+  "home_initial": {
+    "movement_type": "انتداب",
+    "assignment_visible": true,
+    "leave_hidden": true
+  },
+  "home_leave_toggle": {
+    "type": "إجازة",
+    "leave_visible": true,
+    "assignment_hidden": true
+  },
+  "home_open_assignment": {
+    "end_date_disabled": true,
+    "end_date_empty": true
+  },
+  "home_destination_filter": {
+    "governorate_value": "2",
+    "old_branch_disabled": true,
+    "old_branch_attrs": {
+      "hidden": true,
+      "disabled": true,
+      "dataset": "1"
+    },
+    "new_branch_enabled": true
+  },
+  "home_status_filter": {
+    "visible_rows": 1,
+    "pressed": "true"
+  },
+  "home_entry_add_opens": {
+    "panel_visible": true
+  },
+  "directory_initial": {
+    "visible_rows": 1,
+    "count": "1"
+  },
+  "directory_stale_query_guard": {
+    "visible_rows": 1,
+    "hint": "النتائج الحالية تخص البحث السابق «محمد»؛ اضغط Enter أو «بحث» لتطبيق البحث الجديد."
+  },
+  "directory_add_anchor_opens": {
+    "details_open": true
+  },
+  "page_errors": []
+}

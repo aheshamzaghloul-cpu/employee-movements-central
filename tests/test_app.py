@@ -1,3 +1,4 @@
+import io
 """Integration tests: in-memory SQLite, real Flask app."""
 
 from employee_movements import __version__
@@ -247,3 +248,30 @@ def test_home_and_palette_keep_employee_search_boundaries():
     assert 'ابحث عن موظف' not in base
     assert '/employee-search?q=' not in smart_ui
 
+
+
+def test_excel_upload_accepts_body_above_general_two_mib_limit(login):
+    client = login()
+    with client.session_transaction() as sess:
+        token = sess['csrf']
+    # Invalid workbook content is intentional: the test verifies the request
+    # reaches application-level validation instead of being rejected by the
+    # general 2 MiB body cap.
+    oversized = io.BytesIO(b'x' * (2 * 1024 * 1024 + 32))
+    response = client.post(
+        '/excel-import/employees/preview',
+        data={'_csrf': token, 'file': (oversized, 'large.xlsx')},
+        content_type='multipart/form-data',
+    )
+    assert response.status_code == 302
+
+
+def test_regular_post_keeps_general_two_mib_request_limit(client):
+    token = csrf_from(client, '/login')
+    oversized = io.BytesIO(b'x' * (2 * 1024 * 1024 + 32))
+    response = client.post(
+        '/logout',
+        data={'_csrf': token, 'file': (oversized, 'large.bin')},
+        content_type='multipart/form-data',
+    )
+    assert response.status_code == 413

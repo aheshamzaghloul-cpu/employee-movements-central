@@ -4,7 +4,7 @@ from datetime import date, timedelta
 
 from flask import abort, Blueprint, redirect, render_template, request, url_for
 
-from ..access import actual_roles, bids, branch_ok, delegated_gov_ids, gids, has_role, me, req, roles, scope_governorate_id, user_gov_ids
+from ..access import actual_roles, bids, branch_ok, can, can_view_movement, delegated_gov_ids, gids, has_role, me, req, roles, scope_governorate_id, user_gov_ids
 from ..assignments import (
     employees_effectively_in_branches,
     organizational_entries_for_supervisor,
@@ -14,6 +14,7 @@ from ..assignments import (
 )
 from ..constants import LEAVE_TYPES, MOVEMENT_TYPES
 from ..extensions import db
+from ..search import normalize_search_text, search_contains
 from ..models import (
     Branch,
     Employee,
@@ -136,40 +137,60 @@ def home():
     today = date.today()
     tomorrow = today + timedelta(days=1)
     # بحث الموظف من الصفحة الرئيسية مستقل عن نطاق العمل: البحث متاح في كل المحافظات.
-    movement_governorate_id = request.args.get('movement_governorate_id', '').strip()
-    movement_branch_id = request.args.get('movement_branch_id', '').strip()
+    movement_governorate_id = (request.args.get('movement_governorate_id', '') or '').strip()
+    movement_branch_id = (request.args.get('movement_branch_id', '') or '').strip()
     movement_name_query = (request.args.get('movement_name') or '').strip()
-    movement_employee_id = request.args.get('employee_id', '').strip()
+    movement_employee_id = (request.args.get('employee_id', '') or '').strip()
     movement_employee = None
     movement_employee_matches = []
     movement_employee_moves = []
     movement_employee_last = {}
+    movement_search_invalid = bool(movement_employee_id and not movement_employee_id.isdigit())
+    movement_search_error = ''
     search_gov_id = int(movement_governorate_id) if movement_governorate_id.isdigit() else None
-    # بحث الموظف في الصفحة الرئيسية مستقل تمامًا عن نطاق المشرف: كل المحافظات متاحة للجميع.
     search_branch_id = int(movement_branch_id) if movement_branch_id.isdigit() else None
-    if search_gov_id:
+
+    # Invalid explicit filters must never be ignored, because that would broaden
+    # a scoped query into a global one. Homepage identity search itself is global.
+    if movement_governorate_id and search_gov_id is None:
+        movement_search_invalid = True
+    elif search_gov_id:
         sg = db.session.get(Governorate, search_gov_id)
         if not sg or not sg.is_active:
-            search_gov_id = None
-    if search_branch_id:
+            movement_search_invalid = True
+    if movement_branch_id and search_branch_id is None:
+        movement_search_invalid = True
+    elif search_branch_id:
         sb = db.session.get(Branch, search_branch_id)
-        if not sb or not sb.is_active or (search_gov_id and sb.governorate_id != search_gov_id):
-            search_branch_id = None
-        elif not search_gov_id:
+        if not sb or not sb.is_active or not sb.governorate or not sb.governorate.is_active:
+            movement_search_invalid = True
+        elif search_gov_id and sb.governorate_id != search_gov_id:
+            movement_search_invalid = True
+        else:
             search_gov_id = sb.governorate_id
+    normalized_movement_query = normalize_search_text(movement_name_query)
+    if len(movement_name_query) > 120:
+        movement_search_invalid = True
+        movement_search_error = 'عبارة البحث طويلة جدًا؛ الحد الأقصى 120 حرفًا.'
+    elif movement_name_query and len(normalized_movement_query) < 2 and not search_branch_id:
+        movement_search_invalid = True
+        movement_search_error = 'اكتب حرفين على الأقل، أو اختر فرعًا لعرض موظفيه.'
+    if movement_search_invalid and not movement_search_error:
+        movement_search_error = 'تعذر تطبيق المرشح المحدد. اختر محافظة وفرعًا صالحين ثم أعد البحث.'
 
-    # اختيار المحافظة يحدد سياق العمل فقط؛ لا يبدأ بحث الموظفين تلقائيًا.
-    # البحث الفعلي يبدأ عند إدخال اسم/كود أو اختيار فرع والضغط على بحث.
     search_branch_ids = set()
-    if search_gov_id:
+    if not movement_search_invalid and search_gov_id:
         search_branch_ids = {
-            b.id
-            for b in Branch.query.filter_by(governorate_id=search_gov_id, is_active=True).all()
+            b.id for b in Branch.query.filter_by(governorate_id=search_gov_id, is_active=True).all()
+            if b.governorate and b.governorate.is_active
         }
-    if search_branch_id:
+    if not movement_search_invalid and search_branch_id:
         search_branch_ids = {search_branch_id}
+
+    # Choosing only a governorate is a scope/filter selection, not a request to
+    # dump every employee. A name/code or a branch must start the actual search.
     candidates = []
-    if movement_name_query or search_branch_id:
+    if not movement_search_invalid and (normalize_search_text(movement_name_query) or search_branch_id):
         q = (
             Employee.query.join(Branch, Employee.branch_id == Branch.id)
             .join(Governorate, Governorate.id == Branch.governorate_id)
@@ -181,13 +202,14 @@ def home():
         )
         if search_branch_ids:
             q = q.filter(Employee.branch_id.in_(search_branch_ids))
+        elif search_gov_id:
+            q = q.filter(False)
         if movement_name_query:
-            nq = f'%{movement_name_query}%'
-            q = q.filter(db.or_(Employee.full_name.ilike(nq), Employee.job_code.ilike(nq)))
+            q = q.filter(db.or_(search_contains(Employee.full_name, movement_name_query), search_contains(Employee.job_code, movement_name_query)))
         candidates = q.order_by(Employee.full_name.asc()).limit(50).all()
         movement_employee_matches = candidates
 
-    if movement_employee_id.isdigit():
+    if not movement_search_invalid and movement_employee_id.isdigit():
         candidate = db.session.get(Employee, int(movement_employee_id))
         if (
             candidate and candidate.is_active and candidate.branch
@@ -195,27 +217,17 @@ def home():
             and candidate.branch.governorate.is_active
         ):
             if (
-                (
-                    not search_gov_id
-                    or candidate.branch.governorate_id == search_gov_id
-                )
+                (not search_gov_id or candidate.branch.governorate_id == search_gov_id)
                 and (not search_branch_id or candidate.branch_id == search_branch_id)
             ):
                 movement_employee = candidate
-    elif len(movement_employee_matches) == 1:
+    elif not movement_search_invalid and len(movement_employee_matches) == 1:
         movement_employee = movement_employee_matches[0]
     movement_employee_in_scope = bool(movement_employee and branch_ok(movement_employee.branch_id)) if movement_employee else False
 
-    if movement_employee:
-        movement_employee_moves = (
-            Movement.query.filter_by(employee_id=movement_employee.id, is_active=True)
-            .order_by(Movement.id.desc())
-            .all()
-        )
-        movement_employee_last = {
-            k: next((m for m in movement_employee_moves if m.movement_type == k), None)
-            for k in MOVEMENT_TYPES
-        }
+    # The homepage selection card is a search/registration affordance. It does
+    # not render the selected employee's history, so do not load unrelated
+    # movement rows here (especially for users without report permission).
     pending = []
     ending = []
     approved_count = 0
@@ -370,8 +382,10 @@ def home():
                     if x.id not in entry_employee_ids and x.id != a.employee_id
                 ]
                 branch_employee_ids = [e.id for bg in branch_groups for e in bg['employees']]
-                today_movement_count = (
-                    (
+                today_movement_count = 0
+                alert_count = 0
+                if branch_employee_ids and can('view_reports'):
+                    today_movement_count = (
                         Movement.query.filter(
                             Movement.employee_id.in_(branch_employee_ids),
                             Movement.is_active == True,
@@ -386,11 +400,7 @@ def home():
                         )
                         .count()
                     )
-                    if branch_employee_ids
-                    else 0
-                )
-                alert_count = (
-                    (
+                    alert_count = (
                         Movement.query.filter(
                             Movement.employee_id.in_(branch_employee_ids),
                             Movement.is_active == True,
@@ -399,9 +409,6 @@ def home():
                         )
                         .count()
                     )
-                    if branch_employee_ids
-                    else 0
-                )
                 entry_rows.append(
                     {
                         'assignment': a,
@@ -527,12 +534,12 @@ def home():
             available_entry_employees = []
             available_entry_branches = []
 
-    if bs:
-        # الحركات أصبحت معلومات تشغيلية مباشرة وليست دورة اعتماد.
+    if bs and can('view_reports'):
+        # الحركات معلومات تشغيلية لكنها تظل خاضعة لصلاحية التقارير ونطاق كل حركة.
         if has_role('مشرف محافظة', 'مسؤول التطبيق', 'المدخل الأول', 'Manager Application Support'):
             all_status_rows = current_employee_status_rows(bs, today)
-            # الصفحة الرئيسية تعرض الحركات الحالية فقط؛ الموظف المتواجد طبيعيًا لا
-            # يظهر في قائمة الحالات التشغيلية حتى لا يطغى على الحالات التي تحتاج متابعة.
+            # لا تعرض حالة حالية إذا لم يكن للمستخدم حق رؤية الحركة التي تحددها.
+            all_status_rows = [r for r in all_status_rows if can_view_movement(r['movement'])]
             current_status_rows = [
                 r for r in all_status_rows
                 if r['state'] in ('إجازة', 'انتداب', 'انتداب مفتوح', 'إذن')
@@ -639,6 +646,8 @@ def home():
         movement_employee_in_scope=movement_employee_in_scope,
         movement_employee_moves=movement_employee_moves,
         movement_employee_last=movement_employee_last,
+        movement_search_invalid=movement_search_invalid,
+        movement_search_error=movement_search_error,
         movement_employee_matches=movement_employee_matches,
         movement_governorate_id=movement_governorate_id,
         movement_branch_id=movement_branch_id,

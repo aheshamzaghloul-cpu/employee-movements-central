@@ -18,8 +18,10 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - name: Lint
         run: ruff check .
-      - name: Tests
-        run: pytest
+      - name: Runtime and integration tests
+        run: python -m pytest -q tests
+      - name: Contract and static regression tests
+        run: python -m pytest -q contract_tests
 
   docker:
     runs-on: ubuntu-latest

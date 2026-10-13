@@ -66,6 +66,8 @@ OPERATIONAL_SCOPE_ENDPOINTS = frozenset(
         # require selecting an operational work-governorate first. Their
         # route-level authorization still checks can_print_mission().
         'notifications.notifications',
+        'notifications.notifications_items',
+        'notifications.notifications_summary',
         # Direct operational actions must inherit the same selected-work-governorate
         # as their parent pages; a direct URL/POST must never bypass the scope gate.
         'employees.employee_edit_data',

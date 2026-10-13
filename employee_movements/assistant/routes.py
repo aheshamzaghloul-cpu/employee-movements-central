@@ -27,8 +27,9 @@ from .agent import run_agent
 from ..ratelimit import RateLimiter
 from .menu import capability_groups
 from .manager import plan as manager_plan, execute as manager_execute
-from .pending import take_pending_plan, store_pending_plan
+from .pending import store_pending_plan, take_single_pending_plan
 from .render import render_branch_entry, render_read, topic_options
+from .privacy import redact_secrets_for_storage
 
 bp = Blueprint('assistant', __name__)
 
@@ -87,11 +88,14 @@ def _save_chat_message(role, text, title=None):
     user = me()
     if not user or not text:
         return
+    # Chat history is persistent. Never store generated temporary passwords,
+    # API keys, bearer tokens, or credential-like values from either speaker.
+    safe_text = redact_secrets_for_storage(text)
     db.session.add(AssistantMessage(
         user_id=user.id,
         role=role,
-        text=str(text)[:MAX_HISTORY_TEXT_CHARS],
-        title=(title or None),
+        text=safe_text[:MAX_HISTORY_TEXT_CHARS],
+        title=(redact_secrets_for_storage(title)[:120] if title else None),
     ))
     db.session.flush()
 
@@ -135,19 +139,25 @@ def _is_cancellation(text):
 
 
 def _execute_pending_naturally(prompt):
-    """Allow natural-language confirmation/cancellation of the last pending action."""
+    """Consume a single pending assistant action, never a stale competing plan."""
     if _is_cancellation(prompt):
-        had = bool(session.pop('assistant_manager_pending', None) or session.pop('assistant_pending', None))
+        manager_pending = session.pop('assistant_manager_pending', None)
+        movement_pending = session.pop('assistant_pending', None)
+        had = manager_pending is not None or movement_pending is not None
         return ({'title': 'المساعد الذكي', 'answer': 'تم إلغاء العملية المعلقة.'} if had else None)
     if not _is_confirmation(prompt):
         return None
-    manager_pending = take_pending_plan('assistant_manager_pending')
-    if manager_pending:
-        ok, message = manager_execute(manager_pending)
+    pending_key, pending_plan, conflict = take_single_pending_plan()
+    if conflict:
+        return {
+            'title': 'تأكيد العملية',
+            'error': 'وجدت أكثر من عملية معلقة قديمة. لم يتم تنفيذ أي منها؛ أعد إعداد عملية واحدة ثم راجع تفاصيلها وأكّدها.',
+        }
+    if pending_key == 'assistant_manager_pending' and pending_plan:
+        ok, message = manager_execute(pending_plan)
         return {'title': 'تم التنفيذ' if ok else 'تعذر التنفيذ', 'answer': message}
-    movement_pending = take_pending_plan('assistant_pending')
-    if movement_pending:
-        ok, message = _execute_movement_plan(movement_pending)
+    if pending_key == 'assistant_pending' and pending_plan:
+        ok, message = _execute_movement_plan(pending_plan)
         return {'title': 'تم التنفيذ' if ok else 'تعذر التنفيذ', 'answer': message}
     return None
 
@@ -655,15 +665,16 @@ def assistant():
                     prior_chat,
                     workspace_context or session.get("assistant_workspace_context"),
                 )
-            except Exception:
-                # A failed assistant turn must not turn the whole POST into HTTP 500,
-                # and must never leave a partially prepared action available to confirm.
+            except Exception as exc:
+                # Exception text/tracebacks may include SQL parameters or sensitive values.
+                # Keep only the actor ID and exception class in the application log.
                 db.session.rollback()
                 session.pop('assistant_pending', None)
                 session.pop('assistant_manager_pending', None)
-                current_app.logger.exception(
-                    'Unhandled assistant turn failure for user_id=%s',
+                current_app.logger.error(
+                    'Unhandled assistant turn failure (user_id=%s, error=%s)',
                     me().id if me() else None,
+                    type(exc).__name__,
                 )
                 result = {
                     'title': 'تعذر إكمال الرد',
@@ -710,18 +721,16 @@ def assistant_confirm():
         session.pop('assistant_manager_pending', None)
         flash('تم إلغاء العملية ولم يُنفذ أي تغيير.')
         return redirect(back)
-    manager_pending = take_pending_plan('assistant_manager_pending')
-    if manager_pending:
-        ok, message = manager_execute(manager_pending)
-        if ok:
-            flash(message)
-        else:
-            flash(message)
+    pending_key, pending_plan, conflict = take_single_pending_plan()
+    if conflict:
+        flash('وجدت أكثر من عملية معلقة قديمة. لم يتم تنفيذ أي منها؛ أعد إعداد عملية واحدة ثم أكّدها.')
         return redirect(back)
-    a = take_pending_plan('assistant_pending')
-    if not a:
+    if not pending_plan:
         flash('لا توجد عملية معلقة للتأكيد.')
         return redirect(back)
-    ok, message = _execute_movement_plan(a)
+    if pending_key == 'assistant_manager_pending':
+        ok, message = manager_execute(pending_plan)
+    else:
+        ok, message = _execute_movement_plan(pending_plan)
     flash(message)
     return redirect(back)

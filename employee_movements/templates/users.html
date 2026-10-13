@@ -1,47 +1,73 @@
 {% extends 'base.html' %}{% block title %}المستخدمون والصلاحيات{% endblock %}{% block content %}
-<div class="ui-toolbar"><div><h1>{% if 'مسؤول التطبيق' in roles %}المستخدمون والصلاحيات{% else %}المدخلون الأوائل{% endif %}</h1><p class="ui-subtitle">إنشاء الحساب وتحديد الدور والنطاق والصلاحيات. جميع بيانات الحساب الأساسية إجبارية.</p></div></div>
-
-<div class="ui-module-card ui-card ui-mb-18" id="user-add">
-  <div class="ui-section-title">
-    <div><h3>إضافة مستخدم جديد</h3><span class="ui-hint">إنشاء حساب جديد وتحديد الدور والصلاحيات والنطاق من نفس الصفحة.</span></div>
+<div class="ui-page users-workspace">
+  <div class="ui-toolbar ui-page-head users-page-head">
+    <div><span class="ui-eyebrow">إدارة الهوية والوصول</span><h1>{% if 'مسؤول التطبيق' in roles %}المستخدمون والصلاحيات{% else %}المدخلون الأوائل{% endif %}</h1><p class="ui-subtitle">إدارة بيانات الحساب، أدوار تسجيل الدخول، نطاق المحافظات، والصلاحيات من مساحة واحدة.</p></div>
+    <a class="ui-btn ui-btn-primary" href="#user-add">إضافة مستخدم</a>
   </div>
-  <form method="post" id="user-create-form">
-    <input type="hidden" name="_csrf" value="{{csrf}}">
-    <div class="ui-grid wide">
-      <label>الاسم الكامل<input name="full_name" required></label>
-      <label>اسم المستخدم<input name="username" required autocomplete="username"></label>
-      <label>البريد الإلكتروني<input name="email" type="email" required autocomplete="email"></label>
-      <label>الوظيفة<input name="job_title" required></label>
-      <label>الكود الوظيفي<input name="job_code" required></label>
-      <label>كلمة المرور<input name="password" type="password" minlength="8" required autocomplete="new-password"></label>
-    </div>
-    <div class="ui-section-title ui-mt-14"><div><h3>أدوار تسجيل الدخول</h3><span class="ui-hint">يمكن للشخص الجمع بين أكثر من دور. «المدخل الأول» تكليف تنظيمي للموظف ولا يُنشئ حساب دخول.</span></div></div>
-    <div class="choice-list ui-choice-list compact ui-flex-wrap-8 ui-role-choice-grid">
-      {% for r in ['مسؤول التطبيق','مشرف محافظة','Manager Application Support'] %}
-      <label class="choice-item ui-choice-item ui-min-220 ui-role-choice"><input type="checkbox" name="roles" value="{{r}}" {% if r=='Manager Application Support' %}data-create-role-manager{% endif %}>{{r}}</label>
-      {% endfor %}
-    </div>
-    <div class="ui-hint ui-mt-8">إضافة المدخل الأول وتكليف فروع مسؤوليته يتم من الصفحة الرئيسية على سجل موظف موجود، دون إنشاء حساب دخول مستقل.</div>
-    <div class="ui-section-title ui-mt-14"><div><h3>الصلاحيات</h3><span class="ui-hint">تُضاف الصلاحيات الافتراضية للدور تلقائيًا، ويمكن لمسؤول التطبيق تعديلها.</span></div></div>
-    <div class="choice-list ui-choice-list compact ui-flex-wrap-8 ui-role-choice-grid">
-      {% for key,label in PERMISSIONS.items() %}{% if 'مسؤول التطبيق' in roles or key in ['manage_employees','manage_movements','view_reports'] %}<label class="choice-item ui-choice-item ui-min-240"><input type="checkbox" name="permissions" value="{{key}}">{{label}}</label>{% endif %}{% endfor %}
-    </div>
-    <button class="ui-mt-14">إضافة المستخدم</button>
-  </form>
-</div>
-<script>
-(function(){
-  const f=document.getElementById('user-create-form'); if(!f) return;
-  const roles=[...f.querySelectorAll('input[name="roles"]')];
-  const scope=f.querySelector('[data-create-scope="supervisor"]');
-  function update(){
-    const sup=roles.some(x=>x.checked&&x.value==='مشرف محافظة');
-    if(scope) scope.style.display=sup?'block':'none';
-  }
-  roles.forEach(x=>x.addEventListener('change',update)); update();
-})();
-</script>
-<section class="ui-people-control" id="people-control">
+
+  <section class="ui-module-card ui-card users-create-card" id="user-add" aria-labelledby="userCreateTitle">
+    <div class="ui-section-title users-section-head"><div><span class="ui-eyebrow">حساب جديد</span><h2 id="userCreateTitle">إضافة مستخدم جديد</h2><p class="ui-hint">الحقول الأساسية إلزامية، ويمكن للشخص الجمع بين أكثر من دور.</p></div></div>
+    <form method="post" id="user-create-form" class="users-create-form">
+      <input type="hidden" name="_csrf" value="{{csrf}}">
+      <section class="users-form-section" aria-labelledby="userIdentityTitle">
+        <div class="users-subsection-title"><h3 id="userIdentityTitle">بيانات الحساب</h3><span>01 · الهوية</span></div>
+        <div class="ui-grid wide users-identity-grid">
+          <label>الاسم الكامل<input name="full_name" required autocomplete="name"></label>
+          <label>اسم المستخدم<input name="username" required autocomplete="username"></label>
+          <label>البريد الإلكتروني<input name="email" type="email" required autocomplete="email"></label>
+          <label>الوظيفة<input name="job_title" required></label>
+          <label>الكود الوظيفي<input name="job_code" required></label>
+          <label>كلمة المرور<input name="password" type="password" minlength="8" required autocomplete="new-password"><small>8 أحرف على الأقل.</small></label>
+        </div>
+      </section>
+      <section class="users-form-section" aria-labelledby="userRolesTitle">
+        <div class="users-subsection-title"><h3 id="userRolesTitle">أدوار تسجيل الدخول</h3><span>02 · الدور</span></div>
+        <p class="users-section-help">الأدوار تحدد ما يمكن للحساب الوصول إليه. «المدخل الأول» تكليف تنظيمي على سجل موظف موجود ولا ينشئ حساب دخول منفصلًا.</p>
+        <div class="choice-list ui-choice-list compact ui-role-choice-grid users-choice-grid">
+          {% for r in ['مسؤول التطبيق','مشرف محافظة','Manager Application Support'] %}
+          <label class="choice-item ui-choice-item ui-role-choice users-choice-item"><input type="checkbox" name="roles" value="{{r}}" {% if r=='Manager Application Support' %}data-create-role-manager{% elif r=='مسؤول التطبيق' %}data-create-role-admin{% endif %}><span>{{r}}</span></label>
+          {% endfor %}
+        </div>
+        <p class="users-role-note" data-manager-scope-note hidden>يعمل Manager على مستوى المحافظات، ويحدد محافظة العمل من محدد المحافظة في أعلى التطبيق؛ هذا الدور لا يمنح صلاحيات إدارة الحسابات.</p>
+        <section class="users-scope-picker" data-create-scope="supervisor" hidden aria-labelledby="createSupervisorScopeTitle">
+          <div class="users-subsection-title"><h4 id="createSupervisorScopeTitle">نطاق المشرف</h4><span>اختر محافظة واحدة على الأقل</span></div>
+          <div class="choice-list ui-choice-list compact ui-role-choice-grid users-choice-grid">
+            {% for g in gs %}<label class="choice-item ui-choice-item users-choice-item"><input type="checkbox" name="governorate_id" value="{{g.id}}"><span>{{g.name}}</span></label>{% endfor %}
+          </div>
+        </section>
+      </section>
+      <p class="users-role-note" data-admin-permission-note hidden>دور مسؤول التطبيق يمنح الصلاحيات الإدارية الكاملة تلقائيًا؛ لا يلزم اختيار صلاحيات إضافية.</p>
+      <section class="users-form-section users-permission-picker" data-create-permission-picker aria-labelledby="createPermissionsTitle">
+        <div class="users-subsection-title"><h3 id="createPermissionsTitle">صلاحيات إضافية</h3><span>03 · الصلاحيات</span></div>
+        <p class="users-section-help">تُمنح صلاحيات الدور الأساسية تلقائيًا عند الإنشاء؛ الاختيارات التالية تضيف صلاحيات أخرى ولا تلغي الافتراضيات.</p>
+        <div class="choice-list ui-choice-list compact ui-role-choice-grid users-choice-grid">
+          {% for key,label in PERMISSIONS.items() %}{% if 'مسؤول التطبيق' in roles or key in ['manage_employees','manage_movements','view_reports'] %}<label class="choice-item ui-choice-item users-choice-item"><input type="checkbox" name="permissions" value="{{key}}"><span>{{label}}</span></label>{% endif %}{% endfor %}
+        </div>
+      </section>
+      <div class="users-create-footer"><span>راجع الدور ونطاق العمل قبل الحفظ. يمكن تعديل الحساب والصلاحيات لاحقًا.</span><button class="ui-btn ui-btn-primary" type="submit">إضافة المستخدم</button></div>
+    </form>
+  </section>
+  <script>
+  (function(){
+    const f=document.getElementById('user-create-form'); if(!f) return;
+    const roles=[...f.querySelectorAll('input[name="roles"]')];
+    const scope=f.querySelector('[data-create-scope="supervisor"]');
+    const managerNote=f.querySelector('[data-manager-scope-note]');
+    const adminNote=f.querySelector('[data-admin-permission-note]');
+    const permissionPicker=f.querySelector('[data-create-permission-picker]');
+    function update(){
+      const sup=roles.some(x=>x.checked&&x.value==='مشرف محافظة');
+      const manager=roles.some(x=>x.checked&&x.value==='Manager Application Support');
+      const admin=roles.some(x=>x.checked&&x.value==='مسؤول التطبيق');
+      if(scope) scope.hidden=!sup;
+      if(managerNote) managerNote.hidden=!manager||admin;
+      if(adminNote) adminNote.hidden=!admin;
+      if(permissionPicker) permissionPicker.hidden=admin;
+    }
+    roles.forEach(x=>x.addEventListener('change',update)); update();
+  })();
+  </script>
+<section class="ui-people-control users-people-section" id="people-control">
   <div class="ui-people-control-head">
     <div><span class="eyebrow">إدارة الشخص من مكان واحد</span><h2>مركز التحكم في الأدوار والنطاقات</h2><p>اختر أي شخص لمراجعة هويته، أدواره التقنية والتشغيلية، المحافظات، الفروع، الحسابات الموازية، وتكليف «المدخل الأول» قبل إجراء أي تعديل.</p></div>
     <div class="ui-people-control-legend"><span><i class="ui-dot ui-dot-tech"></i> دور تقني</span><span><i class="ui-dot ui-dot-op"></i> دور تشغيلي</span><span><i class="ui-dot ui-dot-entry"></i> تكليف مدخل أول</span></div>
@@ -65,9 +91,11 @@
   </div>
 </section>
 
-<div class="ui-card ui-table-wrap"><div class="ui-section-title"><h3>الحسابات الحالية</h3><small class="ui-hint">عند إضافة أكثر من دور لنفس الشخص يُنشأ لكل دور حساب وهمي داخلي بنفس اسم المستخدم وكلمة المرور، ويظهر الدور المختار من زر «الدور الحالي».</small><input class="ui-max-320" data-auto-search="#users-table" placeholder="ابحث بالاسم أو اسم المستخدم..."></div><table data-smart-table id="users-table"><thead><tr><th>المستخدم</th><th>البريد الإلكتروني</th><th>الوظيفة</th><th>الكود الوظيفي</th><th>الدور</th><th>النطاق</th><th>الصلاحيات</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>
+<section class="ui-card ui-table-wrap users-account-table" aria-labelledby="usersTableTitle"><div class="ui-section-title"><div><span class="ui-eyebrow">سجل الحسابات</span><h2 id="usersTableTitle">الحسابات الحالية</h2></div><small class="ui-hint">عند إضافة أكثر من دور لنفس الشخص يُنشأ لكل دور حساب وهمي داخلي بنفس اسم المستخدم وكلمة المرور، ويظهر الدور المختار من زر «الدور الحالي».</small><input class="ui-max-320" type="search" maxlength="120" autocomplete="off" data-auto-search="#users-table" placeholder="ابحث بالاسم أو اسم المستخدم..."></div><table data-smart-table id="users-table"><thead><tr><th>المستخدم</th><th>البريد الإلكتروني</th><th>الوظيفة</th><th>الكود الوظيفي</th><th>الدور</th><th>النطاق</th><th>الصلاحيات</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>
 {% for u in rows %}<tr><td><b>{{u.full_name}}</b><br><small>{{u.username}}</small></td><td>{{u.email or "—"}}</td><td>{{u.job_title}}</td><td>{{u.job_code}}</td><td>{% for r in user_roles(u) %}<span class="ui-tag">{{r}}</span>{% endfor %}{% set ras=role_accounts_by_user.get(u.id,[]) %}{% if ras|length > 1 %}<div class="ui-mt-6"><small class="ui-hint">الحسابات الوهمية للأدوار:</small>{% for ra in ras %}<div><span class="ui-tag" title="حساب دور وهمي — لا يملك سجل موظف مستقل">{{ra.role}} · {{ra.username}}</span></div>{% endfor %}</div>{% endif %}</td><td>{% if 'مشرف محافظة' in user_roles(u) %}{% for g in gs if g.id in user_gov_ids(u) %}<span class="ui-tag">{{g.name}}</span>{% endfor %}{% elif 'المدخل الأول' in user_roles(u) %}<span class="ui-hint">تكليف تنظيمي</span>{% elif 'Manager Application Support' in user_roles(u) %}<span class="ui-tag">جميع الفروع</span>{% else %}<span class="ui-hint">كامل النظام</span>{% endif %}</td><td>{% for p in user_permissions(u) %}<span class="ui-tag">{{PERMISSIONS.get(p,p)}}</span>{% endfor %}</td><td><span class="ui-tag">{{'نشط' if u.is_active else 'معطل'}}</span></td><td>
 {% if 'مسؤول التطبيق' in roles %}<a class="ui-btn ui-btn-secondary ui-btn-mini" href="/users/{{u.id}}/edit">تعديل</a>{% endif %}
 {% if 'مسؤول التطبيق' in roles and u.id!=me.id %}<form class="ui-inline" method="post" action="/users/{{u.id}}/toggle"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="ui-tone-gray ui-btn-mini">{{'تعطيل' if u.is_active else 'تفعيل'}}</button></form><form class="ui-inline" method="post" action="/users/{{u.id}}/delete"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="ui-btn-danger ui-btn-mini" data-confirm="هل تريد حذف الحساب؟">حذف</button></form>{% endif %}
 {% if can('manage_users') and (u.id!=me.id) and (u.is_active or 'مسؤول التطبيق' in roles) %}<form class="ui-inline" method="post" action="/users/{{u.id}}/reset"><input type="hidden" name="_csrf" value="{{csrf}}"><input name="password" type="password" minlength="8" placeholder="كلمة جديدة" required><button class="ui-btn-mini">إعادة تعيين</button></form>{% endif %}
-</td></tr>{% else %}<tr><td colspan="9" class="ui-empty">لا توجد حسابات.</td></tr>{% endfor %}</tbody></table></div>{% endblock %}
+</td></tr>{% else %}<tr><td colspan="9" class="ui-empty">لا توجد حسابات.</td></tr>{% endfor %}</tbody></table></section>
+</div>
+{% endblock %}

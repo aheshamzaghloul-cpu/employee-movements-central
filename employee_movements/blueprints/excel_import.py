@@ -139,7 +139,7 @@ EMP_IMPORT_HEADERS = {
         'governorate_name',
     ),
     'branch': ('الفرع', 'اسم الفرع', 'branch', 'branch name', 'branch_name'),
-    'branch_code': ('كود الفرع', 'كود الفرع/الفرع', 'كود الفرع للموظف', 'كود', 'branch code', 'branch_code'),
+    'branch_code': ('كود الفرع', 'كود الفرع/الفرع', 'كود الفرع للموظف', 'branch code', 'branch_code'),
     'name': (
         'اسم الموظف',
         'الموظف',
@@ -228,28 +228,33 @@ def _field_labels(kind):
 
 
 def _auto_map_headers(headers, spec):
-    """Return target field -> source column index. Exact/normalized aliases first, then fuzzy tokens."""
+    """Return target field -> source column index, preferring all exact aliases before fuzzy matches."""
     mapping = {}
     used = set()
     normalized = [_excel_key(h) for h in headers]
-    for (field, names) in spec.items():
-        aliases = [_excel_key(n) for n in names]
-        # exact alias match
-        for (i, h) in enumerate(normalized, 1):
-            if i in used or not h:
+    aliases_by_field = {field: [_excel_key(name) for name in names] for field, names in spec.items()}
+
+    # Resolve every exact alias first. Otherwise an early field's fuzzy match
+    # can steal a header (e.g. "Code") that exactly names a later field.
+    for field, aliases in aliases_by_field.items():
+        for i, header in enumerate(normalized, 1):
+            if i in used or not header:
                 continue
-            if h in aliases:
+            if header in aliases:
                 mapping[field] = i
                 used.add(i)
                 break
+
+    # Only then use relaxed matching for longer descriptive labels. Short
+    # generic headers such as "كود" need explicit user mapping to avoid guessing.
+    for field, aliases in aliases_by_field.items():
         if field in mapping:
             continue
-        # relaxed matching for common Arabic/English header variations
-        for (i, h) in enumerate(normalized, 1):
-            if i in used or not h:
+        for i, header in enumerate(normalized, 1):
+            if i in used or not header or len(header) < 4:
                 continue
-            for a in aliases:
-                if len(a) >= 4 and (a in h or h in a):
+            for alias in aliases:
+                if len(alias) >= 4 and (alias in header or header in alias):
                     mapping[field] = i
                     used.add(i)
                     break
@@ -298,15 +303,14 @@ def excel_import_template(kind):
     if kind == 'governorates':
         headers = ['اسم المحافظة']
         ws.append(headers)
-        ws.append(['مثال: سوهاج'])
     elif kind == 'branches':
         headers = ['المحافظة', 'اسم الفرع', 'كود الفرع']
         ws.append(headers)
-        ws.append(['مثال: سوهاج', 'مثال: أم دومه', '255'])
     else:
         headers = [
             'المحافظة',
             'الفرع',
+            'كود الفرع',
             'اسم الموظف',
             'البريد الإلكتروني',
             'الوظيفة',
@@ -316,19 +320,6 @@ def excel_import_template(kind):
             'الهاتف الشخصي',
         ]
         ws.append(headers)
-        ws.append(
-            [
-                'مثال: سوهاج',
-                'مثال: أم دومه',
-                'أحمد محمد',
-                'name@example.com',
-                'موظف',
-                '1001',
-                '2026-01-01',
-                '093xxxxxxx',
-                '01xxxxxxxxx',
-            ],
-        )
     for c in ws[1]:
         c.font = c.font.copy(bold=True)
     ws.freeze_panes = 'A2'
@@ -478,8 +469,8 @@ def excel_import_preview(kind):
             return redirect(url_for('excel_import.excel_import_page', kind=kind))
         session['excel_import_token'] = token
         return _render_mapping(kind, token, path)
-    except Exception:
-        logger.exception('Excel import preview failed (kind=%s)', kind)
+    except Exception as exc:
+        logger.error('Excel import preview failed (kind=%s, error=%s)', kind, type(exc).__name__)
         # If the upload was persisted but parsing/mapping failed, remove both
         # temporary artifacts so repeated invalid uploads cannot accumulate.
         _remove_pending_excel(token)
@@ -697,7 +688,18 @@ def excel_import_confirm(kind):
                 # or codes not found in the active authorized branch catalog.
                 g = govs.get(gov_key)
                 if not g:
+                    # If the sheet's governorate label is missing/outdated, permit
+                    # a name-only fallback only when that branch name is unique
+                    # across all active branches the administrator may import into.
+                    # Never guess when two governorates share a branch name.
+                    name_matches = branches_by_name.get(name_key, []) if name_key else []
+                    if len(name_matches) == 1:
+                        return name_matches[0], 'unique_name_without_governorate'
+                    if len(name_matches) > 1:
+                        return None, 'ambiguous_name'
                     return None, 'governorate_not_found'
+                # A known governorate is part of the user's intended target. If the
+                # branch is not inside it, reject rather than silently cross-linking.
                 named = branch_cache.get((_excel_key(g.name), name_key))
                 if named:
                     return named, 'name'
@@ -723,6 +725,10 @@ def excel_import_confirm(kind):
                     if branch_match_method == 'ambiguous_code':
                         errors.append(
                             f"صف {rno}: كود الفرع {vals.get('branch_code', '')} غير فريد؛ أضف اسم المحافظة الصحيح أو صحح كود الفرع."
+                        )
+                    elif branch_match_method == 'ambiguous_name':
+                        errors.append(
+                            f"صف {rno}: اسم الفرع «{vals.get('branch', '')}» موجود في أكثر من محافظة؛ أدخل المحافظة الصحيحة أو كود الفرع."
                         )
                     elif branch_match_method == 'governorate_not_found':
                         errors.append(
@@ -863,8 +869,8 @@ def excel_import_confirm(kind):
             errors=errors,
             fields=fields,
         )
-    except Exception:
-        logger.exception('Excel import confirmation failed (kind=%s)', kind)
+    except Exception as exc:
+        logger.error('Excel import confirmation failed (kind=%s, error=%s)', kind, type(exc).__name__)
         try:
             wb.close()
         except Exception:
@@ -1044,9 +1050,9 @@ def excel_import_apply(kind):
             skipped=skipped,
             errors=errors,
         )
-    except Exception:
+    except Exception as exc:
         db.session.rollback()
-        logger.exception('Excel import apply failed (kind=%s)', kind)
+        logger.error('Excel import apply failed (kind=%s, error=%s)', kind, type(exc).__name__)
         _remove_pending_excel(token)
         session.pop('excel_import_token', None)
         session.pop('excel_review_token', None)

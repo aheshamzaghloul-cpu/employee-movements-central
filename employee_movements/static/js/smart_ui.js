@@ -2,6 +2,7 @@
   'use strict';
   const qs=(s,r=document)=>r.querySelector(s), qsa=(s,r=document)=>[...r.querySelectorAll(s)];
   const esc=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const norm=window.normalizeEmployeeSearchText||((v)=>String(v||'').toLocaleLowerCase('ar').trim());
 
   const palette=qs('#commandPalette'), input=qs('#paletteInput'), results=qs('#paletteResults');
   const trigger=qs('#commandPaletteOpen'); let paletteItems=[], activeIndex=0, searchTimer=null, seq=0;
@@ -40,24 +41,35 @@
     paletteItems=items; activeIndex=Math.min(activeIndex,Math.max(items.length-1,0));
     if(!results)return;
     if(!items.length){results.innerHTML='<div class="interactive-empty">لا توجد نتيجة مطابقة.</div>';return;}
-    results.innerHTML=items.map((x,i)=>`<button type="button" class="interactive-result ${i===activeIndex?'is-active':''}" data-index="${i}"><span class="interactive-result-icon">${x.icon||'•'}</span><span class="interactive-result-copy"><strong>${esc(x.label)}</strong><small>${esc(x.hint||'')}</small></span><span class="interactive-result-arrow">↵</span></button>`).join('');
+    results.innerHTML=items.map((x,i)=>`<button type="button" role="option" aria-selected="${i===activeIndex?'true':'false'}" class="interactive-result ${i===activeIndex?'is-active':''}" data-index="${i}"><span class="interactive-result-icon" aria-hidden="true">${esc(x.icon||'•')}</span><span class="interactive-result-copy"><strong>${esc(x.label)}</strong><small>${esc(x.hint||'')}</small></span><span class="interactive-result-arrow" aria-hidden="true">↵</span></button>`).join('');
     qsa('.interactive-result',results).forEach(b=>b.addEventListener('mouseenter',()=>setActive(Number(b.dataset.index))));
     qsa('.interactive-result',results).forEach(b=>b.addEventListener('click',()=>choose(Number(b.dataset.index))));
   }
-  function setActive(i){if(!paletteItems.length)return;activeIndex=(i+paletteItems.length)%paletteItems.length;qsa('.interactive-result',results).forEach((b,n)=>b.classList.toggle('is-active',n===activeIndex));qsa('.interactive-result',results)[activeIndex]?.scrollIntoView({block:'nearest'});}
+  function setActive(i){if(!paletteItems.length)return;activeIndex=(i+paletteItems.length)%paletteItems.length;qsa('.interactive-result',results).forEach((b,n)=>{b.classList.toggle('is-active',n===activeIndex);b.setAttribute('aria-selected',String(n===activeIndex));});qsa('.interactive-result',results)[activeIndex]?.scrollIntoView({block:'nearest'});}
   function choose(i){const item=paletteItems[i];if(!item)return;if(item.href)location.href=item.href;}
-  function open(){if(!palette)return;palette.hidden=false;palette.setAttribute('aria-hidden','false');document.body.classList.add('interactive-palette-open');activeIndex=0;if(input){input.value='';input.placeholder='في '+(pageContext().label||'مساحة العمل')+'… اكتب أمرًا أو صفحة';input.focus();}render(contextualActions());}
-  function close(){if(!palette)return;palette.hidden=true;palette.setAttribute('aria-hidden','true');document.body.classList.remove('interactive-palette-open');trigger?.focus();}
+  function open(){if(!palette)return;palette.hidden=false;palette.setAttribute('aria-hidden','false');document.body.classList.add('interactive-palette-open');trigger?.setAttribute('aria-expanded','true');activeIndex=0;render(contextualActions());if(input){input.maxLength=120;input.value='';input.placeholder='في '+(pageContext().label||'مساحة العمل')+'… اكتب أمرًا أو صفحة';input.focus({preventScroll:true});}}
+  function close(){if(!palette)return;palette.hidden=true;palette.setAttribute('aria-hidden','true');document.body.classList.remove('interactive-palette-open');trigger?.setAttribute('aria-expanded','false');trigger?.focus({preventScroll:true});}
   function searchActions(q){
-    const needle=(q||'').toLowerCase();
-    const actions=contextualActions(); const filtered=actions.filter(x=>(x.label+' '+x.hint+' '+x.keywords).toLowerCase().includes(needle));
+    const needle=norm(q);
+    const actions=contextualActions(); const filtered=actions.filter(x=>norm(x.label+' '+x.hint+' '+x.keywords).includes(needle));
     render(filtered);
   }
   trigger?.addEventListener('click',open);
   qsa('[data-palette-close]').forEach(x=>x.addEventListener('click',close));
   input?.addEventListener('input',()=>searchActions(input.value.trim()));
   input?.addEventListener('keydown',e=>{if(e.key==='ArrowDown'){e.preventDefault();setActive(activeIndex+1);}else if(e.key==='ArrowUp'){e.preventDefault();setActive(activeIndex-1);}else if(e.key==='Enter'){e.preventDefault();choose(activeIndex);}else if(e.key==='Escape'){e.preventDefault();close();}});
-  document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();open();}else if(e.key==='Escape'&&!palette?.hidden)close();});
+  document.addEventListener('keydown',e=>{
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();open();return;}
+    if(palette?.hidden)return;
+    if(e.key==='Escape'){e.preventDefault();close();return;}
+    if(e.key==='Tab'){
+      const focusable=qsa('button:not([disabled]),input:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])',palette).filter(el=>el.getClientRects().length>0);
+      if(!focusable.length){e.preventDefault();return;}
+      const first=focusable[0],last=focusable[focusable.length-1];
+      if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+      else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+    }
+  });
 
   window.toast=function(message,type='info',duration=3200){const region=qs('#toastRegion');if(!region)return;const el=document.createElement('div');el.className='interactive-toast interactive-toast-'+type;el.textContent=message;region.appendChild(el);requestAnimationFrame(()=>el.classList.add('is-visible'));setTimeout(()=>{el.classList.remove('is-visible');setTimeout(()=>el.remove(),220)},duration);};
 
@@ -77,7 +89,7 @@
       if(e.key.length!==1)return;
       buffer+=(buffer? '':'')+e.key.toLowerCase(); clearTimeout(timer); timer=setTimeout(()=>buffer='',550);
       const options=[...select.options].filter(o=>!o.disabled&&o.value);
-      const hit=options.find(o=>(o.textContent||'').trim().toLowerCase().startsWith(buffer));
+      const hit=options.find(o=>norm((o.textContent||'').trim()).startsWith(norm(buffer)));
       if(hit){e.preventDefault();select.value=hit.value;select.dispatchEvent(new Event('change',{bubbles:true}));}
     });
   });

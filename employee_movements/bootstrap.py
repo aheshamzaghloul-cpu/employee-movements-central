@@ -9,7 +9,6 @@ it runs only once. Nothing here ever deletes business data.
 """
 
 import logging
-import secrets
 
 from sqlalchemy import inspect, text
 from werkzeug.security import generate_password_hash
@@ -18,7 +17,7 @@ from .access import actual_roles, user_branch_ids
 from .assignments import supervisor_for_governorate, sync_role_accounts
 from .config import ConfigError
 from .extensions import db
-from .models import Branch, Employee, Lookup, RoleAccount, SupervisorEntry, User, UserBranch, UserGovernorate, UserRole
+from .models import AssistantMessage, Branch, Employee, Lookup, RoleAccount, SupervisorEntry, User, UserBranch, UserGovernorate, UserRole
 from .validation import valid_email
 
 logger = logging.getLogger(__name__)
@@ -76,6 +75,52 @@ def _migration_done(key):
 
 def _mark_migration(key):
     db.session.add(Lookup(kind='system_migration', name=key, is_active=True))
+
+
+def _redact_historical_assistant_credentials():
+    """One-time cleanup of credentials persisted by older assistant releases.
+
+    Only assistant conversation text/title fields are touched. Business records,
+    audit records, users, and movement history are not modified.
+    """
+    migration_key = 'migration:assistant-chat-credential-redaction-v68.22.58'
+    if _migration_done(migration_key):
+        return
+
+    # Import locally to avoid coupling the base schema bootstrap to the assistant
+    # HTTP/agent modules. This helper is a pure text sanitizer.
+    from .assistant.privacy import redact_secrets_for_storage
+
+    last_id = 0
+    changed = 0
+    batch_size = 400
+    while True:
+        rows = (
+            AssistantMessage.query
+            .filter(AssistantMessage.id > last_id)
+            .order_by(AssistantMessage.id.asc())
+            .limit(batch_size)
+            .all()
+        )
+        if not rows:
+            break
+        for row in rows:
+            safe_text = redact_secrets_for_storage(row.text)
+            safe_title = redact_secrets_for_storage(row.title) if row.title else row.title
+            if safe_text != row.text:
+                row.text = safe_text
+                changed += 1
+            if safe_title != row.title:
+                row.title = safe_title[:120] if safe_title else safe_title
+                changed += 1
+        last_id = rows[-1].id
+        # Commit bounded batches so a large historical chat table does not hold
+        # the entire migration in memory or one very long transaction.
+        db.session.commit()
+
+    _mark_migration(migration_key)
+    db.session.commit()
+    logger.info('Redacted sensitive credential text in %s historical assistant chat fields.', changed)
 
 
 def _ensure_role(user, role):
@@ -183,10 +228,12 @@ def ensure_admin_account(app):
     if admin is None:
         password = app.config['ADMIN_PASSWORD']
         if not password:
-            if app.config['APP_ENV'] == 'production':
-                raise ConfigError('ADMIN_PASSWORD مطلوب لإنشاء حساب مسؤول التطبيق عند أول تشغيل.')
-            password = secrets.token_urlsafe(12)
-            logger.warning('تم إنشاء المسؤول %r بكلمة مرور مؤقتة: %s', username, password)
+            # Never generate a bootstrap credential that would need to be printed
+            # to logs or recovered from the hosting provider's log viewer.
+            raise ConfigError(
+                'ADMIN_PASSWORD مطلوب لإنشاء حساب مسؤول التطبيق لأول مرة. '
+                'اضبطه في متغيرات البيئة ثم أعد تشغيل التطبيق.'
+            )
         admin = User(
             username=username,
             full_name=ADMIN_ROLE,
@@ -254,3 +301,4 @@ def init_database(app):
     admin = ensure_admin_account(app)
     apply_admin_role_migrations(admin)
     db.session.commit()
+    _redact_historical_assistant_credentials()

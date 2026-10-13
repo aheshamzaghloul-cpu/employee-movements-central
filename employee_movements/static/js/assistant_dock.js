@@ -4,6 +4,7 @@
     const dock=document.getElementById('assistantDock');
     if(!dock) return;
     const toggle=document.getElementById('assistantDockToggle');
+    const closeButton=document.getElementById('assistantDockClose');
     const panel=document.getElementById('assistantDockPanel');
     const thread=document.getElementById('assistantDockThread');
     const form=document.getElementById('assistantDockForm');
@@ -44,6 +45,7 @@
       sync();
       if(open && !thread.dataset.loaded){ load(); }
       if(open) setTimeout(()=>input?.focus(),70);
+      else toggle?.focus({preventScroll:true});
     }
     async function load(){
       if(!thread||thread.dataset.loading) return;
@@ -87,6 +89,7 @@
     });
     window.__toggleAssistantDock=()=>setOpen(dock.dataset.open!=='1');
     toggle?.addEventListener('click',()=>setOpen(dock.dataset.open!=='1'));
+    closeButton?.addEventListener('click',()=>setOpen(false));
     document.getElementById('assistantInlineOpen')?.addEventListener('click',()=>{setOpen(true); input?.focus();});
     window.__focusAssistant=()=>{setOpen(true); input?.focus();};
     sync();

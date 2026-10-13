@@ -7,7 +7,12 @@
 <meta name="robots" content="noindex,nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{{url_for('static',filename='css/app.css')+'?v=68.22.45'}}">
+<link rel="stylesheet" href="{{url_for('static',filename='css/app.css')+'?v=68.26.0'}}">
+{% if request.path == '/' %}<link rel="stylesheet" href="{{url_for('static',filename='css/pages/home.css')+'?v=68.26.0'}}">{% elif request.path == '/employees' %}<link rel="stylesheet" href="{{url_for('static',filename='css/pages/employee-directory.css')+'?v=68.26.0'}}">{% endif %}
+{% if request.path.startswith('/movements') or request.path.startswith('/reports/assignments/mission-edit') or request.path.startswith('/reports/assignments/edit-requests') %}<link rel="stylesheet" href="{{url_for('static',filename='css/pages/movement-forms.css')+'?v=68.26.0'}}">{% endif %}
+{% if request.path.startswith('/structure') or request.path.startswith('/users') or request.path.startswith('/delegations') %}<link rel="stylesheet" href="{{url_for('static',filename='css/pages/management.css')+'?v=68.26.0'}}">{% endif %}
+{% if request.path.startswith('/branches') or request.path.startswith('/governorates') or request.path.startswith('/lookups') or request.path.startswith('/excel-import') or request.path.startswith('/reports') or request.path.startswith('/reports-missions') or request.path.startswith('/manager') or request.path.startswith('/audit') or request.path.startswith('/notifications') or request.path.startswith('/change-password') or request.path.startswith('/replacement') or request.path.startswith('/employee/') or request.path.startswith('/employees/') %}{% if not request.path.startswith('/reports/assignments/mission-edit') and not request.path.startswith('/reports/assignments/edit-requests') %}<link rel="stylesheet" href="{{url_for('static',filename='css/pages/workspace-pages.css')+'?v=68.26.0'}}">{% endif %}{% endif %}
+<script src="{{url_for('static',filename='js/search_utils.js')+'?v=68.26.0'}}"></script>
 </head>
 <body data-active-role="{{active_role or ''}}" data-workspace-path="{{request.path}}" class="{% if request.args.get('embed')=='1' %}assistant-embed-body{% endif %}">
 <a class="skip-link" href="#main">تخطي إلى المحتوى</a>
@@ -16,11 +21,12 @@
 {% set is_reports_area = request.path.startswith('/reports') or request.path.startswith('/mission') %}
 {% set is_admin_area = request.path.startswith('/structure') or request.path.startswith('/users') or request.path.startswith('/governorates') or request.path.startswith('/branches') or request.path.startswith('/audit') or request.path.startswith('/lookups') or request.path.startswith('/excel-import') or request.path.startswith('/replacement') %}
 {% set is_account_area = request.path.startswith('/change-password') %}
-<aside class="ui-sidebar premium-sidebar" id="appSidebar">
+<button class="ui-sidebar-backdrop" id="sidebarBackdrop" type="button" aria-label="إغلاق القائمة الجانبية" tabindex="-1" hidden></button>
+<aside class="ui-sidebar premium-sidebar" id="appSidebar" aria-label="القائمة الرئيسية">
   <div class="ui-brand premium-brand">
     <div class="ui-brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 4h12v4H9v4h7v4H9v4H6V4Z"/></svg></div>
     <div class="ui-brand-copy"><strong>حركات الموظفين</strong><span>المركزية</span></div>
-    <button class="ui-collapse" id="sidebarCollapse" type="button" aria-label="تصغير القائمة"><svg viewBox="0 0 24 24"><path d="m14 7-5 5 5 5"/></svg></button>
+    <button class="ui-collapse" id="sidebarCollapse" type="button" aria-label="تصغير القائمة" title="تصغير القائمة" aria-controls="appSidebar" aria-expanded="true"><svg viewBox="0 0 24 24"><path d="m14 7-5 5 5 5"/></svg></button>
   </div>
   <div class="premium-side-user"><div class="ui-avatar">{{(me.full_name or 'م')[:1]}}</div><div><b>{{me.full_name}}</b><small>{% if active_role %}{{active_role}}{% elif roles %}{{roles|join(' · ')}}{% endif %}</small></div></div>
   <div class="premium-nav-label">مساحة العمل</div>
@@ -40,9 +46,11 @@
   <div class="ui-version">الإصدار {{app_version}}</div>
 </aside>
 <header class="ui-topbar premium-topbar">
-  <div class="premium-breadcrumb"><button class="ui-mobile-menu" id="sidebarToggle" type="button" aria-label="القائمة"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><span>نظام إدارة حركات الموظفين</span><b>/</b><strong>{% if request.path=='/' %}الرئيسية{% elif request.path.startswith('/employees') %}الموظفون{% elif request.path.startswith('/movements') %}التشغيل والحركات{% elif is_reports_area %}التقارير والمأموريات{% elif request.path.startswith('/delegations') %}التفويض{% elif request.path.startswith('/manager') %}المدير{% elif is_admin_area %}الإدارة{% elif is_account_area %}حسابي{% elif request.path.startswith('/notifications') %}مركز المتابعة{% else %}مساحة العمل{% endif %}</strong></div>
+  <button class="ui-mobile-menu premium-mobile-menu" id="sidebarToggle" type="button" aria-label="فتح القائمة" title="فتح القائمة" aria-controls="appSidebar" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  {% include 'assistant_dock.html' %}
+  <div class="premium-breadcrumb"><span>نظام إدارة حركات الموظفين</span><b>/</b><strong>{% if request.path=='/' %}الرئيسية{% elif request.path.startswith('/employees') %}الموظفون{% elif request.path.startswith('/movements') %}التشغيل والحركات{% elif is_reports_area %}التقارير والمأموريات{% elif request.path.startswith('/delegations') %}التفويض{% elif request.path.startswith('/manager') %}المدير{% elif is_admin_area %}الإدارة{% elif is_account_area %}حسابي{% elif request.path.startswith('/notifications') %}مركز المتابعة{% else %}مساحة العمل{% endif %}</strong></div>
   <div class="ui-top-actions premium-top-actions">
-    <button class="interactive-command-trigger" id="commandPaletteOpen" type="button" aria-label="فتح البحث والأوامر" aria-haspopup="dialog"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg><span>أوامر سريعة</span><kbd>Ctrl K</kbd></button>
+    <button class="interactive-command-trigger" id="commandPaletteOpen" type="button" aria-label="فتح التنقل والأوامر السريعة" title="التنقل السريع إلى الصفحات والإجراءات — Ctrl+K" aria-haspopup="dialog" aria-expanded="false" aria-keyshortcuts="Control+K Meta+K"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg><span>تنقل سريع</span><kbd>Ctrl K</kbd></button>
     {% if me %}<div class="interactive-notification-wrap"><button class="interactive-notification-trigger" id="notificationTrigger" type="button" aria-label="مركز المتابعة" title="مركز المتابعة" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span class="interactive-notification-badge" id="notificationBadge" hidden>0</span></button><section class="interactive-notification-popover" id="notificationPopover" hidden role="dialog" aria-label="مركز المتابعة"><div class="interactive-notification-pop-head"><div><span>المتابعة التشغيلية</span><strong>ما يحتاج انتباهك</strong></div><button type="button" id="notificationRefresh" aria-label="تحديث">↻</button></div><div class="interactive-notification-pop-tabs" role="tablist"><button type="button" class="active" data-notification-filter="all">الكل</button><button type="button" data-notification-filter="urgent">عاجل</button><button type="button" data-notification-filter="warning">قريب</button><button type="button" data-notification-filter="info">مفتوح</button></div><div class="interactive-notification-pop-list" id="notificationPopList"></div><div class="interactive-notification-pop-foot"><a href="/notifications">فتح مركز المتابعة الكامل</a></div></section></div>{% endif %}
     {% if scope_required %}<form method="get" action="{{request.path}}" class="ui-scope-form premium-scope-form"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg><select name="governorate_id" aria-label="المحافظة" onchange="this.form.submit()"><option value="">{% if scope_selected %}{{scope_governorate.name}}{% else %}اختر المحافظة{% endif %}</option>{% for g in scope_governorates %}{% if not scope_selected or g.id!=scope_selected %}<option value="{{g.id}}">{{g.name}}</option>{% endif %}{% endfor %}</select></form>{% elif scope_selected and scope_governorate %}<div class="ui-scope-chip">محافظة العمل: {{scope_governorate.name}}</div>{% elif 'مشرف محافظة' in roles %}<div class="ui-scope-chip ui-scope-info">{{scope_governorates|length}} محافظات ضمن الصلاحية</div>{% endif %}
     {% if login_real_roles|length > 1 %}<form method="post" action="/switch-role" class="ui-role-switch prominent-role-switch"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="next" value="{{request.path}}"><span>الدور</span><select name="active_role" aria-label="تغيير الدور" onchange="this.form.submit()">{% for r in ['مسؤول التطبيق','مشرف محافظة','Manager Application Support'] if r in real_roles %}<option value="{{r}}" {% if active_role==r or (not active_role and loop.first) %}selected{% endif %}>{{r}}</option>{% endfor %}</select></form>{% endif %}
@@ -50,10 +58,22 @@
 </header>
 {% endif %}
 <main id="main" class="ui-main premium-main{% if me and request.args.get('embed')!='1' %} with-shell{% endif %}{% if not me %} auth-main{% endif %}{% if request.args.get('embed')=='1' %} assistant-embed-main{% endif %}">
-{% if not me %}<div class="login">{% endif %}
+{% if not me %}<div class="auth-content">{% endif %}
 {% for x in get_flashed_messages() %}<div class="enterprise-alert" role="status">{{x}}</div>{% endfor %}
 {% if me and request.args.get('embed')!='1' %}{% include 'workspace_actions.html' %}{% endif %}
-{% if me and request.args.get('embed')!='1' and request.path!='/' %}
+{% set page_has_local_heading = (
+  request.path.startswith('/audit') or request.path.startswith('/branches') or
+  request.path.startswith('/change-password') or request.path.startswith('/delegations') or
+  request.path.startswith('/employee/') or request.path.startswith('/employee-type-report') or
+  request.path.startswith('/employees') or request.path.startswith('/error') or
+  request.path.startswith('/excel-import') or request.path.startswith('/governorates') or
+  request.path.startswith('/lookups') or request.path.startswith('/manager') or
+  request.path.startswith('/mission') or request.path.startswith('/movements') or
+  request.path.startswith('/notifications') or request.path.startswith('/reports') or
+  request.path.startswith('/replacement') or request.path.startswith('/structure') or
+  request.path.startswith('/users')
+) %}
+{% if me and request.args.get('embed')!='1' and request.path!='/' and not page_has_local_heading %}
 <section class="premium-page-intro" aria-label="عنوان الصفحة">
   <div><span class="premium-eyebrow">مساحة العمل</span><h1>{% if request.path.startswith('/employees') %}الموظفون{% elif request.path.startswith('/movements') %}التشغيل والحركات{% elif request.path.startswith('/reports') or request.path.startswith('/mission') %}التقارير والمأموريات{% elif request.path.startswith('/delegations') %}التفويض وإدارة الغياب{% elif request.path.startswith('/manager') %}مركز متابعة طلبات التعديل وتقارير المحافظات{% elif request.path.startswith('/structure') %}مركز إدارة النظام{% elif request.path.startswith('/users') %}المستخدمون والصلاحيات{% else %}مساحة العمل{% endif %}</h1><p>{% if request.path.startswith('/employees') %}إدارة بيانات الموظفين والوصول السريع إلى ملفاتهم وحالاتهم.{% elif request.path.startswith('/movements') %}تسجيل ومتابعة الحركات الحالية وسجل الموظفين.{% elif request.path.startswith('/reports') or request.path.startswith('/mission') %}تحويل بيانات الحركات إلى تقارير ومأموريات قابلة للمراجعة والطباعة.{% elif request.path.startswith('/delegations') %}إدارة التفويضات المؤقتة بين المشرفين ومتابعة السريان.{% elif request.path.startswith('/structure') %}إدارة الهيكل والصلاحيات والبيانات المرجعية من مركز واحد.{% else %}أدوات تشغيلية منظمة ضمن مساحة واحدة.{% endif %}</p></div>
   <div class="premium-page-context">{% if scope_selected and scope_governorate %}<span>محافظة العمل</span><b>{{scope_governorate.name}}</b>{% elif 'مسؤول التطبيق' in roles %}<span>صلاحية النظام</span><b>وصول إداري</b>{% endif %}</div>
@@ -63,7 +83,6 @@
 {% if not me %}</div>{% endif %}
 </main></div>
 {% if me and request.args.get('embed')!='1' %}
-{% include 'assistant_dock.html' %}
 <div class="interactive-palette" id="commandPalette" hidden aria-hidden="true">
   <div class="interactive-palette-backdrop" data-palette-close></div>
   <section class="interactive-palette-dialog" role="dialog" aria-modal="true" aria-labelledby="paletteTitle">
@@ -75,10 +94,10 @@
 </div>
 <div class="interactive-toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
 {% endif %}
-<script src="{{url_for('static',filename='js/app.js')}}"></script>
-<script src="{{url_for('static',filename='js/shell.js')}}"></script>
-<script src="{{url_for('static',filename='js/workspace.js')}}"></script>
-<script src="{{url_for('static',filename='js/assistant_dock.js')}}"></script>
-<script src="{{url_for('static',filename='js/smart_ui.js')}}"></script>
-<script src="{{url_for('static',filename='js/notifications.js')}}"></script>
+<script src="{{url_for('static',filename='js/app.js')+'?v=68.26.0'}}"></script>
+<script src="{{url_for('static',filename='js/shell.js')+'?v=68.26.0'}}"></script>
+<script src="{{url_for('static',filename='js/workspace.js')+'?v=68.26.0'}}"></script>
+<script src="{{url_for('static',filename='js/assistant_dock.js')+'?v=68.26.0'}}"></script>
+<script src="{{url_for('static',filename='js/smart_ui.js')+'?v=68.26.0'}}"></script>
+<script src="{{url_for('static',filename='js/notifications.js')+'?v=68.26.0'}}"></script>
 </body></html>

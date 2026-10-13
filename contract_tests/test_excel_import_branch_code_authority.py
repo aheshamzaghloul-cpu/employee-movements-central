@@ -21,3 +21,12 @@ def test_duplicate_branch_codes_are_disambiguated_or_rejected_not_guessed():
     assert "if len(code_matches) > 1:" in source
     assert "return None, 'ambiguous_code'" in source
     assert "كود الفرع" in source and "غير فريد" in source
+
+
+def test_generic_code_alias_cannot_be_guessed_as_branch_code():
+    source = (Path(__file__).resolve().parents[1] / "employee_movements" / "blueprints" / "excel_import.py").read_text(encoding="utf-8")
+    branch_code_aliases = source.split("'branch_code': (", 1)[1].split("),", 1)[0]
+    assert "'code'" not in branch_code_aliases
+    assert "'كود'" not in branch_code_aliases
+    assert "len(header) < 4" in source
+    assert "Resolve every exact alias first" in source

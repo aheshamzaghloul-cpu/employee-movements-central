@@ -44,31 +44,31 @@
       <div class="movement-step movement-details-step" id="movementDetailsStep" hidden>
         <div class="movement-selected-employee" id="movementSelectedEmployee"></div>
         <div class="movement-step-head"><span class="movement-step-number">4</span><div><b>بيانات الحركة</b><small>اختر نوع الحركة ثم أدخل البيانات المطلوبة.</small></div></div>
-        <div class="movement-smart-warning" id="movementCurrentWarning" hidden></div>
+        <div class="movement-smart-warning" id="movementCurrentWarning" role="status" aria-live="polite" hidden></div>
         <div class="ui-form-row movement-create-top">
-          <label>نوع الحركة<select id="movementCreateType" name="movement_type" required>{% for t in movement_types %}<option value="{{t}}">{{t}}</option>{% endfor %}</select></label>
+          <label for="movementCreateType">نوع الحركة<select id="movementCreateType" name="movement_type" required>{% for t in movement_types %}<option value="{{t}}">{{t}}</option>{% endfor %}</select></label>
         </div>
 
         <div class="movement-type-panel" id="movementLeavePanel">
-          <label>نوع الإجازة<select name="leave_type" id="movementLeaveType"><option value="">اختر النوع</option>{% for lt in movement_leave_types %}<option value="{{lt}}">{{lt}}</option>{% endfor %}</select></label>
-          <label>من<input type="date" name="leave_from_date"></label>
-          <label>إلى<input type="date" name="leave_to_date"></label>
+          <label for="movementLeaveType">نوع الإجازة<select name="leave_type" id="movementLeaveType"><option value="">اختر النوع</option>{% for lt in movement_leave_types %}<option value="{{lt}}">{{lt}}</option>{% endfor %}</select></label>
+          <label for="leaveFromDate">من تاريخ البداية<input type="date" name="leave_from_date" id="leaveFromDate" autocomplete="off"></label>
+          <label for="leaveToDate">إلى تاريخ النهاية<input type="date" name="leave_to_date" id="leaveToDate" autocomplete="off"></label>
         </div>
 
         <div class="movement-type-panel" id="movementAssignmentPanel" hidden>
-          <label>محافظة جهة المأمورية<select id="movementDestinationGovernorate"><option value="">اختر المحافظة</option>{% for g in destination_governorates %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
-          <label>الجهة المنتدب إليها<select name="destination_branch_id" id="movementDestinationBranch" disabled><option value="">اختر المحافظة أولًا</option></select></label>
-          <label>من<input type="date" name="assignment_from_date"></label>
-          <label>إلى<input type="date" name="assignment_to_date" id="assignmentToDate"></label>
-          <label class="ui-check"><input type="checkbox" name="open_assignment" value="1" id="openAssignment"> انتداب مفتوح بلا تاريخ نهاية</label>
+          <label for="movementDestinationGovernorate">محافظة جهة المأمورية<select id="movementDestinationGovernorate"><option value="">اختر المحافظة</option>{% for g in destination_governorates %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
+          <label for="movementDestinationBranch">الجهة المنتدب إليها<select name="destination_branch_id" id="movementDestinationBranch" disabled><option value="">اختر المحافظة أولًا</option></select></label>
+          <label for="assignmentFromDate">من تاريخ البداية<input type="date" name="assignment_from_date" id="assignmentFromDate" autocomplete="off"></label>
+          <label for="assignmentToDate" id="assignmentToDateField">إلى تاريخ النهاية<input type="date" name="assignment_to_date" id="assignmentToDate" autocomplete="off"></label>
+          <label class="ui-check movement-open-assignment" for="openAssignment"><input type="checkbox" name="open_assignment" value="1" id="openAssignment"> <span><b>انتداب مفتوح</b><small>دون تاريخ نهاية، ويمكن إغلاقه لاحقًا.</small></span></label>
         </div>
 
         <div class="movement-type-panel" id="movementPermissionPanel" hidden>
-          <label>تاريخ الإذن<input type="date" name="permission_date"></label>
+          <label for="permissionDate">تاريخ الإذن<input type="date" name="permission_date" id="permissionDate" autocomplete="off"></label>
         </div>
 
-        <div class="movement-review" id="movementReview" hidden><span>مراجعة سريعة</span><b id="movementReviewText"></b></div>
-        <div class="movement-preflight" id="movementPreflight" hidden aria-live="polite"><span class="movement-preflight-dot"></span><div><b id="movementPreflightMessage"></b><small id="movementPreflightSuggestion"></small></div></div>
+        <div class="movement-review" id="movementReview" hidden aria-live="polite"><span>مراجعة سريعة</span><b id="movementReviewText"></b></div>
+        <div class="movement-preflight" id="movementPreflight" role="status" hidden aria-live="polite"><span class="movement-preflight-dot"></span><div><b id="movementPreflightMessage"></b><small id="movementPreflightSuggestion"></small></div></div>
         <div class="ui-form-actions"><button class="ui-primary-btn" type="submit" id="movementSubmit" disabled>تسجيل الحركة الآن</button><span>سيتم التحقق من التعارض والصلاحيات مرة أخرى قبل الحفظ.</span></div>
       </div>
     </form>
@@ -81,9 +81,10 @@
       <label>المحافظة<select id="movementGovernorateFilter"><option value="">كل المحافظات</option>{% for g in movement_filter_governorates %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
       <label>الفرع<select id="movementBranchFilter" disabled><option value="">اختر المحافظة أولًا</option></select></label>
       <label>الموظف<select id="movementEmployeeFilter" disabled><option value="">اختر الفرع أولًا</option></select></label>
-      <label>الاسم / الكود<input id="movementRecordsSearch" type="search" placeholder="اكتب اسم الموظف أو الكود"></label>
+      <label>الاسم / الكود<input id="movementRecordsSearch" type="search" maxlength="120" autocomplete="off" placeholder="اكتب اسم الموظف أو الكود"></label>
       <label>نوع الحركة<select id="movementRecordsType"><option value="">كل الحركات</option>{% for t in movement_types %}<option value="{{t}}">{{t}}</option>{% endfor %}</select></label>
     </div>
+    <div id="movementFilterResultCount" class="ui-hint" aria-live="polite">تظهر النتائج من السجلات المحمّلة في الصفحة، ويمكن تضييقها بالمحافظة والفرع والموظف والنوع أو الاسم والكود.</div>
   </section>
 
   <div class="ui-section-grid">
@@ -91,7 +92,7 @@
       <div class="ui-card-head compact"><div><span class="ui-eyebrow">تشغيل الآن</span><h2>الحركات السارية</h2><p>كل ما يؤثر على حالة الموظف اليوم.</p></div><b class="ui-counter">{{ current_rows|length }}</b></div>
       <div class="ui-list" id="movementCurrentList">
       {% for m in current_rows %}
-        <article class="ui-movement-item" data-movement-filter-row data-employee-id="{{m.employee.id}}" data-branch-id="{{m.employee.branch_id}}" data-governorate-id="{{m.employee.branch.governorate_id if m.employee.branch else ''}}" data-name="{{m.employee.full_name|lower}}" data-code="{{(m.employee.job_code or '')|lower}}" data-type="{{m.movement_type}}">
+        <article class="ui-movement-item" data-movement-filter-row data-movement-id="{{m.id}}" data-employee-id="{{m.employee.id}}" data-branch-id="{{m.employee.branch_id}}" data-governorate-id="{{m.employee.branch.governorate_id if m.employee.branch else ''}}" data-name="{{m.employee.full_name|lower}}" data-code="{{(m.employee.job_code or '')|lower}}" data-type="{{m.movement_type}}">
           <div class="ui-movement-main"><a href="/employee/{{m.employee.id}}"><strong>{{m.employee.full_name}}</strong></a><small>{{m.employee.job_code or 'بدون كود'}} · {{m.employee.branch.name if m.employee.branch else '—'}}</small></div>
           <span class="ui-status-chip {{'leave' if m.movement_type=='إجازة' else 'assignment' if m.movement_type=='انتداب' else 'permission'}}">{{m.movement_type}}</span>
           <div class="ui-movement-detail">
@@ -109,7 +110,7 @@
       <div class="ui-card-head compact"><div><span class="ui-eyebrow">تنبيه</span><h2>تحتاج متابعة</h2><p>الحركات التي اقتربت من نهايتها.</p></div><b class="ui-counter warm">{{ followup_rows|length }}</b></div>
       <div class="ui-list" id="movementFollowupList">
       {% for m in followup_rows %}
-        <article class="ui-movement-item" data-movement-filter-row data-employee-id="{{m.employee.id}}" data-branch-id="{{m.employee.branch_id}}" data-governorate-id="{{m.employee.branch.governorate_id if m.employee.branch else ''}}" data-name="{{m.employee.full_name|lower}}" data-code="{{(m.employee.job_code or '')|lower}}" data-type="{{m.movement_type}}">
+        <article class="ui-movement-item" data-movement-filter-row data-movement-id="{{m.id}}" data-employee-id="{{m.employee.id}}" data-branch-id="{{m.employee.branch_id}}" data-governorate-id="{{m.employee.branch.governorate_id if m.employee.branch else ''}}" data-name="{{m.employee.full_name|lower}}" data-code="{{(m.employee.job_code or '')|lower}}" data-type="{{m.movement_type}}">
           <div class="ui-movement-main"><a href="/employee/{{m.employee.id}}"><strong>{{m.employee.full_name}}</strong></a><small>{{m.employee.branch.name if m.employee.branch else '—'}}</small></div>
           <span class="ui-status-chip assignment">{{m.movement_type}}</span>
           <div class="ui-movement-detail">ينتهي في <b>{{m.to_date}}</b>{% if m.movement_type=='انتداب' and m.destination %} · إلى {{m.destination.name}}{% endif %}</div>
@@ -124,7 +125,7 @@
     <div class="ui-card-head compact"><div><span class="ui-eyebrow">السجل</span><h2>سجل الحركات الكامل</h2><p>عرض مختصر، مع فتح التفاصيل والتاريخ عند الحاجة.</p></div><b class="ui-counter">{{ rows|length }}</b></div>
     <div class="ui-table-wrap"><table data-smart-table class="ui-table"><thead><tr><th>الموظف</th><th>الحركة</th><th>من</th><th>إلى / التاريخ</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>
     {% for m in rows %}
-      <tr data-movement-filter-row data-employee-id="{{m.employee.id}}" data-branch-id="{{m.employee.branch_id}}" data-governorate-id="{{m.employee.branch.governorate_id if m.employee.branch else ''}}" data-name="{{m.employee.full_name|lower}}" data-code="{{(m.employee.job_code or '')|lower}}" data-type="{{m.movement_type}}">
+      <tr data-movement-filter-row data-movement-id="{{m.id}}" data-employee-id="{{m.employee.id}}" data-branch-id="{{m.employee.branch_id}}" data-governorate-id="{{m.employee.branch.governorate_id if m.employee.branch else ''}}" data-name="{{m.employee.full_name|lower}}" data-code="{{(m.employee.job_code or '')|lower}}" data-type="{{m.movement_type}}">
         <td><a href="/employee/{{m.employee.id}}"><b>{{m.employee.full_name}}</b></a><small>{{m.employee.job_code or '—'}} · {{m.employee.branch.name if m.employee.branch else '—'}}</small></td>
         <td><span class="ui-status-chip {{'leave' if m.movement_type=='إجازة' else 'assignment' if m.movement_type=='انتداب' else 'permission'}}">{{m.movement_type}}</span></td>
         <td>{{m.from_date or '—'}}</td>
@@ -145,7 +146,37 @@
   function syncType(){ const v=type?.value; if(!leave)return; leave.hidden=v!=='إجازة'; assign.hidden=v!=='انتداب'; perm.hidden=v!=='إذن'; }
   type?.addEventListener('change',()=>{ if(gov?.value) loadCreateBranches(); });
   type?.addEventListener('change',syncType); syncType();
-  $('openAssignment')?.addEventListener('change',e=>{ const d=$('assignmentToDate'); if(d){d.disabled=e.target.checked; if(e.target.checked)d.value='';}});
+  const openAssignment=$('openAssignment');
+  const assignmentToDate=$('assignmentToDate'), assignmentToDateField=$('assignmentToDateField');
+  const leaveFromDate=$('leaveFromDate'), leaveToDate=$('leaveToDate'), assignmentFromDate=$('assignmentFromDate'), permissionDate=$('permissionDate');
+  function syncMovementDateRules(){
+    const movementTypeValue=type?.value||'';
+    const isLeave=movementTypeValue==='إجازة', isAssignment=movementTypeValue==='انتداب', isPermission=movementTypeValue==='إذن';
+    const open=!!(isAssignment&&openAssignment?.checked);
+    if(leave) {
+      const leaveType=$('movementLeaveType');
+      if(leaveType)leaveType.required=isLeave;
+      if(leaveFromDate)leaveFromDate.required=isLeave;
+      if(leaveToDate)leaveToDate.required=isLeave;
+    }
+    const destGov=$('movementDestinationGovernorate'), destBranch=$('movementDestinationBranch');
+    if(destGov)destGov.required=isAssignment;
+    if(destBranch)destBranch.required=isAssignment;
+    if(assignmentFromDate)assignmentFromDate.required=isAssignment;
+    if(assignmentToDate){
+      assignmentToDate.required=isAssignment&&!open;
+      assignmentToDate.disabled=open;
+      assignmentToDate.min=isAssignment?(assignmentFromDate?.value||''):'';
+      if(open)assignmentToDate.value='';
+      assignmentToDate.setCustomValidity(isAssignment&&assignmentFromDate?.value&&assignmentToDate.value&&assignmentToDate.value<assignmentFromDate.value?'تاريخ النهاية يجب ألا يسبق تاريخ البداية.':'');
+    }
+    if(assignmentToDateField)assignmentToDateField.hidden=open;
+    if(leaveToDate){leaveToDate.min=isLeave?(leaveFromDate?.value||''):'';leaveToDate.setCustomValidity(isLeave&&leaveFromDate?.value&&leaveToDate.value&&leaveToDate.value<leaveFromDate.value?'تاريخ النهاية يجب ألا يسبق تاريخ البداية.':'');}
+    if(permissionDate)permissionDate.required=isPermission;
+  }
+  [openAssignment,leaveFromDate,leaveToDate,assignmentFromDate,assignmentToDate,permissionDate,type,$('movementLeaveType'),$('movementDestinationGovernorate'),$('movementDestinationBranch')].forEach(el=>{el?.addEventListener('input',syncMovementDateRules);el?.addEventListener('change',syncMovementDateRules);});
+  openAssignment?.addEventListener('change',()=>{if(openAssignment.checked&&assignmentToDate)assignmentToDate.value='';syncMovementDateRules();});
+  syncMovementDateRules();
 
   const destinationGov=$('movementDestinationGovernorate'), destinationBranch=$('movementDestinationBranch');
   const destinationBranches=[{% for b in destination_branches %}{id:{{b.id}},name:{{b.name|tojson}},governorate_id:{{b.governorate_id}}}{% if not loop.last %},{% endif %}{% endfor %}];
@@ -236,6 +267,17 @@
   }
   async function runMovementPreflight(){
     const payload=movementPayload(), mtv=payload.movement_type, seq=++preflightSeq;
+    const dateFrom=mtv==='إجازة'?payload.from_date:(mtv==='انتداب'?payload.from_date:'');
+    const dateTo=mtv==='إجازة'?payload.to_date:(mtv==='انتداب'&&payload.open_assignment!=='1'?payload.to_date:'');
+    if(dateFrom&&dateTo&&dateTo<dateFrom){
+      if(submit)submit.disabled=true;
+      const endInput=mtv==='إجازة'?$('leaveToDate'):$('assignmentToDate');
+      endInput?.setCustomValidity('تاريخ النهاية لا يجوز أن يسبق تاريخ البداية.');
+      setPreflight('error','تاريخ النهاية يسبق تاريخ البداية.','صحّح التاريخين حتى يتمكن النظام من إعادة فحص الحركة.',true);
+      return;
+    }
+    const endInput=mtv==='إجازة'?$('leaveToDate'):$('assignmentToDate');
+    endInput?.setCustomValidity('');
     let complete=!!payload.employee_id;
     if(mtv==='إجازة')complete=complete&&!!payload.leave_type&&!!payload.from_date&&!!payload.to_date;
     if(mtv==='انتداب')complete=complete&&!!payload.destination_branch_id&&!!payload.from_date&&(payload.open_assignment==='1'||!!payload.to_date);
@@ -277,10 +319,59 @@
   govCreate?.addEventListener('change',loadCreateBranches);
 
   const gov=$('movementGovernorateFilter'), br=$('movementBranchFilter'), em=$('movementEmployeeFilter'), search=$('movementRecordsSearch'), mt=$('movementRecordsType');
-  async function filterBranches(){ if(!br||!em)return; br.innerHTML='<option value="">كل الفروع</option>'; em.innerHTML='<option value="">كل الموظفين</option>'; br.disabled=!gov.value; em.disabled=true; if(!gov.value){apply();return;} const r=await fetch('/api/movements-page-filters?governorate_id='+encodeURIComponent(gov.value)); const d=await r.json(); d.branches.forEach(b=>{const o=document.createElement('option');o.value=b.id;o.textContent=b.name;br.appendChild(o)}); apply(); }
-  async function filterEmployees(){ if(!em)return; em.innerHTML='<option value="">كل الموظفين</option>'; em.disabled=!br.value; if(br.value){const r=await fetch('/api/movements-page-filters?governorate_id='+encodeURIComponent(gov.value)+'&branch_id='+encodeURIComponent(br.value));const d=await r.json();d.employees.forEach(e=>{const o=document.createElement('option');o.value=e.id;o.textContent=e.name+' — '+(e.code||'');em.appendChild(o)});} apply(); }
-  function apply(){ const q=(search?.value||'').trim().toLocaleLowerCase('ar'), gid=gov?.value||'', bid=br?.value||'', eid=em?.value||'', typev=mt?.value||''; document.querySelectorAll('[data-movement-filter-row]').forEach(row=>{ const ok=(!gid||row.dataset.governorateId===gid)&&(!bid||row.dataset.branchId===bid)&&(!eid||row.dataset.employeeId===eid)&&(!typev||row.dataset.type===typev)&&(!q||((row.dataset.name||'')+' '+(row.dataset.code||'')).includes(q)); row.hidden=!ok; }); }
-  gov?.addEventListener('change',filterBranches); br?.addEventListener('change',filterEmployees); [search,mt,em].forEach(x=>x?.addEventListener('input',apply)); $('movementFilterReset')?.addEventListener('click',()=>{if(gov)gov.value='';if(br){br.value='';br.disabled=true}if(em){em.value='';em.disabled=true}if(search)search.value='';if(mt)mt.value='';apply();});
+  const normalize=window.normalizeEmployeeSearchText||((v)=>String(v||'').toLocaleLowerCase('ar').trim());
+  const resultCount=$('movementFilterResultCount');
+  let branchSeq=0, employeeSeq=0;
+  async function filterBranches(){
+    if(!br||!em)return;
+    const seq=++branchSeq, gid=gov?.value||'';
+    br.innerHTML=`<option value="">${gid?'جاري تحميل الفروع…':'اختر المحافظة أولًا'}</option>`;
+    em.innerHTML='<option value="">اختر الفرع أولًا</option>';br.disabled=!gid;em.disabled=true;
+    if(!gid){br.innerHTML='<option value="">اختر المحافظة أولًا</option>';apply();return;}
+    try{
+      const response=await fetch('/api/movements-page-filters?'+new URLSearchParams({governorate_id:gid}));
+      if(!response.ok)throw new Error('branch_filter_failed');
+      const data=await response.json();if(seq!==branchSeq)return;
+      br.innerHTML='<option value="">كل الفروع</option>';
+      (Array.isArray(data.branches)?data.branches:[]).forEach(b=>{const option=document.createElement('option');option.value=String(b.id);option.textContent=b.name;br.appendChild(option);});
+      if(!data.branches?.length)br.innerHTML='<option value="">لا توجد فروع متاحة</option>';
+      br.disabled=!data.branches?.length;apply();
+    }catch(_){if(seq===branchSeq){br.innerHTML='<option value="">تعذر تحميل الفروع</option>';br.disabled=true;em.innerHTML='<option value="">تعذر تحميل الموظفين</option>';em.disabled=true;if(resultCount)resultCount.textContent='تعذر تحميل فلاتر الفروع؛ أعد اختيار المحافظة.';}}
+  }
+  async function filterEmployees(){
+    if(!em)return;
+    const seq=++employeeSeq, gid=gov?.value||'', bid=br?.value||'';
+    em.innerHTML=`<option value="">${bid?'جاري تحميل الموظفين…':'اختر الفرع أولًا'}</option>`;em.disabled=!bid;
+    if(!bid){apply();return;}
+    try{
+      const response=await fetch('/api/movements-page-filters?'+new URLSearchParams({governorate_id:gid,branch_id:bid}));
+      if(!response.ok)throw new Error('employee_filter_failed');
+      const data=await response.json();if(seq!==employeeSeq)return;
+      em.innerHTML='<option value="">كل الموظفين</option>';
+      (Array.isArray(data.employees)?data.employees:[]).forEach(employee=>{const option=document.createElement('option');option.value=String(employee.id);option.textContent=employee.name+' — '+(employee.code||'');em.appendChild(option);});
+      if(!data.employees?.length)em.innerHTML='<option value="">لا يوجد موظفون في هذا الفرع</option>';
+      em.disabled=!data.employees?.length;apply();
+    }catch(_){if(seq===employeeSeq){em.innerHTML='<option value="">تعذر تحميل الموظفين</option>';em.disabled=true;if(resultCount)resultCount.textContent='تعذر تحميل موظفي الفرع؛ أعد اختياره.';}}
+  }
+  const allRows=[...document.querySelectorAll('[data-movement-filter-row]')];
+  const containers=[$('movementCurrentList'),$('movementFollowupList'),$('movement-log')].filter(Boolean);
+  const emptyMessages=new Map();
+  containers.forEach(container=>{const message=document.createElement('div');message.className='ui-empty movement-filter-no-match';message.hidden=true;message.textContent='لا توجد سجلات مطابقة للمرشحات الحالية.';container.appendChild(message);emptyMessages.set(container,message);});
+  function apply(){
+    const q=normalize(search?.value||''),gid=gov?.value||'',bid=br?.value||'',eid=em?.value||'',typev=mt?.value||'';
+    const active=!!(q||gid||bid||eid||typev);
+    allRows.forEach(row=>{const ok=(!gid||row.dataset.governorateId===gid)&&(!bid||row.dataset.branchId===bid)&&(!eid||row.dataset.employeeId===eid)&&(!typev||row.dataset.type===typev)&&(!q||normalize((row.dataset.name||'')+' '+(row.dataset.code||'')).includes(q));row.hidden=!ok;});
+    containers.forEach(container=>{const rows=allRows.filter(row=>container.contains(row));const message=emptyMessages.get(container);if(message)message.hidden=!(active&&rows.length>0&&!rows.some(row=>!row.hidden));});
+    const visibleRows=allRows.filter(row=>!row.hidden);
+    const totalIds=new Set(allRows.map(row=>row.dataset.movementId).filter(Boolean));
+    const visibleIds=new Set(visibleRows.map(row=>row.dataset.movementId).filter(Boolean));
+    const total=totalIds.size||allRows.length, visible=visibleIds.size||visibleRows.length;
+    if(resultCount)resultCount.textContent=active?`النتائج المطابقة: ${visible} من ${total}`:`إجمالي الحركات المعروضة: ${total}`;
+  }
+  gov?.addEventListener('change',filterBranches);br?.addEventListener('change',filterEmployees);
+  [search,mt,em].forEach(el=>el?.addEventListener('input',apply));[mt,em].forEach(el=>el?.addEventListener('change',apply));
+  $('movementFilterReset')?.addEventListener('click',()=>{if(gov)gov.value='';if(br){br.innerHTML='<option value="">اختر المحافظة أولًا</option>';br.value='';br.disabled=true;}if(em){em.innerHTML='<option value="">اختر الفرع أولًا</option>';em.value='';em.disabled=true;}if(search)search.value='';if(mt)mt.value='';branchSeq++;employeeSeq++;apply();});
+  apply();
 })();
 </script>
 {% endif %}

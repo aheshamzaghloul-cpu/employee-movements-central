@@ -2,9 +2,9 @@
 
 from datetime import date, timedelta
 
-from flask import Blueprint, render_template
+from flask import abort, Blueprint, render_template
 
-from ..access import bids, req, scope_governorate_id
+from ..access import bids, can, req, scope_governorate_id
 from ..constants import ASSIGNMENT_ALERT_DAYS
 from ..extensions import db
 from ..models import Employee, Movement
@@ -86,6 +86,8 @@ def _followup_rows():
 @bp.get('/notifications')
 @req
 def notifications():
+    if not (can('view_reports') or can('manage_movements')):
+        abort(403)
     items = _followup_rows()
     return render_template(
         'notifications.html',
@@ -99,6 +101,8 @@ def notifications():
 @req
 def notifications_items():
     """Return the scoped operational items for the header notification center."""
+    if not (can('view_reports') or can('manage_movements')):
+        abort(403)
     items = _followup_rows()
     return {
         'count': len(items),
@@ -120,6 +124,8 @@ def notifications_items():
 @bp.get('/api/notifications/summary')
 @req
 def notifications_summary():
+    if not (can('view_reports') or can('manage_movements')):
+        abort(403)
     items = _followup_rows()
     return {
         'count': len(items),

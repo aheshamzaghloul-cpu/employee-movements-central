@@ -5,7 +5,7 @@ They do not grant permissions; they only answer whether an active record is
 visible to the current assistant user.
 """
 
-from ..access import branch_ok, can_view_movement, roles
+from ..access import branch_ok, can, can_view_movement, roles
 
 
 def global_movement_actor() -> bool:
@@ -24,9 +24,17 @@ def visible_movement(movement) -> bool:
 
 
 def visible_employee(employee) -> bool:
-    """Return whether an active employee is visible to assistant read paths."""
-    return bool(
-        employee
-        and getattr(employee, 'is_active', False)
-        and (global_movement_actor() or branch_ok(employee.branch_id))
-    )
+    """Return whether the active employee is readable in the current work scope.
+
+    The homepage has its own intentionally global identity search. Assistant read
+    tools must not inherit that global shortcut: they need a directory/report
+    capability and must stay within the actor's active operational scope. Admin
+    remains globally scoped when Admin is the active role.
+    """
+    if not employee or not getattr(employee, 'is_active', False):
+        return False
+    if not (can('manage_employees') or can('view_reports')):
+        return False
+    if 'مسؤول التطبيق' in roles():
+        return True
+    return bool(branch_ok(employee.branch_id))

@@ -2,7 +2,7 @@
 name = "employee-movements"
 description = "نظام إدارة حركات الموظفين — Employee Movements Central"
 requires-python = ">=3.12"
-version = "68.22.45"
+version = "68.26.0"
 
 [tool.ruff]
 line-length = 120
@@ -17,5 +17,5 @@ ignore = ["F401"]
 "tests/*" = ["E402"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "contract_tests"]
 addopts = "-q"

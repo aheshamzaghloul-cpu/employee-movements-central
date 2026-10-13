@@ -44,19 +44,20 @@ def load_config(overrides=None):
         'SQLALCHEMY_DATABASE_URI': normalize_database_url(os.getenv('DATABASE_URL') or DEV_DATABASE_URL),
         'DATABASE_URL_CONFIGURED': bool(os.getenv('DATABASE_URL', '').strip()),
         'SQLALCHEMY_TRACK_MODIFICATIONS': False,
+        # Keep driver-specific connection arguments out of the base options.
+        # ``connect_timeout`` belongs to psycopg2 and makes sqlite3.connect fail.
         'SQLALCHEMY_ENGINE_OPTIONS': {
             'pool_pre_ping': True,
             'pool_recycle': int(os.getenv('DB_POOL_RECYCLE', '1800')),
-            'connect_args': {'connect_timeout': int(os.getenv('DB_CONNECT_TIMEOUT', '10'))},
         },
         'SESSION_COOKIE_HTTPONLY': True,
         'SESSION_COOKIE_SAMESITE': 'Lax',
         'SESSION_COOKIE_SECURE': os.getenv('COOKIE_SECURE', '0') == '1',
-        # Bound both the complete request body and multipart form parsing. The
-        # latter limits prevent a small request with excessive form fields from
-        # consuming disproportionate memory/CPU; normal app forms and the Excel
-        # upload wizard use far fewer parts.
+        # Bound request bodies and multipart parsing. Ordinary requests remain
+        # small; the Excel preview endpoint gets a separate 16 MiB body cap in
+        # the earliest request hook, without relaxing limits for other routes.
         'MAX_CONTENT_LENGTH': 2 * 1024 * 1024,
+        'EXCEL_UPLOAD_MAX_CONTENT_LENGTH': 16 * 1024 * 1024,
         'MAX_FORM_MEMORY_SIZE': 512 * 1024,
         'MAX_FORM_PARTS': 100,
         'SECRET_KEY': os.getenv('SECRET_KEY', '').strip(),
@@ -76,6 +77,17 @@ def load_config(overrides=None):
     }
     if overrides:
         cfg.update(overrides)
+
+    # Apply driver-specific connection settings only after caller overrides,
+    # so a test/SQLite URI remains compatible even if DATABASE_URL in the host
+    # environment points to PostgreSQL.
+    if database_backend(cfg.get('SQLALCHEMY_DATABASE_URI')) == 'postgresql':
+        engine_options = dict(cfg.get('SQLALCHEMY_ENGINE_OPTIONS') or {})
+        connect_args = dict(engine_options.get('connect_args') or {})
+        connect_args.setdefault('connect_timeout', int(os.getenv('DB_CONNECT_TIMEOUT', '10')))
+        engine_options['connect_args'] = connect_args
+        cfg['SQLALCHEMY_ENGINE_OPTIONS'] = engine_options
+
     validate_config(cfg)
     return cfg
 

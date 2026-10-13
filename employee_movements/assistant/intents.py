@@ -184,8 +184,23 @@ def parse_intent(text):
         m = re.search(r'(?:عطل|عطّل|أوقف|اوقف|فعّل|فعل)\s+الحساب\s+(.+)$', t, re.I)
         return {'intent': 'user_toggle', 'employee_name': m.group(1).strip() if m else None}
     if has_any('غير كلمة مرور', 'غيّر كلمة المرور', 'تغيير كلمة المرور', 'اعادة كلمة المرور', 'إعادة كلمة المرور'):
-        m = re.search(r'(?:للحساب|للمستخدم|للموظف)?\s*(.+?)\s*(?:إلى|الى)\s*(\S+)$', t, re.I)
-        return {'intent': 'user_password_reset', 'employee_name': m.group(1).strip() if m else None, 'password': m.group(2).strip() if m else None}
+        # Passwords are never accepted from chat text. The administrative executor
+        # generates a temporary credential locally after explicit confirmation.
+        m = re.search(
+            r'(?:غيّر|غير|تغيير|اعادة|إعادة)\s+(?:كلمة\s+)?(?:المرور|مرور)\s+'
+            r'(?:(?:للحساب|للمستخدم|للموظف|الحساب|المستخدم|الموظف)\s+)+'
+            r'(.+?)(?:\s+(?:إلى|الى|to)\s+.+)?$',
+            t,
+            re.I,
+        )
+        if not m:
+            m = re.search(
+                r'(?:غيّر|غير|تغيير|اعادة|إعادة)\s+(?:كلمة\s+)?(?:المرور|مرور)\s+(.+?)(?:\s+(?:إلى|الى|to)\s+.+)?$',
+                t,
+                re.I,
+            )
+        target = m.group(1).strip(' \t:،,؛;') if m else None
+        return {'intent': 'user_password_reset', 'employee_name': target}
     if has_any('عين مدخل أول', 'عيّن مدخل أول', 'اضف مدخل أول', 'أضف مدخل أول', 'اجعل الموظف مدخل أول', 'أضف دور المدخل الأول', 'اضف دور المدخل الاول'):
         m = re.search(r'(?:مدخل أول|مدخل الاول)\s+(.+?)(?:\s+(?:على|لفروع|للفروع)\s+(.+))?$', t, re.I)
         return {'intent': 'entry_assign', 'employee_name': m.group(1).strip() if m else None, 'branch_name': m.group(2).strip() if m and m.group(2) else None}

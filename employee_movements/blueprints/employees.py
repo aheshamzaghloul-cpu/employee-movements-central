@@ -11,12 +11,14 @@ from ..access import (
     branch_ok,
     can,
     can_manage_employee,
+    can_view_movement,
     gids,
     log,
     me,
     only,
     req,
     roles,
+    scope_governorates_for_user,
     user_gov_ids,
 )
 from ..assignments import (
@@ -42,6 +44,7 @@ from ..models import (
     UserRole,
 )
 from ..validation import parse_date, valid_email
+from ..search import normalize_search_text, search_contains
 
 bp = Blueprint('employees', __name__)
 
@@ -75,91 +78,67 @@ def employee_role_select():
 @bp.get('/employee-search')
 @req
 def employee_search():
-    """Global homepage employee search.
+    """Global homepage employee search with movement details gated separately.
 
-    This endpoint is intentionally independent from the selected work governorate.
-    It returns only non-sensitive identity/location information plus recent movement
-    summaries; authorization for opening the employee card is still enforced there.
+    The search is intentionally independent from the selected work governorate,
+    but authentication alone does not grant access to employee-directory data.
     """
-    q = request.args.get('q', '').strip()
-    if len(q) < 2:
+    if not (can('manage_employees') or can('view_reports')):
+        abort(403)
+    q = (request.args.get('q', '') or '').strip()
+    normalized_q = normalize_search_text(q)
+    gov_raw = (request.args.get('governorate_id') or '').strip()
+    branch_raw = (request.args.get('branch_id') or '').strip()
+    if len(q) > 120 or (len(normalized_q) < 2 and not branch_raw):
         return {'results': []}
-
-    like = f'%{q}%'
-    rows = (
+    if (gov_raw and not gov_raw.isdigit()) or (branch_raw and not branch_raw.isdigit()):
+        return {'results': []}
+    query = (
         Employee.query
         .join(Branch, Employee.branch_id == Branch.id)
         .join(Governorate, Governorate.id == Branch.governorate_id)
-        .filter(
-            Employee.is_active == True,
-            Branch.is_active == True,
-            Governorate.is_active == True,
-            db.or_(
-                Employee.full_name.ilike(like),
-                Employee.job_code.ilike(like),
-                Employee.job_title.ilike(like),
-            ),
-        )
-        .order_by(Employee.full_name)
-        .limit(12)
-        .all()
+        .filter(Employee.is_active == True, Branch.is_active == True, Governorate.is_active == True)
     )
+    if gov_raw:
+        gov = db.session.get(Governorate, int(gov_raw))
+        if not gov or not gov.is_active:
+            return {'results': []}
+        query = query.filter(Branch.governorate_id == gov.id)
+    if branch_raw:
+        branch = db.session.get(Branch, int(branch_raw))
+        if not branch or not branch.is_active or not branch.governorate or not branch.governorate.is_active:
+            return {'results': []}
+        if gov_raw and branch.governorate_id != int(gov_raw):
+            return {'results': []}
+        query = query.filter(Employee.branch_id == branch.id)
+    if normalized_q:
+        query = query.filter(db.or_(
+            search_contains(Employee.full_name, q),
+            search_contains(Employee.job_code, q),
+        ))
+    rows = query.order_by(Employee.full_name).limit(20).all()
 
-    results = []
-    for e in rows:
-        moves = (
-            Movement.query.filter_by(employee_id=e.id, is_active=True)
-            .order_by(Movement.id.desc())
-            .limit(80)
-            .all()
-        )
-        latest = {}
-        for mv in moves:
-            if mv.movement_type not in latest:
-                latest[mv.movement_type] = mv
-
-        def fmt(mv):
-            if not mv:
-                return None
-            if mv.movement_type == 'إجازة':
-                dates = ''
-                if mv.from_date and mv.to_date:
-                    dates = f"{mv.from_date.strftime('%Y-%m-%d')} ← {mv.to_date.strftime('%Y-%m-%d')}"
-                return {'label': mv.leave_type or 'إجازة', 'detail': dates, 'status': mv.status}
-            if mv.movement_type == 'انتداب':
-                dates = ''
-                if mv.from_date and mv.to_date:
-                    dates = f"{mv.from_date.strftime('%Y-%m-%d')} ← {mv.to_date.strftime('%Y-%m-%d')}"
-                return {
-                    'label': (f"{mv.destination.name} — {mv.destination.governorate.name}" if mv.destination and mv.destination.governorate else (mv.destination.name if mv.destination else 'انتداب')),
-                    'detail': dates,
-                    'status': mv.status,
-                }
-            return {
-                'label': 'إذن',
-                'detail': mv.permission_date.strftime('%Y-%m-%d') if mv.permission_date else '—',
-                'status': mv.status,
-            }
-
-        results.append(
-            {
-                'id': e.id,
-                'name': e.full_name,
-                'code': e.job_code or '',
-                'job_title': e.job_title or '',
-                'branch': e.branch.name if e.branch else '',
-                'governorate': e.branch.governorate.name if e.branch and e.branch.governorate else '',
-                'last_leave': fmt(latest.get('إجازة')),
-                'last_assignment': fmt(latest.get('انتداب')),
-                'last_permission': fmt(latest.get('إذن')),
-            },
-        )
+    # This endpoint powers live identity suggestions only. Keep it lean and do not
+    # fetch movement histories merely to populate a search dropdown.
+    results = [
+        {
+            'id': e.id,
+            'name': e.full_name,
+            'code': e.job_code or '',
+            'job_title': e.job_title or '',
+            'branch': e.branch.name if e.branch else '',
+            'governorate': e.branch.governorate.name if e.branch and e.branch.governorate else '',
+        }
+        for e in rows
+    ]
     return {'results': results}
 
 
 @bp.route('/employees', methods=['GET', 'POST'])
 @req
 def employees():
+    if not (can('manage_employees') or can('view_reports')):
+        abort(403)
     bs = bids()
     if request.method == 'POST':
         if not can('manage_employees'):
@@ -246,106 +225,91 @@ def employees():
             db.session.commit()
             flash('تمت إضافة الموظف بنجاح. يمكنك الآن تسجيل أول حركة له.')
             return redirect(url_for('employees.employee_card', i=e.id))
-    # في شاشة الموظفين، المشرف يستطيع اختيار أي محافظة للبحث والاستعراض.
-    # هذا لا يمنحه صلاحيات تعديل/حذف خارج نطاقه؛ عمليات التعديل والحذف تظل محكومة بدوال الصلاحيات.
-    supervisor_search_all = 'مشرف محافظة' in roles()
-    search_branch_ids = (
-        [b.id for b in Branch.query.filter(Branch.is_active == True).all()]
-        if supervisor_search_all
-        else bs
+    # صفحة الموظفين تشغيلية: لا يجوز لمرشح غير صالح أن يتحول إلى عرض أوسع.
+    # البحث العام في كل المحافظات يظل محصورًا في الصفحة الرئيسية فقط.
+    search_branch_ids = set(bs or [])
+    raw_q = (request.args.get('q', '') or '').strip()
+    invalid_q_filter = len(raw_q) > 120
+    q = raw_q[:120]
+    employee_filter= (request.args.get('employee_id', '') or '').strip()
+    branch_filter = (request.args.get('branch_id', '') or '').strip()
+    gov_filter = (request.args.get('governorate_id', '') or '').strip()
+    scope_governorates = scope_governorates_for_user()
+
+    scope_branches = (
+        Branch.query.join(Governorate, Governorate.id == Branch.governorate_id)
+        .filter(
+            Branch.id.in_(search_branch_ids) if search_branch_ids else False,
+            Branch.is_active == True,
+            Governorate.is_active == True,
+        ).order_by(Branch.name).all()
     )
-    branches = (
-        (
-            Branch.query.filter(Branch.id.in_(search_branch_ids), Branch.is_active == True)
-            .order_by(Branch.name)
-            .all()
-        )
-        if search_branch_ids
-        else []
+    allowed_search_branch_ids = {b.id for b in scope_branches}
+    allowed_search_gov_ids = {b.governorate_id for b in scope_branches}
+    invalid_gov_filter = bool(gov_filter) and (
+        not gov_filter.isdigit() or int(gov_filter) not in allowed_search_gov_ids
     )
-    q = request.args.get('q', '').strip()
-    employee_filter = request.args.get('employee_id', '').strip()
-    branch_filter = request.args.get('branch_id', '').strip()
-    allowed_search_branch_ids = set(search_branch_ids)
-    gov_filter = request.args.get('governorate_id', '').strip()
-    query = (
-        Employee.query.filter(Employee.is_active == True, Employee.branch_id.in_(search_branch_ids))
-        if search_branch_ids
-        else Employee.query.filter(False)
+    scoped_branch_governorates = {b.id: b.governorate_id for b in scope_branches}
+    invalid_branch_filter = bool(branch_filter) and (
+        not branch_filter.isdigit()
+        or int(branch_filter) not in allowed_search_branch_ids
+        or (bool(gov_filter) and gov_filter.isdigit() and scoped_branch_governorates.get(int(branch_filter)) != int(gov_filter))
     )
-    if q:
-        like = f'%{q}%'
-        query = query.filter(
-            db.or_(
-                Employee.full_name.ilike(like),
-                Employee.job_code.ilike(like),
-                Employee.job_title.ilike(like),
-            ),
-        )
-    if branch_filter.isdigit() and int(branch_filter) in allowed_search_branch_ids:
-        query = query.filter(Employee.branch_id == int(branch_filter))
-    rows = [
-        e
-        for e in query.order_by(Employee.full_name).all()
-        if e.branch_id in allowed_search_branch_ids or effective_branch_id_for_employee(e.id) in allowed_search_branch_ids
-    ]
-    if branch_filter.isdigit() and int(branch_filter) in allowed_search_branch_ids:
-        rows = [e for e in rows if employee_is_effectively_in_branch(e, int(branch_filter))]
+    invalid_employee_filter = bool(employee_filter) and not employee_filter.isdigit()
+
+    branches = list(scope_branches)
+    rows = []
+
+    if not (invalid_q_filter or invalid_gov_filter or invalid_branch_filter or invalid_employee_filter):
+        selected_branch_ids = set(allowed_search_branch_ids)
+        if gov_filter:
+            selected_gov_id = int(gov_filter)
+            branches = [b for b in branches if b.governorate_id == selected_gov_id]
+            selected_branch_ids &= {b.id for b in branches}
+        if branch_filter:
+            requested_branch_id = int(branch_filter)
+            # An allowed branch must also belong to the explicitly selected governorate.
+            if gov_filter and requested_branch_id not in selected_branch_ids:
+                selected_branch_ids = set()
+            else:
+                selected_branch_ids = {requested_branch_id}
+                branches = [b for b in branches if b.id == requested_branch_id]
+
+        if selected_branch_ids:
+            query = Employee.query.filter(
+                Employee.is_active == True,
+                Employee.branch_id.in_(selected_branch_ids),
+            )
+            if q:
+                query = query.filter(db.or_(
+                    search_contains(Employee.full_name, q),
+                    search_contains(Employee.job_code, q),
+                    search_contains(Employee.job_title, q),
+                ))
+            candidates = query.order_by(Employee.full_name).all()
+            rows = [
+                e for e in candidates
+                if (e.branch_id in selected_branch_ids or effective_branch_id_for_employee(e.id) in selected_branch_ids)
+                and (not branch_filter or employee_is_effectively_in_branch(e, int(branch_filter)))
+            ]
+
+    # Keep filter dropdown options within the same authorized work scope. Invalid
+    # explicit query parameters produce no rows instead of silently broadening results.
     govs = (
-        Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all()
-        if supervisor_search_all
-        else (
-            (
-                Governorate.query.filter(Governorate.id.in_(gids()), Governorate.is_active == True)
-                .order_by(Governorate.name)
-                .all()
-            )
-            if gids()
-            else []
-        )
+        Governorate.query.filter(
+            Governorate.id.in_(allowed_search_gov_ids) if allowed_search_gov_ids else False,
+            Governorate.is_active == True,
+        ).order_by(Governorate.name).all()
     )
-    allowed_search_gov_ids = {g.id for g in govs}
-    if gov_filter.isdigit() and int(gov_filter) in allowed_search_gov_ids:
-        branches = (
-            Branch.query.filter(
-                Branch.governorate_id == int(gov_filter),
-                Branch.is_active == True,
-                Branch.id.in_(search_branch_ids),
-            )
-            .order_by(Branch.name)
-            .all()
-        )
-        if not (branch_filter.isdigit() and int(branch_filter) in [b.id for b in branches]):
-            branch_filter = ''
-        query = Employee.query.filter(
-            Employee.is_active == True,
-            Employee.branch_id.in_([b.id for b in branches]),
-        )
-        if q:
-            like = f'%{q}%'
-            query = query.filter(
-                db.or_(
-                    Employee.full_name.ilike(like),
-                    Employee.job_code.ilike(like),
-                    Employee.job_title.ilike(like),
-                ),
-            )
-        rows = (
-            [
-                e
-                for e in query.order_by(Employee.full_name).all()
-                if employee_is_effectively_in_branch(e, int(branches[0].id))
-            ]
-            if len(branches) == 1
-            else [
-                e
-                for e in query.order_by(Employee.full_name).all()
-                if any((employee_is_effectively_in_branch(e, b.id) for b in branches))
-            ]
-        )
+    if invalid_gov_filter:
+        branches = []
+    filter_error = bool(invalid_q_filter or invalid_gov_filter or invalid_branch_filter or invalid_employee_filter)
     if employee_filter.isdigit():
         eid = int(employee_filter)
+        found_in_scope = any(e.id == eid for e in rows)
         rows = [e for e in rows if e.id == eid]
+        if not found_in_scope:
+            filter_error = True
     # المدخل الأول المسؤول عن كل موظف: يُحسب من فروع المسؤولية التنظيمية،
     # مع الاحتفاظ بسجل موظف واحد وعدم إنشاء سجل إضافي للمدخل.
     entry_map = {}
@@ -403,13 +367,14 @@ def employees():
     # حالة الحركة لكل موظف تُحسب مرة واحدة حتى تبقى قائمة الموظفين سريعة.
     today = date.today()
     status_map = {}
-    if rows:
+    if rows and can('view_reports'):
         row_ids = [e.id for e in rows]
-        movement_rows = (
+        movement_candidates = (
             Movement.query.filter(Movement.employee_id.in_(row_ids), Movement.is_active == True)
             .order_by(Movement.from_date.desc().nullslast(), Movement.permission_date.desc().nullslast(), Movement.id.desc())
             .all()
         )
+        movement_rows = [m for m in movement_candidates if can_view_movement(m)]
         by_employee = {}
         for m in movement_rows:
             by_employee.setdefault(m.employee_id, []).append(m)
@@ -464,6 +429,8 @@ def employees():
         entry_map=entry_map,
         total_rows=len(rows),
         status_map=status_map,
+        scope_governorates=scope_governorates,
+        filter_error=filter_error,
     )
 
 
@@ -473,29 +440,29 @@ def employee_edit_data():
     if not can('manage_employees'):
         abort(403)
     bs = bids()
-    rows = (
-        (
+    raw_q = (request.args.get('q', '') or '').strip()
+    invalid_q_filter = len(raw_q) > 120
+    q = raw_q[:120]
+    rows = []
+    if not invalid_q_filter and bs:
+        query = (
             Employee.query.join(Branch, Employee.branch_id == Branch.id)
+            .join(Governorate, Governorate.id == Branch.governorate_id)
             .filter(
                 Employee.is_active == True,
                 Branch.is_active == True,
+                Governorate.is_active == True,
                 Employee.branch_id.in_(bs),
             )
-            .order_by(Employee.full_name)
-            .all()
         )
-        if bs
-        else []
-    )
-    q = request.args.get('q', '').strip()
-    if q:
-        ql = q.lower()
-        rows = [
-            e
-            for e in rows
-            if ql in (e.full_name or '').lower() or ql in (e.job_code or '').lower() or ql in (e.email or '').lower()
-        ]
-    return render_template('employee_edit_data.html', rows=rows, q=q)
+        if q:
+            query = query.filter(db.or_(
+                search_contains(Employee.full_name, q),
+                search_contains(Employee.job_code, q),
+                search_contains(Employee.email, q),
+            ))
+        rows = query.order_by(Employee.full_name).all()
+    return render_template('employee_edit_data.html', rows=rows, q=q, filter_error=invalid_q_filter)
 
 
 @bp.route('/employees/<int:i>/edit', methods=['GET', 'POST'])
@@ -867,26 +834,36 @@ def employee_card(i):
     e = db.session.get(Employee, i)
     if not e:
         abort(404)
+    can_read_movement_details = can('view_reports')
+    # فتح البطاقة يحتاج صلاحية دليل الموظفين أو التقارير على الأقل؛ وجود
+    # نطاق فرعي وحده لا يمنح إذن قراءة بيانات الموظف.
+    if not (can('manage_employees') or can_read_movement_details):
+        abort(403)
     # البحث في الرئيسية عالمي ومتعمد أن يتجاوز محافظة العمل، لكن فتح البطاقة
-    # نفسها يجب أن يظل خاضعًا لنطاق المستخدم التشغيلي. مسؤول التطبيق فقط
-    # يستطيع فتح أي بطاقة مباشرة.
+    # نفسها يظل خاضعًا للنطاق التشغيلي. مسؤول التطبيق يستطيع فتح أي بطاقة.
     if 'مسؤول التطبيق' not in roles(me()) and not branch_ok(e.branch_id):
         abort(403)
     if not e.is_active and (not (can('manage_employees') and can_manage_employee(e))):
         abort(403)
 
     today = date.today()
-    ms = (
-        Movement.query.filter_by(employee_id=i, is_active=True)
-        .order_by(
-            Movement.from_date.desc().nullslast(),
-            Movement.permission_date.desc().nullslast(),
-            Movement.id.desc(),
+    if can_read_movement_details:
+        all_active_movements = (
+            Movement.query.filter_by(employee_id=i, is_active=True)
+            .order_by(
+                Movement.from_date.desc().nullslast(),
+                Movement.permission_date.desc().nullslast(),
+                Movement.id.desc(),
+            )
+            .all()
         )
-        .all()
-    )
+        ms = [mv for mv in all_active_movements if can_view_movement(mv)]
+    else:
+        # مستخدم إدارة بيانات الموظفين دون صلاحية التقارير يرى البيانات الأساسية
+        # فقط؛ لا نحسب الحالة الحالية من حركات لا يحق له قراءتها.
+        ms = []
     last = {k: next((m for m in ms if m.movement_type == k), None) for k in MOVEMENT_TYPES}
-    current_assignment = current_assignment_for_employee(e.id, today)
+    current_assignment = current_assignment_for_employee(e.id, today) if can_read_movement_details else None
     current_branch = (
         current_assignment.destination
         if current_assignment and current_assignment.destination
@@ -896,7 +873,7 @@ def employee_card(i):
     # The card has its own deterministic current-state calculation so it remains
     # correct even when opened directly, outside the Home dashboard.
     current_status = {'key': 'none', 'label': 'لا توجد حركة حالية', 'detail': 'لا توجد حركة مسجلة الآن', 'movement': None, 'until': None}
-    current = resolve_current_movement(ms, today)
+    current = resolve_current_movement(ms, today) if can_read_movement_details else None
     if current and current.movement_type == 'إجازة':
         current_status = {'key': 'leave', 'label': 'إجازة', 'detail': current.leave_type or 'إجازة', 'movement': current, 'until': current.to_date}
     elif current and current.movement_type == 'انتداب' and current.to_date is not None:

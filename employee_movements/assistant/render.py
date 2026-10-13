@@ -6,7 +6,7 @@ from markupsafe import Markup, escape
 from sqlalchemy.orm import joinedload
 
 from ..access import bids, branch_ok, can, gids, roles
-from .visibility import global_movement_actor, visible_employee
+from .visibility import global_movement_actor, visible_employee, visible_movement
 from ..assignments import current_assignment_for_employee, employees_effectively_in_branches
 from ..extensions import db
 from ..models import Branch, Employee, EntryAssignment, EntryAssignmentBranch, Governorate, Movement
@@ -338,6 +338,18 @@ def employee_status_text(e):
 
 def render_read(a):
     intent = a.get('intent')
+    # Read actions enforce their own capability at the service boundary. A user
+    # reaching the assistant endpoint is not, by itself, authorized to inspect
+    # status, histories, branch occupancy, or report-level operational details.
+    report_intents = {
+        'employee_status', 'employee_movements', 'branch_status', 'branch_info',
+        'branch_entry', 'governorate_employees', 'governorate_assignments_today',
+        'movement_people_today',
+    }
+    if intent in report_intents and not can('view_reports'):
+        return {'title': 'الصلاحيات', 'error': 'لا تملك صلاحية عرض التقارير والحالة التشغيلية.'}
+    if intent == 'employee_info' and not (can('manage_employees') or can('view_reports')):
+        return {'title': 'الصلاحيات', 'error': 'لا تملك صلاحية دليل الموظفين أو التقارير.'}
     if intent == 'movement_people_today':
         mt = a.get('movement_type') or 'إجازة'
         gid = a.get('governorate_id')
@@ -690,23 +702,20 @@ def render_read(a):
                 'error': 'لم أجد موظفًا واحدًا مطابقًا.',
                 'choices': _load_candidate_records(Employee, a.get('candidate_ids', [])),
             }
-        cur = current_assignment_for_employee(e.id)
+        can_read_movement_details = can('view_reports')
+        cur = current_assignment_for_employee(e.id) if can_read_movement_details else None
         cb = cur.destination if cur and cur.destination else e.branch
-        ms = (
-            Movement.query.filter_by(employee_id=e.id, is_active=True)
-            .order_by(Movement.id.desc())
-            .limit(20)
-            .all()
-        )
+        if can_read_movement_details:
+            candidate_movements = (
+                Movement.query.filter_by(employee_id=e.id, is_active=True)
+                .order_by(Movement.id.desc()).limit(80).all()
+            )
+            ms = [m for m in candidate_movements if visible_movement(m)][:20]
+        else:
+            ms = []
         latest_by_kind = {}
         for kind in ('إجازة', 'انتداب', 'إذن'):
-            latest_by_kind[kind] = (
-                Movement.query.filter_by(
-                    employee_id=e.id, is_active=True, movement_type=kind,
-                )
-                .order_by(Movement.id.desc())
-                .first()
-            )
+            latest_by_kind[kind] = next((m for m in ms if m.movement_type == kind), None)
 
         leave = latest_by_kind['إجازة']
         assignment = latest_by_kind['انتداب']
@@ -723,6 +732,10 @@ def render_read(a):
                 return f'{detail} — من {m.from_date or '—'} إلى {m.to_date or '—'}'
             return f'{detail} — من {m.from_date or '—'} إلى {m.to_date or 'مفتوح'}'
 
+        if field in ('status', 'last_leave', 'last_assignment', 'last_permission', 'movements') and not can_read_movement_details:
+            return {'title': 'الصلاحيات', 'error': 'تفاصيل الحركات والحالة الحالية تتطلب صلاحية التقارير.'}
+        if field in ('phone', 'company_phone', 'personal_phone') and not can('manage_employees'):
+            return {'title': 'الصلاحيات', 'error': 'بيانات التواصل متاحة لمن يملك صلاحية إدارة بيانات الموظفين فقط.'}
         if field == 'job_title':
             return {
                 'title': f'وظيفة {e.full_name}',
@@ -796,29 +809,39 @@ def render_read(a):
             }
         lines = [
             f'الموظف: {e.full_name}',
-            f'الحالة الآن: {employee_status_text(e)}',
             f'كود الموظف: {e.job_code or 'لا توجد بيانات'}',
             f'الوظيفة: {e.job_title or 'لا توجد بيانات'}',
-            f'المحافظة: {(cb.governorate.name if cb and cb.governorate else 'لا توجد بيانات')}',
+            f'المحافظة: {(e.branch.governorate.name if e.branch and e.branch.governorate else 'لا توجد بيانات')}',
             f'فرع التعيين: {(e.branch.name if e.branch else 'لا توجد بيانات')}',
-            f'الفرع الحالي: {(cb.name if cb else 'لا توجد بيانات')}',
             f'تاريخ التعيين: {e.hire_date or 'لا توجد بيانات'}',
-            f'آخر إجازة: {movement_text(leave)}',
-            f'آخر انتداب: {movement_text(assignment)}',
-            f'آخر إذن: {movement_text(permission)}',
         ]
+        if can_read_movement_details:
+            lines.extend([
+                f'الحالة الآن: {employee_status_text(e)}',
+                f'الفرع الحالي: {(cb.name if cb else 'لا توجد بيانات')}',
+                f'آخر إجازة: {movement_text(leave)}',
+                f'آخر انتداب: {movement_text(assignment)}',
+                f'آخر إذن: {movement_text(permission)}',
+            ])
         return {
             'title': f'بطاقة الموظف — {e.full_name}',
             'answer': '\n'.join(lines),
-            'actions': [
-                {'label': 'الوظيفة', 'url': '#', 'prompt': f'ما وظيفة {e.full_name}؟'},
-                {'label': 'آخر إجازة', 'url': '#', 'prompt': f'ما آخر إجازة لـ {e.full_name}؟'},
-                {'label': 'آخر انتداب', 'url': '#', 'prompt': f'ما آخر انتداب لـ {e.full_name}؟'},
-                {'label': 'آخر إذن', 'url': '#', 'prompt': f'ما آخر إذن لـ {e.full_name}؟'},
-                {'label': 'سجل الحركات', 'url': '#', 'prompt': f'اعرض سجل حركات {e.full_name}'},
-            ],
+            'actions': (
+                [
+                    {'label': 'الوظيفة', 'url': '#', 'prompt': f'ما وظيفة {e.full_name}؟'},
+                    {'label': 'آخر إجازة', 'url': '#', 'prompt': f'ما آخر إجازة لـ {e.full_name}؟'},
+                    {'label': 'آخر انتداب', 'url': '#', 'prompt': f'ما آخر انتداب لـ {e.full_name}؟'},
+                    {'label': 'آخر إذن', 'url': '#', 'prompt': f'ما آخر إذن لـ {e.full_name}؟'},
+                    {'label': 'سجل الحركات', 'url': '#', 'prompt': f'اعرض سجل حركات {e.full_name}'},
+                ] if can_read_movement_details else [
+                    {'label': 'الوظيفة', 'url': '#', 'prompt': f'ما وظيفة {e.full_name}؟'},
+                    {'label': 'كود شئون العاملين', 'url': '#', 'prompt': f'ما كود شئون العاملين لـ {e.full_name}؟'},
+                ]
+            ),
         }
     if intent == 'employee_movements':
+        if not can('view_reports'):
+            return {'title': 'الصلاحيات', 'error': 'لا تملك صلاحية عرض سجل الحركات.'}
         e = db.session.get(Employee, a.get('employee_id')) if a.get('employee_id') else None
         if not visible_employee(e):
             return {
@@ -826,12 +849,11 @@ def render_read(a):
                 'error': 'لم أجد موظفًا واحدًا مطابقًا.',
                 'choices': _load_candidate_records(Employee, a.get('candidate_ids', [])),
             }
-        ms = (
+        candidates = (
             Movement.query.filter_by(employee_id=e.id, is_active=True)
-            .order_by(Movement.id.desc())
-            .limit(30)
-            .all()
+            .order_by(Movement.id.desc()).limit(80).all()
         )
+        ms = [m for m in candidates if visible_movement(m)][:30]
         if not ms:
             ans = f'{e.full_name}: لا توجد حركات مسجلة.'
         else:

@@ -13,6 +13,7 @@ def app():
             'APP_ENV': 'testing',
             'SECRET_KEY': 'k' * 48,
             'SQLALCHEMY_DATABASE_URI': 'sqlite://',
+            'DATABASE_URL_CONFIGURED': True,
             'ADMIN_USERNAME': 'admin',
             'ADMIN_PASSWORD': ADMIN_PASSWORD,
             'LOGIN_RATE_LIMIT': 3,

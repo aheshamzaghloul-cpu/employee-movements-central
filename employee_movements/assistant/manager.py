@@ -15,7 +15,7 @@ from ..extensions import db
 from ..models import (Branch, Employee, Governorate, Lookup, User, UserGovernorate, UserRole, UserPermission,
     UserBranch, EntryAssignment, EntryAssignmentBranch, ApprovalDelegation, SupervisorEntry, Movement)
 from ..constants import LOGIN_ROLES, PERMISSIONS, ROLE_DEFAULT_PERMISSIONS
-from ..validation import parse_date, valid_email, valid_password
+from ..validation import parse_date, valid_email
 from .directory import find_branch, find_employee
 from .movement_queries import resolve_movement_for_employee
 from .manager_resolvers import resolve_active_supervisor_by_name
@@ -104,16 +104,14 @@ def plan(a):
             email = (a.get('email') or '').strip()
             job_title = (a.get('job_title') or '').strip()
             job_code = (a.get('job_code') or '').strip()
-            password = a.get('password') or ''
-            if not password:
-                alphabet = string.ascii_letters + string.digits
-                password = ''.join(secrets.choice(alphabet) for _ in range(12))
+            # Temporary credentials are always generated locally after confirmation;
+            # never validate or retain a password supplied in a chat/model payload.
             role = (a.get('role') or '').strip()
             requested_roles = [r for r in (a.get('roles') or []) if r in LOGIN_ROLES]
             if role in LOGIN_ROLES and role not in requested_roles:
                 requested_roles.append(role)
-            if not requested_roles or not username or not full or not email or not job_title or not job_code or not valid_password(password):
-                return {'title': 'إنشاء حساب', 'error': 'أحتاج اسم المستخدم والاسم والبريد والوظيفة والكود الوظيفي وكلمة مرور صحيحة (8 أحرف على الأقل وتحتوي حروفًا وأرقامًا) ودورًا واحدًا على الأقل.'}
+            if not requested_roles or not username or not full or not email or not job_title or not job_code:
+                return {'title': 'إنشاء حساب', 'error': 'أحتاج اسم المستخدم والاسم والبريد والوظيفة والكود الوظيفي ودورًا واحدًا على الأقل.'}
             if User.query.filter_by(username=username).first() or User.query.filter_by(email=email).first():
                 return {'title': 'إنشاء حساب', 'error': 'اسم المستخدم أو البريد مستخدم بالفعل.'}
             if not valid_email(email):

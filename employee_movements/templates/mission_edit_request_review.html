@@ -1,3 +1,98 @@
 {% extends 'base.html' %}
 {% block title %}مراجعة طلب تعديل مأمورية{% endblock %}
-{% block content %}<div class="ui-page-head"><div><span class="home-kicker">طلب تعديل</span><h1>تعديل المأمورية #{{m.id}}</h1><p class="ui-muted">طلب من: <b>{{request_row.requester.full_name}}</b> — السبب: {{request_row.reason}}</p></div></div><div class="ui-card ui-pad-18"><p><b>البيانات قبل التعديل:</b> {{request_row.details_snapshot}}</p></div><div class="ui-card ui-mission-edit-card"><form method="post" class="ui-grid ui-grid-3-gap-16"><input type="hidden" name="_csrf" value="{{csrf}}"><div class="ui-grid-full"><label>الموظف</label><input value="{{m.employee.full_name}} — {{m.employee.job_code or '—'}}" disabled></div><div><label>محافظة جهة المأمورية</label><select id="requestDestinationGovernorate" required><option value="">اختر المحافظة</option>{% for g in destination_governorates %}<option value="{{g.id}}" {% if m.destination and m.destination.governorate_id==g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></div><div><label>فرع جهة المأمورية</label><select name="destination_branch_id" id="requestDestinationBranch" required><option value="">اختر الفرع</option>{% for b in branches %}<option value="{{b.id}}" data-governorate-id="{{b.governorate_id}}" {% if m.destination_branch_id==b.id %}selected{% endif %}>{{b.name}}</option>{% endfor %}</select></div><div><label>من تاريخ</label><input type="date" name="from_date" value="{{m.from_date.isoformat() if m.from_date else ''}}" required></div><div><label>إلى تاريخ</label><input type="date" name="to_date" value="{{m.to_date.isoformat() if m.to_date else ''}}"></div><div><label>الحالة بعد الحفظ</label><select name="final_state" required><option value="مغلقة">حفظ مغلقة</option><option value="تحت التحرير">حفظ تحت التحرير</option></select></div><div class="ui-grid-full"><label>ملاحظات الـManager</label><textarea name="manager_notes" rows="4"></textarea></div><div class="ui-actions ui-grid-full"><button class="ui-btn ui-tone-teal">تنفيذ وحفظ</button><a class="ui-btn ui-btn-secondary" href="/reports/assignments/edit-requests">إلغاء</a></div><script>(function(){const g=document.getElementById('requestDestinationGovernorate'),b=document.getElementById('requestDestinationBranch');if(!g||!b)return;const all=[...b.options].slice(1).map(o=>({value:o.value,text:o.textContent,gov:o.dataset.governorateId}));function sync(){const selected=b.value,gid=g.value;b.innerHTML='<option value="">اختر الفرع</option>';all.filter(x=>x.gov===gid).forEach(x=>{const o=document.createElement('option');o.value=x.value;o.textContent=x.text;if(x.value===selected)o.selected=true;b.appendChild(o);});b.disabled=!gid;}g.addEventListener('change',sync);sync();})();</script></form></div>{% endblock %}
+{% block content %}
+<div class="ui-page movement-edit-page mission-review-page">
+  <header class="ui-page-head">
+    <div>
+      <span class="ui-eyebrow">طلب تعديل قيد المراجعة</span>
+      <h1>مراجعة المأمورية <bdi dir="ltr">#{{m.id}}</bdi></h1>
+      <p class="ui-subtitle">مقدم الطلب: <strong>{{request_row.requester.full_name}}</strong> — السبب: {{request_row.reason}}</p>
+    </div>
+    <a class="ui-btn ui-btn-secondary" href="/reports/assignments/edit-requests">العودة إلى الطلبات</a>
+  </header>
+
+  <section class="ui-card mission-request-snapshot">
+    <h2>البيانات قبل التعديل</h2>
+    <p>{{request_row.details_snapshot}}</p>
+  </section>
+
+  <section class="ui-card ui-mission-edit-card" aria-label="تنفيذ طلب تعديل المأمورية">
+    <form method="post" class="ui-grid ui-grid-3-gap-16 mission-edit-form" id="missionEditReviewForm">
+      <input type="hidden" name="_csrf" value="{{csrf}}">
+      <div class="ui-grid-full mission-edit-employee">
+        <label for="reviewMissionEmployee">الموظف</label>
+        <input id="reviewMissionEmployee" value="{{m.employee.full_name}} — {{m.employee.job_code or '—'}}" disabled>
+      </div>
+      <div>
+        <label for="requestDestinationGovernorate">محافظة جهة المأمورية</label>
+        <select id="requestDestinationGovernorate" required>
+          <option value="">اختر المحافظة</option>
+          {% for g in destination_governorates %}<option value="{{g.id}}" {% if m.destination and m.destination.governorate_id==g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="requestDestinationBranch">فرع جهة المأمورية</label>
+        <select name="destination_branch_id" id="requestDestinationBranch" required>
+          <option value="">اختر الفرع</option>
+          {% for b in branches %}<option value="{{b.id}}" data-governorate-id="{{b.governorate_id}}" {% if m.destination_branch_id==b.id %}selected{% endif %}>{{b.name}}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="reviewMissionFromDate">من تاريخ البداية</label>
+        <input type="date" name="from_date" id="reviewMissionFromDate" value="{{m.from_date.isoformat() if m.from_date else ''}}" required autocomplete="off">
+      </div>
+      <div>
+        <label for="reviewMissionToDate">إلى تاريخ النهاية <span id="reviewMissionToDateRequirement" class="ui-field-optional">مطلوب عند الحفظ مغلقة</span></label>
+        <input type="date" name="to_date" id="reviewMissionToDate" value="{{m.to_date.isoformat() if m.to_date else ''}}" autocomplete="off">
+        <small class="ui-hint">يتحدد إلزام التاريخ بحسب الحالة النهائية، ويجب ألا يسبق النهاية تاريخ البداية.</small>
+      </div>
+      <div>
+        <label for="reviewMissionFinalState">الحالة بعد الحفظ</label>
+        <select name="final_state" id="reviewMissionFinalState" required>
+          <option value="مغلقة">حفظ مغلقة</option>
+          <option value="تحت التحرير">حفظ تحت التحرير</option>
+        </select>
+      </div>
+      <div class="ui-grid-full">
+        <label for="reviewMissionManagerNotes">ملاحظات الـManager</label>
+        <textarea name="manager_notes" id="reviewMissionManagerNotes" rows="4" maxlength="2000" placeholder="أضف ملاحظة عند الحاجة…"></textarea>
+      </div>
+      <div class="ui-actions ui-grid-full mission-edit-actions">
+        <button class="ui-btn ui-tone-teal" type="submit">تنفيذ وحفظ</button>
+        <a class="ui-btn ui-btn-secondary" href="/reports/assignments/edit-requests">إلغاء</a>
+        <span>يُعاد التحقق من صلاحيات المدير ونطاق الجهة في الخادم قبل التنفيذ.</span>
+      </div>
+    </form>
+  </section>
+</div>
+<script>
+(function(){
+  const governorate=document.getElementById('requestDestinationGovernorate');
+  const branch=document.getElementById('requestDestinationBranch');
+  const from=document.getElementById('reviewMissionFromDate');
+  const to=document.getElementById('reviewMissionToDate');
+  const finalState=document.getElementById('reviewMissionFinalState');
+  const requirement=document.getElementById('reviewMissionToDateRequirement');
+  const all=branch?[...branch.options].slice(1).map(o=>({value:o.value,text:o.textContent,gov:o.dataset.governorateId})):[];
+  function syncBranches(){
+    if(!governorate||!branch)return;
+    const selected=branch.value,gid=governorate.value;
+    branch.innerHTML='<option value="">'+(gid?'اختر الفرع':'اختر المحافظة أولًا')+'</option>';
+    all.filter(x=>x.gov===gid).forEach(x=>{const option=document.createElement('option');option.value=x.value;option.textContent=x.text;if(x.value===selected)option.selected=true;branch.appendChild(option);});
+    if(selected&&!all.some(x=>x.value===selected&&x.gov===gid))branch.value='';
+    branch.disabled=!gid;
+  }
+  function validateDates(){
+    if(!from||!to)return;
+    to.min=from.value||'';
+    to.required=finalState?.value==='مغلقة';
+    if(requirement)requirement.textContent=to.required?'مطلوب للحالة المغلقة':'اختياري للحالة تحت التحرير';
+    to.setCustomValidity(from.value&&to.value&&to.value<from.value?'تاريخ النهاية لا يجوز أن يسبق تاريخ البداية.':'');
+  }
+  governorate?.addEventListener('change',syncBranches);
+  finalState?.addEventListener('change',validateDates);
+  from?.addEventListener('input',validateDates);to?.addEventListener('input',validateDates);
+  syncBranches();validateDates();
+})();
+</script>
+{% endblock %}

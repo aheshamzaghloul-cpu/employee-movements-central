@@ -9,6 +9,7 @@ from ..access import bids, branch_ok, can, can_manage_movement, can_manage_movem
 from ..constants import ASSIGNMENT_ALERT_DAYS
 from ..extensions import db
 from ..models import Branch, Employee, Governorate, Movement, MovementHistory, User
+from ..search import normalize_search_text, search_contains
 from ..validation import (
     active_leave_types,
     active_movement_types,
@@ -29,8 +30,18 @@ def movement_employees_api():
     bid = request.args.get('branch_id', '').strip()
     q = (request.args.get('q') or '').strip()
     movement_type = (request.args.get('movement_type') or '').strip()
+    # Employee lookup without a movement_type is the homepage's intentional
+    # global identity search. Supplying a movement type switches this endpoint
+    # into a transactional picker and therefore requires write capability.
+    if movement_type and (not can('manage_movements') or not can_manage_movement()):
+        abort(403)
+    if not movement_type and not (can('manage_employees') or can('view_reports') or can('manage_movements')):
+        abort(403)
+    if len(q) > 120:
+        return {'results': [], 'branches': []}
+    if (gid and not gid.isdigit()) or (bid and not bid.isdigit()):
+        return {'results': [], 'branches': []}
     gov = None
-    global_search = bool(q)
     if gid:
         if not gid.isdigit():
             return {'results': [], 'branches': []}
@@ -56,7 +67,7 @@ def movement_employees_api():
     if not global_home_search and not global_assignment_picker and 'مسؤول التطبيق' not in rs:
         branch_rows = [b for b in branch_rows if branch_ok(b.id)]
     branch_ids = [b.id for b in branch_rows]
-    if bid.isdigit():
+    if bid:
         bid_int = int(bid)
         if bid_int not in branch_ids:
             return {
@@ -67,7 +78,7 @@ def movement_employees_api():
                 ],
             }
         branch_ids = [bid_int]
-    if not q and (not bid.isdigit()):
+    if not q and not bid:
         return {
             'results': [],
             'branches': [
@@ -75,12 +86,10 @@ def movement_employees_api():
                 for b in branch_rows
             ],
         }
-    filters = [Employee.is_active == True]
-    if branch_ids:
-        filters.append(Employee.branch_id.in_(branch_ids))
+    # Empty authorized scope must produce no rows, never remove the branch predicate.
+    filters = [Employee.is_active == True, Employee.branch_id.in_(branch_ids) if branch_ids else False]
     if q:
-        like = f'%{q}%'
-        filters.append(db.or_(Employee.full_name.ilike(like), Employee.job_code.ilike(like)))
+        filters.append(db.or_(search_contains(Employee.full_name, q), search_contains(Employee.job_code, q)))
     rows = Employee.query.filter(*filters).order_by(Employee.full_name.asc()).limit(20).all()
     return {
         'results': [
@@ -157,10 +166,17 @@ def movement_preflight_api():
         .all()
     )
     current = resolve_current_movement(current_rows, today)
+    current_readable = bool(
+        current
+        and (
+            (can('view_reports') and can_view_movement(current))
+            or (can('manage_movements') and can_manage_movement(current))
+        )
+    )
 
     message = 'الحركة متوافقة مبدئيًا ويمكن تسجيلها.'
     suggestion = 'يمكنك المتابعة إلى تسجيل الحركة.'
-    if current:
+    if current and current_readable:
         if current.movement_type == 'إجازة':
             detail = current.leave_type or 'إجازة'
             message = f'للموظف حركة سارية اليوم: {detail}.'
@@ -172,6 +188,10 @@ def movement_preflight_api():
         else:
             message = 'للموظف إذن مسجل اليوم.'
             suggestion = 'يمكن تسجيل حركة لفترة لا تتعارض مع الإذن.'
+
+    if current and not current_readable:
+        message = 'توجد حركة حالية للموظف؛ تفاصيلها خارج نطاق العرض المسموح، وسيُتحقق من التعارض محليًا عند الحفظ.'
+        suggestion = 'يمكنك المتابعة فقط إذا كانت بيانات الحركة الجديدة مكتملة؛ لن تُعرض تفاصيل الحركة غير المسموح بها.'
 
     return {
         'ready': True,
@@ -187,7 +207,7 @@ def movement_preflight_api():
             'destination': current.destination.name if current.destination else '',
             'from_date': current.from_date.isoformat() if current.from_date else '',
             'to_date': current.to_date.isoformat() if current.to_date else '',
-        } if current else None),
+        } if current and current_readable else None),
     }
 
 
@@ -195,13 +215,15 @@ def movement_preflight_api():
 @req
 def movements_page_filters_api():
     """فلاتر صفحة الحركات: المحافظات ضمن النطاق ثم الفروع ثم موظفو الفرع فقط."""
+    if not (can('view_reports') or can('manage_movements')):
+        abort(403)
     rs = roles()
     movement_type = (request.args.get('movement_type') or '').strip()
     # Assignment registration is a cross-governorate workflow for the central
     # Manager and governorate supervisors. Leave/permission remain work-scoped.
     global_movement_picker = (
-        'مسؤول التطبيق' in rs
-        or (bool(rs & {'مشرف محافظة', 'Manager Application Support'}) and movement_type == 'انتداب')
+        movement_type == 'انتداب'
+        and bool(rs & {'مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'})
     )
     allowed_gids = (
         {g.id for g in Governorate.query.filter_by(is_active=True).all()}
@@ -217,6 +239,8 @@ def movements_page_filters_api():
     )
     gid_raw = (request.args.get('governorate_id') or '').strip()
     bid_raw = (request.args.get('branch_id') or '').strip()
+    if (gid_raw and not gid_raw.isdigit()) or (bid_raw and not bid_raw.isdigit()):
+        return {'branches': [], 'employees': []}
     gid = int(gid_raw) if gid_raw.isdigit() else None
     bid = int(bid_raw) if bid_raw.isdigit() else None
     if gid is not None and gid not in allowed_gids:
@@ -256,7 +280,14 @@ def movements_page_filters_api():
                 by_employee.setdefault(m.employee_id, []).append(m)
             for employee_id, employee_moves in by_employee.items():
                 current = resolve_current_movement(employee_moves, today)
-                if current:
+                current_readable = bool(
+                    current
+                    and (
+                        (can('view_reports') and can_view_movement(current))
+                        or (can('manage_movements') and can_manage_movement(current))
+                    )
+                )
+                if current and current_readable:
                     employee_movements[employee_id] = {
                         'type': current.movement_type,
                         'leave_type': current.leave_type or '',
@@ -367,47 +398,29 @@ def movement_create():
 @req
 def movements():
     # صفحة الحركات للمتابعة والسجل فقط؛ تسجيل الحركة يتم من الرئيسية.
-    rs = roles()
-    global_assignment_actor = bool(rs & {'مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'})
+    if not (can('view_reports') or can('manage_movements')):
+        abort(403)
     bs = bids()
+    # The movements worklist is an operational page and must honor the chosen
+    # work-governorate for every role. Cross-governorate assignment selection
+    # and mission printing stay available through their dedicated workflows.
     scoped_branches = (
-        Branch.query.join(Governorate, Governorate.id == Branch.governorate_id).filter(Branch.is_active == True, Governorate.is_active == True).order_by(Branch.name.asc()).all()
-        if global_assignment_actor
-        else (
-            Branch.query.filter(Branch.id.in_(bs), Branch.is_active == True)
-            .order_by(Branch.name.asc()).all()
-            if bs else []
-        )
+        Branch.query.join(Governorate, Governorate.id == Branch.governorate_id)
+        .filter(Branch.id.in_(bs), Branch.is_active == True, Governorate.is_active == True)
+        .order_by(Branch.name.asc()).all()
+        if bs else []
     )
-    if 'مسؤول التطبيق' in rs:
-        rows = (
-            Movement.query
-            .filter(Movement.is_active == True)
-            .order_by(Movement.created_at.desc())
-            .all()
+    rows = (
+        Movement.query.join(Employee).join(Branch).join(Governorate)
+        .filter(
+            Movement.is_active == True,
+            Employee.branch_id.in_(bs),
+            Branch.is_active == True,
+            Governorate.is_active == True,
         )
-    elif rs & {'مشرف محافظة', 'Manager Application Support'}:
-        # المشرف والـManager يريان كل الانتدابات/المأموريات، لكن الإجازات والأذونات
-        # تبقى محكومة بنطاق الفروع التشغيلي.
-        rows = (
-            Movement.query.join(Employee)
-            .filter(
-                Movement.is_active == True,
-                db.or_(
-                    Movement.movement_type == 'انتداب',
-                    Employee.branch_id.in_(bs),
-                ),
-            )
-            .order_by(Movement.created_at.desc())
-            .all()
-        )
-    else:
-        rows = (
-            Movement.query.join(Employee)
-            .filter(Employee.branch_id.in_(bs), Movement.is_active == True)
-            .order_by(Movement.created_at.desc()).all()
-            if bs else []
-        )
+        .order_by(Movement.created_at.desc()).all()
+        if bs else []
+    )
     today = date.today()
     tomorrow = today + timedelta(days=ASSIGNMENT_ALERT_DAYS)
 
@@ -453,14 +466,9 @@ def movements():
         movement_leave_types=active_leave_types(),
         movement_types=active_movement_types(),
         movement_filter_governorates=(
-            Governorate.query.filter(Governorate.is_active == True)
+            Governorate.query.filter(Governorate.id.in_(gids()), Governorate.is_active == True)
             .order_by(Governorate.name.asc()).all()
-            if (roles() & {'مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'})
-            else (
-                Governorate.query.filter(Governorate.id.in_(gids()), Governorate.is_active == True)
-                .order_by(Governorate.name.asc()).all()
-                if gids() else []
-            )
+            if gids() else []
         ),
     )
 

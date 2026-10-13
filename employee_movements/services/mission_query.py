@@ -41,6 +41,7 @@ def build_mission_report_context(*, roles, allowed_bids, args):
     date_from = args.get('date_from', '').strip()
     date_to = args.get('date_to', '').strip()
     duration = args.get('duration', '').strip()
+    filter_error = False
 
     govs = Governorate.query.filter(
         Governorate.is_active == True
@@ -70,47 +71,59 @@ def build_mission_report_context(*, roles, allowed_bids, args):
     )
 
     selected_gov = None
-    if gov.isdigit() and any(g.id == int(gov) for g in govs):
-        selected_gov = db.session.get(Governorate, int(gov))
-        branches = [b for b in branches if b.governorate_id == selected_gov.id]
-        q = q.filter(Employee.branch.has(Branch.governorate_id == selected_gov.id))
-    else:
-        gov = ''
+    if gov:
+        if gov.isdigit() and any(g.id == int(gov) for g in govs):
+            selected_gov = db.session.get(Governorate, int(gov))
+            branches = [b for b in branches if b.governorate_id == selected_gov.id]
+            q = q.filter(Employee.branch.has(Branch.governorate_id == selected_gov.id))
+        else:
+            filter_error = True
+            q = q.filter(False)
+            gov = ''
 
     selected_destination_governorate = None
-    if destination_gov.isdigit() and any(
-        g.id == int(destination_gov) for g in destination_governorates
-    ):
-        selected_destination_governorate = db.session.get(
-            Governorate, int(destination_gov)
-        )
-        destination_branches = [
-            b for b in destination_branches
-            if b.governorate_id == selected_destination_governorate.id
-        ]
-        q = q.filter(
-            Movement.destination.has(
-                Branch.governorate_id == selected_destination_governorate.id
+    if destination_gov:
+        if destination_gov.isdigit() and any(
+            g.id == int(destination_gov) for g in destination_governorates
+        ):
+            selected_destination_governorate = db.session.get(
+                Governorate, int(destination_gov)
             )
-        )
-    else:
-        destination_gov = ''
+            destination_branches = [
+                b for b in destination_branches
+                if b.governorate_id == selected_destination_governorate.id
+            ]
+            q = q.filter(
+                Movement.destination.has(
+                    Branch.governorate_id == selected_destination_governorate.id
+                )
+            )
+        else:
+            filter_error = True
+            q = q.filter(False)
+            destination_gov = ''
 
     selected_destination_branch = None
-    if destination_branch.isdigit() and any(
-        b.id == int(destination_branch) for b in destination_branches
-    ):
-        selected_destination_branch = db.session.get(Branch, int(destination_branch))
-        q = q.filter(Movement.destination_branch_id == selected_destination_branch.id)
-    else:
-        destination_branch = ''
+    if destination_branch:
+        if destination_branch.isdigit() and any(
+            b.id == int(destination_branch) for b in destination_branches
+        ):
+            selected_destination_branch = db.session.get(Branch, int(destination_branch))
+            q = q.filter(Movement.destination_branch_id == selected_destination_branch.id)
+        else:
+            filter_error = True
+            q = q.filter(False)
+            destination_branch = ''
 
     selected_branch = None
-    if branch.isdigit() and any(b.id == int(branch) for b in branches):
-        selected_branch = db.session.get(Branch, int(branch))
-        q = q.filter(Employee.branch_id == selected_branch.id)
-    else:
-        branch = ''
+    if branch:
+        if branch.isdigit() and any(b.id == int(branch) for b in branches):
+            selected_branch = db.session.get(Branch, int(branch))
+            q = q.filter(Employee.branch_id == selected_branch.id)
+        else:
+            filter_error = True
+            q = q.filter(False)
+            branch = ''
 
     employee_scope_ids = (
         [b.id for b in Branch.query.join(Governorate, Governorate.id == Branch.governorate_id).filter(Branch.is_active == True, Governorate.is_active == True).all()]
@@ -132,16 +145,24 @@ def build_mission_report_context(*, roles, allowed_bids, args):
         )
     employees = employees_q.order_by(Employee.full_name.asc()).all()
 
-    if employee.isdigit() and any(e.id == int(employee) for e in employees):
-        q = q.filter(Movement.employee_id == int(employee))
-    else:
-        employee = ''
+    if employee:
+        if employee.isdigit() and any(e.id == int(employee) for e in employees):
+            q = q.filter(Movement.employee_id == int(employee))
+        else:
+            filter_error = True
+            q = q.filter(False)
+            employee = ''
 
     if status in STATUSES:
         q = q.filter(Movement.status == status)
+    elif status:
+        filter_error = True
+        q = q.filter(False)
     if mission_state in ('تحت التحرير', 'مغلقة'):
         q = q.filter(Movement.mission_state == mission_state)
     elif mission_state:
+        filter_error = True
+        q = q.filter(False)
         mission_state = ''
 
     if duration == 'open':
@@ -149,10 +170,15 @@ def build_mission_report_context(*, roles, allowed_bids, args):
     elif duration == 'dated':
         q = q.filter(Movement.to_date.isnot(None))
     elif duration != '':
+        filter_error = True
+        q = q.filter(False)
         duration = ''
 
     df = parse_optional_iso_date(date_from)
     dt = parse_optional_iso_date(date_to)
+    if (date_from and df is None) or (date_to and dt is None):
+        filter_error = True
+        q = q.filter(False)
     if df and dt and df > dt:
         df, dt = dt, df
     if df:
@@ -196,4 +222,5 @@ def build_mission_report_context(*, roles, allowed_bids, args):
         'duration': duration,
         'mission_state': mission_state,
         'pending_edit_requests_count': pending_edit_requests_count,
+        'filter_error': filter_error,
     }

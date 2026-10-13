@@ -14,6 +14,7 @@ import urllib.request
 from flask import current_app
 
 from ..access import me, roles
+from .privacy import restore_local_tokens, sanitize_conversation_for_model
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,6 @@ INTENT_SCHEMA = {
         'email': {'type': ['string', 'null']},
         'job_title': {'type': ['string', 'null']},
         'job_code': {'type': ['string', 'null']},
-        'password': {'type': ['string', 'null']},
         'roles': {'type': 'array', 'items': {'type': 'string'}},
         'governorate_ids': {'type': 'array', 'items': {'type': 'integer'}},
         'governorate_names': {'type': 'array', 'items': {'type': 'string'}},
@@ -110,7 +110,7 @@ INTENT_SCHEMA = {
         'intent', 'topic', 'employee_name', 'employee_id', 'branch_name', 'branch_id',
         'governorate_id', 'governorate_name', 'candidate_ids', 'movement_type', 'leave_type',
         'destination_name', 'from_date', 'to_date', 'permission_date', 'open_assignment',
-        'navigate_url', 'reply', 'employee_field', 'new_name', 'full_name', 'employee_code', 'hire_date', 'company_phone', 'personal_phone', 'user_id', 'supervisor_id', 'delegate_id', 'delegation_id', 'reason', 'new_employee_id', 'new_employee_name', 'branch_code', 'role', 'username', 'email', 'job_title', 'job_code', 'password', 'roles', 'supervisor_name', 'delegate_name', 'starts_at', 'ends_at', 'new_employee_name', 'lookup_id', 'lookup_name', 'lookup_kind', 'movement_id', 'close_date',
+        'navigate_url', 'reply', 'employee_field', 'new_name', 'full_name', 'employee_code', 'hire_date', 'company_phone', 'personal_phone', 'user_id', 'supervisor_id', 'delegate_id', 'delegation_id', 'reason', 'new_employee_id', 'new_employee_name', 'branch_code', 'role', 'username', 'email', 'job_title', 'job_code', 'roles', 'supervisor_name', 'delegate_name', 'starts_at', 'ends_at', 'new_employee_name', 'lookup_id', 'lookup_name', 'lookup_kind', 'movement_id', 'close_date',
     ],
 }
 
@@ -128,6 +128,7 @@ SYSTEM_INSTRUCTION = """
 - إذا ذكر المستخدم اسم موظف أو فرع أو محافظة، أعد الاسم النصي في الحقل المناسب فقط. عند ذكر عدة فروع أو محافظات بالاسم، استخدم branch_names أو governorate_names.
 - يمكن أن يطلب المستخدم عمليات إدارية: إضافة/تعديل/تعطيل محافظة أو فرع، تعديل/إخفاء/استعادة موظف، ومنح/إزالة دور. استخرج العملية والحقول المذكورة فقط.
 - لا تستخرج كلمات مرور أو أسرار API؛ إذا طلب المستخدم إنشاء حساب بكلمة مرور فدع التطبيق يفتح شاشة الحساب.
+- قد تظهر رموز مثل [[LOCAL_PRIVATE_001]] بدل أسماء أو أكواد أو بيانات شخصية. هذه مراجع محلية يجب نسخها حرفيًا في الحقول المطلوبة دون محاولة تخمين قيمتها أو طلب كشفها.
 - لا تضع URL من عندك. استخدم navigate_url فقط إذا أعطاك التطبيق رابطًا في السياق، وإلا اتركه فارغًا.
 - افهم العربية الفصحى والعامية المصرية والأخطاء الإملائية والصياغات المختصرة.
 - إذا كان المستخدم يطلب تسجيل حركة، استخرج نوع الحركة والتواريخ واسم الموظف والوجهة إن ذكرها.
@@ -203,6 +204,9 @@ def llm_parse(text, chat=None, live_context=''):
         'هذا الدور معلومة سياقية لغوية فقط؛ لا تستخدمه لاتخاذ قرار صلاحية.\n'
         'لا توجد أي بيانات موظفين أو فروع أو محافظات متاحة للنموذج.\n'
     )
+    # Screen the current prompt and prior user turns locally before any outbound request.
+    # If local screening fails, the exception aborts this model call.
+    chat, text, local_token_map = sanitize_conversation_for_model(chat, text)
     contents = _history_for_language(chat, text)
 
     payload = {
@@ -248,15 +252,12 @@ def llm_parse(text, chat=None, live_context=''):
         parsed['new_employee_id'] = None
         parsed['password'] = None
         parsed['candidate_ids'] = []
-        return parsed
+        return restore_local_tokens(parsed, local_token_map)
     except urllib.error.HTTPError as exc:
-        body = ''
-        try:
-            body = exc.read().decode('utf-8', errors='ignore')[:800]
-        except Exception:
-            pass
-        logger.warning('Gemini intent request failed (%s): %s', exc.code, body or exc)
+        # Do not log provider response bodies: error payloads should never become
+        # an accidental secondary store for user prompts or credential echoes.
+        logger.warning('Gemini intent request failed with HTTP status %s', exc.code)
         return None
     except (urllib.error.URLError, TimeoutError, ValueError, KeyError) as exc:
-        logger.warning('Gemini intent request failed: %s', exc)
+        logger.warning('Gemini intent request failed (%s)', type(exc).__name__)
         return None

@@ -2,7 +2,7 @@
 
 import hmac
 
-from flask import abort, request, session
+from flask import abort, current_app, request, session
 
 from . import __version__
 from .access import (
@@ -117,6 +117,19 @@ CONTENT_SECURITY_POLICY = '; '.join(
 )
 
 
+def apply_request_size_limit():
+    """Set a bounded body size before any hook parses form data."""
+    default_limit = current_app.config.get('MAX_CONTENT_LENGTH', 2 * 1024 * 1024)
+    if request.endpoint == 'excel_import.excel_import_preview':
+        limit = current_app.config.get('EXCEL_UPLOAD_MAX_CONTENT_LENGTH', 16 * 1024 * 1024)
+    else:
+        limit = default_limit
+    # Flask 3.1 / Werkzeug 3.1 supports a per-request maximum, which allows the
+    # upload route to be larger without relaxing limits for normal form posts.
+    request.max_content_length = limit
+    return None
+
+
 def csrf_check():
     """Reject state-changing requests that do not carry the session CSRF token."""
     if request.method != 'POST' or request.endpoint in CSRF_EXEMPT_ENDPOINTS:
@@ -138,6 +151,9 @@ def register_hooks(app):
             return Markup(value.replace('\n', Markup('<br>')))
         return Markup(escape(value or '').replace('\n', Markup('<br>')))
 
+    # This must run before csrf_check, because request.form parsing may consume
+    # the multipart body and enforce the configured size limit.
+    app.before_request(apply_request_size_limit)
     app.before_request(csrf_check)
     app.after_request(security_headers)
     app.context_processor(inject_context)

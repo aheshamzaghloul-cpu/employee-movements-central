@@ -1,38 +1,202 @@
 {
-  "version": "68.22.45",
-  "artifact_type": "review_candidate",
-  "focus": "Consolidate global CSS design tokens and restore cyan visual consistency",
-  "status": "Static checks passed; full Flask runtime tests and browser visual QA remain unverified",
-  "python_syntax_check": "passed: compileall exit 0",
-  "javascript_syntax_check": "passed: node --check on 6 JavaScript files",
-  "ui_integrity_check": "passed: 45 templates, 1 CSS, 6 JS",
-  "home_workflow_contracts": "13/13 passed",
-  "post_route_security_check": "54 routes reviewed; passed",
-  "contract_tests": "26 passed",
-  "full_pytest": "blocked before tests ran: Flask is not installed in the packaging environment (ModuleNotFoundError); runtime integration tests not verified",
-  "css_parse_check": "passed: 2298 qualified rules, 0 parse errors, 1 global :root block, 60 global design tokens, no unresolved var() references detected",
-  "zip_integrity": "passed: unzip -t reported no errors; 244 project source files packaged at project root",
-  "browser_visual_verification": false,
-  "production_deploy": false,
-  "production_database_modified": false,
-  "changes": [
-    "Consolidate seven top-level :root design-token blocks into one canonical block containing 60 tokens",
-    "Restore cyan brand, strong brand, secondary brand, soft accent and focus-ring tokens after the final global block had switched them to blue",
-    "Align active sidebar navigation, active sidebar footer and login hero colors with the cyan design palette",
-    "Preserve responsive --ui-sidebar overrides inside media queries",
-    "Synchronize VERSION.md, pyproject.toml, application __version__, CSS cache-busting query and README with v68.22.45"
+  "version": "68.26.0",
+  "title": "Full workspace design system, light cyan sidebar and CSS cleanup",
+  "scope": "Unified the remaining workspaces, removed provably superseded CSS rules, replaced legacy charcoal states in shared components, and aligned the sidebar with the light white/cyan system. No production deployment or database mutation.",
+  "template_count": 45,
+  "pages_redesigned": [
+    "/reports-missions",
+    "/reports",
+    "/manager",
+    "/reports/assignments/monthly",
+    "/notifications",
+    "/branches",
+    "/governorates",
+    "/lookups",
+    "/excel-import/<kind>",
+    "/change-password",
+    "/employee/<id>",
+    "/employees/<id>/edit",
+    "/employees/resigned",
+    "/replacement",
+    "/audit"
   ],
-  "checks": {
+  "page_stylesheet": {
+    "file": "employee_movements/static/css/pages/management.css",
+    "condition": "request.path starts with /structure, /users, or /delegations"
+  },
+  "shared_css_bytes": 224819,
+  "shared_css_lines": 2615,
+  "shared_css_media_blocks": 95,
+  "shared_css_important_occurrences": 586,
+  "page_css_bytes": 105496,
+  "page_css_lines": 1222,
+  "css_files_checked": 6,
+  "css_parse_errors": 0,
+  "js_files_checked": 7,
+  "js_syntax_errors": 0,
+  "python_source_compile_errors": 0,
+  "contract_test_count": 181,
+  "contract_test_status": "passed",
+  "contract_test_summary": "181 contract tests passed for v68.26.0; see docs/design/CSS_FINAL_CLEANUP_v68.26.0.md.",
+  "full_flask_tests": "not_run: Flask is not installed in the review environment; no live Flask session, database writes, PostgreSQL integration test, or production deployment.",
+  "backend_business_logic_changed": "No route or authorization logic changed. The existing user-create route already requires and validates governorate_id for supervisor accounts; the missing form controls were added. UI text corrected to describe default vs additional permissions.",
+  "production_deployed": false,
+  "production_database_changed": false,
+  "report": "docs/design/CSS_FINAL_CLEANUP_v68.26.0.md",
+  "form_inventory": "docs/design/MOVEMENT_FORM_INVENTORY_v68.23.2.md",
+  "blueprint": "docs/design/DESIGN_SYSTEM_BLUEPRINT_v68.23.2.md",
+  "base_asset_cache_busters": 13,
+  "jinja_template_parse_errors": 0,
+  "css_recursive_parse_errors": 0,
+  "css_cleanup": {
+    "method": "Removed only CSS rules whose complete declaration sets were provably superseded by later declarations for the same selector and matching at-rule context; retained unique or uncertain rules. Changed a defined set of legacy charcoal color remnants to shared light/cyan theme tokens. Did not blindly remove all !important declarations.",
+    "fully_removed_qualified_rules": 191,
+    "bytes_removed_from_duplicate_rule_text": 14176,
+    "app_css_bytes_before": 238394,
+    "app_css_bytes_after": 224819,
+    "app_css_lines_after": 2615,
+    "important_before": 637,
+    "important_after": 586,
+    "palette_review_colors_remaining": {
+      "#252b33": 0,
+      "#171b20": 0,
+      "#191d22": 0,
+      "#2b3138": 0,
+      "#3c444e": 0
+    },
+    "sidebar": "light white/cyan surface with dark readable nav text and a low-glow active state"
+  },
+  "page_stylesheet_map": "docs/design/PAGE_STYLESHEET_MAP_v68.26.0.md",
+  "current_phase_verification": {
+    "release": "68.26.0",
+    "contract_tests": {
+      "collected": 181,
+      "passed": 181,
+      "status": "passed"
+    },
     "python_compileall": "passed",
-    "ui_integrity": "passed",
-    "home_workflow_contracts": "13/13 passed",
-    "post_route_security": "54 routes reviewed; passed",
-    "contract_tests": "26/26 passed",
-    "css_syntax": "passed; 0 parse errors",
-    "css_variables": "passed; no unresolved var() references detected",
-    "flask_runtime_tests": "not run; Flask unavailable in packaging environment",
-    "browser_visual_verification": "not performed",
-    "zip_integrity": "passed: unzip -t reported no errors",
-    "javascript_syntax": "passed: 6 files"
-  }
+    "javascript_syntax": {
+      "files": 7,
+      "errors": 0,
+      "status": "passed"
+    },
+    "ui_integrity": {
+      "templates": 45,
+      "css_files": 6,
+      "js_files": 7,
+      "status": "passed"
+    },
+    "home_workflow_source_contracts": {
+      "passed": 13,
+      "total": 13
+    },
+    "post_route_security": {
+      "routes_reviewed": 54,
+      "status": "passed"
+    },
+    "jinja_templates": {
+      "parsed": 45,
+      "errors": 0
+    },
+    "css_recursive_parse": {
+      "files": 6,
+      "errors": 0,
+      "status": "passed"
+    },
+    "browser_visual_qa": "A static HTML dashboard fixture using current CSS was rendered at 320, 390, 600, 768, 801, 1024 and 1440 px. No horizontal document overflow was measured; mobile drawer open/close positions were checked after transitions. Not a live Flask rendering and not coverage of every route.",
+    "manual_live_interaction_qa": "not run; Flask is not installed in the review environment",
+    "flask_integration_tests": "blocked: Flask is not installed in the review environment",
+    "production_deployed": false,
+    "production_database_changed": false,
+    "css_files": 6,
+    "static_responsive_preview": {
+      "viewports": [
+        {
+          "width": 320,
+          "height": 780
+        },
+        {
+          "width": 390,
+          "height": 844
+        },
+        {
+          "width": 600,
+          "height": 900
+        },
+        {
+          "width": 768,
+          "height": 900
+        },
+        {
+          "width": 801,
+          "height": 900
+        },
+        {
+          "width": 1024,
+          "height": 900
+        },
+        {
+          "width": 1440,
+          "height": 1000
+        }
+      ],
+      "horizontal_document_overflow_in_fixture": false,
+      "mobile_sidebar_open_close": "passed in 390px static fixture after CSS transition",
+      "scope": "static fixture only, not live app verification"
+    },
+    "contract_test_note": "pytest contract_tests: 181 passed; python compileall passed; 7 JavaScript files passed node --check; 45 Jinja templates parsed; 6 CSS files recursively parsed with zero errors."
+  },
+  "previous_movement_phase_responsive_viewport_cases": 12,
+  "previous_movement_phase_responsive_viewports": [
+    {
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "width": 390,
+      "height": 844
+    },
+    {
+      "width": 320,
+      "height": 700
+    }
+  ],
+  "previous_movement_phase_responsive_horizontal_overflow": false,
+  "previous_movement_phase_interaction_groups": 4,
+  "previous_movement_phase_interaction_status": "passed",
+  "previous_movement_phase_javascript_page_errors": 0,
+  "previous_movement_phase_interaction_fixture_file": "docs/design/INTERACTION_CHECKS_v68.23.2.json",
+  "previous_movement_phase_page_errors": 0,
+  "previous_movement_phase_interaction_test_groups": [
+    "movement create and dependent choices",
+    "movement edit open assignment and date validation",
+    "mission edit date validation",
+    "manager review state-dependent end date requirement"
+  ],
+  "previous_movement_phase_hidden_field_validation_reset_test": "passed: invalid leave/assignment end-date constraints do not block a valid permission after switching movement type",
+  "page_stylesheets": [
+    {
+      "file": "employee_movements/static/css/pages/home.css",
+      "condition": "request.path == /"
+    },
+    {
+      "file": "employee_movements/static/css/pages/employee-directory.css",
+      "condition": "request.path == /employees"
+    },
+    {
+      "file": "employee_movements/static/css/pages/movement-forms.css",
+      "condition": "movement and mission edit-request routes"
+    },
+    {
+      "file": "employee_movements/static/css/pages/management.css",
+      "condition": "/structure, /users, /delegations"
+    },
+    {
+      "file": "employee_movements/static/css/pages/workspace-pages.css",
+      "condition": "catalog, import, report, manager, notification, account, employee detail/edit and replacement routes, excluding movement form subroutes"
+    }
+  ],
+  "app_css_important_occurrences": 586,
+  "final_visual_review_limits": "Static CSS fixture only. No live Flask/DB/browser app run; production remains unchanged.",
+  "local_qa_report": "docs/design/LOCAL_QA_v68.26.0.md"
 }

@@ -8,6 +8,9 @@ from .extensions import db
 from .models import Lookup, Movement, MovementHistory
 
 
+OVERLAP_CONFLICT_MESSAGE = 'تتعارض بيانات الحركة مع حركة نشطة مسجلة للموظف؛ لا يمكن الحفظ.'
+
+
 def active_movement_types():
     vals = [
         x.name
@@ -75,7 +78,7 @@ def movement_overlaps(employee_id, mt, fd, td, pd, exclude_id=None):
                 Movement.movement_type == 'إذن',
                 Movement.permission_date == day,
             )).first():
-                return 'يوجد إذن آخر للموظف في نفس التاريخ.'
+                return OVERLAP_CONFLICT_MESSAGE
 
             if active(Movement.query.filter(
                 Movement.from_date.isnot(None),
@@ -83,7 +86,7 @@ def movement_overlaps(employee_id, mt, fd, td, pd, exclude_id=None):
                 Movement.from_date <= day,
                 Movement.to_date >= day,
             )).first():
-                return 'تاريخ الإذن يتعارض مع حركة أخرى للموظف.'
+                return OVERLAP_CONFLICT_MESSAGE
 
             # An open assignment has no end date, so it is not included in the
             # bounded date-range query above. Treat it as active from its start
@@ -95,7 +98,7 @@ def movement_overlaps(employee_id, mt, fd, td, pd, exclude_id=None):
                 Movement.from_date <= day,
                 Movement.to_date.is_(None),
             )).first():
-                return 'تاريخ الإذن يتعارض مع انتداب مفتوح للموظف.'
+                return OVERLAP_CONFLICT_MESSAGE
         return None
 
     if not start:
@@ -110,7 +113,7 @@ def movement_overlaps(employee_id, mt, fd, td, pd, exclude_id=None):
     if end is not None:
         open_assignment = open_assignment.filter(Movement.from_date <= end)
     if open_assignment.first():
-        return 'يوجد انتداب مفتوح للموظف؛ أغلقه أو عدّل مدته قبل تسجيل حركة متعارضة.'
+        return OVERLAP_CONFLICT_MESSAGE
 
     dated = active(Movement.query.filter(
         Movement.from_date.isnot(None),
@@ -122,7 +125,7 @@ def movement_overlaps(employee_id, mt, fd, td, pd, exclude_id=None):
             Movement.to_date >= start,
         )
     if dated.first():
-        return 'فترة الحركة تتعارض مع حركة أخرى للموظف.'
+        return OVERLAP_CONFLICT_MESSAGE
 
     permission = active(Movement.query.filter(
         Movement.movement_type == 'إذن',
@@ -136,7 +139,7 @@ def movement_overlaps(employee_id, mt, fd, td, pd, exclude_id=None):
             Movement.permission_date <= end,
         )
     if permission.first():
-        return 'فترة الحركة تتعارض مع إذن للموظف.'
+        return OVERLAP_CONFLICT_MESSAGE
     return None
 
 

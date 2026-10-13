@@ -7,7 +7,7 @@ from sqlalchemy.exc import OperationalError
 
 from flask import Flask
 
-__version__ = '68.22.45'
+__version__ = '68.26.0'
 
 
 def create_app(overrides=None):
@@ -58,8 +58,8 @@ def _initialize_database_with_retry(app, init_database):
             from .extensions import db
             db.session.remove()
             app.logger.warning(
-                'قاعدة PostgreSQL غير متاحة مؤقتًا أثناء الإقلاع (محاولة %s/%s): %s. إعادة المحاولة بعد %.1f ثانية.',
-                attempt, retries, exc, delay,
+                'قاعدة PostgreSQL غير متاحة مؤقتًا أثناء الإقلاع (محاولة %s/%s، نوع الخطأ %s). إعادة المحاولة بعد %.1f ثانية.',
+                attempt, retries, type(exc).__name__, delay,
             )
             time.sleep(delay)
             delay = min(delay * 2, 30.0)

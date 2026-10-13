@@ -1,0 +1,1368 @@
+[
+  {
+    "original_line": 147,
+    "selector": ".ui-card,.ui-module-card,.ui-work-card",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 151,
+    "selector": ".ui-btn:hover,.ui-link-btn:hover",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 151,
+    "selector": ".ui-btn-primary,.employees-primary,.ui-tone-teal,.ui-primary-btn",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 151,
+    "selector": ".ui-btn-primary:hover,.employees-primary:hover,.ui-tone-teal:hover,.ui-primary-btn:hover",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 151,
+    "selector": ".ui-btn-danger,.ui-danger-btn",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 151,
+    "selector": ".ui-btn-mini",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 154,
+    "selector": "textarea",
+    "context": [],
+    "declarations": 4
+  },
+  {
+    "original_line": 160,
+    "selector": ".movement-chip.leave,.home-status-chip.leave",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 160,
+    "selector": ".movement-chip.assign,.home-status-chip.assign",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 160,
+    "selector": ".movement-chip.permit,.home-status-chip.permit",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 161,
+    "selector": ".employee-more",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 167,
+    "selector": ".ui-report-link-grid>a:hover",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 167,
+    "selector": ".ui-report-link-grid>a b",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 167,
+    "selector": ".ui-report-stat b",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 170,
+    "selector": ".ui-delegation-summary>div",
+    "context": [],
+    "declarations": 4
+  },
+  {
+    "original_line": 174,
+    "selector": ".login",
+    "context": [],
+    "declarations": 6
+  },
+  {
+    "original_line": 174,
+    "selector": ".login h1,.login h2",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 174,
+    "selector": ".login form",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 174,
+    "selector": ".login .ui-btn",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 178,
+    "selector": ".ui-sidebar",
+    "context": [
+      [
+        "media",
+        "(max-width:1220px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 178,
+    "selector": ".ui-topbar",
+    "context": [
+      [
+        "media",
+        "(max-width:1220px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 178,
+    "selector": ".ui-main",
+    "context": [
+      [
+        "media",
+        "(max-width:1220px)"
+      ]
+    ],
+    "declarations": 3
+  },
+  {
+    "original_line": 181,
+    "selector": ".ui-sidebar",
+    "context": [
+      [
+        "media",
+        "(max-width:980px)"
+      ]
+    ],
+    "declarations": 3
+  },
+  {
+    "original_line": 181,
+    "selector": ".ui-sidebar.is-open,.ui-sidebar.open",
+    "context": [
+      [
+        "media",
+        "(max-width:980px)"
+      ]
+    ],
+    "declarations": 2
+  },
+  {
+    "original_line": 181,
+    "selector": ".ui-topbar",
+    "context": [
+      [
+        "media",
+        "(max-width:980px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 181,
+    "selector": ".ui-main",
+    "context": [
+      [
+        "media",
+        "(max-width:980px)"
+      ]
+    ],
+    "declarations": 3
+  },
+  {
+    "original_line": 181,
+    "selector": ".ui-mobile-menu",
+    "context": [
+      [
+        "media",
+        "(max-width:980px)"
+      ]
+    ],
+    "declarations": 2
+  },
+  {
+    "original_line": 181,
+    "selector": ".ui-top-actions",
+    "context": [
+      [
+        "media",
+        "(max-width:980px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 181,
+    "selector": ".ui-role-switch span",
+    "context": [
+      [
+        "media",
+        "(max-width:980px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 181,
+    "selector": ".ui-scope-form select",
+    "context": [
+      [
+        "media",
+        "(max-width:980px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 181,
+    "selector": ".ui-report-group-grid",
+    "context": [
+      [
+        "media",
+        "(max-width:980px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 181,
+    "selector": ".delegation-create-grid",
+    "context": [
+      [
+        "media",
+        "(max-width:980px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 181,
+    "selector": ".ui-grid.wide",
+    "context": [
+      [
+        "media",
+        "(max-width:980px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 181,
+    "selector": ".ui-report-link-grid",
+    "context": [
+      [
+        "media",
+        "(max-width:980px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 181,
+    "selector": ".ui-report-stat-grid",
+    "context": [
+      [
+        "media",
+        "(max-width:980px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 184,
+    "selector": ".ui-brand-copy",
+    "context": [
+      [
+        "media",
+        "(max-width:480px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 184,
+    "selector": ".ui-sidebar",
+    "context": [
+      [
+        "media",
+        "(max-width:480px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 184,
+    "selector": ".ui-grid.wide",
+    "context": [
+      [
+        "media",
+        "(max-width:480px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 184,
+    "selector": ".ui-card,.ui-module-card,.ui-work-card",
+    "context": [
+      [
+        "media",
+        "(max-width:480px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 184,
+    "selector": ".ui-section-title, .ui-card-head",
+    "context": [
+      [
+        "media",
+        "(max-width:480px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 215,
+    "selector": ".ui-admin-replace-grid",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 218,
+    "selector": ".ui-grid-full",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 247,
+    "selector": ".login-hero h1",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 247,
+    "selector": ".login-hero p",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 247,
+    "selector": ".feature-list b",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 247,
+    "selector": ".login-card h2",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 251,
+    "selector": ".ui-main",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 271,
+    "selector": ".ui-btn,.ui-primary-btn,.ui-danger-btn,.ui-link-btn,.employees-primary",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 278,
+    "selector": "textarea",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 280,
+    "selector": ".ui-table-wrap th,.ui-table th,.ui-data-table th,.ui-mission-table th",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 299,
+    "selector": ".assistant-dock",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 299,
+    "selector": ".assistant-dock-trigger",
+    "context": [],
+    "declarations": 11
+  },
+  {
+    "original_line": 299,
+    "selector": ".assistant-dock-trigger:focus-visible",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 299,
+    "selector": ".assistant-dock-panel-head b",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 299,
+    "selector": ".assistant-dock-panel-head small",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 314,
+    "selector": ".movement-branch-card.is-selected,.movement-employee-card.is-selected",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 340,
+    "selector": ".premium-brand",
+    "context": [],
+    "declarations": 4
+  },
+  {
+    "original_line": 341,
+    "selector": ".premium-brand .ui-brand-mark",
+    "context": [],
+    "declarations": 7
+  },
+  {
+    "original_line": 343,
+    "selector": ".premium-brand .ui-brand-copy span",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 350,
+    "selector": ".premium-nav",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 351,
+    "selector": ".premium-nav a",
+    "context": [],
+    "declarations": 8
+  },
+  {
+    "original_line": 352,
+    "selector": ".premium-nav a:hover",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 353,
+    "selector": ".premium-nav a.active",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 354,
+    "selector": ".premium-nav a.active svg",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 358,
+    "selector": ".premium-side-footer a:hover",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 365,
+    "selector": ".premium-breadcrumb strong",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 376,
+    "selector": ".premium-page-intro",
+    "context": [],
+    "declarations": 5
+  },
+  {
+    "original_line": 378,
+    "selector": ".premium-page-intro p",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 381,
+    "selector": ".premium-page-context span",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 381,
+    "selector": ".premium-page-context b",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 385,
+    "selector": ".premium-commandbar a:hover",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 385,
+    "selector": ".premium-commandbar a.primary",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 388,
+    "selector": "h1,h2,h3",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 392,
+    "selector": ".ui-section-title, .ui-card-head, .ui-report-group-head",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 395,
+    "selector": ".ui-icon-tile, .ui-card-icon, .ui-report-group-icon",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 401,
+    "selector": ".ui-btn-primary,.employees-primary,.ui-tone-teal,.ui-primary-btn",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 401,
+    "selector": ".ui-btn-primary:hover,.employees-primary:hover,.ui-tone-teal:hover,.ui-primary-btn:hover",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 415,
+    "selector": ".home-primary-actions",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 415,
+    "selector": ".home-primary-actions .smart-action-card",
+    "context": [],
+    "declarations": 5
+  },
+  {
+    "original_line": 415,
+    "selector": ".home-primary-actions .smart-action-card:hover",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 416,
+    "selector": ".smart-secondary-monitoring",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 416,
+    "selector": ".smart-secondary-head",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 416,
+    "selector": ".smart-secondary-head h2",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 416,
+    "selector": ".smart-secondary-head>span",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 417,
+    "selector": ".smart-secondary-grid",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 418,
+    "selector": ".smart-status-metrics button",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 430,
+    "selector": ".assistant-dock-send",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 431,
+    "selector": ".interactive-palette-dialog",
+    "context": [],
+    "declarations": 4
+  },
+  {
+    "original_line": 431,
+    "selector": ".interactive-palette-search",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 432,
+    "selector": ".interactive-notification-popover",
+    "context": [],
+    "declarations": 4
+  },
+  {
+    "original_line": 432,
+    "selector": ".interactive-notification-pop-tabs button.active",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 436,
+    "selector": ".auth-main",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 436,
+    "selector": ".login-shell",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 436,
+    "selector": ".login-hero",
+    "context": [],
+    "declarations": 5
+  },
+  {
+    "original_line": 436,
+    "selector": ".login-card",
+    "context": [],
+    "declarations": 5
+  },
+  {
+    "original_line": 445,
+    "selector": ".premium-sidebar",
+    "context": [
+      [
+        "media",
+        "(max-width:800px)"
+      ]
+    ],
+    "declarations": 3
+  },
+  {
+    "original_line": 445,
+    "selector": ".premium-sidebar.is-open",
+    "context": [
+      [
+        "media",
+        "(max-width:800px)"
+      ]
+    ],
+    "declarations": 2
+  },
+  {
+    "original_line": 445,
+    "selector": ".premium-topbar",
+    "context": [
+      [
+        "media",
+        "(max-width:800px)"
+      ]
+    ],
+    "declarations": 3
+  },
+  {
+    "original_line": 445,
+    "selector": ".premium-breadcrumb",
+    "context": [
+      [
+        "media",
+        "(max-width:800px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 445,
+    "selector": ".premium-top-actions .ui-mobile-menu",
+    "context": [
+      [
+        "media",
+        "(max-width:800px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 446,
+    "selector": ".premium-main",
+    "context": [
+      [
+        "media",
+        "(max-width:600px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 446,
+    "selector": ".premium-page-intro h1",
+    "context": [
+      [
+        "media",
+        "(max-width:600px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 452,
+    "selector": ".premium-brand .ui-brand-mark",
+    "context": [],
+    "declarations": 6
+  },
+  {
+    "original_line": 456,
+    "selector": ".premium-side-user .ui-avatar",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 457,
+    "selector": ".premium-side-user b",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 457,
+    "selector": ".premium-side-user small",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 460,
+    "selector": ".premium-nav a:hover",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 460,
+    "selector": ".premium-nav a.active",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 464,
+    "selector": ".premium-breadcrumb",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 464,
+    "selector": ".premium-breadcrumb strong",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 464,
+    "selector": ".premium-top-actions",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 466,
+    "selector": ".interactive-command-trigger:hover,.interactive-notification-trigger:hover",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 467,
+    "selector": ".interactive-notification-trigger svg",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 470,
+    "selector": ".premium-page-intro",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 470,
+    "selector": ".premium-page-intro h1",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 470,
+    "selector": ".premium-eyebrow",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 470,
+    "selector": ".premium-page-intro p",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 470,
+    "selector": ".premium-page-context",
+    "context": [],
+    "declarations": 5
+  },
+  {
+    "original_line": 472,
+    "selector": ".premium-commandbar a.primary",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 475,
+    "selector": ".ui-section-title h3, .ui-card-head h2",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 478,
+    "selector": ".ui-btn-primary:hover,.employees-primary:hover,.ui-tone-teal:hover,.ui-primary-btn:hover",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 480,
+    "selector": ".home-primary-actions .smart-action-card",
+    "context": [],
+    "declarations": 4
+  },
+  {
+    "original_line": 482,
+    "selector": ".smart-secondary-monitoring",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 482,
+    "selector": ".smart-secondary-head",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 482,
+    "selector": ".smart-secondary-head>span",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 488,
+    "selector": ".interactive-palette-head",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 488,
+    "selector": ".interactive-result",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 498,
+    "selector": ".premium-page-intro h1",
+    "context": [
+      [
+        "media",
+        "(max-width:600px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 565,
+    "selector": ".login-card .ui-subtitle",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 596,
+    "selector": ".ui-table-wrap tbody tr:has(a:focus),.ui-table-wrap tbody tr:has(button:focus)",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 609,
+    "selector": ".workflow-progress span.active",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 624,
+    "selector": ".premium-sidebar .premium-side-footer a.active",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 632,
+    "selector": ".home-primary-actions",
+    "context": [],
+    "declarations": 4
+  },
+  {
+    "original_line": 651,
+    "selector": ".ui-badge, .ui-tag, .ui-status, .ui-status-chip, .ui-state",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 668,
+    "selector": ".assistant-dock-send",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 687,
+    "selector": ".premium-sidebar",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 688,
+    "selector": ".premium-brand, .premium-side-user, .premium-side-footer",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 690,
+    "selector": ".premium-nav a:hover",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 692,
+    "selector": ".premium-topbar",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 695,
+    "selector": ".premium-page-intro h1",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 696,
+    "selector": ".premium-page-intro p",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 697,
+    "selector": ".smart-home",
+    "context": [],
+    "declarations": 6
+  },
+  {
+    "original_line": 699,
+    "selector": ".smart-home-head h1",
+    "context": [],
+    "declarations": 4
+  },
+  {
+    "original_line": 705,
+    "selector": ".smart-action-head",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 709,
+    "selector": ".smart-secondary-grid",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 720,
+    "selector": ".assistant-dock",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 721,
+    "selector": ".assistant-dock-panel",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 751,
+    "selector": "input::placeholder, textarea::placeholder",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 760,
+    "selector": "body",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 766,
+    "selector": ".premium-page-intro",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 774,
+    "selector": ".premium-topbar",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 800,
+    "selector": ":where(a, button, input, select, textarea, summary):focus-visible",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 815,
+    "selector": "input[type=\"checkbox\"], input[type=\"radio\"]",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 817,
+    "selector": "label",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 842,
+    "selector": ".premium-main.with-shell",
+    "context": [
+      [
+        "media",
+        "(max-width: 600px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 853,
+    "selector": "*, *::before, *::after",
+    "context": [
+      [
+        "media",
+        "(prefers-reduced-motion: reduce)"
+      ]
+    ],
+    "declarations": 3
+  },
+  {
+    "original_line": 894,
+    "selector": ".smart-action-icon",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 903,
+    "selector": "html",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 904,
+    "selector": "body",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 916,
+    "selector": ".login-shell",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 917,
+    "selector": ".login-hero",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 921,
+    "selector": ".login-card form button",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 938,
+    "selector": ".login-shell",
+    "context": [
+      [
+        "media",
+        "(max-width: 600px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 939,
+    "selector": ".login-card",
+    "context": [
+      [
+        "media",
+        "(max-width: 600px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 1033,
+    "selector": "::placeholder",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 1049,
+    "selector": ".premium-sidebar .premium-nav a",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 1050,
+    "selector": ".premium-sidebar .premium-nav a:hover",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 1051,
+    "selector": ".premium-sidebar .premium-nav a.active",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 1058,
+    "selector": ".premium-breadcrumb",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 1059,
+    "selector": ".premium-breadcrumb strong",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 1060,
+    "selector": ".premium-main",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 1062,
+    "selector": ".login-shell",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 1063,
+    "selector": ".login-hero",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 1068,
+    "selector": ".login-card",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 1092,
+    "selector": ".premium-main.with-shell",
+    "context": [
+      [
+        "media",
+        "(max-width: 600px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 1093,
+    "selector": ".login-shell",
+    "context": [
+      [
+        "media",
+        "(max-width: 600px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 1094,
+    "selector": ".login-hero",
+    "context": [
+      [
+        "media",
+        "(max-width: 600px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 1095,
+    "selector": ".login-card",
+    "context": [
+      [
+        "media",
+        "(max-width: 600px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 1134,
+    "selector": ".smart-action-head",
+    "context": [],
+    "declarations": 1
+  },
+  {
+    "original_line": 1816,
+    "selector": ".premium-top-actions",
+    "context": [
+      [
+        "media",
+        "(max-width: 600px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 1824,
+    "selector": ".premium-page-intro",
+    "context": [
+      [
+        "media",
+        "(max-width: 600px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 2168,
+    "selector": ".premium-page-intro h1",
+    "context": [],
+    "declarations": 3
+  },
+  {
+    "original_line": 2169,
+    "selector": ".premium-page-intro p",
+    "context": [],
+    "declarations": 5
+  },
+  {
+    "original_line": 2172,
+    "selector": ".premium-page-context span",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 2173,
+    "selector": ".premium-page-context b",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 2179,
+    "selector": ".premium-top-actions",
+    "context": [],
+    "declarations": 2
+  },
+  {
+    "original_line": 2622,
+    "selector": ".premium-topbar",
+    "context": [
+      [
+        "media",
+        "(max-width: 800px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 2629,
+    "selector": ".premium-topbar",
+    "context": [
+      [
+        "media",
+        "(max-width: 600px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 2630,
+    "selector": ".premium-top-actions",
+    "context": [
+      [
+        "media",
+        "(max-width: 600px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 2635,
+    "selector": ".premium-page-intro h1",
+    "context": [
+      [
+        "media",
+        "(max-width: 600px)"
+      ]
+    ],
+    "declarations": 1
+  },
+  {
+    "original_line": 2636,
+    "selector": ".premium-page-intro p",
+    "context": [
+      [
+        "media",
+        "(max-width: 600px)"
+      ]
+    ],
+    "declarations": 1
+  }
+]

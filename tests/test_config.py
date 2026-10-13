@@ -76,3 +76,31 @@ def test_production_accepts_secure_session_cookie(monkeypatch):
     monkeypatch.setenv('DATABASE_URL', 'postgresql://u:p@h:5432/db')
     monkeypatch.setenv('COOKIE_SECURE', '1')
     assert load_config()['SESSION_COOKIE_SECURE'] is True
+
+
+def test_sqlite_test_override_does_not_inherit_postgres_connect_timeout(monkeypatch):
+    from sqlalchemy import create_engine
+
+    monkeypatch.setenv('DATABASE_URL', 'postgresql://unused:unused@localhost/unused')
+    cfg = load_config({
+        'APP_ENV': 'testing',
+        'SECRET_KEY': 'k' * 48,
+        'SQLALCHEMY_DATABASE_URI': 'sqlite://',
+        'INIT_DATABASE': False,
+    })
+    assert 'connect_args' not in cfg['SQLALCHEMY_ENGINE_OPTIONS']
+    engine = create_engine(cfg['SQLALCHEMY_DATABASE_URI'], **cfg['SQLALCHEMY_ENGINE_OPTIONS'])
+    try:
+        with engine.connect() as conn:
+            assert conn.exec_driver_sql('select 1').scalar_one() == 1
+    finally:
+        engine.dispose()
+
+
+def test_postgres_driver_retains_connection_timeout(monkeypatch):
+    monkeypatch.setenv('DATABASE_URL', 'postgresql://unused:unused@localhost/unused')
+    cfg = load_config({
+        'APP_ENV': 'testing',
+        'SECRET_KEY': 'k' * 48,
+    })
+    assert cfg['SQLALCHEMY_ENGINE_OPTIONS']['connect_args']['connect_timeout'] == 10

@@ -7,6 +7,7 @@
 </div>
 
 <div class="ui-card ui-mission-filter-card no-print ui-pad-18">
+{% if filter_error %}<div class="ui-alert ui-alert-warning" role="status">تعذر تطبيق أحد المرشحات أو أن قيمته غير صالحة. تم منع توسيع النتائج؛ راجع المحافظة والفرع والموظف والتواريخ ثم أعد البحث.</div>{% endif %}
 <form method="get" class="ui-grid ui-report-filter-grid" id="missionFilterForm">
   <div><label>من محافظة</label><select name="governorate_id" onchange="this.form.branch_id.value='';this.form.employee_id.value='';this.form.submit()"><option value="">كل المحافظات</option>{% for g in report_governorates %}<option value="{{g.id}}" {% if selected_governorate==g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></div>
   <div><label>فرع الموظف</label><select name="branch_id" onchange="this.form.employee_id.value='';this.form.submit()"><option value="">كل الفروع</option>{% for b in report_branches %}<option value="{{b.id}}" {% if selected_branch==b.id|string %}selected{% endif %}>{{b.name}} · {{b.governorate.name if b.governorate else '—'}}</option>{% endfor %}</select></div>

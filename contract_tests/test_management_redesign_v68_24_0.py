@@ -18,7 +18,8 @@ def test_management_stylesheet_is_loaded_only_for_management_routes():
     assert "request.path.startswith('/users')" in BASE
     assert "request.path.startswith('/delegations')" in BASE
     assert "filename='css/pages/management.css'" in BASE
-    assert "?v=68.26.0" in BASE
+    current_version = (ROOT / "VERSION.md").read_text(encoding="utf-8").strip()
+    assert f"?v={current_version}" in BASE
     assert (ROOT / 'employee_movements/static/css/pages/management.css').is_file()
 
 
@@ -80,8 +81,8 @@ def test_release_assets_use_the_single_68_24_0_cache_version():
     version = (ROOT / 'VERSION.md').read_text(encoding='utf-8').strip()
     init = (ROOT / 'employee_movements/__init__.py').read_text(encoding='utf-8')
     project = (ROOT / 'pyproject.toml').read_text(encoding='utf-8')
-    assert version == '68.26.0'
+    assert re.fullmatch(r'\d+\.\d+\.\d+', version)
     assert f"__version__ = '{version}'" in init
     assert f'version = "{version}"' in project
-    assert BASE.count(f'?v={version}') == 13
+    assert BASE.count(f'?v={version}') == 14
     assert f'v{version}' in CSS.splitlines()[1]

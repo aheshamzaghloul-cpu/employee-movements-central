@@ -7,12 +7,13 @@
 <meta name="robots" content="noindex,nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{{url_for('static',filename='css/app.css')+'?v=68.26.0'}}">
-{% if request.path == '/' %}<link rel="stylesheet" href="{{url_for('static',filename='css/pages/home.css')+'?v=68.26.0'}}">{% elif request.path == '/employees' %}<link rel="stylesheet" href="{{url_for('static',filename='css/pages/employee-directory.css')+'?v=68.26.0'}}">{% endif %}
-{% if request.path.startswith('/movements') or request.path.startswith('/reports/assignments/mission-edit') or request.path.startswith('/reports/assignments/edit-requests') %}<link rel="stylesheet" href="{{url_for('static',filename='css/pages/movement-forms.css')+'?v=68.26.0'}}">{% endif %}
-{% if request.path.startswith('/structure') or request.path.startswith('/users') or request.path.startswith('/delegations') %}<link rel="stylesheet" href="{{url_for('static',filename='css/pages/management.css')+'?v=68.26.0'}}">{% endif %}
-{% if request.path.startswith('/branches') or request.path.startswith('/governorates') or request.path.startswith('/lookups') or request.path.startswith('/excel-import') or request.path.startswith('/reports') or request.path.startswith('/reports-missions') or request.path.startswith('/manager') or request.path.startswith('/audit') or request.path.startswith('/notifications') or request.path.startswith('/change-password') or request.path.startswith('/replacement') or request.path.startswith('/employee/') or request.path.startswith('/employees/') %}{% if not request.path.startswith('/reports/assignments/mission-edit') and not request.path.startswith('/reports/assignments/edit-requests') %}<link rel="stylesheet" href="{{url_for('static',filename='css/pages/workspace-pages.css')+'?v=68.26.0'}}">{% endif %}{% endif %}
-<script src="{{url_for('static',filename='js/search_utils.js')+'?v=68.26.0'}}"></script>
+<link rel="stylesheet" href="{{url_for('static',filename='css/app.css')+'?v=68.36.0'}}">
+{% if request.path == '/' %}<link rel="stylesheet" href="{{url_for('static',filename='css/pages/home.css')+'?v=68.36.0'}}">{% elif request.path == '/employees' %}<link rel="stylesheet" href="{{url_for('static',filename='css/pages/employee-directory.css')+'?v=68.36.0'}}">{% endif %}
+{% if request.path.startswith('/movements') or request.path.startswith('/reports/assignments/mission-edit') or request.path.startswith('/reports/assignments/edit-requests') %}<link rel="stylesheet" href="{{url_for('static',filename='css/pages/movement-forms.css')+'?v=68.36.0'}}">{% endif %}
+{% if request.path.startswith('/structure') or request.path.startswith('/users') or request.path.startswith('/delegations') %}<link rel="stylesheet" href="{{url_for('static',filename='css/pages/management.css')+'?v=68.36.0'}}">{% endif %}
+{% if request.path.startswith('/branches') or request.path.startswith('/governorates') or request.path.startswith('/lookups') or request.path.startswith('/excel-import') or request.path.startswith('/reports') or request.path.startswith('/reports-missions') or request.path.startswith('/manager') or request.path.startswith('/audit') or request.path.startswith('/notifications') or request.path.startswith('/change-password') or request.path.startswith('/replacement') or request.path.startswith('/employee/') or request.path.startswith('/employees/') %}{% if not request.path.startswith('/reports/assignments/mission-edit') and not request.path.startswith('/reports/assignments/edit-requests') %}<link rel="stylesheet" href="{{url_for('static',filename='css/pages/workspace-pages.css')+'?v=68.36.0'}}">{% endif %}{% endif %}
+{% if request.path.startswith('/branches') or request.path.startswith('/governorates') %}<script src="{{url_for('static',filename='js/catalog_directory.js')+'?v=68.36.0'}}" defer></script>{% endif %}
+<script src="{{url_for('static',filename='js/search_utils.js')+'?v=68.36.0'}}"></script>
 </head>
 <body data-active-role="{{active_role or ''}}" data-workspace-path="{{request.path}}" class="{% if request.args.get('embed')=='1' %}assistant-embed-body{% endif %}">
 <a class="skip-link" href="#main">تخطي إلى المحتوى</a>
@@ -46,8 +47,8 @@
   <div class="ui-version">الإصدار {{app_version}}</div>
 </aside>
 <header class="ui-topbar premium-topbar">
-  <button class="ui-mobile-menu premium-mobile-menu" id="sidebarToggle" type="button" aria-label="فتح القائمة" title="فتح القائمة" aria-controls="appSidebar" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   {% include 'assistant_dock.html' %}
+  <button class="ui-mobile-menu premium-mobile-menu" id="sidebarToggle" type="button" aria-label="فتح القائمة" title="فتح القائمة" aria-controls="appSidebar" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   <div class="premium-breadcrumb"><span>نظام إدارة حركات الموظفين</span><b>/</b><strong>{% if request.path=='/' %}الرئيسية{% elif request.path.startswith('/employees') %}الموظفون{% elif request.path.startswith('/movements') %}التشغيل والحركات{% elif is_reports_area %}التقارير والمأموريات{% elif request.path.startswith('/delegations') %}التفويض{% elif request.path.startswith('/manager') %}المدير{% elif is_admin_area %}الإدارة{% elif is_account_area %}حسابي{% elif request.path.startswith('/notifications') %}مركز المتابعة{% else %}مساحة العمل{% endif %}</strong></div>
   <div class="ui-top-actions premium-top-actions">
     <button class="interactive-command-trigger" id="commandPaletteOpen" type="button" aria-label="فتح التنقل والأوامر السريعة" title="التنقل السريع إلى الصفحات والإجراءات — Ctrl+K" aria-haspopup="dialog" aria-expanded="false" aria-keyshortcuts="Control+K Meta+K"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg><span>تنقل سريع</span><kbd>Ctrl K</kbd></button>
@@ -94,10 +95,10 @@
 </div>
 <div class="interactive-toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
 {% endif %}
-<script src="{{url_for('static',filename='js/app.js')+'?v=68.26.0'}}"></script>
-<script src="{{url_for('static',filename='js/shell.js')+'?v=68.26.0'}}"></script>
-<script src="{{url_for('static',filename='js/workspace.js')+'?v=68.26.0'}}"></script>
-<script src="{{url_for('static',filename='js/assistant_dock.js')+'?v=68.26.0'}}"></script>
-<script src="{{url_for('static',filename='js/smart_ui.js')+'?v=68.26.0'}}"></script>
-<script src="{{url_for('static',filename='js/notifications.js')+'?v=68.26.0'}}"></script>
+<script src="{{url_for('static',filename='js/app.js')+'?v=68.36.0'}}"></script>
+<script src="{{url_for('static',filename='js/shell.js')+'?v=68.36.0'}}"></script>
+<script src="{{url_for('static',filename='js/workspace.js')+'?v=68.36.0'}}"></script>
+<script src="{{url_for('static',filename='js/assistant_dock.js')+'?v=68.36.0'}}"></script>
+<script src="{{url_for('static',filename='js/smart_ui.js')+'?v=68.36.0'}}"></script>
+<script src="{{url_for('static',filename='js/notifications.js')+'?v=68.36.0'}}"></script>
 </body></html>

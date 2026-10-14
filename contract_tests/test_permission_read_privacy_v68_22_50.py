@@ -23,8 +23,8 @@ def test_global_home_search_requires_directory_or_report_permission():
     assert "if not (can('manage_employees') or can('view_reports'))" in block
     # Live home suggestions return identity fields only; movement records are
     # intentionally not fetched merely to populate a search result.
-    assert "search_contains(Employee.full_name, q)" in block
-    assert "search_contains(Employee.job_code, q)" in block
+    assert "employee_search_filter(q, include_branch=True)" in block
+    assert "rank_scoped_employee_suggestions(q, pool, limit=8)" in block
     assert "Movement.query" not in block
     assert "'last_assignment'" not in block
 
@@ -115,10 +115,14 @@ def test_assistant_manager_can_discover_global_governorates_and_assignment_branc
 
 def test_assistant_employee_phone_search_requires_employee_management_permission():
     block = _block(AGENT, 'if name == "search_employees":', 'if name == "get_employee_profile":')
-    assert 'if can("manage_employees"):' in block
-    assert 'Employee.company_phone.ilike(pattern)' in block
-    assert 'Employee.personal_phone.ilike(pattern)' in block
-    assert 'db.or_(*search_fields)' in block
+    assert 'if not (can("manage_employees") or can("view_reports")):' in block
+    assert 'include_contacts=can("manage_employees")' in block
+    # Contacts are now folded into the shared matcher but remain opt-in only
+    # for users with employee-management permission.
+    assert 'employee_search_filter(' in block
+    assert 'include_contacts=can("manage_employees")' in block
+    assert 'Employee.company_phone.ilike(pattern)' not in block
+    assert 'Employee.personal_phone.ilike(pattern)' not in block
 
 
 def test_current_employee_status_edit_link_is_permission_gated():

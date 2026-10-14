@@ -7,19 +7,19 @@
 <div class="ui-card">
   <div class="ui-section-title"><div><h3>① مطابقة أعمدة الملف</h3><span class="ui-hint">النظام اقترح المطابقة تلقائيًا. راجعها وعدّل أي اختيار قبل الضغط على الاستيراد.</span></div></div>
   {% if warning %}<div class="alert ui-mb-14">{{warning}}</div>{% endif %}
-  <form method="post" action="/excel-import/{{kind}}/confirm" class="ui-grid wide excel-map-grid">
+  <form method="post" action="/excel-import/{{kind}}/confirm" class="smart-option-form excel-map-form">
     <input type="hidden" name="_csrf" value="{{csrf}}">
-    {% for field,label in fields.items() %}
-    <label class="excel-map-field"><b>{{label}}</b>{% if kind=='employees' and field in ['email','company_phone','personal_phone','branch_code'] %}<small class="excel-map-optional">اختياري — يمكن تركه دون مطابقة</small>{% endif %}
-      <select name="map_{{field}}" {% if not (kind=='employees' and field in ['email','company_phone','personal_phone','branch_code']) %}required{% endif %}>
-        <option value="">— {% if kind=='employees' and field in ['email','company_phone','personal_phone'] %}اختياري: لا يوجد عمود{% else %}اختر عمود Excel{% endif %} —</option>
-        {% for h in headers %}
-        <option value="{{loop.index}}" {% if suggested.get(field)==loop.index %}selected{% endif %}>{{loop.index}} — {{h if h else '(بدون عنوان)'}}</option>
-        {% endfor %}
-      </select>
-    </label>
-    {% endfor %}
-    <div class="ui-form-actions ui-grid-full"><button type="submit" class="ui-btn ui-btn-primary"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5V3h6v1.5M9 10h6M9 14h6"/></svg> مراجعة التغييرات ثم الاستيراد</button><a class="ui-btn ui-btn-secondary" href="/excel-import/{{kind}}">إلغاء ورفع ملف آخر</a></div>
+    <fieldset class="smart-option-group smart-option-group-wide"><legend>البيانات الأساسية</legend><p class="smart-option-hint">طابق كل حقل مطلوب مع العمود الصحيح في ملف Excel. الاقتراحات المحددة مسبقًا قابلة للتعديل.</p><div class="ui-grid wide excel-map-grid">
+    {% for field,label in fields.items() %}{% if not (kind=='employees' and field in ['email','company_phone','personal_phone','branch_code']) %}
+    <label class="excel-map-field"><b>{{label}}</b><select name="map_{{field}}" required><option value="">— اختر عمود Excel —</option>{% for h in headers %}<option value="{{loop.index}}" {% if suggested.get(field)==loop.index %}selected{% endif %}>{{loop.index}} — {{h if h else '(بدون عنوان)'}}</option>{% endfor %}</select></label>
+    {% endif %}{% endfor %}
+    </div></fieldset>
+    {% if kind=='employees' %}<fieldset class="smart-option-group smart-option-group-wide"><legend>بيانات اختيارية</legend><p class="smart-option-hint">يمكن تخطي البريد وأرقام الاتصال وكود الفرع إن لم تتوفر أعمدة مقابلة في الملف.</p><div class="ui-grid wide excel-map-grid">
+    {% for field,label in fields.items() %}{% if field in ['email','company_phone','personal_phone','branch_code'] %}
+    <label class="excel-map-field"><b>{{label}}</b><small class="excel-map-optional">اختياري — يمكن تركه دون مطابقة</small><select name="map_{{field}}"><option value="">— اختياري: لا يوجد عمود —</option>{% for h in headers %}<option value="{{loop.index}}" {% if suggested.get(field)==loop.index %}selected{% endif %}>{{loop.index}} — {{h if h else '(بدون عنوان)'}}</option>{% endfor %}</select></label>
+    {% endif %}{% endfor %}
+    </div></fieldset>{% endif %}
+    <div class="ui-form-actions smart-option-actions"><span>بعد المطابقة ستراجع الاختلافات قبل اعتمادها.</span><div><button type="submit" class="ui-btn ui-btn-primary">مراجعة التغييرات ثم الاستيراد</button><a class="ui-btn ui-btn-secondary" href="/excel-import/{{kind}}">إلغاء ورفع ملف آخر</a></div></div>
   </form>
 </div>
 
@@ -42,8 +42,9 @@
     {% set change_count = actions|selectattr('type','equalto','employee')|list|length + actions|selectattr('type','equalto','branch')|list|length %}
     <div class="ui-hint ui-mb-14">جديد: <b>{{new_count}}</b> — سجلات موجودة بها اختلافات: <b>{{change_count}}</b></div>
     {% if actions %}
+    <div class="ui-hint ui-mb-10">يمكنك البحث داخل المراجعة لتسهيل القراءة. البحث يخفي الصفوف غير المطابقة بصريًا فقط؛ زرا «تحديد كل التغييرات» و«إلغاء تحديد الكل» يؤثران على جميع مربعات التحديث في الطلب.</div>
     <div class="ui-overflow-auto">
-      <table class="ui-data-table ui-min-1000">
+      <table class="ui-data-table ui-min-1000" data-smart-table data-page-size="10">
         <thead><tr><th>النوع</th><th>السجل</th><th>التغييرات / البيانات الجديدة</th></tr></thead>
         <tbody>
         {% for a in actions %}

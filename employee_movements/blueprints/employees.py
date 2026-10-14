@@ -36,6 +36,10 @@ from ..models import (
     Employee,
     EntryAssignment,
     EntryAssignmentBranch,
+    EmployeeNameAlias,
+    TicketEmployeeCodeAlias,
+    GovernorateNameAlias,
+    BranchNameAlias,
     Governorate,
     Movement,
     SupervisorEntry,
@@ -45,6 +49,12 @@ from ..models import (
 )
 from ..validation import parse_date, valid_email
 from ..search import normalize_search_text, search_contains
+from ..services.entity_matching import (
+    alias_owner_conflict, conflicting_employee_code, employee_search_filter, normalize_alias_key,
+    rank_scoped_employee_suggestions,
+)
+from ..services.ticket_matching import job_code_lookup_variants
+from sqlalchemy.exc import IntegrityError
 
 bp = Blueprint('employees', __name__)
 
@@ -111,15 +121,21 @@ def employee_search():
         if gov_raw and branch.governorate_id != int(gov_raw):
             return {'results': []}
         query = query.filter(Employee.branch_id == branch.id)
+    scoped_query = query
     if normalized_q:
-        query = query.filter(db.or_(
-            search_contains(Employee.full_name, q),
-            search_contains(Employee.job_code, q),
-        ))
+        query = query.filter(employee_search_filter(q, include_branch=True))
     rows = query.order_by(Employee.full_name).limit(20).all()
+    suggested_ids = set()
+    suggested_reasons = {}
+    if normalized_q and not rows and len(normalized_q) >= 3:
+        # Approximate matches are suggestions only; the UI labels them and the
+        # user must select the intended employee explicitly.
+        pool = scoped_query.order_by(Employee.full_name).limit(2500).all()
+        ranked = rank_scoped_employee_suggestions(q, pool, limit=8)
+        rows = [item['employee'] for item in ranked]
+        suggested_ids = {item['employee'].id for item in ranked}
 
-    # This endpoint powers live identity suggestions only. Keep it lean and do not
-    # fetch movement histories merely to populate a search dropdown.
+    # This endpoint powers identity suggestions only. It never fetches histories.
     results = [
         {
             'id': e.id,
@@ -128,6 +144,8 @@ def employee_search():
             'job_title': e.job_title or '',
             'branch': e.branch.name if e.branch else '',
             'governorate': e.branch.governorate.name if e.branch and e.branch.governorate else '',
+            'match_kind': 'approximate' if e.id in suggested_ids else 'normal',
+            'match_reasons': suggested_reasons.get(e.id, []),
         }
         for e in rows
     ]
@@ -175,13 +193,13 @@ def employees():
             # Email and HR code are compared case-insensitively across active and
             # historical employees; a resigned record must not permit a duplicate.
             existing = Employee.query.filter(func.lower(Employee.email) == email).first()
-            duplicate_code_query = Employee.query.filter(
-                func.lower(func.trim(Employee.job_code)) == job_code.lower(),
-            )
-            if existing:
-                duplicate_code_query = duplicate_code_query.filter(Employee.id != existing.id)
-            if duplicate_code_query.first():
-                flash('كود شئون العاملين مستخدم بالفعل لموظف آخر.')
+            name_alias_conflict = alias_owner_conflict('employee_name', name, target_id=existing.id if existing else None)
+            if name_alias_conflict:
+                flash('الاسم يطابق صيغة بديلة مؤكدة لموظف آخر؛ راجع سجل المطابقة قبل الإضافة.')
+                return redirect(url_for('employees.employees'))
+            code_conflict = conflicting_employee_code(job_code, exclude_employee_id=existing.id if existing else None)
+            if code_conflict:
+                flash('كود شئون العاملين أو أحد صِيَغه الرقمية مستخدم بالفعل لموظف آخر.')
                 return redirect(url_for('employees.employees'))
             if existing:
                 if existing.is_active:
@@ -276,16 +294,17 @@ def employees():
                 branches = [b for b in branches if b.id == requested_branch_id]
 
         if selected_branch_ids:
-            query = Employee.query.filter(
-                Employee.is_active == True,
-                Employee.branch_id.in_(selected_branch_ids),
+            query = (
+                Employee.query
+                .join(Branch, Employee.branch_id == Branch.id)
+                .join(Governorate, Governorate.id == Branch.governorate_id)
+                .filter(
+                    Employee.is_active == True,
+                    Employee.branch_id.in_(selected_branch_ids),
+                )
             )
             if q:
-                query = query.filter(db.or_(
-                    search_contains(Employee.full_name, q),
-                    search_contains(Employee.job_code, q),
-                    search_contains(Employee.job_title, q),
-                ))
+                query = query.filter(employee_search_filter(q, include_job_title=True, include_branch=True))
             candidates = query.order_by(Employee.full_name).all()
             rows = [
                 e for e in candidates
@@ -310,6 +329,55 @@ def employees():
         rows = [e for e in rows if e.id == eid]
         if not found_in_scope:
             filter_error = True
+
+    # When an exact/substring query is empty, show clearly labelled, scoped
+    # suggestions rather than silently treating a fuzzy candidate as a match.
+    approximate_employee_ids = set()
+    approximate_employee_reasons = {}
+    if q and not rows and not employee_filter and not filter_error:
+        scoped_ids = {branch.id for branch in branches if branch.is_active and branch.governorate and branch.governorate.is_active}
+        if scoped_ids:
+            fallback_query = (
+                Employee.query.join(Branch, Employee.branch_id == Branch.id)
+                .join(Governorate, Governorate.id == Branch.governorate_id)
+                .filter(
+                    Employee.is_active == True,
+                    Branch.is_active == True,
+                    Governorate.is_active == True,
+                    Employee.branch_id.in_(scoped_ids),
+                )
+            )
+            pool = fallback_query.order_by(Employee.full_name).limit(2500).all()
+            ranked = rank_scoped_employee_suggestions(q, pool, limit=8)
+            rows = [item['employee'] for item in ranked]
+            approximate_employee_ids = {item['employee'].id for item in ranked}
+            approximate_employee_reasons = {
+                item['employee'].id: '، '.join(item.get('match_reasons') or [])
+                for item in ranked
+                if item.get('match_reasons')
+            }
+
+    # Alternative identity spellings are included in client-side filtering so
+    # the browser and server share the same local matching vocabulary.
+    employee_alias_text = {}
+    employee_code_alias_text = {}
+    branch_alias_text = {}
+    governorate_alias_text = {}
+    row_ids_for_alias = [employee.id for employee in rows]
+    if row_ids_for_alias:
+        for alias in EmployeeNameAlias.query.filter(EmployeeNameAlias.employee_id.in_(row_ids_for_alias)).all():
+            employee_alias_text.setdefault(alias.employee_id, []).append(alias.alias_text)
+        for alias in TicketEmployeeCodeAlias.query.filter(TicketEmployeeCodeAlias.employee_id.in_(row_ids_for_alias)).all():
+            employee_code_alias_text.setdefault(alias.employee_id, []).append(alias.alias_text)
+    visible_branch_ids = {employee.branch_id for employee in rows if employee.branch_id}
+    if visible_branch_ids:
+        for alias in BranchNameAlias.query.filter(BranchNameAlias.branch_id.in_(visible_branch_ids)).all():
+            branch_alias_text.setdefault(alias.branch_id, []).append(alias.alias_text)
+    visible_gov_ids = {branch.governorate_id for branch in branches if branch.governorate_id}
+    if visible_gov_ids:
+        for alias in GovernorateNameAlias.query.filter(GovernorateNameAlias.governorate_id.in_(visible_gov_ids)).all():
+            governorate_alias_text.setdefault(alias.governorate_id, []).append(alias.alias_text)
+
     # المدخل الأول المسؤول عن كل موظف: يُحسب من فروع المسؤولية التنظيمية،
     # مع الاحتفاظ بسجل موظف واحد وعدم إنشاء سجل إضافي للمدخل.
     entry_map = {}
@@ -431,6 +499,13 @@ def employees():
         status_map=status_map,
         scope_governorates=scope_governorates,
         filter_error=filter_error,
+        approximate_employee_ids=approximate_employee_ids,
+        approximate_employee_reasons=approximate_employee_reasons,
+        employee_alias_text=employee_alias_text,
+        employee_code_alias_text=employee_code_alias_text,
+        branch_alias_text=branch_alias_text,
+        governorate_alias_text=governorate_alias_text,
+        grouped_branch_count=sum(len(group['branches']) for group in grouped_employees),
     )
 
 
@@ -455,14 +530,29 @@ def employee_edit_data():
                 Employee.branch_id.in_(bs),
             )
         )
+        scoped_query = query
         if q:
-            query = query.filter(db.or_(
-                search_contains(Employee.full_name, q),
-                search_contains(Employee.job_code, q),
-                search_contains(Employee.email, q),
-            ))
-        rows = query.order_by(Employee.full_name).all()
-    return render_template('employee_edit_data.html', rows=rows, q=q, filter_error=invalid_q_filter)
+            query = query.filter(employee_search_filter(q, include_contacts=True, include_branch=True))
+        rows = query.order_by(Employee.full_name).limit(200).all()
+        approximate_employee_ids = set()
+        if q and not rows and not invalid_q_filter:
+            pool = scoped_query.order_by(Employee.full_name).limit(2500).all()
+            ranked = rank_scoped_employee_suggestions(q, pool, limit=8)
+            rows = [item['employee'] for item in ranked]
+            approximate_employee_ids = {item['employee'].id for item in ranked}
+            approximate_employee_reasons = {
+                item['employee'].id: '، '.join(item.get('match_reasons') or [])
+                for item in ranked
+                if item.get('match_reasons')
+            }
+    else:
+        approximate_employee_ids = set()
+        approximate_employee_reasons = {}
+    return render_template(
+        'employee_edit_data.html', rows=rows, q=q, filter_error=invalid_q_filter,
+        approximate_employee_ids=approximate_employee_ids,
+        approximate_employee_reasons=approximate_employee_reasons,
+    )
 
 
 @bp.route('/employees/<int:i>/edit', methods=['GET', 'POST'])
@@ -510,6 +600,14 @@ def employee_edit(i):
         personal_phone = request.form.get('personal_phone', '').strip()
         if not all([name, email, job_title, job_code, hire_date, company_phone, personal_phone]):
             flash('جميع بيانات الموظف مطلوبة.')
+            return redirect(url_for('employees.employee_edit', i=i))
+        name_alias_conflict = alias_owner_conflict('employee_name', name, target_id=e.id)
+        if name_alias_conflict:
+            flash('الاسم يطابق صيغة بديلة مؤكدة لموظف آخر؛ لم يتم التعديل.')
+            return redirect(url_for('employees.employee_edit', i=i))
+        code_conflict = conflicting_employee_code(job_code, exclude_employee_id=e.id)
+        if code_conflict:
+            flash('كود شئون العاملين أو أحد صِيَغه الرقمية مستخدم بالفعل لموظف آخر.')
             return redirect(url_for('employees.employee_edit', i=i))
         if not valid_email(email):
             flash('البريد الإلكتروني مطلوب ويجب أن يكون بصيغة صحيحة.')
@@ -561,6 +659,8 @@ def employee_edit(i):
     return render_template(
         'employee_edit.html',
         e=e,
+        employee_name_aliases=EmployeeNameAlias.query.filter_by(employee_id=e.id).order_by(EmployeeNameAlias.alias_text).all(),
+        employee_code_aliases=TicketEmployeeCodeAlias.query.filter_by(employee_id=e.id).order_by(TicketEmployeeCodeAlias.alias_text).all(),
         bs=Branch.query.filter(Branch.id.in_(bids()), Branch.is_active == True).all(),
         govs=(
             Governorate.query.filter(Governorate.id.in_(gids()), Governorate.is_active == True)
@@ -568,6 +668,70 @@ def employee_edit(i):
             .all()
         ),
     )
+
+
+@bp.post('/employees/<int:i>/aliases')
+@req
+@only('مسؤول التطبيق')
+def employee_alias_add(i):
+    """Explicitly confirm a global alternate employee name or job code."""
+    employee = db.session.get(Employee, i)
+    if not employee or not employee.is_active or employee.deleted_at is not None:
+        abort(404)
+    kind = (request.form.get('alias_kind') or '').strip()
+    alias_text = (request.form.get('alias_text') or '').strip()[:200]
+    normalized = normalize_alias_key(alias_text, 'code' if kind == 'employee_code' else 'name')
+    if kind not in {'employee_name', 'employee_code'} or len(normalized) < (4 if kind == 'employee_code' else 2):
+        flash('اكتب صيغة بديلة واضحة؛ الاسم حرفان على الأقل والكود أربعة أحرف/أرقام على الأقل.')
+        return redirect(url_for('employees.employee_edit', i=i))
+
+    try:
+        if kind == 'employee_name':
+            official_key = normalize_alias_key(employee.full_name)
+            if normalized == official_key:
+                flash('هذه الصيغة تطابق الاسم الرسمي بالفعل.')
+                return redirect(url_for('employees.employee_edit', i=i))
+            # An alias must not shadow another employee's canonical name.
+            for other in Employee.query.filter(Employee.id != employee.id).all():
+                if normalize_alias_key(other.full_name) == normalized:
+                    flash('لا يمكن حفظ هذه الصيغة؛ فهي تطابق الاسم الرسمي لموظف آخر.')
+                    return redirect(url_for('employees.employee_edit', i=i))
+            existing = EmployeeNameAlias.query.filter_by(normalized_alias=normalized).first()
+            if existing:
+                flash('صيغة الاسم محفوظة بالفعل لهذا الموظف.' if existing.employee_id == employee.id else 'صيغة الاسم مرتبطة بموظف آخر؛ لم يتم تغيير الربط.')
+                return redirect(url_for('employees.employee_edit', i=i))
+            row = EmployeeNameAlias(employee_id=employee.id, alias_text=alias_text, normalized_alias=normalized, created_by=me().id)
+            db.session.add(row)
+            db.session.flush()
+            log('ADD', 'EmployeeNameAlias', row.id, 'حفظ صيغة اسم بديلة مؤكدة')
+        else:
+            variants = job_code_lookup_variants(alias_text)
+            official_variants = job_code_lookup_variants(employee.job_code or '')
+            if variants & official_variants:
+                flash('هذه الصيغة يغطيها تطبيع الكود الحالي بالفعل؛ لا حاجة لحفظ بديل.')
+                return redirect(url_for('employees.employee_edit', i=i))
+            code_conflict = conflicting_employee_code(alias_text, exclude_employee_id=employee.id)
+            if code_conflict:
+                flash('لا يمكن حفظ الكود البديل؛ فقد يشير إلى كود رسمي أو بديل لموظف آخر.')
+                return redirect(url_for('employees.employee_edit', i=i))
+            existing_rows = TicketEmployeeCodeAlias.query.filter(TicketEmployeeCodeAlias.normalized_alias.in_(variants)).all()
+            for existing in existing_rows:
+                if existing.employee_id != employee.id:
+                    flash('الكود البديل مرتبط بموظف آخر أو قد يسبب التباسًا.')
+                    return redirect(url_for('employees.employee_edit', i=i))
+            if existing_rows:
+                flash('صيغة الكود البديلة محفوظة بالفعل.')
+                return redirect(url_for('employees.employee_edit', i=i))
+            row = TicketEmployeeCodeAlias(employee_id=employee.id, alias_text=alias_text, normalized_alias=normalized, created_by=me().id)
+            db.session.add(row)
+            db.session.flush()
+            log('ADD', 'TicketEmployeeCodeAlias', row.id, 'حفظ صيغة كود بديلة مؤكدة من إدارة الموظف')
+        db.session.commit()
+        flash('تم حفظ الصيغة البديلة، وستُستخدم في البحث داخل الصفحات المصرح بها.')
+    except IntegrityError:
+        db.session.rollback()
+        flash('لم تُحفظ الصيغة لأن هناك تعارضًا متزامنًا أو صيغة مشابهة محفوظة بالفعل.')
+    return redirect(url_for('employees.employee_edit', i=i))
 
 
 @bp.route('/employees/<int:i>/convert-role', methods=['GET', 'POST'])

@@ -58,6 +58,7 @@ def load_config(overrides=None):
         # the earliest request hook, without relaxing limits for other routes.
         'MAX_CONTENT_LENGTH': 2 * 1024 * 1024,
         'EXCEL_UPLOAD_MAX_CONTENT_LENGTH': 16 * 1024 * 1024,
+        'SCREENSHOT_UPLOAD_MAX_CONTENT_LENGTH': 3 * 1024 * 1024,
         'MAX_FORM_MEMORY_SIZE': 512 * 1024,
         'MAX_FORM_PARTS': 100,
         'SECRET_KEY': os.getenv('SECRET_KEY', '').strip(),

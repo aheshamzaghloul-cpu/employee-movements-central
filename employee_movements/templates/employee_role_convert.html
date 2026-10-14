@@ -9,11 +9,11 @@
 {% if not is_entry %}
 <div class="ui-card">
   <div class="ui-section-title"><div><h3>تحويل الموظف إلى مدخل أول تنظيمي</h3><span class="ui-hint">فرع التعيين الحالي يبقى كما هو، وتحدد هنا فقط فروع مسؤوليته.</span></div></div>
-  <form method="post" class="ui-grid wide">
+  <form method="post" class="smart-option-form">
     <input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="action" value="to_entry">
-    <label>المشرف المسؤول<select name="supervisor_id" required><option value="">اختر المشرف</option>{% for s in supervisors %}<option value="{{s.id}}">{{s.full_name}} — {{s.job_title or ''}}</option>{% endfor %}</select></label>
-    <div class="ui-card ui-grid-full"><div class="ui-section-title"><div><h3>فروع مسؤوليته كمدخل أول</h3><span class="ui-hint">يمكن اختيار أكثر من فرع. هذه ليست خانة فرع التعيين.</span></div></div><div class="choice-list ui-choice-list">{% for b in branches %}<label class="choice-item ui-choice-item"><input type="checkbox" name="branch_id" value="{{b.id}}">{{b.governorate.name}} — {{b.name}}{% if b.code %} — {{b.code }}{% endif %}</label>{% endfor %}</div></div>
-    <div class="ui-form-actions"><button>تحويل إلى مدخل أول</button></div>
+    <fieldset class="smart-option-group smart-option-group-wide"><legend>المسؤول التنظيمي</legend><label>المشرف المسؤول<select name="supervisor_id" required><option value="">اختر المشرف</option>{% for s in supervisors %}<option value="{{s.id}}">{{s.full_name}} — {{s.job_title or ''}}</option>{% endfor %}</select></label></fieldset>
+    <fieldset class="smart-option-group smart-option-group-wide"><legend>فروع المسؤولية</legend><p class="smart-option-hint">يمكن اختيار أكثر من فرع. هذا النطاق مستقل عن فرع تعيين الموظف الأساسي.</p><div class="choice-list ui-choice-list">{% for b in branches %}<label class="choice-item ui-choice-item"><input type="checkbox" name="branch_id" value="{{b.id}}">{{b.governorate.name}} — {{b.name}}{% if b.code %} — {{b.code }}{% endif %}</label>{% endfor %}</div></fieldset>
+    <div class="smart-option-actions"><span>سيُحوّل الدور التنظيمي فقط؛ لن يتغير سجل الموظف أو حركاته.</span><button class="ui-btn ui-btn-primary">تحويل إلى مدخل أول</button></div>
   </form>
 </div>
 {% else %}

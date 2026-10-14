@@ -55,9 +55,11 @@ def test_directory_redesign_preserves_search_scope_and_action_hooks():
 
 
 def test_changed_server_query_does_not_misrepresent_stale_rows_as_new_results():
-    assert "matchesPrevious=normalize(r.dataset.search).includes(initialServerQuery)" in EMPLOYEES
+    assert 'const useServerSubset=!!initialServerQuery&&q!==initialServerQuery;' in EMPLOYEES
+    assert 'const needle=useServerSubset?initialServerQuery:q;' in EMPLOYEES
     assert "النتائج الحالية تخص البحث السابق" in EMPLOYEES
     assert "تطبيق البحث الجديد" in EMPLOYEES
+    assert "عرض المزيد (${Math.max(0,matched.length-limit)})" in EMPLOYEES
 
 
 def test_employee_quick_add_anchor_opens_the_details_panel():
@@ -76,6 +78,6 @@ def test_directory_page_css_is_scoped_and_has_safe_narrow_layouts():
 
 
 def test_shared_and_page_stylesheets_keep_versioned_asset_urls_in_sync():
-    assert BASE.count(f"v={VERSION}") == 13
+    assert BASE.count(f"v={VERSION}") == 14
     assert "68.23.0" not in BASE
     assert re.search(r"version\s*=\s*\"" + re.escape(VERSION) + r"\"", (ROOT / "pyproject.toml").read_text(encoding="utf-8"))

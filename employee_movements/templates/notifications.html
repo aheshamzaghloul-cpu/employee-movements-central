@@ -16,11 +16,12 @@
     <div class="interactive-notification-metric info"><b>{{notification_items|selectattr('level','equalto','info')|list|length}}</b><span>انتداب مفتوح</span></div>
   </section>
 
-  <section class="ui-work-card interactive-notification-list-card">
+  <section class="ui-work-card interactive-notification-list-card" data-progressive-list data-page-size="8">
     <div class="ui-card-head compact"><div><span class="ui-eyebrow">قائمة الإجراءات</span><h2>ما يحتاج انتباهك</h2></div><a class="ui-link-btn" href="/movements#movement-followup">عرض الحركات</a></div>
-    <div class="interactive-notification-list">
+    <div class="workspace-list-tools"><label><span class="sr-only">بحث في التنبيهات</span><input type="search" data-progressive-search maxlength="120" autocomplete="off" placeholder="ابحث بعنوان التنبيه أو الموظف أو الفرع…"></label><span data-progressive-count aria-live="polite"></span></div>
+    <div class="interactive-notification-list" data-progressive-container id="notificationProgressiveList">
       {% for item in notification_items %}
-      <article class="interactive-notification-item {{item.level}}">
+      <article class="interactive-notification-item {{item.level}}" data-progressive-item data-search="{{((item.title or '') ~ ' ' ~ (item.label or '') ~ ' ' ~ (item.detail or '') ~ ' ' ~ (item.employee.full_name if item.employee else '') ~ ' ' ~ (item.employee.job_code if item.employee else '') ~ ' ' ~ (item.employee.branch.name if item.employee and item.employee.branch else ''))|lower|e}}">
         <span class="interactive-notification-dot" aria-hidden="true"></span>
         <div class="interactive-notification-content"><div class="interactive-notification-title"><b>{{item.title}}</b><span>{{item.label}}</span></div><p>{{item.detail}}</p><small>{{item.employee.branch.name if item.employee.branch else '—'}}{% if item.employee.job_code %} · {{item.employee.job_code}}{% endif %}</small></div>
         <div class="interactive-notification-actions"><a href="{{item.employee_url}}">ملف الموظف</a><a class="primary" href="{{item.action_url}}">{{item.action_label}}</a></div>

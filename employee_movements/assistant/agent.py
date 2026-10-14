@@ -17,6 +17,10 @@ from flask import current_app, request, session
 from ..access import actual_roles, bids, branch_ok, can, effective_user_gov_ids, me, roles, user_gov_ids
 from ..extensions import db
 from ..models import Branch, Employee, Governorate, Movement
+from ..services.entity_matching import (
+    branch_search_filter, employee_search_filter, governorate_search_filter,
+    rank_governorate_suggestions, rank_scoped_branch_suggestions, rank_scoped_employee_suggestions,
+)
 from .directory import find_branch, find_employee
 from .pending import store_pending_plan
 from .visibility import visible_employee, visible_movement
@@ -290,29 +294,44 @@ def tool_execute(name, args, ctx):
         limit = max(1, min(10, _safe_int(args.get("limit")) or 8))
         if not q:
             return {"ok": False, "error": "أدخل اسم الموظف أو الكود."}
-        pattern = f"%{q}%"
-        search_fields = [
-            Employee.full_name.ilike(pattern),
-            Employee.employee_code.ilike(pattern),
-            Employee.job_code.ilike(pattern),
-            Employee.job_title.ilike(pattern),
-        ]
-        # Matching by phone is itself access to contact data, even if the
-        # returned summary later omits the number. Keep it management-only.
-        if can("manage_employees"):
-            search_fields.extend([
-                Employee.company_phone.ilike(pattern),
-                Employee.personal_phone.ilike(pattern),
-            ])
-        candidate_query = Employee.query.filter(
-            Employee.is_active == True,
-            db.or_(*search_fields),
+        # Use the same local matching engine as directory, movements and imports.
+        # Phone matching remains restricted to employee managers.
+        candidate_scope = Employee.query.filter(Employee.is_active == True)
+        # Apply work-scope authorization before both limiting and ranking. Filtering
+        # after the limit can hide valid results and needlessly load other scopes.
+        if 'مسؤول التطبيق' not in roles():
+            allowed_branch_ids = set(bids())
+            candidate_scope = candidate_scope.filter(Employee.branch_id.in_(allowed_branch_ids)) if allowed_branch_ids else candidate_scope.filter(False)
+        scoped_candidates = candidate_scope.filter(
+            employee_search_filter(
+                q,
+                include_job_title=True,
+                include_contacts=can("manage_employees"),
+                include_branch=True,
+            ),
         ).order_by(Employee.full_name).limit(max(limit * 5, 20))
+        matched_rows = scoped_candidates.all()
+        fuzzy_ids = set()
+        fuzzy_reasons = {}
+        if not matched_rows:
+            pool = candidate_scope.order_by(Employee.full_name).limit(2500).all()
+            ranked = rank_scoped_employee_suggestions(q, pool, limit=limit)
+            matched_rows = [item["employee"] for item in ranked]
+            fuzzy_ids = {item["employee"].id for item in ranked}
+            fuzzy_reasons = {
+                item["employee"].id: item.get("match_reasons") or []
+                for item in ranked
+            }
         rows = []
-        for e in candidate_query.all():
-            if not visible_employee(e):
+        for employee in matched_rows:
+            if not visible_employee(employee):
                 continue
-            rows.append(_employee_summary(e, include_contacts=can("manage_employees")))
+            summary = _employee_summary(employee, include_contacts=can("manage_employees"))
+            if employee.id in fuzzy_ids:
+                summary["match_type"] = "approximate_suggestion"
+                summary["confirmation_required"] = True
+                summary["match_reasons"] = fuzzy_reasons.get(employee.id, [])
+            rows.append(summary)
             if len(rows) >= limit:
                 break
         return {"ok": True, "count": len(rows), "employees": rows}
@@ -350,22 +369,30 @@ def tool_execute(name, args, ctx):
         q = str(args.get("query") or "").strip().lower()
         limit = max(1, min(10, _safe_int(args.get("limit")) or 8))
         gid = _safe_int(args.get("governorate_id"))
-        pattern = f"%{q}%" if q else None
         query = Branch.query.filter(Branch.is_active == True)
         if gid:
             query = query.filter(Branch.governorate_id == gid)
-        if pattern:
-            query = query.filter(db.or_(Branch.name.ilike(pattern), Branch.code.ilike(pattern)))
         if not ('مسؤول التطبيق' in roles() or 'مشرف محافظة' in roles() or 'Manager Application Support' in roles()):
             allowed = set(bids())
             if not allowed:
                 return {"ok": True, "count": 0, "branches": []}
             query = query.filter(Branch.id.in_(allowed))
+        scoped_query = query
+        if q:
+            query = query.filter(branch_search_filter(q, include_governorate=True))
         rows = query.order_by(Branch.name).limit(limit).all()
+        fuzzy_ids = set()
+        if q and not rows and len(q) >= 3:
+            pool = scoped_query.order_by(Branch.name).limit(2500).all()
+            ranked = rank_scoped_branch_suggestions(q, pool, limit=limit)
+            rows = [item['branch'] for item in ranked]
+            fuzzy_ids = {item['branch'].id for item in ranked}
         return {"ok": True, "count": len(rows), "branches": [{
             "id": b.id, "name": b.name, "code": b.code,
             "governorate": b.governorate.name if b.governorate else None,
             "governorate_id": b.governorate_id,
+            "match_type": "approximate_suggestion" if b.id in fuzzy_ids else "normal",
+            "confirmation_required": b.id in fuzzy_ids,
         } for b in rows]}
     if name == "search_governorates":
         if not (can("manage_structure") or can("manage_movements") or can("view_reports")):
@@ -373,15 +400,26 @@ def tool_execute(name, args, ctx):
         q = str(args.get("query") or "").strip().lower()
         limit = max(1, min(10, _safe_int(args.get("limit")) or 8))
         query = Governorate.query.filter(Governorate.is_active == True)
-        if q:
-            query = query.filter(Governorate.name.ilike(f"%{q}%"))
         if not (set(roles()) & {'مسؤول التطبيق', 'Manager Application Support'}):
             allowed = set(effective_user_gov_ids(me()))
             if not allowed:
                 return {"ok": True, "count": 0, "governorates": []}
             query = query.filter(Governorate.id.in_(allowed))
+        scoped_query = query
+        if q:
+            query = query.filter(governorate_search_filter(q))
         rows = query.order_by(Governorate.name).limit(limit).all()
-        return {"ok": True, "count": len(rows), "governorates": [{"id": g.id, "name": g.name} for g in rows]}
+        fuzzy_ids = set()
+        if q and not rows and len(q) >= 3:
+            pool = scoped_query.order_by(Governorate.name).limit(2500).all()
+            ranked = rank_governorate_suggestions(q, pool, limit=limit)
+            rows = [item['governorate'] for item in ranked]
+            fuzzy_ids = {item['governorate'].id for item in ranked}
+        return {"ok": True, "count": len(rows), "governorates": [{
+            "id": g.id, "name": g.name,
+            "match_type": "approximate_suggestion" if g.id in fuzzy_ids else "normal",
+            "confirmation_required": g.id in fuzzy_ids,
+        } for g in rows]}
     if name == "search_movements":
         if not can("view_reports"):
             return {"ok": False, "error": "لا تملك صلاحية عرض التقارير والحركات."}
@@ -616,12 +654,12 @@ def _tool_result_response(name, result, args, context):
 
     if name == "search_branches":
         rows = result.get("branches") or []
-        lines = [" • " + " — ".join(x for x in (b.get("name"), b.get("code"), b.get("governorate")) if x) for b in rows]
+        lines = [" • " + ("اقتراح يحتاج تأكيدًا: " if b.get("confirmation_required") else "") + " — ".join(x for x in (b.get("name"), b.get("code"), b.get("governorate")) if x) for b in rows]
         return {"title": "بحث الفروع", "answer": (f"وجدت {len(rows)} فرعًا:\n" + "\n".join(lines)) if rows else "لم أعثر على فرع مطابق ضمن الصلاحيات."}
 
     if name == "search_governorates":
         rows = result.get("governorates") or []
-        lines = [" • " + str(g.get("name") or "") for g in rows]
+        lines = [" • " + ("اقتراح يحتاج تأكيدًا: " if g.get("confirmation_required") else "") + str(g.get("name") or "") for g in rows]
         return {"title": "بحث المحافظات", "answer": (f"وجدت {len(rows)} محافظة:\n" + "\n".join(lines)) if rows else "لم أعثر على محافظة مطابقة ضمن الصلاحيات."}
 
     if name == "search_movements":

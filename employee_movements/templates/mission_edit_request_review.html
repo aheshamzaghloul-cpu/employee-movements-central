@@ -19,44 +19,16 @@
   <section class="ui-card ui-mission-edit-card" aria-label="تنفيذ طلب تعديل المأمورية">
     <form method="post" class="ui-grid ui-grid-3-gap-16 mission-edit-form" id="missionEditReviewForm">
       <input type="hidden" name="_csrf" value="{{csrf}}">
-      <div class="ui-grid-full mission-edit-employee">
-        <label for="reviewMissionEmployee">الموظف</label>
-        <input id="reviewMissionEmployee" value="{{m.employee.full_name}} — {{m.employee.job_code or '—'}}" disabled>
-      </div>
-      <div>
-        <label for="requestDestinationGovernorate">محافظة جهة المأمورية</label>
-        <select id="requestDestinationGovernorate" required>
-          <option value="">اختر المحافظة</option>
-          {% for g in destination_governorates %}<option value="{{g.id}}" {% if m.destination and m.destination.governorate_id==g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}
-        </select>
-      </div>
-      <div>
-        <label for="requestDestinationBranch">فرع جهة المأمورية</label>
-        <select name="destination_branch_id" id="requestDestinationBranch" required>
-          <option value="">اختر الفرع</option>
-          {% for b in branches %}<option value="{{b.id}}" data-governorate-id="{{b.governorate_id}}" {% if m.destination_branch_id==b.id %}selected{% endif %}>{{b.name}}</option>{% endfor %}
-        </select>
-      </div>
-      <div>
-        <label for="reviewMissionFromDate">من تاريخ البداية</label>
-        <input type="date" name="from_date" id="reviewMissionFromDate" value="{{m.from_date.isoformat() if m.from_date else ''}}" required autocomplete="off">
-      </div>
-      <div>
-        <label for="reviewMissionToDate">إلى تاريخ النهاية <span id="reviewMissionToDateRequirement" class="ui-field-optional">مطلوب عند الحفظ مغلقة</span></label>
-        <input type="date" name="to_date" id="reviewMissionToDate" value="{{m.to_date.isoformat() if m.to_date else ''}}" autocomplete="off">
-        <small class="ui-hint">يتحدد إلزام التاريخ بحسب الحالة النهائية، ويجب ألا يسبق النهاية تاريخ البداية.</small>
-      </div>
-      <div>
-        <label for="reviewMissionFinalState">الحالة بعد الحفظ</label>
-        <select name="final_state" id="reviewMissionFinalState" required>
-          <option value="مغلقة">حفظ مغلقة</option>
-          <option value="تحت التحرير">حفظ تحت التحرير</option>
-        </select>
-      </div>
-      <div class="ui-grid-full">
-        <label for="reviewMissionManagerNotes">ملاحظات الـManager</label>
-        <textarea name="manager_notes" id="reviewMissionManagerNotes" rows="4" maxlength="2000" placeholder="أضف ملاحظة عند الحاجة…"></textarea>
-      </div>
+      <fieldset class="smart-option-group smart-option-group-wide"><legend>الموظف وجهة المأمورية</legend><div class="smart-option-fields smart-option-fields-3">
+        <label for="reviewMissionEmployee">الموظف<input id="reviewMissionEmployee" value="{{m.employee.full_name}} — {{m.employee.job_code or '—'}}" disabled></label>
+        <label for="requestDestinationGovernorate">محافظة جهة المأمورية<select id="requestDestinationGovernorate" required><option value="">اختر المحافظة</option>{% for g in destination_governorates %}<option value="{{g.id}}" {% if m.destination and m.destination.governorate_id==g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>
+        <label for="requestDestinationBranch">فرع جهة المأمورية<select name="destination_branch_id" id="requestDestinationBranch" required><option value="">اختر الفرع</option>{% for b in branches %}<option value="{{b.id}}" data-governorate-id="{{b.governorate_id}}" {% if m.destination_branch_id==b.id %}selected{% endif %}>{{b.name}}</option>{% endfor %}</select></label>
+      </div></fieldset>
+      <fieldset class="smart-option-group smart-option-group-wide"><legend>مدة المأمورية</legend><div class="smart-option-fields smart-option-fields-2">
+        <label for="reviewMissionFromDate">من تاريخ البداية<input type="date" name="from_date" id="reviewMissionFromDate" value="{{m.from_date.isoformat() if m.from_date else ''}}" required autocomplete="off"></label>
+        <label for="reviewMissionToDate">إلى تاريخ النهاية <span id="reviewMissionToDateRequirement" class="ui-field-optional">مطلوب عند الحفظ مغلقة</span><input type="date" name="to_date" id="reviewMissionToDate" value="{{m.to_date.isoformat() if m.to_date else ''}}" autocomplete="off"><small class="ui-hint">يتحدد إلزام التاريخ بحسب الحالة النهائية، ويجب ألا يسبق النهاية تاريخ البداية.</small></label>
+      </div></fieldset>
+      <fieldset class="smart-option-group smart-option-group-wide"><legend>قرار المراجعة وملاحظات المدير</legend><div class="smart-option-fields"><label for="reviewMissionFinalState">الحالة بعد الحفظ<select name="final_state" id="reviewMissionFinalState" required><option value="مغلقة">حفظ مغلقة</option><option value="تحت التحرير">حفظ تحت التحرير</option></select></label><label for="reviewMissionManagerNotes">ملاحظات الـManager<textarea name="manager_notes" id="reviewMissionManagerNotes" rows="4" maxlength="2000" placeholder="أضف ملاحظة عند الحاجة…"></textarea></label></div></fieldset>
       <div class="ui-actions ui-grid-full mission-edit-actions">
         <button class="ui-btn ui-tone-teal" type="submit">تنفيذ وحفظ</button>
         <a class="ui-btn ui-btn-secondary" href="/reports/assignments/edit-requests">إلغاء</a>

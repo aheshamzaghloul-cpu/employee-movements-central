@@ -15,12 +15,20 @@ from ..assignments import (
 from ..constants import LEAVE_TYPES, MOVEMENT_TYPES
 from ..extensions import db
 from ..search import normalize_search_text, search_contains
+from ..services.entity_matching import (
+    employee_search_filter, rank_employee_suggestions, rank_scoped_employee_suggestions,
+    resolve_scoped_employee_identity,
+)
 from ..models import (
     Branch,
+    BranchNameAlias,
     Employee,
+    EmployeeNameAlias,
+    TicketEmployeeCodeAlias,
     EntryAssignment,
     EntryAssignmentBranch,
     Governorate,
+    GovernorateNameAlias,
     Movement,
     User,
     UserBranch,
@@ -143,6 +151,7 @@ def home():
     movement_employee_id = (request.args.get('employee_id', '') or '').strip()
     movement_employee = None
     movement_employee_matches = []
+    movement_employee_match_reasons = {}
     movement_employee_moves = []
     movement_employee_last = {}
     movement_search_invalid = bool(movement_employee_id and not movement_employee_id.isdigit())
@@ -204,9 +213,34 @@ def home():
             q = q.filter(Employee.branch_id.in_(search_branch_ids))
         elif search_gov_id:
             q = q.filter(False)
+        scoped_employee_query = q
         if movement_name_query:
-            q = q.filter(db.or_(search_contains(Employee.full_name, movement_name_query), search_contains(Employee.job_code, movement_name_query)))
+            q = q.filter(employee_search_filter(movement_name_query, include_branch=True))
         candidates = q.order_by(Employee.full_name.asc()).limit(50).all()
+        if movement_name_query and not candidates and len(normalized_movement_query) >= 3:
+            fallback_query = scoped_employee_query.order_by(Employee.full_name.asc()).limit(2500).all()
+            context_branch_name = ''
+            context_governorate_name = ''
+            if search_branch_id:
+                selected_branch = db.session.get(Branch, search_branch_id)
+                context_branch_name = selected_branch.name if selected_branch else ''
+                context_governorate_name = selected_branch.governorate.name if selected_branch and selected_branch.governorate else ''
+            elif search_gov_id:
+                selected_governorate = db.session.get(Governorate, search_gov_id)
+                context_governorate_name = selected_governorate.name if selected_governorate else ''
+            ranked_candidates = rank_scoped_employee_suggestions(
+                movement_name_query,
+                fallback_query,
+                limit=8,
+                basic_branch_name=context_branch_name,
+                governorate_name=context_governorate_name,
+            )
+            candidates = [item['employee'] for item in ranked_candidates]
+            movement_employee_match_reasons = {
+                item['employee'].id: '، '.join(item.get('match_reasons') or [])
+                for item in ranked_candidates
+                if item.get('match_reasons')
+            }
         movement_employee_matches = candidates
 
     if not movement_search_invalid and movement_employee_id.isdigit():
@@ -221,8 +255,16 @@ def home():
                 and (not search_branch_id or candidate.branch_id == search_branch_id)
             ):
                 movement_employee = candidate
-    elif not movement_search_invalid and len(movement_employee_matches) == 1:
-        movement_employee = movement_employee_matches[0]
+    elif not movement_search_invalid and movement_name_query and movement_employee_matches:
+        # Only a unique official/confirmed-alias identity can prefill the result.
+        # A single substring/fuzzy result remains a clickable candidate, not an
+        # implicit employee selection.
+        identity = resolve_scoped_employee_identity(
+            movement_name_query,
+            movement_employee_matches,
+        )
+        if identity.get('status') == 'unique_match':
+            movement_employee = identity.get('employee')
     movement_employee_in_scope = bool(movement_employee and branch_ok(movement_employee.branch_id)) if movement_employee else False
 
     # The homepage selection card is a search/registration affordance. It does
@@ -576,6 +618,49 @@ def home():
     # جهة الانتداب قد تكون في محافظة مختلفة؛ هذا الاختيار لا يمنح المستخدم نطاقًا تشغيليًا عليها.
     home_movement_branches = Branch.query.join(Governorate, Governorate.id == Branch.governorate_id).filter(Branch.is_active == True, Governorate.is_active == True).order_by(Branch.name.asc()).all()
 
+    # Preload confirmed aliases only for the visible first-entry directory. These
+    # are used by client-side progressive search without broadening the data scope.
+    entry_directory_employee_ids = {
+        employee.id
+        for entry_row in entry_rows
+        for branch_group in entry_row.get('branches', [])
+        for employee in branch_group.get('employees', [])
+        if getattr(employee, 'id', None) is not None
+    }
+    entry_directory_branch_ids = {
+        branch_group['branch'].id
+        for entry_row in entry_rows
+        for branch_group in entry_row.get('branches', [])
+        if branch_group.get('branch') is not None
+    }
+    entry_directory_governorate_ids = {
+        branch_group['branch'].governorate_id
+        for entry_row in entry_rows
+        for branch_group in entry_row.get('branches', [])
+        if branch_group.get('branch') is not None
+    }
+    entry_employee_name_aliases = {}
+    entry_employee_code_aliases = {}
+    entry_branch_name_aliases = {}
+    entry_governorate_name_aliases = {}
+    if entry_directory_employee_ids:
+        for alias in EmployeeNameAlias.query.filter(EmployeeNameAlias.employee_id.in_(entry_directory_employee_ids)).all():
+            entry_employee_name_aliases.setdefault(alias.employee_id, []).append(alias.alias_text)
+        for alias in TicketEmployeeCodeAlias.query.filter(TicketEmployeeCodeAlias.employee_id.in_(entry_directory_employee_ids)).all():
+            entry_employee_code_aliases.setdefault(alias.employee_id, []).append(alias.alias_text)
+    if entry_directory_branch_ids:
+        for alias in BranchNameAlias.query.filter(BranchNameAlias.branch_id.in_(entry_directory_branch_ids)).all():
+            entry_branch_name_aliases.setdefault(alias.branch_id, []).append(alias.alias_text)
+    if entry_directory_governorate_ids:
+        for alias in GovernorateNameAlias.query.filter(GovernorateNameAlias.governorate_id.in_(entry_directory_governorate_ids)).all():
+            entry_governorate_name_aliases.setdefault(alias.governorate_id, []).append(alias.alias_text)
+
+    available_entry_employee_aliases = {}
+    available_entry_ids = [employee.id for employee in available_entry_employees if getattr(employee, 'id', None) is not None]
+    if available_entry_ids:
+        for alias in EmployeeNameAlias.query.filter(EmployeeNameAlias.employee_id.in_(available_entry_ids)).all():
+            available_entry_employee_aliases.setdefault(alias.employee_id, []).append(alias.alias_text)
+
     # بحث الموظف في الرئيسية متاح لكل المحافظات، حتى لو كان نطاق العمل الحالي محافظة واحدة.
     return render_template(
         'home.html',
@@ -588,6 +673,11 @@ def home():
         ),
         visible_govs=visible_govs,
         entry_rows=entry_rows,
+        entry_employee_name_aliases=entry_employee_name_aliases,
+        entry_employee_code_aliases=entry_employee_code_aliases,
+        entry_branch_name_aliases=entry_branch_name_aliases,
+        entry_governorate_name_aliases=entry_governorate_name_aliases,
+        available_entry_employee_aliases=available_entry_employee_aliases,
         pending=pending,
         ending=ending,
         approved_count=approved_count,

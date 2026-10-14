@@ -10,18 +10,22 @@
 <section class="ui-card user-edit-card" aria-label="بيانات المستخدم وصلاحياته">
   <form method="post" class="workflow-user-form">
     <input type="hidden" name="_csrf" value="{{csrf}}"><div class="workflow-progress" aria-label="مراحل التعديل"><span class="active"><b>01</b> البيانات</span><span><b>02</b> النطاق</span><span><b>03</b> الصلاحيات</span></div>
-    <div class="ui-grid wide">
-      <label>الاسم الكامل<input name="full_name" value="{{u.full_name}}" required></label>
-      <label>البريد الإلكتروني<input name="email" type="email" value="{{u.email or ''}}" required autocomplete="email"></label>
-      <label>الوظيفة<input name="job_title" value="{{u.job_title or ''}}" required></label>
-      <label>الكود الوظيفي<input name="job_code" value="{{u.job_code or ''}}" required></label>
-      <label>اسم المستخدم<input value="{{u.username}}" disabled></label>
-    </div>
+    <section class="workflow-form-section smart-user-identity-section" aria-labelledby="userEditIdentityTitle">
+      <div class="workflow-form-section-head"><span>01</span><strong id="userEditIdentityTitle">بيانات الهوية والحساب</strong></div>
+      <p class="smart-option-hint">بيانات تعريف الحساب الأساسية. اسم المستخدم ثابت بعد إنشاء الحساب.</p>
+      <div class="ui-grid wide">
+        <label>الاسم الكامل<input name="full_name" value="{{u.full_name}}" required autocomplete="name"></label>
+        <label>البريد الإلكتروني<input name="email" type="email" value="{{u.email or ''}}" required autocomplete="email"></label>
+        <label>الوظيفة<input name="job_title" value="{{u.job_title or ''}}" required></label>
+        <label>الكود الوظيفي<input name="job_code" value="{{u.job_code or ''}}" required></label>
+        <label>اسم المستخدم<input value="{{u.username}}" disabled></label>
+      </div>
+    </section>
 
     {% if 'مسؤول التطبيق' in roles %}
     <div class="workflow-form-section"><div class="workflow-form-section-head"><span>02</span><strong>أدوار تسجيل الدخول</strong></div>
     <div class="multi-dropdown ui-multi-select" data-multi-dropdown>
-      <details open>
+      <details>
         <summary><span>الأدوار</span><b data-multi-summary="roles">{{selected_roles|length}} محدد</b></summary>
         <div class="multi-dropdown-menu ui-multi-select-menu">
           <div class="choice-tools">

@@ -1,6 +1,7 @@
 """Assistant chat endpoints."""
 
 from flask import abort, Blueprint, current_app, flash, redirect, render_template, request, session
+import re
 
 from ..access import (
     branch_ok,
@@ -13,7 +14,7 @@ from ..access import (
     roles,
 )
 from ..extensions import db
-from ..models import AssistantMessage, Branch, Employee, Governorate, Movement
+from ..models import AssistantAlias, AssistantMessage, Branch, Employee, Governorate, Movement
 from ..validation import (
     movement_overlaps,
     parse_date,
@@ -30,6 +31,7 @@ from .manager import plan as manager_plan, execute as manager_execute
 from .pending import store_pending_plan, take_single_pending_plan
 from .render import render_branch_entry, render_read, topic_options
 from .privacy import redact_secrets_for_storage
+from .text import normalize_for_search
 
 bp = Blueprint('assistant', __name__)
 
@@ -219,8 +221,103 @@ def build_movement_plan(a):
     return {"title": "تأكيد تسجيل الحركة", "plan": plan, "preview": preview}
 
 
+def _try_learn_employee_alias(prompt):
+    """Learn a per-user employee alias locally from phrases such as «أحمد هو احمد».
+
+    No model call is made for learning. The phrases must resolve to one active
+    employee in the current lookup scope, and an existing alias is never silently
+    reassigned to a different employee.
+    """
+    original = str(prompt or '').strip()
+    explicit = bool(re.match(
+        r'^(?:من\s+فضلك\s+)?(?:احفظ|افتكر|تعلم|تعلّم|علّم|علم|خلي\s+بالك|خد\s+بالك|سجل\s+عندك)\s+(?:(?:أن|ان|بأن|بان)\s+)?',
+        original,
+        flags=re.IGNORECASE,
+    ))
+    body = re.sub(
+        r'^(?:من\s+فضلك\s+)?(?:احفظ|افتكر|تعلم|تعلّم|علّم|علم|خلي\s+بالك|خد\s+بالك|سجل\s+عندك)\s+(?:(?:أن|ان|بأن|بان)\s+)?',
+        '', original, count=1, flags=re.IGNORECASE,
+    ).strip()
+    match = re.match(r'^(.{2,100}?)\s+(?:هو|هي|يعني)\s+(.{2,100}?)\s*[.!؟،؛]*$', body)
+    if not match:
+        return None
+    strip_chars = " \t\r\n«»\"'،,؛:"
+    left = match.group(1).strip(strip_chars)
+    right = match.group(2).strip(strip_chars)
+    if not left or not right or len(left) > 120 or len(right) > 120:
+        return None
+
+    if normalize_for_search(left) == normalize_for_search(right):
+        # These are spelling variants, not two different identities. The search
+        # normalizer handles this equivalence globally; do not bind a common
+        # first name to an arbitrary employee record.
+        return {
+            'title': 'تم توحيد كتابة الاسم',
+            'answer': f'تمام، «{left}» و«{right}» صيغتان متكافئتان في البحث لدى بسيوني. سأبحث بالصياغتين معًا، وإذا وُجد أكثر من موظف محتمل فسأطلب كود شئون العاملين أو الفرع بدل التخمين.',
+        }
+
+    left_employee, left_matches = find_employee(left)
+    right_employee, right_matches = find_employee(right)
+    if not explicit and not left_employee and not right_employee:
+        return None
+    if (not left_employee and len(left_matches) > 1) or (not right_employee and len(right_matches) > 1):
+        return {
+            'title': 'تحديد الاسم المقصود',
+            'answer': 'وجدت أكثر من موظف محتمل لهذا الاسم. اكتب كود شئون العاملين أو الاسم الكامل مع الفرع؛ لم أحفظ أي ربط بعد.',
+        }
+    if left_employee and right_employee and left_employee.id != right_employee.id:
+        return {
+            'title': 'الأسماء تشير إلى موظفين مختلفين',
+            'answer': f'«{left}» و«{right}» يطابقان سجلين مختلفين. لم أحفظ الربط؛ حدّد أي الموظفين تقصد بكود شئون العاملين أو الفرع.',
+        }
+    employee = left_employee or right_employee
+    if not employee:
+        if explicit:
+            return {
+                'title': 'تعذّر تعلّم الاسم',
+                'answer': 'لم أتمكن من تحديد سجل موظف واحد من الاسمين. اذكر الاسم الكامل أو كود شئون العاملين والفرع، ثم أعد صياغة الربط مثل: «احفظ أن أحمد هو احمد».',
+            }
+        return None
+
+    user = me()
+    if not user:
+        return {'title': 'تعذّر تعلّم الاسم', 'error': 'يجب تسجيل الدخول حتى يُحفظ الاسم المستعار لحسابك.'}
+    aliases = []
+    for text_value in (left, right):
+        normalized = normalize_for_search(text_value)
+        if normalized and normalized not in {entry[0] for entry in aliases}:
+            aliases.append((normalized[:160], text_value[:160]))
+
+    # Check all conflicts before writing anything, so a partial learning action
+    # can never leave only one side of the mapping updated.
+    for normalized, text_value in aliases:
+        existing = AssistantAlias.query.filter_by(user_id=user.id, normalized_alias=normalized).first()
+        if existing and existing.employee_id != employee.id:
+            return {
+                'title': 'تعارض في الاسم المحفوظ',
+                'answer': f'الاسم «{text_value}» مرتبط بالفعل بموظف آخر في حسابك. لم أغيّر الربط. حدّد الكود أو الفرع قبل تعديل معنى الاسم.',
+            }
+    for normalized, text_value in aliases:
+        existing = AssistantAlias.query.filter_by(user_id=user.id, normalized_alias=normalized).first()
+        if not existing:
+            db.session.add(AssistantAlias(
+                user_id=user.id,
+                employee_id=employee.id,
+                alias_text=text_value,
+                normalized_alias=normalized,
+            ))
+    db.session.flush()
+    return {
+        'title': 'تعلّمت الاسم',
+        'answer': f'فهمت. سأتعامل مع «{left}» و«{right}» على أنهما يشيران إلى الموظف «{employee.full_name}». حفظت هذا الربط لحسابك فقط، وسأستخدمه محليًا عند البحث.',
+    }
+
+
 def answer_prompt(prompt, prior_chat, workspace_context=None):
     """Understand prompt with the application agent, then fall back to legacy parsers."""
+    alias_learning = _try_learn_employee_alias(prompt)
+    if alias_learning is not None:
+        return alias_learning
     result = _execute_pending_naturally(prompt)
     if result:
         return result

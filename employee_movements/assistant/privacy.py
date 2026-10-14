@@ -200,7 +200,7 @@ def _local_sensitive_values(texts: list[str]) -> set[str]:
             return set()
         from sqlalchemy import func, or_
         from ..extensions import db
-        from ..models import Employee, User
+        from ..models import AssistantAlias, BranchNameAlias, Employee, EmployeeNameAlias, GovernorateNameAlias, TicketEmployeeCodeAlias, User
 
         corpus = "\n".join(texts)
         words_by_text = [_WORD_RE.findall(text) for text in texts]
@@ -284,6 +284,45 @@ def _local_sensitive_values(texts: list[str]) -> set[str]:
         employee_rows += query_rows(employee_fields, employee_broad, MAX_ENTITY_CANDIDATES)
         user_rows = query_rows(user_fields, user_exact, 200)
         user_rows += query_rows(user_fields, user_broad, 200)
+
+        # Confirmed alternate job codes are sensitive identifiers too. Normalize
+        # observed tokens locally so a learned typo code is never forwarded as
+        # apparently harmless text to an external language model.
+        from ..services.ticket_matching import job_code_lookup_variants, normalize_job_code
+        normalized_identifiers = {
+            variant
+            for value in identifier_values
+            for variant in job_code_lookup_variants(value)
+        }
+        matched_code_aliases = []
+        if normalized_identifiers:
+            matched_code_aliases = TicketEmployeeCodeAlias.query.filter(
+                TicketEmployeeCodeAlias.normalized_alias.in_(normalized_identifiers)
+            ).limit(200).all()
+
+        # Search alias records only for terms present in this prompt. This prevents
+        # confirmed misspellings/nicknames from leaking to an external model.
+        from ..services.entity_matching import normalize_alias_key
+        alias_search_terms = {
+            normalize_alias_key(word)
+            for word in observed_words
+            if len(normalize_alias_key(word)) >= 3
+            and normalize_alias_key(word) not in _COMMON_ARABIC_WORDS
+        }
+        alias_search_terms = sorted(alias_search_terms, key=len, reverse=True)[:MAX_ENTITY_SEARCH_TERMS]
+
+        def matching_alias_rows(model, max_rows=500):
+            if not alias_search_terms:
+                return []
+            predicates = []
+            for term in alias_search_terms:
+                escaped_term = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                predicates.append(model.normalized_alias.like("%" + escaped_term + "%", escape="\\"))
+            return model.query.filter(or_(*predicates)).limit(max_rows).all()
+
+        employee_name_alias_rows = matching_alias_rows(EmployeeNameAlias)
+        branch_name_alias_rows = matching_alias_rows(BranchNameAlias)
+        governorate_name_alias_rows = matching_alias_rows(GovernorateNameAlias)
     except Exception as exc:
         # Never log raw prompts or candidate values in this path.
         raise RuntimeError("Local privacy screening could not complete; external processing blocked.") from exc
@@ -312,6 +351,75 @@ def _local_sensitive_values(texts: list[str]) -> set[str]:
 
     collect_rows(employee_rows)
     collect_rows(user_rows)
+    if identifier_values:
+        from ..services.ticket_matching import job_code_lookup_variants
+        matched_alias_values = {str(alias.normalized_alias or '') for alias in matched_code_aliases}
+        for observed_identifier in identifier_values:
+            if job_code_lookup_variants(observed_identifier) & matched_alias_values:
+                values.add(observed_identifier)
+        values.update(
+            str(alias.alias_text).strip()
+            for alias in matched_code_aliases
+            if alias.alias_text and _contains_value(corpus, str(alias.alias_text).strip())
+        )
+
+    # Mask confirmed aliases and the spelling variant actually typed by the user.
+    # This protects misspelled employee names even when they differ from the
+    # canonical Employee.full_name stored locally.
+    def folded_alias(value):
+        text = _normalize_arabic(value).replace("ة", "ه")
+        text = re.sub(r"[^\w\s]", " ", text, flags=re.UNICODE)
+        return re.sub(r"\s+", " ", text).strip()
+
+    folded_corpus = folded_alias(corpus)
+    observed_phrases = []
+    for words in words_by_text:
+        for size in (4, 3, 2, 1):
+            for index in range(max(0, len(words) - size + 1)):
+                phrase = " ".join(words[index:index + size])
+                if phrase.strip():
+                    observed_phrases.append(phrase)
+    for alias in [*employee_name_alias_rows, *branch_name_alias_rows, *governorate_name_alias_rows]:
+        alias_text = str(alias.alias_text or "").strip()
+        alias_key = folded_alias(alias_text)
+        if not alias_text or not alias_key:
+            continue
+        if alias_key in folded_corpus or _contains_value(corpus, alias_text):
+            values.add(alias_text)
+        alias_tokens = set(alias_key.split())
+        for phrase in observed_phrases:
+            phrase_key = folded_alias(phrase)
+            if phrase_key == alias_key or (phrase_key and phrase_key in alias_key):
+                values.add(phrase)
+            elif len(phrase_key) >= 3 and phrase_key in alias_tokens:
+                values.add(phrase)
+
+    # Learned nicknames are private user data too. If they appear in a prompt or
+    # prior turn, mask their exact spelling before any external-model request.
+    try:
+        from ..access import me
+        user = me()
+        if user:
+            remembered_aliases = (
+                AssistantAlias.query.filter_by(user_id=user.id)
+                .order_by(AssistantAlias.id.desc())
+                .limit(500)
+                .all()
+            )
+            folded_corpus = _normalize_arabic(corpus)
+            for alias in remembered_aliases:
+                alias_text = str(alias.alias_text or '').strip()
+                normalized_alias = _normalize_arabic(alias_text)
+                if len(normalized_alias) >= 2 and normalized_alias in folded_corpus:
+                    values.add(alias_text)
+                    # Mask the current spelling as well as the stored one; aliases
+                    # can normalize identically while differing in hamza/diacritics.
+                    values.update(
+                        word for word in observed_norm.get(normalized_alias, set())
+                        if word and _normalize_arabic(word) == normalized_alias
+                    )
+    except Exception as exc:
+        raise RuntimeError("Local alias privacy screening could not complete; external processing blocked.") from exc
     return values
 
 
@@ -323,7 +431,7 @@ def _looks_like_date(value: str) -> bool:
 def _normalize_arabic(value: str) -> str:
     text = unicodedata.normalize("NFKC", str(value or "")).replace("ـ", "")
     text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
-    return text.translate(str.maketrans({"أ": "ا", "إ": "ا", "آ": "ا", "ٱ": "ا", "ى": "ي", "ؤ": "و", "ئ": "ي"})).lower()
+    return text.translate(str.maketrans({"أ": "ا", "إ": "ا", "آ": "ا", "ٱ": "ا", "ى": "ي", "ؤ": "و", "ئ": "ي", "ة": "ه"})).lower()
 
 
 def _contains_value(text: str, value: str) -> bool:

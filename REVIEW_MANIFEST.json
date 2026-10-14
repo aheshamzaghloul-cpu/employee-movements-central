@@ -1,51 +1,44 @@
 {
-  "version": "68.26.0",
-  "title": "Full workspace design system, light cyan sidebar and CSS cleanup",
-  "scope": "Unified the remaining workspaces, removed provably superseded CSS rules, replaced legacy charcoal states in shared components, and aligned the sidebar with the light white/cyan system. No production deployment or database mutation.",
-  "template_count": 45,
+  "version": "68.36.0",
+  "title": "Context-conflict safeguards for confidence-aware intelligent matching",
+  "scope": "Arabic-aware multi-evidence identity ranking and safe identity decisions for employees across homepage, employee directory, movement forms, assistant and screenshot ticket matching; scoped confirmed aliases and no automatic writes from fuzzy matches. Added conflict blocking when a unique identity code contradicts fuzzy employee-name, basic-branch or governorate context.",
+  "template_count": 46,
   "pages_redesigned": [
-    "/reports-missions",
-    "/reports",
-    "/manager",
-    "/reports/assignments/monthly",
-    "/notifications",
-    "/branches",
-    "/governorates",
-    "/lookups",
-    "/excel-import/<kind>",
-    "/change-password",
-    "/employee/<id>",
-    "/employees/<id>/edit",
-    "/employees/resigned",
-    "/replacement",
-    "/audit"
+    "Homepage global employee search and dashboard employee finder",
+    "/employees — directory and edit-data search",
+    "/movements — employee/branch pickers and movement worklist",
+    "/branches and /governorates — confirmed alternate names in catalog search",
+    "Assistant tools and directory — employees, branches, governorates",
+    "Admin assistant governorate resolution",
+    "Excel employee import — alias-aware duplicate detection",
+    "Client-side table, catalog, delegation and dashboard filters"
   ],
   "page_stylesheet": {
-    "file": "employee_movements/static/css/pages/management.css",
-    "condition": "request.path starts with /structure, /users, or /delegations"
+    "file": "employee_movements/static/css/pages/workspace-pages.css",
+    "condition": "catalog routes /branches and /governorates use shared workspace sheet; employee directory uses dedicated stylesheet"
   },
-  "shared_css_bytes": 224819,
-  "shared_css_lines": 2615,
-  "shared_css_media_blocks": 95,
-  "shared_css_important_occurrences": 586,
-  "page_css_bytes": 105496,
-  "page_css_lines": 1222,
+  "shared_css_bytes": 242323,
+  "shared_css_lines": 2788,
+  "shared_css_media_blocks": 106,
+  "shared_css_important_occurrences": 616,
+  "page_css_bytes": 124582,
+  "page_css_lines": 1381,
   "css_files_checked": 6,
   "css_parse_errors": 0,
-  "js_files_checked": 7,
+  "js_files_checked": 8,
   "js_syntax_errors": 0,
   "python_source_compile_errors": 0,
-  "contract_test_count": 181,
+  "contract_test_count": 272,
   "contract_test_status": "passed",
-  "contract_test_summary": "181 contract tests passed for v68.26.0; see docs/design/CSS_FINAL_CLEANUP_v68.26.0.md.",
-  "full_flask_tests": "not_run: Flask is not installed in the review environment; no live Flask session, database writes, PostgreSQL integration test, or production deployment.",
-  "backend_business_logic_changed": "No route or authorization logic changed. The existing user-create route already requires and validates governorate_id for supervisor accounts; the missing form controls were added. UI text corrected to describe default vs additional permissions.",
+  "contract_test_summary": "272 contract tests passed for v68.36.0. 15 isolated matcher behavior tests were invoked directly; five runtime contract checks cover exact-code conflicts with fuzzy employee-name, basic-branch and governorate context plus safe handling of spelling noise. 46 Jinja templates, 8 JavaScript files, 6 CSS files and 172 Python files passed syntax checks. UI integrity, 59 POST route checks and 13 homepage/workflow contracts passed. Full Flask integration tests could not start because Flask is absent in the review environment.",
+  "full_flask_tests": "attempted_not_run: ModuleNotFoundError: Flask is not installed; no live app or database test is claimed.",
+  "backend_business_logic_changed": "Added conservative context conflict blocking to the shared identity resolver. A unique code/name cannot prefill a record if fuzzy employee-name, basic-branch or governorate context strongly points to another authorized candidate; exact governorate mismatch is checked alongside branch context. Similarity is used to block unsafe prefill only, never to auto-select an alternative. No deployment or production database changes.",
   "production_deployed": false,
   "production_database_changed": false,
-  "report": "docs/design/CSS_FINAL_CLEANUP_v68.26.0.md",
+  "report": "docs/design/CONFIDENCE_MATCHING_V68.36.0.md",
   "form_inventory": "docs/design/MOVEMENT_FORM_INVENTORY_v68.23.2.md",
   "blueprint": "docs/design/DESIGN_SYSTEM_BLUEPRINT_v68.23.2.md",
-  "base_asset_cache_busters": 13,
+  "base_asset_cache_busters": 14,
   "jinja_template_parse_errors": 0,
   "css_recursive_parse_errors": 0,
   "css_cleanup": {
@@ -66,85 +59,60 @@
     },
     "sidebar": "light white/cyan surface with dark readable nav text and a low-glow active state"
   },
-  "page_stylesheet_map": "docs/design/PAGE_STYLESHEET_MAP_v68.26.0.md",
+  "page_stylesheet_map": "docs/design/PAGE_STYLESHEET_MAP_v68.29.0.md",
   "current_phase_verification": {
-    "release": "68.26.0",
+    "release": "68.36.0",
     "contract_tests": {
-      "collected": 181,
-      "passed": 181,
+      "collected": 272,
+      "passed": 272,
       "status": "passed"
     },
-    "python_compileall": "passed",
-    "javascript_syntax": {
-      "files": 7,
+    "isolated_matching_behavior_tests": {
+      "collected": 15,
+      "passed": 15,
+      "status": "passed"
+    },
+    "python_ast": {
+      "sources_checked": 172,
       "errors": 0,
       "status": "passed"
     },
-    "ui_integrity": {
-      "templates": 45,
-      "css_files": 6,
-      "js_files": 7,
-      "status": "passed"
-    },
-    "home_workflow_source_contracts": {
-      "passed": 13,
-      "total": 13
-    },
-    "post_route_security": {
-      "routes_reviewed": 54,
+    "javascript_syntax": {
+      "standalone_files_checked": 8,
+      "errors": 0,
       "status": "passed"
     },
     "jinja_templates": {
-      "parsed": 45,
-      "errors": 0
-    },
-    "css_recursive_parse": {
-      "files": 6,
-      "errors": 0,
+      "total": 46,
+      "parse_errors": 0,
       "status": "passed"
     },
-    "browser_visual_qa": "A static HTML dashboard fixture using current CSS was rendered at 320, 390, 600, 768, 801, 1024 and 1440 px. No horizontal document overflow was measured; mobile drawer open/close positions were checked after transitions. Not a live Flask rendering and not coverage of every route.",
-    "manual_live_interaction_qa": "not run; Flask is not installed in the review environment",
-    "flask_integration_tests": "blocked: Flask is not installed in the review environment",
-    "production_deployed": false,
-    "production_database_changed": false,
-    "css_files": 6,
-    "static_responsive_preview": {
-      "viewports": [
-        {
-          "width": 320,
-          "height": 780
-        },
-        {
-          "width": 390,
-          "height": 844
-        },
-        {
-          "width": 600,
-          "height": 900
-        },
-        {
-          "width": 768,
-          "height": 900
-        },
-        {
-          "width": 801,
-          "height": 900
-        },
-        {
-          "width": 1024,
-          "height": 900
-        },
-        {
-          "width": 1440,
-          "height": 1000
-        }
-      ],
-      "horizontal_document_overflow_in_fixture": false,
-      "mobile_sidebar_open_close": "passed in 390px static fixture after CSS transition",
-      "scope": "static fixture only, not live app verification"
+    "css_parse": {
+      "files_checked": 6,
+      "errors": 0,
+      "parser": "tinycss2",
+      "status": "passed"
     },
-    "contract_test_note": "pytest contract_tests: 181 passed; python compileall passed; 7 JavaScript files passed node --check; 45 Jinja templates parsed; 6 CSS files recursively parsed with zero errors."
+    "ui_integrity": {
+      "status": "passed",
+      "templates": 46,
+      "css_files": 6,
+      "js_files": 8
+    },
+    "post_route_security_review": {
+      "status": "passed",
+      "routes_reviewed": 59
+    },
+    "homepage_workflow_contracts": {
+      "status": "passed",
+      "checks": 13
+    },
+    "full_flask_tests": "attempted_not_run: ModuleNotFoundError: Flask is not installed; no live app or database test is claimed.",
+    "context_conflict_runtime_tests": {
+      "collected": 5,
+      "passed": 5,
+      "status": "passed"
+    }
   },
   "previous_movement_phase_responsive_viewport_cases": 12,
   "previous_movement_phase_responsive_viewports": [
@@ -196,7 +164,17 @@
       "condition": "catalog, import, report, manager, notification, account, employee detail/edit and replacement routes, excluding movement form subroutes"
     }
   ],
-  "app_css_important_occurrences": 586,
-  "final_visual_review_limits": "Static CSS fixture only. No live Flask/DB/browser app run; production remains unchanged.",
-  "local_qa_report": "docs/design/LOCAL_QA_v68.26.0.md"
+  "app_css_important_occurrences": 616,
+  "final_visual_review_limits": "No live Flask/browser/database session was available for this phase. Verification is based on contracts, source checks, syntax analysis, and Python compilation. Production remains unchanged.",
+  "local_qa_report": "docs/design/QA_CONFIDENCE_MATCHING_V68.36.0.md",
+  "ticket_matching": {
+    "official_code_normalization": "passed_contract_tests",
+    "missing_200_prefix": "auto-resolve_only_if_unique",
+    "fuzzy_employee_code": "manual_choice_only",
+    "branch_code_auto_selection": "only_when_unique_across_all_active_branches",
+    "explicit_alias_learning": "required",
+    "alias_persistence": "after_successful_mission_creation_in_same_transaction",
+    "privacy_masking": "learned_code_aliases_added_to_local_screening",
+    "database_schema_created_in_production": false
+  }
 }

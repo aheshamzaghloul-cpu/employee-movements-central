@@ -1970,5 +1970,43 @@
       "ui-actionbar"
     ],
     "rendered_by": []
+  },
+  {
+    "template": "employee_movements/templates/mission_from_screenshot.html",
+    "page_group": "المأموريات والنماذج الذكية",
+    "extends": "base.html",
+    "includes": [],
+    "form_count": 3,
+    "input_count": 9,
+    "select_count": 3,
+    "button_count": 3,
+    "table_count": 0,
+    "details_count": 1,
+    "inline_script_count": 1,
+    "inline_style_count": 0,
+    "class_token_count": 18,
+    "class_tokens": [
+      "ticket-image-import",
+      "ticket-image-upload-card",
+      "ticket-image-review-card",
+      "ticket-image-field-grid",
+      "ticket-image-field",
+      "ticket-image-privacy",
+      "ticket-image-rule",
+      "ticket-image-submit",
+      "ticket-image-manual-fallback",
+      "ui-page",
+      "ui-page-head",
+      "ui-card",
+      "ui-btn",
+      "ui-tone-teal",
+      "ui-alert",
+      "ui-tag",
+      "ui-section-title",
+      "ui-actions"
+    ],
+    "rendered_by": [
+      "employee_movements/blueprints/missions.py"
+    ]
   }
 ]

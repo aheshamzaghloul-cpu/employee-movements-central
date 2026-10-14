@@ -15,7 +15,8 @@ def test_workspace_stylesheet_is_present_versioned_and_scoped_to_remaining_pages
     assert "request.path.startswith('/branches')" in BASE
     assert "request.path.startswith('/reports-missions')" in BASE
     assert "request.path.startswith('/notifications')" in BASE
-    assert "?v=68.26.0" in BASE
+    current_version = (ROOT / "VERSION.md").read_text(encoding="utf-8").strip()
+    assert f"?v={current_version}" in BASE
     # The movement editor/review pages retain their purpose-built form stylesheet.
     assert "not request.path.startswith('/reports/assignments/mission-edit')" in BASE
     assert "not request.path.startswith('/reports/assignments/edit-requests')" in BASE
@@ -69,8 +70,8 @@ def test_current_release_and_asset_cache_tags_are_synchronized():
     version = (ROOT / 'VERSION.md').read_text(encoding='utf-8').strip()
     init = (ROOT / 'employee_movements/__init__.py').read_text(encoding='utf-8')
     project = (ROOT / 'pyproject.toml').read_text(encoding='utf-8')
-    assert version == '68.26.0'
+    assert re.fullmatch(r'\d+\.\d+\.\d+', version)
     assert f"__version__ = '{version}'" in init
     assert f'version = "{version}"' in project
-    assert BASE.count(f'?v={version}') == 13
+    assert BASE.count(f'?v={version}') == 14
     assert f'v{version}' in APP_CSS.splitlines()[1]

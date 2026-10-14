@@ -40,8 +40,10 @@ def test_assistant_context_and_submission_controls_are_preserved():
 
 def test_optional_excel_branch_code_can_be_left_unmapped_in_the_actual_template():
     excel = (ROOT / "employee_movements/templates/excel_import.html").read_text(encoding="utf-8")
-    condition = "{% if not (kind=='employees' and field in ['email','company_phone','personal_phone','branch_code']) %}required{% endif %}"
-    assert condition in excel
+    assert "legend>البيانات الأساسية</legend>" in excel
+    assert "legend>بيانات اختيارية</legend>" in excel
+    assert "{% if field in ['email','company_phone','personal_phone','branch_code'] %}" in excel
+    assert 'name="map_{{field}}"' in excel
     assert "optional_employee_fields = {'email', 'company_phone', 'personal_phone', 'branch_code'}" in (ROOT / "employee_movements/blueprints/excel_import.py").read_text(encoding="utf-8")
 
 

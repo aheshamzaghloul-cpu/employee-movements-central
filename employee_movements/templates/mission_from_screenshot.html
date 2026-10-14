@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+{% block title %}مأمورية من صورة تيكيت{% endblock %}
+{% block content %}
+<div class="ui-page ticket-image-import">
+  <header class="ui-page-head ticket-image-import-head">
+    <div>
+      <span class="ui-eyebrow">إدخال ذكي بمراجعة بشرية</span>
+      <h1>مأمورية من صورة تيكيت</h1>
+      <p>ارفع لقطة شاشة لنموذج «تحويل يوزر من فرع إلى آخر ومأمورية». سيقرأ التطبيق الحقول السبعة المطلوبة فقط، ثم يطلب منك مراجعتها قبل التسجيل.</p>
+    </div>
+    <a class="ui-btn ui-btn-secondary" href="/reports/assignments/print-missions">العودة إلى مركز المأموريات</a>
+  </header>
+
+  {% if error %}<div class="ui-alert ui-alert-danger" role="alert">{{ error }}</div>{% endif %}
+  {% if warning %}<div class="ui-alert ui-alert-warning" role="status">{{ warning }}</div>{% endif %}
+
+  <section class="ui-card ticket-image-upload-card">
+    <div class="ui-section-title">
+      <div><h2>1. إضافة صورة التيكيت</h2><small>PNG أو JPG أو WEBP · حد أقصى 2 ميجابايت</small></div>
+      <span class="ui-tag">قراءة محلية</span>
+    </div>
+    <form method="post" action="/missions/from-screenshot/scan" enctype="multipart/form-data" class="ticket-image-upload-form">
+      <input type="hidden" name="_csrf" value="{{ csrf }}">
+      <label class="ticket-image-dropzone" for="ticketScreenshot">
+        <span class="ticket-image-drop-icon" aria-hidden="true">↑</span>
+        <strong>اختر صورة من جهازك</strong>
+        <span>يفضل أن تشمل الصورة الحقول والتواريخ كاملة وبوضوح</span>
+        <input id="ticketScreenshot" type="file" name="screenshot" accept="image/png,image/jpeg,image/webp" required>
+      </label>
+      <div class="ticket-image-privacy"><span aria-hidden="true">🔒</span> تتم قراءة الصورة محليًا على خادم التطبيق. لا تُحفظ الصورة في قاعدة البيانات أو ملفات المشروع، ولا تُرسل إلى خدمة ذكاء اصطناعي خارجية.</div>
+      <button class="ui-btn ui-tone-teal" type="submit">قراءة الحقول السبعة</button>
+    </form>
+  </section>
+
+  {% macro mission_fields(values, branches, selected_id, csrf_token) %}
+    <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+    <input type="hidden" name="destination_branch_name" value="{{ values.get('destination_branch_name','') }}">
+    <input type="hidden" name="source_job_code" value="{{ values.get('source_job_code', values.get('job_code','')) }}">
+    <div class="ticket-image-recognized-branch" {% if not values.get('destination_branch_name') %}hidden{% endif %}>
+      <span>اسم الوجهة كما قُرئ من الصورة</span><strong>{{ values.get('destination_branch_name','') }}</strong>
+      <small>هذا النص للمرجعية فقط؛ اختيار الفرع الرسمي من القائمة هو المعتمد عند التسجيل.</small>
+    </div>
+    <div class="ticket-image-field-grid">
+      <label class="ticket-image-field"><span>اسم الفرع الأساسي <i>مطلوب</i></span><input name="basic_branch_name" value="{{ values.get('basic_branch_name','') }}" autocomplete="off" maxlength="200" required placeholder="اسم الفرع الأساسي كما يظهر في التيكيت"></label>
+      <label class="ticket-image-field"><span>الفرع المحول إليه <i>مطلوب</i></span><select name="destination_branch_id" required><option value="">اختر الفرع المستهدف</option>{% for branch in branches %}<option value="{{ branch.id }}" {% if selected_id|string == branch.id|string %}selected{% endif %}>{% if branch.code %}{{ branch.code }} · {% endif %}{{ branch.name }} · {{ branch.governorate.name if branch.governorate else '—' }}</option>{% endfor %}</select></label>
+      <label class="ticket-image-field"><span>الكود الوظيفي <i>مطلوب</i></span><input name="job_code" value="{{ values.get('job_code','') }}" autocomplete="off" inputmode="text" maxlength="100" required placeholder="أدخل الكود كما يظهر في التيكيت"></label>
+      <label class="ticket-image-field"><span>هل الفرع المحول إليه فرعك الأساسي؟ <i>مطلوب</i></span><select name="destination_is_basic" required><option value="">اختر نعم أو لا</option><option value="yes" {% if values.get('destination_is_basic') == 'yes' %}selected{% endif %}>نعم</option><option value="no" {% if values.get('destination_is_basic') == 'no' %}selected{% endif %}>لا، ليس فرعي الأساسي</option></select></label>
+      <label class="ticket-image-field"><span>هل تحتاج مأمورية؟ <i>مطلوب</i></span><select name="needs_mission" required><option value="">اختر نعم أو لا</option><option value="yes" {% if values.get('needs_mission') == 'yes' %}selected{% endif %}>نعم</option><option value="no" {% if values.get('needs_mission') == 'no' %}selected{% endif %}>لا</option></select></label>
+      <label class="ticket-image-field"><span>من يوم <i>مطلوب</i></span><input type="date" name="from_date" value="{{ values.get('from_date','') }}" required></label>
+      <label class="ticket-image-field"><span>إلى يوم <i>مطلوب</i></span><input type="date" name="to_date" value="{{ values.get('to_date','') }}" required></label>
+    </div>
+    <div class="ticket-image-rule"><strong>قاعدة إنشاء المأمورية</strong><span>تُنشأ المأمورية فقط إذا كانت إجابة «هل الفرع المحول إليه فرعك الأساسي؟» هي «لا، ليس فرعي الأساسي»، وإجابة «هل تحتاج مأمورية؟» هي «نعم»، مع صحة بيانات الموظف والفرع والتواريخ وعدم وجود حركة متعارضة.</span></div>
+    <details class="ticket-image-learning-options">
+      <summary><strong>تحسين التعرف على الأكواد وأسماء الفروع مستقبلًا</strong><small>اختياري — لا تُحفظ أي صيغة بديلة دون اختيارك الصريح.</small></summary>
+      <label><input type="checkbox" name="remember_job_code_alias" value="yes"> إذا صححت الكود أو اخترت موظفًا من الاقتراحات، احفظ الكود الأصلي من الصورة كصيغة بديلة لهذا الموظف بعد نجاح التسجيل.</label>
+      <label><input type="checkbox" name="remember_basic_branch_alias" value="yes"> احفظ الصيغة المكتوبة لاسم الفرع الأساسي كاسم بديل للفرع المسجل للموظف، بعد نجاح التسجيل.</label>
+      <label><input type="checkbox" name="remember_branch_alias" value="yes"> احفظ اسم الوجهة كما قُرئ من الصورة كاسم بديل للفرع الذي اخترته، بعد نجاح تسجيل المأمورية.</label>
+      <p>لن تُحفظ صيغة كود أو فرع إذا كانت قد تشير إلى سجل آخر. حذف بادئة 200 يُعالج تلقائيًا ولا يحتاج إلى حفظ صيغة بديلة.</p>
+    </details>
+    <button class="ui-btn ui-tone-teal ticket-image-submit" type="submit">تأكيد البيانات وتسجيل المأمورية</button>
+  {% endmacro %}
+
+  {% if scan_complete %}
+  <section class="ui-card ticket-image-review-card">
+    <div class="ui-section-title">
+      <div><h2>2. مراجعة البيانات المستخرجة</h2><small>تحقق من كل قيمة؛ لا يسجل التطبيق المأمورية بمجرد قراءة الصورة.</small></div>
+      <span class="ui-tag ui-tag-warning">مراجعة مطلوبة</span>
+    </div>
+    {% if branch_suggestions %}
+      <div class="ticket-image-match-panel" id="ticketBranchSuggestions">
+        <h3>اقتراحات الفروع القريبة من الاسم المكتوب</h3>
+        <p>لم يُعتمد أي اقتراح تلقائيًا. اختر الفرع الصحيح؛ ستظل الصلاحيات مطبقة على القائمة.</p>
+        <div class="ticket-image-candidate-list">
+          {% for suggestion in branch_suggestions %}
+            <button type="button" class="ticket-image-candidate" data-ticket-branch-id="{{ suggestion.id }}" data-branch-name="{{ suggestion.branch.name }}">
+              <strong>{{ suggestion.branch.name }}</strong>
+              <small>{% if suggestion.branch.code %}كود الفرع: {{ suggestion.branch.code }} · {% endif %}{{ suggestion.branch.governorate.name if suggestion.branch.governorate else '—' }} · اقتراح بالاسم أو الكود</small>
+              <span>اختيار هذا الفرع</span>
+            </button>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+    {% if employee_suggestions %}
+      <div class="ticket-image-match-panel" id="ticketEmployeeSuggestions">
+        <h3>موظفون محتملون للكود المكتوب</h3>
+        <p>هذه اقتراحات فقط بسبب تقارب الكود والفرع الأساسي. لن يتم اختيار أي موظف تلقائيًا.</p>
+        <div class="ticket-image-candidate-list">
+          {% for suggestion in employee_suggestions %}
+            {% set candidate = suggestion.employee %}
+            <button type="button" class="ticket-image-candidate" data-ticket-job-code="{{ candidate.job_code }}" data-employee-name="{{ candidate.full_name }}" data-employee-branch="{{ candidate.branch.name if candidate.branch else '—' }}" data-employee-governorate="{{ candidate.branch.governorate.name if candidate.branch and candidate.branch.governorate else '—' }}">
+              <strong>{{ candidate.full_name }}</strong>
+              <small>الكود: {{ candidate.job_code or '—' }} · {{ candidate.branch.name if candidate.branch else '—' }}{% if candidate.branch and candidate.branch.governorate %} · {{ candidate.branch.governorate.name }}{% endif %}</small>
+              <span>استخدام هذا الموظف</span>
+            </button>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+    <div id="ticketEmployeeMatch" class="ticket-image-employee-match" {% if not employee_match %}hidden{% endif %}>
+      <span>الموظف المطابق للكود</span>
+      <strong id="ticketEmployeeMatchName">{{ employee_match.full_name if employee_match else '' }}</strong>
+      <small id="ticketEmployeeMatchDetails">{% if employee_match %}{{ employee_match.job_code or '—' }} · {{ employee_match.branch.name if employee_match.branch else '—' }}{% if employee_match.branch and employee_match.branch.governorate %} · {{ employee_match.branch.governorate.name }}{% endif %}{% endif %}</small>
+    </div>
+    <div id="ticketEmployeeNoMatch" class="ui-alert ui-alert-warning" role="status" {% if employee_match %}hidden{% endif %}>لم يتم تأكيد هوية الموظف بعد. راجع الكود أو اختر مرشحًا من القائمة؛ لن تُنشأ مأمورية قبل العثور على موظف نشط واحد فقط.</div>
+    <form method="post" action="/missions/from-screenshot/create">
+      {{ mission_fields(fields, destination_branches, selected_destination_id, csrf) }}
+    </form>
+  </section>
+  {% else %}
+  <details class="ui-card ticket-image-manual-fallback">
+    <summary><strong>إدخال الحقول يدويًا بدل القراءة من الصورة</strong><small>استخدمه فقط إذا كانت الصورة غير واضحة أو لم يتوفر OCR على الخادم.</small></summary>
+    <form method="post" action="/missions/from-screenshot/create">
+      {{ mission_fields(fields, destination_branches, selected_destination_id, csrf) }}
+    </form>
+  </details>
+  {% endif %}
+</div>
+<script>
+(function () {
+  const input = document.getElementById('ticketScreenshot');
+  if (!input) return;
+  input.addEventListener('change', function () {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const allowed = ['image/png', 'image/jpeg', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      input.setCustomValidity('اختر صورة PNG أو JPG أو WEBP.');
+    } else if (file.size > 2 * 1024 * 1024) {
+      input.setCustomValidity('حجم الصورة أكبر من 2 ميجابايت.');
+    } else {
+      input.setCustomValidity('');
+    }
+  });
+
+  const reviewForm = document.querySelector('form[action="/missions/from-screenshot/create"]');
+  const jobCodeField = reviewForm && reviewForm.querySelector('[name="job_code"]');
+  const sourceJobCodeField = reviewForm && reviewForm.querySelector('[name="source_job_code"]');
+  const destinationField = reviewForm && reviewForm.querySelector('[name="destination_branch_id"]');
+  const employeeMatchBox = document.getElementById('ticketEmployeeMatch');
+  const employeeMatchName = document.getElementById('ticketEmployeeMatchName');
+  const employeeMatchDetails = document.getElementById('ticketEmployeeMatchDetails');
+  const employeeNoMatch = document.getElementById('ticketEmployeeNoMatch');
+  document.querySelectorAll('[data-ticket-job-code]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      if (!jobCodeField) return;
+      if (sourceJobCodeField && !sourceJobCodeField.value.trim()) {
+        sourceJobCodeField.value = jobCodeField.value.trim();
+      }
+      jobCodeField.value = button.dataset.ticketJobCode || '';
+      if (employeeMatchName) employeeMatchName.textContent = button.dataset.employeeName || '';
+      if (employeeMatchDetails) employeeMatchDetails.textContent = [jobCodeField.value, button.dataset.employeeBranch || '', button.dataset.employeeGovernorate || ''].filter(Boolean).join(' · ');
+      if (employeeMatchBox) employeeMatchBox.hidden = false;
+      if (employeeNoMatch) employeeNoMatch.hidden = true;
+      const suggestions = document.getElementById('ticketEmployeeSuggestions');
+      if (suggestions) suggestions.hidden = true;
+      jobCodeField.dispatchEvent(new Event('change', {bubbles: true}));
+      jobCodeField.focus();
+    });
+  });
+  document.querySelectorAll('[data-ticket-branch-id]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      if (!destinationField) return;
+      destinationField.value = button.dataset.ticketBranchId || '';
+      destinationField.dispatchEvent(new Event('change', {bubbles: true}));
+      const suggestions = document.getElementById('ticketBranchSuggestions');
+      if (suggestions) suggestions.hidden = true;
+      destinationField.focus();
+    });
+  });
+})();
+</script>
+{% endblock %}

@@ -17,7 +17,7 @@ from .access import actual_roles, user_branch_ids
 from .assignments import supervisor_for_governorate, sync_role_accounts
 from .config import ConfigError
 from .extensions import db
-from .models import AssistantMessage, Branch, Employee, Lookup, RoleAccount, SupervisorEntry, User, UserBranch, UserGovernorate, UserRole
+from .models import AssistantAlias, AssistantMessage, Branch, Employee, TicketEmployeeCodeAlias, Lookup, RoleAccount, SupervisorEntry, User, UserBranch, UserGovernorate, UserRole
 from .validation import valid_email
 
 logger = logging.getLogger(__name__)

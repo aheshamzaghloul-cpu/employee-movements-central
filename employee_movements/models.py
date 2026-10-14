@@ -313,6 +313,79 @@ class AssistantMessage(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
 
 
+class AssistantAlias(db.Model):
+    """Private, per-user learned names for an existing employee record.
+
+    Aliases are resolved locally and never sent to the external language model.
+    """
+    __table_args__ = (
+        UniqueConstraint('user_id', 'normalized_alias', name='uq_assistant_alias_user_normalized'),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey('employee.id', ondelete='CASCADE'), nullable=False, index=True)
+    alias_text = db.Column(db.String(160), nullable=False)
+    normalized_alias = db.Column(db.String(160), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
+class TicketEmployeeCodeAlias(db.Model):
+    """A globally unique, explicitly confirmed alternate code read from a ticket.
+
+    The alias is only learned after an authorized user confirms the employee and
+    opts in after a successful mission creation. It can never point to two employees.
+    """
+    __table_args__ = (UniqueConstraint('normalized_alias', name='uq_ticket_employee_code_alias_normalized'),)
+    id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey('employee.id', ondelete='CASCADE'), nullable=False, index=True)
+    alias_text = db.Column(db.String(100), nullable=False)
+    normalized_alias = db.Column(db.String(100), nullable=False, index=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    employee = db.relationship('Employee')
+
+
+class BranchNameAlias(db.Model):
+    """An explicitly confirmed alternate spelling for one official branch name.
+
+    A normalized alias is globally unique: the same spelling can never silently
+    point to two different branches. Aliases are only learned after a user opts in
+    and confirms the branch while creating a valid mission.
+    """
+    __table_args__ = (UniqueConstraint('normalized_alias', name='uq_branch_name_alias_normalized'),)
+    id = db.Column(db.Integer, primary_key=True)
+    branch_id = db.Column(db.Integer, db.ForeignKey('branch.id', ondelete='CASCADE'), nullable=False, index=True)
+    alias_text = db.Column(db.String(200), nullable=False)
+    normalized_alias = db.Column(db.String(200), nullable=False, index=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    branch = db.relationship('Branch')
+
+
+class EmployeeNameAlias(db.Model):
+    """Globally confirmed alternate spellings for a canonical employee name."""
+    __table_args__ = (UniqueConstraint('normalized_alias', name='uq_employee_name_alias_normalized'),)
+    id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey('employee.id', ondelete='CASCADE'), nullable=False, index=True)
+    alias_text = db.Column(db.String(200), nullable=False)
+    normalized_alias = db.Column(db.String(200), nullable=False, index=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    employee = db.relationship('Employee')
+
+
+class GovernorateNameAlias(db.Model):
+    """Globally confirmed alternate spellings for a canonical governorate name."""
+    __table_args__ = (UniqueConstraint('normalized_alias', name='uq_governorate_name_alias_normalized'),)
+    id = db.Column(db.Integer, primary_key=True)
+    governorate_id = db.Column(db.Integer, db.ForeignKey('governorate.id', ondelete='CASCADE'), nullable=False, index=True)
+    alias_text = db.Column(db.String(200), nullable=False)
+    normalized_alias = db.Column(db.String(200), nullable=False, index=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    governorate = db.relationship('Governorate')
+
+
 class Lookup(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     kind = db.Column(db.String(30), nullable=False)

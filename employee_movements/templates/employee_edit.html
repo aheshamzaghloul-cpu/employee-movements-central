@@ -1,18 +1,29 @@
 {% extends 'base.html' %}
 {% block title %}تعديل الموظف{% endblock %}
 {% block content %}
-<div class="ui-toolbar"><div><h1>تعديل الموظف</h1><p class="ui-subtitle">جميع بيانات الموظف إجبارية.</p></div><div><a class="ui-btn ui-btn-secondary" href="/employees">رجوع</a>{% if has_role('مسؤول التطبيق') %} <a class="ui-btn" href="{{url_for('employees.employee_convert_role',i=e.id)}}">تغيير الصفة: موظف / مدخل أول</a>{% endif %}</div></div>
-<div class="ui-card"><form method="post" class="ui-grid wide">
+<div class="ui-toolbar"><div><h1>تعديل الموظف</h1><p class="ui-subtitle">نظّم التعديل حسب نوع البيانات: الهوية، العمل، التعيين، والاتصال.</p></div><div class="ui-actions"><a class="ui-btn ui-btn-secondary" href="/employees">رجوع</a>{% if has_role('مسؤول التطبيق') %}<a class="ui-btn" href="{{url_for('employees.employee_convert_role',i=e.id)}}">تغيير الصفة: موظف / مدخل أول</a>{% endif %}</div></div>
+<div class="ui-card"><form method="post" class="smart-option-form employee-edit-form">
 <input type="hidden" name="_csrf" value="{{csrf}}">
-<label>اسم الموظف<input name="full_name" value="{{e.full_name}}" required></label>
-<label>البريد الإلكتروني<input name="email" type="email" value="{{e.email or ""}}" required autocomplete="email"></label>
-<label>الوظيفة<input name="job_title" value="{{e.job_title or ''}}" required></label>
-<label>الكود الوظيفي<input name="job_code" value="{{e.job_code or ''}}" required></label>
-<label>المحافظة<select name="governorate_id" id="employee_governorate" required>{% for g in govs %}<option value="{{g.id}}" {% if g.id==e.branch.governorate_id %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>
-<label>الفرع<select name="branch_id" id="employee_branch" required>{% for b in bs %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}" {% if b.id==e.branch_id %}selected{% endif %}>{{b.name}}</option>{% endfor %}</select></label>
-<label>تاريخ التعيين<input type="date" name="hire_date" value="{{e.hire_date or ''}}" required></label>
-<label>هاتف الشركة<input name="company_phone" value="{{e.company_phone or ''}}" required></label>
-<label>الهاتف الشخصي<input name="personal_phone" value="{{e.personal_phone or ''}}" required></label>
-<div class="ui-form-actions"><button>حفظ التعديلات</button></div>
+<div class="smart-option-group-grid">
+  <fieldset class="smart-option-group"><legend>هوية الموظف</legend><p class="smart-option-hint">الاسم وبيانات التعريف الأساسية.</p><div class="smart-option-fields">
+    <label>اسم الموظف<input name="full_name" value="{{e.full_name}}" required autocomplete="name"></label>
+    <label>البريد الإلكتروني<input name="email" type="email" value="{{e.email or ''}}" required autocomplete="email"></label>
+  </div></fieldset>
+  <fieldset class="smart-option-group"><legend>البيانات الوظيفية</legend><p class="smart-option-hint">المسمى والكود وتاريخ بداية الخدمة.</p><div class="smart-option-fields">
+    <label>الوظيفة<input name="job_title" value="{{e.job_title or ''}}" required></label>
+    <label>كود شئون العاملين<input name="job_code" value="{{e.job_code or ''}}" required></label>
+    <label>تاريخ التعيين<input type="date" name="hire_date" value="{{e.hire_date or ''}}" required></label>
+  </div></fieldset>
+  <fieldset class="smart-option-group smart-option-group-wide"><legend>جهة العمل</legend><p class="smart-option-hint">اختر المحافظة أولًا؛ ستظهر الفروع التابعة لها فقط.</p><div class="smart-option-fields smart-option-fields-2">
+    <label>المحافظة<select name="governorate_id" id="employee_governorate" required>{% for g in govs %}<option value="{{g.id}}" {% if g.id==e.branch.governorate_id %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>
+    <label>الفرع<select name="branch_id" id="employee_branch" required>{% for b in bs %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}" {% if b.id==e.branch_id %}selected{% endif %}>{{b.name}}</option>{% endfor %}</select></label>
+  </div></fieldset>
+  <fieldset class="smart-option-group smart-option-group-wide"><legend>بيانات الاتصال</legend><p class="smart-option-hint">الأرقام المرتبطة بالموظف؛ استخدم الرقم الذي يمكن الرجوع إليه أثناء العمل.</p><div class="smart-option-fields smart-option-fields-2">
+    <label>هاتف الشركة<input name="company_phone" value="{{e.company_phone or ''}}" autocomplete="tel"></label>
+    <label>الهاتف الشخصي<input name="personal_phone" value="{{e.personal_phone or ''}}" autocomplete="tel"></label>
+  </div></fieldset>
+</div>
+<div class="smart-option-actions"><span>راجع جهة العمل والكود قبل الحفظ.</span><button class="ui-btn ui-btn-primary" type="submit">حفظ التعديلات</button></div>
 </form></div>
+<details class="ui-card" style="margin-top:1rem" id="employee-alias-learning"><summary><strong>الأسماء والأكواد البديلة المؤكدة</strong><span class="ui-subtitle">تُستخدم في البحث داخل التطبيق ولا تغيّر البيانات الرسمية.</span></summary><div class="smart-option-group-grid" style="padding-top:1rem"><fieldset class="smart-option-group"><legend>اسم بديل للموظف</legend><p class="smart-option-hint">احفظ الصيغة المتداولة بعد التأكد أنها تخص هذا الموظف وحده.</p><form method="post" action="{{url_for('employees.employee_alias_add',i=e.id)}}"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="alias_kind" value="employee_name"><label>الصيغة البديلة<input name="alias_text" maxlength="200" required placeholder="اكتب الاسم كما يرد عادةً"></label><button class="ui-btn ui-btn-secondary" type="submit">حفظ الاسم البديل</button></form>{% if employee_name_aliases %}<p class="smart-option-hint">المحفوظ: {% for a in employee_name_aliases %}{{a.alias_text}}{% if not loop.last %}، {% endif %}{% endfor %}</p>{% endif %}</fieldset><fieldset class="smart-option-group"><legend>كود بديل</legend><p class="smart-option-hint">لا حاجة لحفظ الكود إذا كان الاختلاف فقط حذف بادئة 200.</p><form method="post" action="{{url_for('employees.employee_alias_add',i=e.id)}}"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="alias_kind" value="employee_code"><label>الكود كما يرد في البيانات<input name="alias_text" maxlength="100" required placeholder="الكود البديل"></label><button class="ui-btn ui-btn-secondary" type="submit">حفظ الكود البديل</button></form>{% if employee_code_aliases %}<p class="smart-option-hint">المحفوظ: {% for a in employee_code_aliases %}{{a.alias_text}}{% if not loop.last %}، {% endif %}{% endfor %}</p>{% endif %}</fieldset></div></details>
 {% endblock %}

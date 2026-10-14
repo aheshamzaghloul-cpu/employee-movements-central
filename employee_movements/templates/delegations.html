@@ -9,14 +9,18 @@
     <div class="ui-card-head"><div><span class="ui-eyebrow">تنفيذ مباشر</span><h2>إنشاء تفويض</h2><p>التفويض ينقل المسؤولية التشغيلية مؤقتًا إلى مشرف محافظة بديل خلال الفترة المحددة.</p></div><span class="ui-card-icon">⇄</span></div>
     <form method="post" action="/delegations/add" class="ui-form">
       <input type="hidden" name="_csrf" value="{{csrf}}">
-      <div class="ui-form-row delegation-create-grid">
-        <label>المشرف<select name="supervisor_id" required>{% for x in supervisors %}<option value="{{x.id}}">{{x.full_name}}{% if x.job_code %} · {{x.job_code}}{% endif %}</option>{% endfor %}</select></label>
-        <label>المحافظة<select name="governorate_id" required>{% for g in govs %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
-        <label>البديل<select name="delegate_id" required><option value="">اختر البديل</option>{% for x in delegates %}<option value="{{x.id}}">{{x.full_name}}{% if x.job_code %} · {{x.job_code}}{% endif %}</option>{% endfor %}</select></label>
-        <label>من تاريخ<input type="date" name="starts_at" required></label>
-        <label>إلى تاريخ<input type="date" name="ends_at" required></label>
+      <div class="smart-option-group-grid delegation-option-groups">
+        <fieldset class="smart-option-group"><legend>أطراف التفويض ونطاقه</legend><p class="smart-option-hint">حدد المشرف الأصلي والمحافظة ثم المشرف البديل لنفس النطاق.</p><div class="smart-option-fields smart-option-fields-3">
+          <label>المشرف<select name="supervisor_id" required>{% for x in supervisors %}<option value="{{x.id}}">{{x.full_name}}{% if x.job_code %} · {{x.job_code}}{% endif %}</option>{% endfor %}</select></label>
+          <label>المحافظة<select name="governorate_id" required>{% for g in govs %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
+          <label>المشرف البديل<select name="delegate_id" required><option value="">اختر البديل</option>{% for x in delegates %}<option value="{{x.id}}">{{x.full_name}}{% if x.job_code %} · {{x.job_code}}{% endif %}</option>{% endfor %}</select></label>
+        </div></fieldset>
+        <fieldset class="smart-option-group"><legend>مدة التفويض</legend><p class="smart-option-hint">حدد بداية ونهاية التغطية. يجب ألا تتعارض الفترة مع تفويض نشط آخر.</p><div class="smart-option-fields smart-option-fields-2">
+          <label>من تاريخ<input type="date" name="starts_at" required></label>
+          <label>إلى تاريخ<input type="date" name="ends_at" required></label>
+        </div></fieldset>
       </div>
-      <div class="ui-form-actions"><button class="ui-primary-btn">إنشاء التفويض</button><span>سيتم منع التفويض المتداخل أو غير المتطابق مع نطاق المحافظة.</span></div>
+      <div class="ui-form-actions"><button class="ui-primary-btn">إنشاء التفويض</button><span>سيتم التحقق من نطاق المحافظة وتداخل المواعيد قبل الحفظ.</span></div>
     </form>
   </section>
 
@@ -63,18 +67,24 @@
   const normalize = window.normalizeEmployeeSearchText || (v => String(v || '').toLocaleLowerCase('ar').trim());
   const count = document.getElementById('delegationSearchCount');
   const empty = document.getElementById('delegationSearchEmpty');
+  const table = document.querySelector('.delegation-table');
+  const pageSize = 8;
+  let expanded = false, previousQuery = '';
+  let more = document.getElementById('delegationShowMore');
+  if (!more && table) { more = document.createElement('button'); more.type = 'button'; more.id = 'delegationShowMore'; more.className = 'ui-btn ui-btn-secondary ui-btn-mini smart-data-more'; table.insertAdjacentElement('afterend', more); }
   const render = () => {
-    const q = normalize(search?.value || ''); let visible = 0;
-    rows.forEach(row => {
-      const matchesFilter = filter === 'all' || row.dataset.filter === filter;
-      const matchesSearch = !q || normalize(row.dataset.search || '').includes(q);
-      row.hidden = !(matchesFilter && matchesSearch); if (!row.hidden) visible++;
-    });
-    if (count) count.textContent = `${visible} من ${rows.length}`;
-    if (empty) empty.hidden = visible > 0;
+    const q = normalize(search?.value || ''); if (q !== previousQuery) { expanded = false; previousQuery = q; }
+    const matches = rows.filter(row => (filter === 'all' || row.dataset.filter === filter) && (!q || window.employeeSearchMatches(q, row.dataset.search || '')));
+    const limit = expanded ? matches.length : pageSize;
+    const visibleSet = new Set(matches.slice(0, limit));
+    rows.forEach(row => { row.hidden = !visibleSet.has(row); });
+    if (count) count.textContent = `عرض ${Math.min(limit, matches.length)} من ${matches.length}`;
+    if (empty) empty.hidden = matches.length > 0;
+    if (more) { more.hidden = matches.length <= pageSize; more.textContent = expanded ? 'عرض أقل' : `عرض المزيد (${Math.max(0, matches.length - pageSize)})`; more.setAttribute('aria-expanded', String(expanded)); }
   };
+  more?.addEventListener('click', () => { expanded = !expanded; render(); });
   tabs.forEach(tab => tab.addEventListener('click', () => {
-    filter = tab.dataset.delegationFilter;
+    filter = tab.dataset.delegationFilter; expanded = false;
     tabs.forEach(x => x.classList.toggle('active', x === tab));
     render();
   }));

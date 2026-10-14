@@ -1,16 +1,20 @@
 """Governorates, branches and lookup lists."""
 
-from flask import abort, Blueprint, flash, redirect, render_template, request
+from flask import abort, Blueprint, flash, redirect, render_template, request, session
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 
 from ..access import actual_roles, can, gids, governorate_ok, has_role, log, only, req, roles, user_branch_ids
 from ..extensions import db
+from ..services.entity_matching import alias_owner_conflict, normalize_alias_key
 from ..models import (
     ApprovalDelegation,
     Branch,
+    BranchNameAlias,
     Employee,
     EntryAssignmentBranch,
     Governorate,
+    GovernorateNameAlias,
     Lookup,
     Movement,
     User,
@@ -27,10 +31,13 @@ bp = Blueprint('catalog', __name__)
 def governorates():
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
+        alias_conflict = alias_owner_conflict('governorate', name)
         if not name:
             flash('اكتب اسم المحافظة.')
         elif Governorate.query.filter_by(name=name).first():
             flash('المحافظة موجودة بالفعل.')
+        elif alias_conflict:
+            flash('اسم المحافظة يطابق صيغة بديلة مرتبطة بمحافظة أخرى؛ راجع الأسماء البديلة أولًا.')
         else:
             x = Governorate(name=name)
             db.session.add(x)
@@ -38,7 +45,76 @@ def governorates():
             log('ADD', 'Governorate', x.id, name)
             db.session.commit()
             flash('تمت الإضافة.')
-    return render_template('governorates.html', rows=Governorate.query.order_by(Governorate.name))
+    rows = Governorate.query.order_by(Governorate.name).all()
+    governorate_aliases = {}
+    for alias in GovernorateNameAlias.query.order_by(GovernorateNameAlias.alias_text).all():
+        governorate_aliases.setdefault(alias.governorate_id, []).append(alias.alias_text)
+    governorate_ids = [g.id for g in rows]
+    branch_counts = {}
+    active_branch_counts = {}
+    employee_counts = {}
+    if governorate_ids:
+        branch_counts = dict(
+            db.session.query(Branch.governorate_id, func.count(Branch.id))
+            .filter(Branch.governorate_id.in_(governorate_ids))
+            .group_by(Branch.governorate_id).all()
+        )
+        active_branch_counts = dict(
+            db.session.query(Branch.governorate_id, func.count(Branch.id))
+            .filter(Branch.governorate_id.in_(governorate_ids), Branch.is_active == True)
+            .group_by(Branch.governorate_id).all()
+        )
+        employee_counts = dict(
+            db.session.query(Branch.governorate_id, func.count(Employee.id))
+            .join(Employee, Employee.branch_id == Branch.id)
+            .filter(
+                Branch.governorate_id.in_(governorate_ids),
+                Branch.is_active == True,
+                Employee.is_active == True,
+            )
+            .group_by(Branch.governorate_id).all()
+        )
+    return render_template(
+        'governorates.html', rows=rows,
+        active_governorates=sum(1 for g in rows if g.is_active),
+        total_branches=sum(branch_counts.values()),
+        total_employees=sum(employee_counts.values()),
+        branch_counts=branch_counts, active_branch_counts=active_branch_counts,
+        employee_counts=employee_counts, governorate_aliases=governorate_aliases,
+    )
+
+
+@bp.post('/governorates/<int:i>/aliases')
+@req
+@only('مسؤول التطبيق')
+def governorate_alias_add(i):
+    governorate = db.session.get(Governorate, i)
+    if not governorate:
+        abort(404)
+    alias_text = (request.form.get('alias_text') or '').strip()[:200]
+    normalized = normalize_alias_key(alias_text)
+    if len(normalized) < 2 or normalized == normalize_alias_key(governorate.name):
+        flash('اكتب اسمًا بديلًا واضحًا يختلف عن الاسم الرسمي.')
+        return redirect('/governorates')
+    for other in Governorate.query.filter(Governorate.id != governorate.id).all():
+        if normalize_alias_key(other.name) == normalized:
+            flash('لا يمكن حفظ الاسم؛ فهو يطابق الاسم الرسمي لمحافظة أخرى.')
+            return redirect('/governorates')
+    existing = GovernorateNameAlias.query.filter_by(normalized_alias=normalized).first()
+    if existing:
+        flash('الاسم البديل مرتبط بالفعل بالمحافظة نفسها.' if existing.governorate_id == i else 'الاسم البديل مرتبط بمحافظة أخرى؛ لم يتم تغيير الربط.')
+        return redirect('/governorates')
+    try:
+        row = GovernorateNameAlias(governorate_id=i, alias_text=alias_text, normalized_alias=normalized, created_by=session.get('user_id'))
+        db.session.add(row)
+        db.session.flush()
+        log('ADD', 'GovernorateNameAlias', row.id, 'حفظ اسم محافظة بديل مؤكد')
+        db.session.commit()
+        flash('تم حفظ الاسم البديل وسيُستخدم في البحث والمطابقة.')
+    except IntegrityError:
+        db.session.rollback()
+        flash('لم يُحفظ الاسم بسبب تعارض متزامن؛ أعد المحاولة بعد تحديث الصفحة.')
+    return redirect('/governorates')
 
 
 @bp.route('/governorates/<int:i>/edit', methods=['POST'])
@@ -50,8 +126,11 @@ def governorate_edit(i):
         abort(404)
     n = request.form.get('name', '').strip()
     dup = Governorate.query.filter(Governorate.name == n, Governorate.id != i).first()
+    alias_conflict = alias_owner_conflict('governorate', n, target_id=i)
     if not n or dup:
         flash('الاسم غير صالح أو مكرر.')
+    elif alias_conflict:
+        flash('الاسم يطابق صيغة بديلة لمحافظة أخرى؛ لم يتم التعديل.')
     else:
         x.name = n
         log('EDIT', 'Governorate', i, n)
@@ -94,6 +173,26 @@ def governorate_delete(i):
     return redirect('/governorates')
 
 
+
+def _render_branches_page(rows, gs):
+    branch_ids = [branch.id for branch in rows]
+    employee_counts = {}
+    if branch_ids:
+        employee_counts = dict(
+            db.session.query(Employee.branch_id, func.count(Employee.id))
+            .filter(Employee.branch_id.in_(branch_ids), Employee.is_active == True)
+            .group_by(Employee.branch_id).all()
+        )
+    active_branches = sum(1 for branch in rows if branch.is_active)
+    branch_aliases = {}
+    for alias in BranchNameAlias.query.filter(BranchNameAlias.branch_id.in_(branch_ids) if branch_ids else False).order_by(BranchNameAlias.alias_text).all():
+        branch_aliases.setdefault(alias.branch_id, []).append(alias.alias_text)
+    return render_template(
+        'branches.html', rows=rows, gs=gs, employee_counts=employee_counts,
+        active_branches=active_branches, inactive_branches=len(rows) - active_branches,
+        total_employees=sum(employee_counts.values()), branch_aliases=branch_aliases,
+    )
+
 @bp.route('/branches', methods=['GET', 'POST'])
 @req
 @only('مسؤول التطبيق', 'مشرف محافظة')
@@ -121,12 +220,7 @@ def branches():
             if gids()
             else []
         )
-        return render_template(
-            'branches.html',
-            rows=rows,
-            gs=gs,
-            is_admin='مسؤول التطبيق' in roles(),
-        )
+        return _render_branches_page(rows, gs)
     if request.method == 'POST':
         gid = request.form.get('governorate_id')
         name = request.form.get('name', '').strip()
@@ -139,6 +233,8 @@ def branches():
             abort(403)
         elif Branch.query.filter_by(governorate_id=g.id, name=name).first():
             flash('الفرع موجود بالفعل في هذه المحافظة.')
+        elif alias_owner_conflict('branch', name):
+            flash('اسم الفرع يطابق صيغة بديلة مرتبطة بفرع آخر؛ راجع الأسماء البديلة أولًا.')
         elif Branch.query.filter(
             Branch.governorate_id == g.id,
             func.lower(func.trim(Branch.code)) == code.lower(),
@@ -173,7 +269,40 @@ def branches():
         if gids()
         else []
     )
-    return render_template('branches.html', rows=rows, gs=gs)
+    return _render_branches_page(rows, gs)
+
+
+@bp.post('/branches/<int:i>/aliases')
+@req
+@only('مسؤول التطبيق')
+def branch_alias_add(i):
+    branch = db.session.get(Branch, i)
+    if not branch:
+        abort(404)
+    alias_text = (request.form.get('alias_text') or '').strip()[:200]
+    normalized = normalize_alias_key(alias_text)
+    if len(normalized) < 2 or normalized == normalize_alias_key(branch.name):
+        flash('اكتب اسمًا بديلًا واضحًا يختلف عن الاسم الرسمي.')
+        return redirect('/branches')
+    for other in Branch.query.filter(Branch.id != branch.id).all():
+        if normalize_alias_key(other.name) == normalized:
+            flash('لا يمكن حفظ الاسم؛ فهو يطابق الاسم الرسمي لفرع آخر.')
+            return redirect('/branches')
+    existing = BranchNameAlias.query.filter_by(normalized_alias=normalized).first()
+    if existing:
+        flash('الاسم البديل مرتبط بالفعل بالفرع نفسه.' if existing.branch_id == i else 'الاسم البديل مرتبط بفرع آخر؛ لم يتم تغيير الربط.')
+        return redirect('/branches')
+    try:
+        row = BranchNameAlias(branch_id=i, alias_text=alias_text, normalized_alias=normalized, created_by=session.get('user_id'))
+        db.session.add(row)
+        db.session.flush()
+        log('ADD', 'BranchNameAlias', row.id, 'حفظ اسم فرع بديل مؤكد')
+        db.session.commit()
+        flash('تم حفظ اسم الفرع البديل لاستخدامه في البحث والمطابقة.')
+    except IntegrityError:
+        db.session.rollback()
+        flash('لم يُحفظ الاسم بسبب تعارض متزامن؛ أعد المحاولة بعد تحديث الصفحة.')
+    return redirect('/branches')
 
 
 @bp.post('/branches/<int:i>/edit')
@@ -215,8 +344,11 @@ def branch_edit(i):
         func.lower(func.trim(Branch.code)) == code.lower(),
         Branch.id != i,
     ).first()
+    alias_conflict = alias_owner_conflict('branch', n, target_id=i)
     if dup:
         flash('الفرع موجود بالفعل في هذه المحافظة.')
+    elif alias_conflict:
+        flash('اسم الفرع يطابق صيغة بديلة لفرع آخر؛ لم يتم التعديل.')
     elif duplicate_code:
         flash('كود الفرع مستخدم بالفعل في هذه المحافظة.')
     else:

@@ -22,32 +22,44 @@
       <input type="hidden" name="return_to" value="/movements#movement-current">
       <input type="hidden" name="employee_id" id="movementCreateEmployeeId" value="">
 
-      <div class="movement-progress" id="movementProgress" aria-label="خطوات تسجيل الحركة"><span class="is-active" data-step-indicator="1">1 المحافظة</span><i></i><span data-step-indicator="2">2 الفرع</span><i></i><span data-step-indicator="3">3 الموظف</span><i></i><span data-step-indicator="4">4 الحركة</span></div>
+      <div class="movement-progress" id="movementProgress" aria-label="خطوات تسجيل الحركة"><span data-step-indicator="1">1 نوع الحركة</span><i></i><span data-step-indicator="2">2 المحافظة</span><i></i><span data-step-indicator="3">3 الفرع</span><i></i><span data-step-indicator="4">4 الموظف</span><i></i><span data-step-indicator="5">5 البيانات</span></div>
 
-      <div class="movement-step movement-step-governorate">
-        <div class="movement-step-head"><span class="movement-step-number">1</span><div><b>اختر المحافظة</b><small>في الانتداب يمكن اختيار موظف من أي محافظة؛ الإجازة والإذن يلتزمان بنطاقك.</small></div></div>
-        <select id="movementCreateGovernorate" class="movement-hierarchy-select"><option value="">اختر المحافظة</option>{% for g in movement_governorates %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select>
+      <div class="movement-step movement-step-type">
+        <div class="movement-step-head"><span class="movement-step-number">1</span><div><b>ما نوع الحركة التي تريد تسجيلها؟</b><small>اختيار النوع أولًا يساعد النظام على عرض المحافظات والفروع المتاحة لهذه الحركة فقط.</small></div></div>
+        <label class="movement-type-first" for="movementCreateType"><span>نوع الحركة</span><select id="movementCreateType" name="movement_type" required><option value="" selected>اختر نوع الحركة للمتابعة</option>{% for t in movement_types %}<option value="{{t}}">{{t}}</option>{% endfor %}</select></label>
+      </div>
+
+      <div class="movement-step movement-step-governorate" id="movementGovernorateStep" hidden>
+        <div class="movement-step-head"><span class="movement-step-number">2</span><div><b>اختر محافظة الموظف</b><small id="movementGovernorateHint">سنظهر المحافظات المتاحة حسب نوع الحركة ونطاق صلاحيتك.</small></div></div>
+        <select id="movementCreateGovernorate" class="movement-hierarchy-select"><option value="">اختر المحافظة</option>{% for g in movement_governorates %}<option value="{{g.id}}" data-operational-scope="{% if g.id in movement_scoped_governorate_ids %}1{% else %}0{% endif %}" data-governorate-name="{{g.name|e}}" {% if scope_selected and scope_selected|int == g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select>
       </div>
 
       <div class="movement-step" id="movementBranchStep" hidden>
-        <div class="movement-step-head"><span class="movement-step-number">2</span><div><b>اختر الفرع</b><small id="movementBranchHint">فروع المحافظة المختارة.</small></div></div>
+        <div class="movement-step-head"><span class="movement-step-number">3</span><div><b>اختر الفرع</b><small id="movementBranchHint">ابحث بالاسم أو اختر من النتائج.</small></div></div>
+        <div class="movement-picker-toolbar" id="movementBranchPickerToolbar">
+          <label class="movement-picker-search"><span aria-hidden="true">⌕</span><input id="movementBranchSearch" type="search" maxlength="120" autocomplete="off" placeholder="ابحث باسم الفرع أو كوده…" aria-label="البحث في الفروع"></label>
+          <span id="movementBranchCount" class="movement-picker-count" aria-live="polite"></span>
+          <button class="ui-btn ui-btn-secondary ui-btn-mini" type="button" id="movementBranchShowAll" hidden>عرض المزيد</button>
+        </div>
         <div class="movement-branch-grid" id="movementCreateBranches"></div>
-        <div class="movement-hierarchy-empty" id="movementBranchEmpty" hidden>لا توجد فروع مسجلة ونشطة في هذه المحافظة.</div>
+        <div class="movement-hierarchy-empty" id="movementBranchEmpty" hidden>لا توجد فروع مطابقة. جرّب تغيير البحث أو المحافظة.</div>
       </div>
 
       <div class="movement-step" id="movementEmployeeStep" hidden>
-        <div class="movement-step-head"><span class="movement-step-number">3</span><div><b>اختر الموظف</b><small id="movementEmployeeHint">موظفو الفرع المختار.</small></div></div>
+        <div class="movement-step-head"><span class="movement-step-number">4</span><div><b>اختر الموظف</b><small id="movementEmployeeHint">موظفو الفرع المختار.</small></div></div>
+        <div class="movement-picker-toolbar" id="movementEmployeePickerToolbar">
+          <label class="movement-picker-search"><span aria-hidden="true">⌕</span><input id="movementEmployeeSearch" type="search" maxlength="120" autocomplete="off" placeholder="ابحث باسم الموظف أو كود شئون العاملين…" aria-label="البحث في موظفي الفرع"></label>
+          <span id="movementEmployeeCount" class="movement-picker-count" aria-live="polite"></span>
+          <button class="ui-btn ui-btn-secondary ui-btn-mini" type="button" id="movementEmployeeShowAll" hidden>عرض المزيد</button>
+        </div>
         <div class="movement-employee-grid" id="movementCreateEmployees"></div>
-        <div class="movement-hierarchy-empty" id="movementEmployeeEmpty" hidden>لا يوجد موظفون نشطون مسجلون داخل هذا الفرع.</div>
+        <div class="movement-hierarchy-empty" id="movementEmployeeEmpty" hidden>لا يوجد موظفون مطابقون. جرّب البحث باسم آخر أو كود مختلف.</div>
       </div>
 
       <div class="movement-step movement-details-step" id="movementDetailsStep" hidden>
         <div class="movement-selected-employee" id="movementSelectedEmployee"></div>
-        <div class="movement-step-head"><span class="movement-step-number">4</span><div><b>بيانات الحركة</b><small>اختر نوع الحركة ثم أدخل البيانات المطلوبة.</small></div></div>
+        <div class="movement-step-head"><span class="movement-step-number">5</span><div><b>بيانات الحركة</b><small>أدخل التفاصيل المطلوبة بعد التأكد من الموظف المحدد.</small></div></div>
         <div class="movement-smart-warning" id="movementCurrentWarning" role="status" aria-live="polite" hidden></div>
-        <div class="ui-form-row movement-create-top">
-          <label for="movementCreateType">نوع الحركة<select id="movementCreateType" name="movement_type" required>{% for t in movement_types %}<option value="{{t}}">{{t}}</option>{% endfor %}</select></label>
-        </div>
 
         <div class="movement-type-panel" id="movementLeavePanel">
           <label for="movementLeaveType">نوع الإجازة<select name="leave_type" id="movementLeaveType"><option value="">اختر النوع</option>{% for lt in movement_leave_types %}<option value="{{lt}}">{{lt}}</option>{% endfor %}</select></label>
@@ -77,12 +89,16 @@
 
   <section class="ui-work-card movement-filter-card">
     <div class="ui-card-head compact"><div><span class="ui-eyebrow">بحث ومتابعة</span><h2>تصفية سجل الحركات</h2></div><button type="button" class="ui-link-btn" id="movementFilterReset">مسح</button></div>
-    <div class="ui-filter-grid">
-      <label>المحافظة<select id="movementGovernorateFilter"><option value="">كل المحافظات</option>{% for g in movement_filter_governorates %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
-      <label>الفرع<select id="movementBranchFilter" disabled><option value="">اختر المحافظة أولًا</option></select></label>
-      <label>الموظف<select id="movementEmployeeFilter" disabled><option value="">اختر الفرع أولًا</option></select></label>
-      <label>الاسم / الكود<input id="movementRecordsSearch" type="search" maxlength="120" autocomplete="off" placeholder="اكتب اسم الموظف أو الكود"></label>
-      <label>نوع الحركة<select id="movementRecordsType"><option value="">كل الحركات</option>{% for t in movement_types %}<option value="{{t}}">{{t}}</option>{% endfor %}</select></label>
+    <div class="smart-option-group-grid movement-filter-groups">
+      <fieldset class="smart-option-group"><legend>نطاق الموظف</legend><p class="smart-option-hint">ضيّق النتائج تدريجيًا حسب جهة عمل الموظف.</p><div class="smart-option-fields smart-option-fields-3">
+        <label>المحافظة<select id="movementGovernorateFilter"><option value="">كل المحافظات</option>{% for g in movement_filter_governorates %}<option value="{{g.id}}">{{g.name}}</option>{% endfor %}</select></label>
+        <label>الفرع<select id="movementBranchFilter" disabled><option value="">اختر المحافظة أولًا</option></select></label>
+        <label>الموظف<select id="movementEmployeeFilter" disabled><option value="">اختر الفرع أولًا</option></select></label>
+      </div></fieldset>
+      <fieldset class="smart-option-group"><legend>نوع الحركة والبحث</legend><p class="smart-option-hint">استخدم الاسم أو الكود للوصول المباشر، أو فلتر بنوع الحركة.</p><div class="smart-option-fields smart-option-fields-2">
+        <label>الاسم / الكود<input id="movementRecordsSearch" type="search" maxlength="120" autocomplete="off" placeholder="اكتب اسم الموظف أو الكود"></label>
+        <label>نوع الحركة<select id="movementRecordsType"><option value="">كل الحركات</option>{% for t in movement_types %}<option value="{{t}}">{{t}}</option>{% endfor %}</select></label>
+      </div></fieldset>
     </div>
     <div id="movementFilterResultCount" class="ui-hint" aria-live="polite">تظهر النتائج من السجلات المحمّلة في الصفحة، ويمكن تضييقها بالمحافظة والفرع والموظف والنوع أو الاسم والكود.</div>
   </section>
@@ -92,7 +108,7 @@
       <div class="ui-card-head compact"><div><span class="ui-eyebrow">تشغيل الآن</span><h2>الحركات السارية</h2><p>كل ما يؤثر على حالة الموظف اليوم.</p></div><b class="ui-counter">{{ current_rows|length }}</b></div>
       <div class="ui-list" id="movementCurrentList">
       {% for m in current_rows %}
-        <article class="ui-movement-item" data-movement-filter-row data-movement-id="{{m.id}}" data-employee-id="{{m.employee.id}}" data-branch-id="{{m.employee.branch_id}}" data-governorate-id="{{m.employee.branch.governorate_id if m.employee.branch else ''}}" data-name="{{m.employee.full_name|lower}}" data-code="{{(m.employee.job_code or '')|lower}}" data-type="{{m.movement_type}}">
+        <article class="ui-movement-item" data-movement-filter-row data-movement-id="{{m.id}}" data-employee-id="{{m.employee.id}}" data-branch-id="{{m.employee.branch_id}}" data-governorate-id="{{m.employee.branch.governorate_id if m.employee.branch else ''}}" data-name="{{m.employee.full_name|lower}}" data-code="{{(m.employee.job_code or '')|lower}}" data-search="{{movement_search_text_by_id.get(m.id, '')|lower}}" data-type="{{m.movement_type}}">
           <div class="ui-movement-main"><a href="/employee/{{m.employee.id}}"><strong>{{m.employee.full_name}}</strong></a><small>{{m.employee.job_code or 'بدون كود'}} · {{m.employee.branch.name if m.employee.branch else '—'}}</small></div>
           <span class="ui-status-chip {{'leave' if m.movement_type=='إجازة' else 'assignment' if m.movement_type=='انتداب' else 'permission'}}">{{m.movement_type}}</span>
           <div class="ui-movement-detail">
@@ -110,7 +126,7 @@
       <div class="ui-card-head compact"><div><span class="ui-eyebrow">تنبيه</span><h2>تحتاج متابعة</h2><p>الحركات التي اقتربت من نهايتها.</p></div><b class="ui-counter warm">{{ followup_rows|length }}</b></div>
       <div class="ui-list" id="movementFollowupList">
       {% for m in followup_rows %}
-        <article class="ui-movement-item" data-movement-filter-row data-movement-id="{{m.id}}" data-employee-id="{{m.employee.id}}" data-branch-id="{{m.employee.branch_id}}" data-governorate-id="{{m.employee.branch.governorate_id if m.employee.branch else ''}}" data-name="{{m.employee.full_name|lower}}" data-code="{{(m.employee.job_code or '')|lower}}" data-type="{{m.movement_type}}">
+        <article class="ui-movement-item" data-movement-filter-row data-movement-id="{{m.id}}" data-employee-id="{{m.employee.id}}" data-branch-id="{{m.employee.branch_id}}" data-governorate-id="{{m.employee.branch.governorate_id if m.employee.branch else ''}}" data-name="{{m.employee.full_name|lower}}" data-code="{{(m.employee.job_code or '')|lower}}" data-search="{{movement_search_text_by_id.get(m.id, '')|lower}}" data-type="{{m.movement_type}}">
           <div class="ui-movement-main"><a href="/employee/{{m.employee.id}}"><strong>{{m.employee.full_name}}</strong></a><small>{{m.employee.branch.name if m.employee.branch else '—'}}</small></div>
           <span class="ui-status-chip assignment">{{m.movement_type}}</span>
           <div class="ui-movement-detail">ينتهي في <b>{{m.to_date}}</b>{% if m.movement_type=='انتداب' and m.destination %} · إلى {{m.destination.name}}{% endif %}</div>
@@ -125,7 +141,7 @@
     <div class="ui-card-head compact"><div><span class="ui-eyebrow">السجل</span><h2>سجل الحركات الكامل</h2><p>عرض مختصر، مع فتح التفاصيل والتاريخ عند الحاجة.</p></div><b class="ui-counter">{{ rows|length }}</b></div>
     <div class="ui-table-wrap"><table data-smart-table class="ui-table"><thead><tr><th>الموظف</th><th>الحركة</th><th>من</th><th>إلى / التاريخ</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>
     {% for m in rows %}
-      <tr data-movement-filter-row data-movement-id="{{m.id}}" data-employee-id="{{m.employee.id}}" data-branch-id="{{m.employee.branch_id}}" data-governorate-id="{{m.employee.branch.governorate_id if m.employee.branch else ''}}" data-name="{{m.employee.full_name|lower}}" data-code="{{(m.employee.job_code or '')|lower}}" data-type="{{m.movement_type}}">
+      <tr data-movement-filter-row data-movement-id="{{m.id}}" data-employee-id="{{m.employee.id}}" data-branch-id="{{m.employee.branch_id}}" data-governorate-id="{{m.employee.branch.governorate_id if m.employee.branch else ''}}" data-name="{{m.employee.full_name|lower}}" data-code="{{(m.employee.job_code or '')|lower}}" data-search="{{movement_search_text_by_id.get(m.id, '')|lower}}" data-type="{{m.movement_type}}">
         <td><a href="/employee/{{m.employee.id}}"><b>{{m.employee.full_name}}</b></a><small>{{m.employee.job_code or '—'}} · {{m.employee.branch.name if m.employee.branch else '—'}}</small></td>
         <td><span class="ui-status-chip {{'leave' if m.movement_type=='إجازة' else 'assignment' if m.movement_type=='انتداب' else 'permission'}}">{{m.movement_type}}</span></td>
         <td>{{m.from_date or '—'}}</td>
@@ -144,8 +160,7 @@
   const type=$('movementCreateType');
   const leave=$('movementLeavePanel'), assign=$('movementAssignmentPanel'), perm=$('movementPermissionPanel');
   function syncType(){ const v=type?.value; if(!leave)return; leave.hidden=v!=='إجازة'; assign.hidden=v!=='انتداب'; perm.hidden=v!=='إذن'; }
-  type?.addEventListener('change',()=>{ if(gov?.value) loadCreateBranches(); });
-  type?.addEventListener('change',syncType); syncType();
+    type?.addEventListener('change',syncType); syncType();
   const openAssignment=$('openAssignment');
   const assignmentToDate=$('assignmentToDate'), assignmentToDateField=$('assignmentToDateField');
   const leaveFromDate=$('leaveFromDate'), leaveToDate=$('leaveToDate'), assignmentFromDate=$('assignmentFromDate'), permissionDate=$('permissionDate');
@@ -196,59 +211,103 @@
   const branchGrid=$('movementCreateBranches'), employeeGrid=$('movementCreateEmployees');
   const branchEmpty=$('movementBranchEmpty'), employeeEmpty=$('movementEmployeeEmpty');
   const employeeId=$('movementCreateEmployeeId'), selectedEmployee=$('movementSelectedEmployee');
+  const submit=$('movementSubmit'), currentWarning=$('movementCurrentWarning'), review=$('movementReview'), reviewText=$('movementReviewText');
+  const preflight=$('movementPreflight'), preflightMessage=$('movementPreflightMessage'), preflightSuggestion=$('movementPreflightSuggestion');
 
+  const branchSearch=$('movementBranchSearch'), employeeSearch=$('movementEmployeeSearch');
+  const branchCount=$('movementBranchCount'), employeeCount=$('movementEmployeeCount');
+  const branchShowAll=$('movementBranchShowAll'), employeeShowAll=$('movementEmployeeShowAll');
+  const PICKER_INITIAL_COUNT=8;
+  const normalizePicker=window.normalizeEmployeeSearchText||((v)=>String(v||'').normalize('NFKC').toLocaleLowerCase('ar-EG').replace(/[\u064B-\u065F\u0670\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').trim());
+  let availableBranches=[], availableEmployees=[], activePickerBranch=null, showAllBranches=false, showAllEmployees=false;
   function resetAfterGovernorate(){
-    branchStep.hidden=!govCreate?.value; employeeStep.hidden=true; detailsStep.hidden=true;
-    branchGrid.innerHTML=''; employeeGrid.innerHTML=''; employeeId.value=''; selectedEmployee.innerHTML=''; if(preflight)preflight.hidden=true;
-    if(branchEmpty) branchEmpty.hidden=true; if(employeeEmpty) employeeEmpty.hidden=true;
+    branchStep.hidden=!(type?.value&&govCreate?.value); employeeStep.hidden=true; detailsStep.hidden=true;
+    branchGrid.innerHTML=''; employeeGrid.innerHTML=''; employeeId.value=''; selectedEmployee.innerHTML='';
+    availableBranches=[]; availableEmployees=[]; activePickerBranch=null; showAllBranches=false; showAllEmployees=false;
+    if(branchSearch)branchSearch.value=''; if(employeeSearch)employeeSearch.value='';
+    if(branchCount)branchCount.textContent=''; if(employeeCount)employeeCount.textContent='';
+    if(branchShowAll)branchShowAll.hidden=true; if(employeeShowAll)employeeShowAll.hidden=true;
+    if(preflight)preflight.hidden=true;
+    if(branchEmpty)branchEmpty.hidden=true; if(employeeEmpty)employeeEmpty.hidden=true;
   }
   function branchCard(b){
     const button=document.createElement('button'); button.type='button'; button.className='movement-branch-card'; button.dataset.id=b.id;
-    button.innerHTML='<span class="movement-branch-card-icon">⌂</span><span class="movement-branch-card-main"><b></b><small>فتح موظفي الفرع</small></span><span class="movement-card-arrow">‹</span>';
+    button.innerHTML='<span class="movement-branch-card-icon">⌂</span><span class="movement-branch-card-main"><b></b><small></small></span><span class="movement-card-arrow">‹</span>';
     button.querySelector('b').textContent=b.name;
+    button.querySelector('small').textContent=b.code?'كود الفرع: '+b.code+' · عرض الموظفين':'عرض موظفي الفرع';
     button.addEventListener('click',()=>loadCreateEmployees(b));
     return button;
   }
+  function renderBranchPicker(){
+    const query=normalizePicker(branchSearch?.value||'');
+    const matched=availableBranches.filter(b=>!query||window.employeeSearchMatches(query,`${b.name||''} ${b.code||''} ${b.search_aliases||''}`));
+    const limit=showAllBranches?matched.length:Math.min(PICKER_INITIAL_COUNT,matched.length);
+    branchGrid.innerHTML=''; matched.slice(0,limit).forEach(b=>branchGrid.appendChild(branchCard(b)));
+    if(branchCount)branchCount.textContent=`${matched.length} فرع${matched.length===1?'':'ًا'}`;
+    if(branchEmpty){branchEmpty.hidden=matched.length>0;branchEmpty.textContent=availableBranches.length?'لا توجد فروع مطابقة لهذا البحث. جرّب اسمًا أو كودًا آخر.':'لا توجد فروع نشطة متاحة في المحافظة المختارة.';}
+    if(branchShowAll){branchShowAll.hidden=matched.length<=PICKER_INITIAL_COUNT;branchShowAll.textContent=showAllBranches?'عرض أقل':`عرض المزيد (${Math.max(0,matched.length-limit)})`;}
+  }
   async function loadCreateBranches(){
-    resetAfterGovernorate(); const gid=govCreate?.value; if(!gid)return;
-    branchGrid.innerHTML='<div class="movement-hierarchy-loading">جارٍ تحميل الفروع...</div>';
+    resetAfterGovernorate(); const gid=govCreate?.value; if(!type?.value||!gid){branchStep.hidden=true;return;}
+    branchStep.hidden=false; setProgress(3); branchGrid.innerHTML='<div class="movement-hierarchy-loading">جارٍ تحميل الفروع...</div>';
     try{
-      const r=await fetch('/api/movements-page-filters?governorate_id='+encodeURIComponent(gid)+'&movement_type='+encodeURIComponent(type?.value||'')); const data=await r.json();
-      branchGrid.innerHTML='';
-      if(!data.branches.length){branchEmpty.hidden=false;return;}
-      data.branches.forEach(b=>branchGrid.appendChild(branchCard(b)));
-    }catch(e){branchGrid.innerHTML='<div class="movement-hierarchy-error">تعذر تحميل الفروع. حاول مرة أخرى.</div>';}
+      const r=await fetch('/api/movements-page-filters?'+new URLSearchParams({governorate_id:gid,movement_type:type.value}),{headers:{'Accept':'application/json'}});
+      if(!r.ok)throw new Error('branch_picker_failed');
+      const data=await r.json(); availableBranches=Array.isArray(data.branches)?data.branches:[];
+      renderBranchPicker();
+      branchSearch?.focus({preventScroll:true});
+    }catch(e){branchGrid.innerHTML='<div class="movement-hierarchy-error" role="status">تعذر تحميل الفروع. راجع المحافظة ونوع الحركة أو أعد المحاولة.</div>';}
   }
   async function loadCreateEmployees(branch){
     document.querySelectorAll('.movement-branch-card').forEach(x=>x.classList.toggle('is-selected',x.dataset.id===String(branch.id)));
+    activePickerBranch=branch; showAllEmployees=false; if(employeeSearch)employeeSearch.value='';
     employeeStep.hidden=false; detailsStep.hidden=true; employeeGrid.innerHTML='<div class="movement-hierarchy-loading">جارٍ تحميل الموظفين...</div>'; employeeEmpty.hidden=true; employeeId.value=''; selectedEmployee.innerHTML='';
-    $('movementEmployeeHint').textContent='موظفو فرع '+branch.name+' فقط.';
+    if(employeeCount)employeeCount.textContent=''; if(employeeShowAll)employeeShowAll.hidden=true;
+    $('movementEmployeeHint').textContent='موظفو فرع '+branch.name+' فقط. ابحث بالاسم أو كود شئون العاملين.';
     try{
-      const gid=govCreate?.value||''; const r=await fetch('/api/movements-page-filters?governorate_id='+encodeURIComponent(gid)+'&branch_id='+encodeURIComponent(branch.id)+'&movement_type='+encodeURIComponent(type?.value||'')); const data=await r.json();
-      employeeGrid.innerHTML='';
-      if(!data.employees.length){employeeEmpty.hidden=false;return;}
-      data.employees.forEach(e=>{
-        const button=document.createElement('button'); button.type='button'; button.className='movement-employee-card'; button.dataset.id=e.id;
-        button.innerHTML='<span class="movement-employee-avatar"></span><span class="movement-employee-main"><b></b><small></small><em class="movement-employee-state" hidden></em></span><span class="movement-card-arrow">‹</span>';
-        button.querySelector('.movement-employee-avatar').textContent=(e.name||'?').trim().charAt(0);
-        button.querySelector('b').textContent=e.name; button.querySelector('small').textContent=e.code ? 'كود شئون العاملين: '+e.code : 'بدون كود';
-        if(e.current_movement){ const state=button.querySelector('.movement-employee-state'); state.hidden=false; state.textContent=e.current_movement.type==='انتداب' ? ('منتدب إلى '+(e.current_movement.destination||'جهة أخرى')) : (e.current_movement.type==='إجازة' ? ('إجازة'+(e.current_movement.leave_type?' · '+e.current_movement.leave_type:'')) : 'إذن اليوم'); state.classList.add(e.current_movement.type==='إجازة'?'leave':e.current_movement.type==='انتداب'?'assignment':'permission'); }
-        button.addEventListener('click',()=>selectCreateEmployee(e,branch,button)); employeeGrid.appendChild(button);
-      });
+      const gid=govCreate?.value||'';
+      const r=await fetch('/api/movements-page-filters?'+new URLSearchParams({governorate_id:gid,branch_id:String(branch.id),movement_type:type?.value||''}),{headers:{'Accept':'application/json'}});
+      if(!r.ok)throw new Error('employee_picker_failed');
+      const data=await r.json(); availableEmployees=Array.isArray(data.employees)?data.employees:[];
+      renderEmployeePicker();
       employeeStep.scrollIntoView({behavior:'smooth',block:'nearest'});
-    }catch(e){employeeGrid.innerHTML='<div class="movement-hierarchy-error">تعذر تحميل الموظفين. حاول مرة أخرى.</div>';}
+      employeeSearch?.focus({preventScroll:true});
+    }catch(e){employeeGrid.innerHTML='<div class="movement-hierarchy-error" role="status">تعذر تحميل الموظفين لهذا الفرع. تأكد من الصلاحيات ثم أعد المحاولة.</div>';}
+  }
+  function renderEmployeePicker(){
+    const query=normalizePicker(employeeSearch?.value||'');
+    const matched=availableEmployees.filter(e=>!query||window.employeeSearchMatches(query,`${e.name||''} ${e.code||''} ${e.search_aliases||''}`));
+    const limit=showAllEmployees?matched.length:Math.min(PICKER_INITIAL_COUNT,matched.length);
+    employeeGrid.innerHTML='';
+    matched.slice(0,limit).forEach(e=>{
+      const button=document.createElement('button'); button.type='button'; button.className='movement-employee-card'; button.dataset.id=e.id;
+      button.innerHTML='<span class="movement-employee-avatar"></span><span class="movement-employee-main"><b></b><small></small><em class="movement-employee-state" hidden></em></span><span class="movement-card-arrow">‹</span>';
+      button.querySelector('.movement-employee-avatar').textContent=(e.name||'?').trim().charAt(0);
+      button.querySelector('b').textContent=e.name; button.querySelector('small').textContent=e.code?'كود شئون العاملين: '+e.code:'بدون كود';
+      if(e.current_movement){const state=button.querySelector('.movement-employee-state');state.hidden=false;state.textContent=e.current_movement.type==='انتداب'?('منتدب إلى '+(e.current_movement.destination||'جهة أخرى')):(e.current_movement.type==='إجازة'?('إجازة'+(e.current_movement.leave_type?' · '+e.current_movement.leave_type:'')):'إذن اليوم');state.classList.add(e.current_movement.type==='إجازة'?'leave':e.current_movement.type==='انتداب'?'assignment':'permission');}
+      button.addEventListener('click',()=>selectCreateEmployee(e,activePickerBranch,button)); employeeGrid.appendChild(button);
+    });
+    if(employeeCount)employeeCount.textContent=`${matched.length} موظف${matched.length===1?'':'ًا'}`;
+    if(employeeEmpty){employeeEmpty.hidden=matched.length>0;employeeEmpty.textContent=availableEmployees.length?'لا توجد نتائج مطابقة لهذا البحث. جرّب اسمًا أو كودًا آخر.':'لا يوجد موظفون نشطون مسجلون داخل هذا الفرع.';}
+    if(employeeShowAll){employeeShowAll.hidden=matched.length<=PICKER_INITIAL_COUNT;employeeShowAll.textContent=showAllEmployees?'عرض أقل':`عرض المزيد (${Math.max(0,matched.length-limit)})`;}
   }
   function selectCreateEmployee(e,branch,button){
     document.querySelectorAll('.movement-employee-card').forEach(x=>x.classList.remove('is-selected')); button.classList.add('is-selected');
-    employeeId.value=e.id; detailsStep.hidden=false; selectedEmployee.innerHTML='<span>الموظف المختار</span><b>'+e.name+'</b><small>'+branch.name+(e.code?' · كود '+e.code:'')+'</small>';
+    employeeId.value=e.id; detailsStep.hidden=false; selectedEmployee.innerHTML='';
+    const label=document.createElement('span');label.textContent='الموظف المختار';
+    const name=document.createElement('b');name.textContent=e.name||'';
+    const meta=document.createElement('small');meta.textContent=(branch?.name||'')+(e.code?' · كود '+e.code:'');
+    selectedEmployee.append(label,name,meta);
     syncType(); detailsStep.scrollIntoView({behavior:'smooth',block:'nearest'});
   }
-  const submit=$('movementSubmit'), currentWarning=$('movementCurrentWarning'), review=$('movementReview'), reviewText=$('movementReviewText');
+  branchSearch?.addEventListener('input',()=>{showAllBranches=false;renderBranchPicker();});
+  employeeSearch?.addEventListener('input',()=>{showAllEmployees=false;renderEmployeePicker();});
+  branchShowAll?.addEventListener('click',()=>{showAllBranches=!showAllBranches;renderBranchPicker();});
+  employeeShowAll?.addEventListener('click',()=>{showAllEmployees=!showAllEmployees;renderEmployeePicker();});
   let selectedMovementEmployee=null, selectedMovementBranch=null;
-  function setProgress(step){ document.querySelectorAll('[data-step-indicator]').forEach(x=>x.classList.toggle('is-active',Number(x.dataset.stepIndicator)<=step)); }
+  function setProgress(step){ document.querySelectorAll('[data-step-indicator]').forEach(x=>{const n=Number(x.dataset.stepIndicator);x.classList.toggle('is-active',n===step);x.classList.toggle('is-complete',n<step);}); }
   function iso(v){return v?new Date(v+'T00:00:00'):null;}
   let preflightSeq=0, preflightTimer=null;
-  const preflight=$('movementPreflight'), preflightMessage=$('movementPreflightMessage'), preflightSuggestion=$('movementPreflightSuggestion');
   function movementPayload(){
     const mtv=type?.value||'';
     return {
@@ -311,12 +370,41 @@
   }
   [type,$('movementLeaveType'),$('movementDestinationBranch'),$('openAssignment'),...document.querySelectorAll('#movementDetailsStep input[type=date]')].forEach(x=>x?.addEventListener('input',refreshMovementReview));
   [type,$('movementLeaveType'),$('movementDestinationGovernorate'),$('movementDestinationBranch'),$('openAssignment')].forEach(x=>x?.addEventListener('change',refreshMovementReview));
-  govCreate?.addEventListener('change',()=>setProgress(govCreate.value?2:1));
+  const governorateStep=$('movementGovernorateStep');
+  govCreate?.addEventListener('change',()=>setProgress(type?.value?(govCreate.value?2:1):0));
   const _loadCreateEmployees=loadCreateEmployees;
-  loadCreateEmployees=async function(branch){ setProgress(3); return _loadCreateEmployees(branch); };
+  loadCreateEmployees=async function(branch){ setProgress(4); return _loadCreateEmployees(branch); };
   const _selectCreateEmployee=selectCreateEmployee;
-  selectCreateEmployee=function(e,branch,button){ _selectCreateEmployee(e,branch,button); showCurrentWarning(e); setProgress(4); refreshMovementReview(); };
+  selectCreateEmployee=function(e,branch,button){ _selectCreateEmployee(e,branch,button); showCurrentWarning(e); setProgress(5); refreshMovementReview(); };
+  function syncMovementGovernorateAvailability(){
+    if(!govCreate)return;
+    const crossGovernorate=type?.value==='انتداب' && {{ 'true' if movement_global_picker_allowed else 'false' }};
+    const options=[...govCreate.options].filter(option=>option.value);
+    const allowedOptions=options.filter(option=>crossGovernorate||option.dataset.operationalScope==='1');
+    const scoped=allowedOptions.find(option=>option.dataset.operationalScope==='1');
+    options.forEach(option=>{
+      const allowed=crossGovernorate||option.dataset.operationalScope==='1';
+      option.disabled=!allowed; option.hidden=!allowed;
+    });
+    const current=govCreate.selectedOptions[0];
+    if(current?.disabled)govCreate.value=scoped?.value||'';
+    if(!govCreate.value&&allowedOptions.length===1)govCreate.value=allowedOptions[0].value;
+    const hint=$('movementGovernorateHint');
+    if(hint)hint.textContent=type?.value==='انتداب'&&crossGovernorate?'الانتداب يسمح باختيار موظف من أي محافظة نشطة.':'اختر محافظة تقع ضمن نطاق صلاحيتك لهذا النوع من الحركة.';
+  }
+  function handleMovementTypeChange(){
+    syncType(); syncMovementDateRules(); syncMovementGovernorateAvailability();
+    const hasType=!!type?.value;
+    if(governorateStep)governorateStep.hidden=!hasType;
+    resetAfterGovernorate(); setProgress(hasType?1:0);
+    if(!hasType){branchStep.hidden=true;employeeStep.hidden=true;detailsStep.hidden=true;return;}
+    if(govCreate?.value)loadCreateBranches();
+  }
+  type?.addEventListener('change',handleMovementTypeChange);
   govCreate?.addEventListener('change',loadCreateBranches);
+  syncMovementGovernorateAvailability();
+  if(type?.value){if(governorateStep)governorateStep.hidden=false;if(govCreate?.value)loadCreateBranches();setProgress(govCreate?.value?2:1);}
+  else {if(governorateStep)governorateStep.hidden=true;resetAfterGovernorate();setProgress(0);}
 
   const gov=$('movementGovernorateFilter'), br=$('movementBranchFilter'), em=$('movementEmployeeFilter'), search=$('movementRecordsSearch'), mt=$('movementRecordsType');
   const normalize=window.normalizeEmployeeSearchText||((v)=>String(v||'').toLocaleLowerCase('ar').trim());
@@ -360,7 +448,7 @@
   function apply(){
     const q=normalize(search?.value||''),gid=gov?.value||'',bid=br?.value||'',eid=em?.value||'',typev=mt?.value||'';
     const active=!!(q||gid||bid||eid||typev);
-    allRows.forEach(row=>{const ok=(!gid||row.dataset.governorateId===gid)&&(!bid||row.dataset.branchId===bid)&&(!eid||row.dataset.employeeId===eid)&&(!typev||row.dataset.type===typev)&&(!q||normalize((row.dataset.name||'')+' '+(row.dataset.code||'')).includes(q));row.hidden=!ok;});
+    allRows.forEach(row=>{const ok=(!gid||row.dataset.governorateId===gid)&&(!bid||row.dataset.branchId===bid)&&(!eid||row.dataset.employeeId===eid)&&(!typev||row.dataset.type===typev)&&(!q||window.employeeSearchMatches(q,row.dataset.search||((row.dataset.name||'')+' '+(row.dataset.code||''))));row.hidden=!ok;});
     containers.forEach(container=>{const rows=allRows.filter(row=>container.contains(row));const message=emptyMessages.get(container);if(message)message.hidden=!(active&&rows.length>0&&!rows.some(row=>!row.hidden));});
     const visibleRows=allRows.filter(row=>!row.hidden);
     const totalIds=new Set(allRows.map(row=>row.dataset.movementId).filter(Boolean));

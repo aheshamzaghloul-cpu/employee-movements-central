@@ -1,1 +1,45 @@
-{% extends 'base.html' %}{% block title %}إدارة المحافظات{% endblock %}{% block content %}<div class="ui-toolbar"><div><h1>إدارة المحافظات</h1><p class="ui-subtitle">أضف المحافظة مرة واحدة، ثم استخدمها لبناء الفروع والحسابات.</p></div></div><div class="ui-module-card ui-card" id="governorate-add"><form method="post" class="ui-grid"><input type="hidden" name="_csrf" value="{{csrf}}"><label>اسم المحافظة<input name="name" placeholder="مثال: سوهاج" required></label><button>+ إضافة محافظة</button></form></div><div class="ui-card ui-table-wrap"><table data-smart-table><thead><tr><th>المحافظة</th><th>الحالة</th><th>الإجراءات</th></tr></thead><tbody>{% for x in rows %}<tr><td><b>{{x.name}}</b></td><td><span class="ui-tag">{{'نشطة' if x.is_active else 'معطلة'}}</span></td><td><form method="post" action="/governorates/{{x.id}}/edit" class="ui-inline"><input type="hidden" name="_csrf" value="{{csrf}}"><input name="name" value="{{x.name}}" required class="ui-max-220"><button class="ui-btn-secondary ui-btn-mini">تعديل</button></form><form method="post" action="/governorates/{{x.id}}/toggle" class="ui-inline"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="ui-tone-gray ui-btn-mini">{{'تعطيل' if x.is_active else 'تفعيل'}}</button></form><form method="post" action="/governorates/{{x.id}}/delete" class="ui-inline"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="ui-btn-danger ui-btn-mini" data-confirm="سيتم حذف المحافظة إذا لم توجد ارتباطات. متابعة؟">حذف</button></form></td></tr>{% else %}<tr><td colspan="3" class="ui-empty">ابدأ بإضافة أول محافظة.</td></tr>{% endfor %}</tbody></table></div>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}المحافظات | إدارة الهيكل{% endblock %}
+{% block content %}
+<div class="catalog-workspace" data-catalog-root data-catalog-kind="governorates">
+  <header class="catalog-hero">
+    <div class="catalog-hero-copy"><span class="catalog-eyebrow">الهيكل التنظيمي</span><h1>المحافظات</h1><p>عرض منظم للمحافظات وحالة الفروع والموظفين المرتبطين بكل محافظة.</p></div>
+    <div class="catalog-hero-actions"><a class="ui-btn ui-btn-secondary" href="/branches">استعراض الفروع <span aria-hidden="true">←</span></a><details class="catalog-add-disclosure" id="governorate-add"><summary class="ui-btn catalog-primary"><span aria-hidden="true">＋</span> إضافة محافظة</summary><form method="post" class="catalog-add-form"><input type="hidden" name="_csrf" value="{{csrf}}"><label>اسم المحافظة<input name="name" maxlength="120" placeholder="اكتب اسم المحافظة" required></label><button class="ui-btn catalog-primary" type="submit">حفظ المحافظة</button></form></details></div>
+  </header>
+
+  <section class="catalog-kpis" aria-label="ملخص المحافظات">
+    <article class="catalog-kpi"><span class="catalog-kpi-icon">⌖</span><div><small>إجمالي المحافظات</small><strong>{{rows|length}}</strong><span>كل السجلات ضمن الهيكل</span></div></article>
+    <article class="catalog-kpi"><span class="catalog-kpi-icon is-active">✓</span><div><small>محافظات نشطة</small><strong>{{active_governorates}}</strong><span>متاحة للاستخدام</span></div></article>
+    <article class="catalog-kpi"><span class="catalog-kpi-icon">▦</span><div><small>إجمالي الفروع</small><strong>{{total_branches}}</strong><span>نشطة وغير نشطة</span></div></article>
+    <article class="catalog-kpi"><span class="catalog-kpi-icon">♙</span><div><small>الموظفون النشطون</small><strong>{{total_employees}}</strong><span>داخل الفروع النشطة</span></div></article>
+  </section>
+
+  <section class="catalog-list-panel" aria-labelledby="governoratesListTitle">
+    <div class="catalog-list-heading"><div><span class="catalog-eyebrow">دليل الهيكل</span><h2 id="governoratesListTitle">المحافظات الحالية</h2><p>افتح بطاقة المحافظة لتعديل بياناتها أو إدارة حالتها.</p></div><span class="catalog-result-count"><strong data-catalog-count>{{rows|length}}</strong> محافظة</span></div>
+    <div class="catalog-filter-bar catalog-filter-bar-progressive">
+      <label class="catalog-search"><span class="sr-only">بحث في المحافظات</span><span aria-hidden="true">⌕</span><input type="search" data-catalog-search maxlength="120" autocomplete="off" placeholder="ابدأ بكتابة اسم المحافظة…"></label>
+      <details class="catalog-advanced-filters"><summary><span aria-hidden="true">☷</span> تصفية إضافية</summary><div class="catalog-advanced-filter-fields">
+        <label class="catalog-select-filter"><span>الحالة</span><select data-catalog-status><option value="all">كل الحالات</option><option value="active">نشطة فقط</option><option value="inactive">غير نشطة</option></select></label>
+        <button type="button" class="ui-btn ui-btn-secondary catalog-reset" data-catalog-reset>مسح البحث والتصفية</button>
+      </div></details>
+    </div>
+    <div class="catalog-card-grid" data-catalog-items>
+      {% for x in rows %}
+      <article class="catalog-record-card" data-catalog-item data-status="{{'active' if x.is_active else 'inactive'}}" data-search="{{(x.name ~ ' ' ~ (' '.join(governorate_aliases.get(x.id, []))))|lower|e}}">
+        <div class="catalog-record-head"><span class="catalog-record-symbol">⌖</span><span class="catalog-state {{'is-active' if x.is_active else 'is-inactive'}}"><i></i>{{'نشطة' if x.is_active else 'غير نشطة'}}</span></div>
+        <h3>{{x.name}}</h3><p class="catalog-record-subtitle">محافظة ضمن الهيكل التنظيمي</p>
+        <div class="catalog-record-metrics"><div><strong>{{branch_counts.get(x.id,0)}}</strong><span>فرع</span></div><div><strong>{{active_branch_counts.get(x.id,0)}}</strong><span>فرع نشط</span></div><div><strong>{{employee_counts.get(x.id,0)}}</strong><span>موظف نشط</span></div></div>
+        <div class="catalog-record-actions">
+          <details class="catalog-edit-disclosure"><summary class="ui-btn ui-btn-secondary ui-btn-mini">تعديل الاسم</summary><form method="post" action="/governorates/{{x.id}}/edit" class="catalog-inline-edit"><input type="hidden" name="_csrf" value="{{csrf}}"><label>اسم المحافظة<input name="name" value="{{x.name}}" maxlength="120" required></label><button class="ui-btn catalog-primary ui-btn-mini">حفظ التعديل</button></form></details>
+          <details class="catalog-edit-disclosure"><summary class="ui-btn ui-btn-secondary ui-btn-mini">الأسماء البديلة</summary><div class="catalog-inline-edit"><p class="smart-option-hint">تُستخدم في البحث والاستيراد فقط، ولا تغيّر الاسم الرسمي.</p><form method="post" action="/governorates/{{x.id}}/aliases"><input type="hidden" name="_csrf" value="{{csrf}}"><label>الصيغة البديلة لاسم المحافظة<input name="alias_text" maxlength="200" placeholder="الاسم المتداول للمحافظة" required></label><button class="ui-btn catalog-primary ui-btn-mini" type="submit">حفظ الاسم البديل</button></form>{% if governorate_aliases.get(x.id) %}<p class="smart-option-hint">المحفوظ: {% for alias in governorate_aliases.get(x.id, []) %}{{alias}}{% if not loop.last %}، {% endif %}{% endfor %}</p>{% endif %}</div></details>
+          <form method="post" action="/governorates/{{x.id}}/toggle"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="ui-btn ui-btn-secondary ui-btn-mini" type="submit">{{'تعطيل' if x.is_active else 'تفعيل'}}</button></form>
+          <form method="post" action="/governorates/{{x.id}}/delete"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="ui-btn ui-btn-danger ui-btn-mini" type="submit" data-confirm="سيتم حذف المحافظة إذا لم توجد ارتباطات. متابعة؟">حذف</button></form>
+        </div>
+      </article>
+      {% else %}<div class="catalog-empty-state"><strong>لا توجد محافظات مسجلة بعد</strong><span>أضف أول محافظة لتبدأ بناء الهيكل.</span><button type="button" class="ui-btn catalog-primary" onclick="document.getElementById('governorate-add').open=true">إضافة محافظة</button></div>{% endfor %}
+    </div>
+    <div class="catalog-load-more-wrap"><button type="button" class="ui-btn ui-btn-secondary" data-catalog-more hidden>عرض المزيد من المحافظات</button></div>
+    <div class="catalog-no-results" data-catalog-empty hidden><strong>لا توجد نتائج مطابقة</strong><span>جرّب اسمًا آخر أو غيّر مرشح الحالة.</span></div>
+  </section>
+</div>
+{% endblock %}

@@ -7,7 +7,7 @@ from sqlalchemy.exc import OperationalError
 
 from flask import Flask
 
-__version__ = '68.26.0'
+__version__ = '68.36.0'
 
 
 def create_app(overrides=None):
@@ -20,11 +20,12 @@ def create_app(overrides=None):
     from .config import load_config
     from .errors import register_error_handlers
     from .extensions import db
-    from .hooks import register_hooks
+    from .hooks import ScreenshotInMemoryRequest, register_hooks
     from .blueprints import register_blueprints
 
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
     app = Flask(__name__)
+    app.request_class = ScreenshotInMemoryRequest
     app.config.update(load_config(overrides))
     db.init_app(app)
     register_hooks(app)

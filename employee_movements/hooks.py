@@ -1,8 +1,12 @@
 """Request hooks: security headers, CSRF protection and template context."""
 
 import hmac
+from io import BytesIO
+from tempfile import SpooledTemporaryFile
 
-from flask import abort, current_app, request, session
+from flask import Request, abort, current_app, request, session
+from werkzeug.datastructures import ImmutableMultiDict
+from werkzeug.formparser import FormDataParser
 
 from . import __version__
 from .access import (
@@ -34,6 +38,38 @@ from .assignments import (
 from .constants import ASSIGNMENT_ALERT_DAYS, ASSIGNMENT_STATES, LOGIN_ROLES, PERMISSIONS
 from .extensions import db
 from .models import Governorate
+
+
+class ScreenshotInMemoryRequest(Request):
+    """Keep the bounded ServiceDesk screenshot upload in memory, never a temp file."""
+
+    def _get_file_stream(self, total_content_length, content_type, filename=None, content_length=None):
+        if self.endpoint == 'missions.mission_from_screenshot_scan':
+            # apply_request_size_limit() caps the full multipart request at 3 MiB
+            # before CSRF parsing accesses request.form. Thus this memory buffer
+            # remains bounded and Werkzeug never spools this image to disk.
+            return BytesIO()
+        # Preserve Werkzeug's normal bounded spooling behavior for all other
+        # uploads without relying on its deprecated _get_file_stream parent.
+        return SpooledTemporaryFile(max_size=500 * 1024, mode='w+b')
+
+    def _parse_form_data(self, stream):
+        """Use an explicit parser so memory-only screenshot uploads survive Werkzeug 4."""
+        parser = FormDataParser(
+            stream_factory=self._get_file_stream,
+            max_form_memory_size=self.max_form_memory_size,
+            max_content_length=self.max_content_length,
+            max_form_parts=getattr(self, 'max_form_parts', None),
+            cls=ImmutableMultiDict,
+            silent=True,
+        )
+        _, form, files = parser.parse(
+            stream=stream,
+            mimetype=self.mimetype,
+            content_length=self.content_length,
+            options=self.mimetype_params,
+        )
+        return form, files
 
 
 def inject_context():
@@ -122,6 +158,9 @@ def apply_request_size_limit():
     default_limit = current_app.config.get('MAX_CONTENT_LENGTH', 2 * 1024 * 1024)
     if request.endpoint == 'excel_import.excel_import_preview':
         limit = current_app.config.get('EXCEL_UPLOAD_MAX_CONTENT_LENGTH', 16 * 1024 * 1024)
+    elif request.endpoint == 'missions.mission_from_screenshot_scan':
+        # Allow multipart framing around a screenshot capped at 2 MiB in the route.
+        limit = current_app.config.get('SCREENSHOT_UPLOAD_MAX_CONTENT_LENGTH', 3 * 1024 * 1024)
     else:
         limit = default_limit
     # Flask 3.1 / Werkzeug 3.1 supports a per-request maximum, which allows the

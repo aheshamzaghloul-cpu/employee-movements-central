@@ -8,8 +8,12 @@ from ..assignments import resolve_current_movement
 from ..access import bids, branch_ok, can, can_manage_movement, can_manage_movement_destination, can_manage_movement_employee, can_view_movement, gids, log, me, req, roles
 from ..constants import ASSIGNMENT_ALERT_DAYS
 from ..extensions import db
-from ..models import Branch, Employee, Governorate, Movement, MovementHistory, User
+from ..models import (
+    Branch, BranchNameAlias, Employee, EmployeeNameAlias, Governorate, GovernorateNameAlias,
+    Movement, MovementHistory, TicketEmployeeCodeAlias, User,
+)
 from ..search import normalize_search_text, search_contains
+from ..services.entity_matching import employee_search_filter, rank_employee_suggestions, rank_scoped_employee_suggestions
 from ..validation import (
     active_leave_types,
     active_movement_types,
@@ -20,6 +24,95 @@ from ..validation import (
 )
 
 bp = Blueprint('movements', __name__)
+
+
+def _alias_text_map(model, owner_field, owner_ids):
+    """Load confirmed search aliases only for records already inside a scoped result set."""
+    ids = sorted({int(value) for value in (owner_ids or []) if value is not None})
+    if not ids:
+        return {}
+    owner_column = getattr(model, owner_field)
+    output = {}
+    for alias in model.query.filter(owner_column.in_(ids)).order_by(model.id).all():
+        text = str(getattr(alias, 'alias_text', '') or '').strip()
+        if text:
+            output.setdefault(getattr(alias, owner_field), []).append(text)
+    return output
+
+
+def _branch_search_payload(branches):
+    """Serialize scoped branches with confirmed alias text for client-side search."""
+    rows = list(branches or [])
+    branch_ids = [branch.id for branch in rows]
+    gov_ids = [branch.governorate_id for branch in rows if branch.governorate_id is not None]
+    branch_aliases = _alias_text_map(BranchNameAlias, 'branch_id', branch_ids)
+    gov_aliases = _alias_text_map(GovernorateNameAlias, 'governorate_id', gov_ids)
+    return [
+        {
+            'id': branch.id,
+            'name': branch.name,
+            'code': branch.code or '',
+            'governorate_id': branch.governorate_id,
+            'governorate': branch.governorate.name if branch.governorate else '',
+            'search_aliases': ' '.join([*branch_aliases.get(branch.id, []), *gov_aliases.get(branch.governorate_id, [])]),
+        }
+        for branch in rows
+    ]
+
+
+def _employee_search_aliases(employees):
+    """Return local aliases only for employees the current route has already scoped."""
+    rows = list(employees or [])
+    ids = [employee.id for employee in rows]
+    name_aliases = _alias_text_map(EmployeeNameAlias, 'employee_id', ids)
+    code_aliases = _alias_text_map(TicketEmployeeCodeAlias, 'employee_id', ids)
+    return {
+        employee.id: ' '.join([*name_aliases.get(employee.id, []), *code_aliases.get(employee.id, [])])
+        for employee in rows
+    }
+
+
+def _movement_search_text_map(movements):
+    """Build searchable identity/location text for a scoped movement worklist."""
+    rows = list(movements or [])
+    employees = {movement.employee.id: movement.employee for movement in rows if movement.employee}
+    branches = {}
+    governorates = {}
+    for movement in rows:
+        employee = movement.employee
+        if employee and employee.branch:
+            branches[employee.branch.id] = employee.branch
+            if employee.branch.governorate:
+                governorates[employee.branch.governorate.id] = employee.branch.governorate
+        destination = getattr(movement, 'destination', None)
+        if destination:
+            branches[destination.id] = destination
+            if destination.governorate:
+                governorates[destination.governorate.id] = destination.governorate
+    name_aliases = _alias_text_map(EmployeeNameAlias, 'employee_id', employees.keys())
+    code_aliases = _alias_text_map(TicketEmployeeCodeAlias, 'employee_id', employees.keys())
+    branch_aliases = _alias_text_map(BranchNameAlias, 'branch_id', branches.keys())
+    gov_aliases = _alias_text_map(GovernorateNameAlias, 'governorate_id', governorates.keys())
+    result = {}
+    for movement in rows:
+        employee = movement.employee
+        parts = []
+        if employee:
+            parts.extend([employee.full_name or '', employee.job_code or '', employee.employee_code or '', employee.job_title or ''])
+            parts.extend(name_aliases.get(employee.id, []))
+            parts.extend(code_aliases.get(employee.id, []))
+            if employee.branch:
+                branch = employee.branch
+                parts.extend([branch.name or '', branch.code or '', *branch_aliases.get(branch.id, [])])
+                if branch.governorate:
+                    parts.extend([branch.governorate.name or '', *gov_aliases.get(branch.governorate.id, [])])
+        destination = getattr(movement, 'destination', None)
+        if destination:
+            parts.extend([destination.name or '', destination.code or '', *branch_aliases.get(destination.id, [])])
+            if destination.governorate:
+                parts.extend([destination.governorate.name or '', *gov_aliases.get(destination.governorate.id, [])])
+        result[movement.id] = ' '.join(str(part) for part in parts if part)
+    return result
 
 
 @bp.get('/api/movement-employees')
@@ -66,40 +159,46 @@ def movement_employees_api():
     global_home_search = bool(q) and not movement_type
     if not global_home_search and not global_assignment_picker and 'مسؤول التطبيق' not in rs:
         branch_rows = [b for b in branch_rows if branch_ok(b.id)]
+    branch_payload = _branch_search_payload(branch_rows)
     branch_ids = [b.id for b in branch_rows]
     if bid:
         bid_int = int(bid)
         if bid_int not in branch_ids:
             return {
                 'results': [],
-                'branches': [
-                    {'id': b.id, 'name': b.name, 'governorate_id': b.governorate_id}
-                    for b in branch_rows
-                ],
+                'branches': branch_payload,
             }
         branch_ids = [bid_int]
     if not q and not bid:
         return {
             'results': [],
-            'branches': [
-                {'id': b.id, 'name': b.name, 'governorate_id': b.governorate_id}
-                for b in branch_rows
-            ],
+            'branches': branch_payload,
         }
     # Empty authorized scope must produce no rows, never remove the branch predicate.
     filters = [Employee.is_active == True, Employee.branch_id.in_(branch_ids) if branch_ids else False]
+    scoped_query = Employee.query.filter(*filters)
     if q:
-        filters.append(db.or_(search_contains(Employee.full_name, q), search_contains(Employee.job_code, q)))
-    rows = Employee.query.filter(*filters).order_by(Employee.full_name.asc()).limit(20).all()
+        scoped_query = scoped_query.filter(employee_search_filter(q, include_branch=True))
+    rows = scoped_query.order_by(Employee.full_name.asc()).limit(20).all()
+    suggested_ids = set()
+    suggested_reasons = {}
+    if q and not rows and len(normalize_search_text(q)) >= 3:
+        fallback_query = Employee.query.filter(Employee.is_active == True, Employee.branch_id.in_(branch_ids) if branch_ids else False)
+        pool = fallback_query.order_by(Employee.full_name.asc()).limit(2500).all()
+        ranked = rank_scoped_employee_suggestions(q, pool, limit=8)
+        rows = [item['employee'] for item in ranked]
+        suggested_ids = {item['employee'].id for item in ranked}
+        suggested_reasons = {
+            item['employee'].id: item.get('match_reasons') or []
+            for item in ranked
+        }
+    employee_aliases = _employee_search_aliases(rows)
     return {
         'results': [
-            {'id': e.id, 'name': e.full_name, 'code': e.job_code or '', 'branch': e.branch.name if e.branch else '', 'governorate': e.branch.governorate.name if e.branch and e.branch.governorate else ''}
+            {'id': e.id, 'name': e.full_name, 'code': e.job_code or '', 'branch': e.branch.name if e.branch else '', 'governorate': e.branch.governorate.name if e.branch and e.branch.governorate else '', 'search_aliases': employee_aliases.get(e.id, ''), 'match_kind': 'approximate' if e.id in suggested_ids else 'normal', 'match_reasons': suggested_reasons.get(e.id, [])}
             for e in rows
         ],
-        'branches': [
-            {'id': b.id, 'name': b.name, 'governorate_id': b.governorate_id}
-            for b in branch_rows
-        ],
+        'branches': branch_payload,
     }
 
 
@@ -249,13 +348,11 @@ def movements_page_filters_api():
     if gid is not None:
         branch_q = branch_q.filter(Branch.governorate_id == gid)
     branches = branch_q.order_by(Branch.name.asc()).all()
+    branch_payload = _branch_search_payload(branches)
     branch_ids = [b.id for b in branches]
     if bid is not None and bid not in branch_ids:
         return {
-            'branches': [
-                {'id': b.id, 'name': b.name, 'governorate_id': b.governorate_id}
-                for b in branches
-            ],
+            'branches': branch_payload,
             'employees': [],
         }
     employees = []
@@ -294,17 +391,16 @@ def movements_page_filters_api():
                         'destination': current.destination.name if current.destination else '',
                         'to_date': current.to_date.isoformat() if current.to_date else '',
                     }
+    employee_aliases = _employee_search_aliases(employees)
     return {
-        'branches': [
-            {'id': b.id, 'name': b.name, 'governorate_id': b.governorate_id}
-            for b in branches
-        ],
+        'branches': branch_payload,
         'employees': [
             {
                 'id': e.id,
                 'name': e.full_name,
                 'code': e.job_code or '',
                 'branch_id': e.branch_id,
+                'search_aliases': employee_aliases.get(e.id, ''),
                 'current_movement': employee_movements.get(e.id),
             }
             for e in employees
@@ -444,9 +540,11 @@ def movements():
     ]
     followup_rows.sort(key=lambda m: (m.to_date or date.max, m.id))
     destination_branches = Branch.query.join(Governorate, Governorate.id == Branch.governorate_id).filter(Branch.is_active == True, Governorate.is_active == True).order_by(Branch.name.asc()).all()
+    movement_search_text_by_id = _movement_search_text_map(rows)
     return render_template(
         'movements.html',
         rows=rows,
+        movement_search_text_by_id=movement_search_text_by_id,
         current_rows=current_rows,
         followup_rows=followup_rows,
         today=today,
@@ -458,6 +556,10 @@ def movements():
         movement_governorates=(
             Governorate.query.filter_by(is_active=True)
             .order_by(Governorate.name.asc()).all()
+        ),
+        movement_scoped_governorate_ids=sorted(gids()),
+        movement_global_picker_allowed=bool(
+            roles() & {'مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'}
         ),
         destination_governorates=(
             Governorate.query.filter(Governorate.is_active == True)

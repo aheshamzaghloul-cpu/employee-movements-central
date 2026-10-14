@@ -27,6 +27,7 @@
         <a href="/reports/permissions"><b>الأذونات</b><small>التاريخ · الموظف · الفرع</small><span>فتح التقرير ←</span></a>
         {% endif %}
         <a href="/reports/assignments/print-missions"><b>مركز المأموريات</b><small>مراجعة، تعديل، إغلاق وإصدار النموذج</small><span>فتح المركز ←</span></a>
+        {% if can('manage_movements') %}<a href="/missions/from-screenshot"><b>مأمورية من صورة تيكيت</b><small>قراءة الحقول السبعة ومراجعتها قبل التسجيل</small><span>إضافة صورة ←</span></a>{% endif %}
       </div>
     </div>
 

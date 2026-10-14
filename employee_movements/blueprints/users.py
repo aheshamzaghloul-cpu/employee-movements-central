@@ -41,6 +41,7 @@ from ..models import (
     UserPermission,
     UserRole,
 )
+from ..services.entity_matching import alias_owner_conflict, conflicting_employee_code
 from ..validation import parse_date, valid_email, valid_password
 
 bp = Blueprint('users', __name__)
@@ -88,6 +89,10 @@ def users():
             or User.query.filter_by(email=email).first()
         ):
             flash('جميع بيانات الحساب مطلوبة، واسم المستخدم فريد وكلمة المرور 8 أحرف على الأقل.')
+        elif 'المدخل الأول' in selected_roles and alias_owner_conflict('employee_name', full):
+            flash('اسم الموظف يطابق صيغة بديلة مؤكدة لموظف آخر؛ راجع سجل الموظف قبل إنشاء المدخل الأول.')
+        elif 'المدخل الأول' in selected_roles and conflicting_employee_code(job_code):
+            flash('الكود الوظيفي أو صيغته ذات بادئة 200 مستخدم بالفعل لموظف آخر.')
         else:
             nu = User(
                 username=username,
@@ -318,7 +323,19 @@ def user_edit(i):
         abort(403)
     u = target
     if request.method == 'POST':
-        u.full_name = request.form.get('full_name', '').strip() or u.full_name
+        submitted_full_name = request.form.get('full_name', '').strip() or u.full_name
+        submitted_job_code = request.form.get('job_code', '').strip() or u.job_code
+        linked_employee_for_validation = Employee.query.filter_by(user_id=i).first()
+        if linked_employee_for_validation:
+            name_conflict = alias_owner_conflict('employee_name', submitted_full_name, target_id=linked_employee_for_validation.id)
+            code_conflict = conflicting_employee_code(submitted_job_code, exclude_employee_id=linked_employee_for_validation.id)
+            if name_conflict:
+                flash('اسم الموظف يطابق صيغة بديلة مؤكدة لموظف آخر؛ لم يتم تعديل الحساب المرتبط به.')
+                return redirect(url_for('users.user_edit', i=i))
+            if code_conflict:
+                flash('الكود الوظيفي أو صيغته ذات بادئة 200 مستخدم بالفعل لموظف آخر؛ لم يتم تعديل الحساب.')
+                return redirect(url_for('users.user_edit', i=i))
+        u.full_name = submitted_full_name
         email = request.form.get('email', '').strip()
         if not email or not valid_email(email):
             flash('البريد الإلكتروني مطلوب ويجب أن يكون بصيغة صحيحة.')
@@ -338,6 +355,15 @@ def user_edit(i):
             if not selected:
                 flash('يجب اختيار دور واحد على الأقل.')
                 return redirect(url_for('users.user_edit', i=i))
+            if 'المدخل الأول' in selected and not linked_employee_for_validation:
+                if alias_owner_conflict('employee_name', u.full_name):
+                    db.session.rollback()
+                    flash('اسم الموظف يطابق صيغة بديلة مؤكدة لموظف آخر؛ لم يتم إضافة دور المدخل الأول.')
+                    return redirect(url_for('users.user_edit', i=i))
+                if conflicting_employee_code(u.job_code):
+                    db.session.rollback()
+                    flash('الكود الوظيفي أو صيغته ذات بادئة 200 مستخدم بالفعل لموظف آخر.')
+                    return redirect(url_for('users.user_edit', i=i))
             if i == me().id and 'مسؤول التطبيق' not in selected:
                 flash('لا يمكن إزالة دور مسؤول التطبيق من حسابك هنا.')
                 return redirect(url_for('users.user_edit', i=i))

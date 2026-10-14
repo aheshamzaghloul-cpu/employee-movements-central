@@ -46,8 +46,8 @@ def test_home_search_api_is_global_identity_only_and_supports_branch_only_lookup
     block = source[start:end]
     assert "if not (can('manage_employees') or can('view_reports'))" in block
     assert "len(normalized_q) < 2 and not branch_raw" in block
-    assert "search_contains(Employee.full_name, q)" in block
-    assert "search_contains(Employee.job_code, q)" in block
+    assert "employee_search_filter(q, include_branch=True)" in block
+    assert "rank_scoped_employee_suggestions(q, pool, limit=8)" in block
     assert "Movement.query" not in block
     assert "'governorate':" in block and "'branch':" in block
 
@@ -83,9 +83,8 @@ def test_employee_edit_data_search_is_bounded_normalized_and_active_scope_only()
     source = _read("employee_movements/blueprints/employees.py")
     block = source[source.index("def employee_edit_data():"):source.index("@bp.route('/employees/<int:i>/edit'")]
     assert "Governorate.is_active == True" in block
-    assert "search_contains(Employee.full_name, q)" in block
-    assert "search_contains(Employee.job_code, q)" in block
-    assert "search_contains(Employee.email, q)" in block
+    assert "employee_search_filter(q, include_contacts=True, include_branch=True)" in block
+    assert "rank_scoped_employee_suggestions(q, pool, limit=8)" in block
     assert "invalid_q_filter = len(raw_q) > 120" in block
     assert "for e in rows" not in block
     template = _read("employee_movements/templates/employee_edit_data.html")
@@ -136,7 +135,7 @@ def test_movement_list_count_is_unique_by_movement_and_uses_arabic_normalization
     assert template.count("data-movement-id=\"{{m.id}}\"") == 3
     assert "const totalIds=new Set(allRows.map(row=>row.dataset.movementId).filter(Boolean))" in template
     assert "const visibleIds=new Set(visibleRows.map(row=>row.dataset.movementId).filter(Boolean))" in template
-    assert "normalize((row.dataset.name||'')+' '+(row.dataset.code||''))" in template
+    assert "window.employeeSearchMatches(q,row.dataset.search||((row.dataset.name||'')+' '+(row.dataset.code||'')))" in template
     assert "تعذر تحميل فلاتر الفروع" in template
     assert "لا توجد سجلات مطابقة للمرشحات الحالية." in template
 
@@ -200,6 +199,6 @@ def test_employee_type_reports_use_one_search_over_employee_identity_and_movemen
     assert 'class="ui-table report-movement-table"' in template
     assert 'data-search-ignore' in template
     assert "document.querySelectorAll('[data-report-search-root]')" in app
-    assert "identity.includes(q)" in app
-    assert "norm(rowText).includes(q)" in app
+    assert "window.employeeSearchMatches(q,identity)" in app
+    assert "window.employeeSearchMatches(q,rowText)" in app
     assert "تصدير Excel يعتمد على المرشحات أعلاه" in template

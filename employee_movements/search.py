@@ -14,7 +14,7 @@ _DIGITS_TO = "01234567890123456789"
 _CHAR_MAP = str.maketrans({
     **dict(zip(_DIGITS_FROM, _DIGITS_TO)),
     "أ": "ا", "إ": "ا", "آ": "ا", "ٱ": "ا",
-    "ى": "ي",
+    "ى": "ي", "ة": "ه", "ئ": "ي", "ؤ": "و",
     "ـ": None,
 })
 _DIACRITICS = tuple(chr(codepoint) for codepoint in (
@@ -27,7 +27,7 @@ _SQL_REPLACEMENTS = (
     *((char, "") for char in _DIACRITICS),
     ("ـ", ""),
     ("أ", "ا"), ("إ", "ا"), ("آ", "ا"), ("ٱ", "ا"),
-    ("ى", "ي"),
+    ("ى", "ي"), ("ة", "ه"), ("ئ", "ي"), ("ؤ", "و"),
     *((char, digit) for char, digit in zip(_DIGITS_FROM, _DIGITS_TO)),
 )
 

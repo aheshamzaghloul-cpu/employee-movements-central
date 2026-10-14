@@ -1,4 +1,4 @@
-/* إدارة النظام والحسابات والصلاحيات والتفويضات — v68.26.0
+/* إدارة النظام والحسابات والصلاحيات والتفويضات — v68.28.0
    تعتمد هذه الورقة على رموز app.css المشتركة وتخصّص كثافة التخطيط ومساحات الإدارة فقط. */
 :where(.admin-workspace,.users-workspace,.user-edit-workspace,.delegation-workspace) {
   --management-card-radius: 16px;

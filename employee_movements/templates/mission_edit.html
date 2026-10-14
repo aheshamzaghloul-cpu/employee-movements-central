@@ -17,34 +17,15 @@
   <section class="ui-card ui-mission-edit-card" aria-label="نموذج تعديل المأمورية">
     <form method="post" class="ui-grid ui-grid-3-gap-16 mission-edit-form" id="missionEditForm">
       <input type="hidden" name="_csrf" value="{{csrf}}">
-      <div class="ui-grid-full mission-edit-employee">
-        <label for="missionEditEmployee">الموظف</label>
-        <input id="missionEditEmployee" value="{{m.employee.full_name}} — {{m.employee.job_code or '—'}}" disabled>
-      </div>
-      <div>
-        <label for="missionDestinationGovernorate">محافظة جهة المأمورية</label>
-        <select id="missionDestinationGovernorate" required>
-          <option value="">اختر المحافظة</option>
-          {% for g in destination_governorates %}<option value="{{g.id}}" {% if m.destination and m.destination.governorate_id==g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}
-        </select>
-      </div>
-      <div>
-        <label for="missionDestinationBranch">فرع جهة المأمورية</label>
-        <select name="destination_branch_id" id="missionDestinationBranch" required>
-          <option value="">اختر الفرع</option>
-          {% for b in branches %}<option value="{{b.id}}" data-governorate-id="{{b.governorate_id}}" {% if m.destination_branch_id==b.id %}selected{% endif %}>{{b.name}}</option>{% endfor %}
-        </select>
-        <small class="ui-hint">تُعرض الفروع المتاحة داخل المحافظة المختارة.</small>
-      </div>
-      <div>
-        <label for="missionEditFromDate">من تاريخ البداية</label>
-        <input type="date" name="from_date" id="missionEditFromDate" value="{{m.from_date.isoformat() if m.from_date else ''}}" required autocomplete="off">
-      </div>
-      <div>
-        <label for="missionEditToDate">إلى تاريخ النهاية <span class="ui-field-optional">اختياري للانتداب المفتوح</span></label>
-        <input type="date" name="to_date" id="missionEditToDate" value="{{m.to_date.isoformat() if m.to_date else ''}}" min="{{m.from_date.isoformat() if m.from_date else ''}}" autocomplete="off">
-        <small class="ui-hint">يجب ألا يسبق تاريخ النهاية تاريخ البداية.</small>
-      </div>
+      <fieldset class="smart-option-group smart-option-group-wide"><legend>الموظف وجهة المأمورية</legend><p class="smart-option-hint">بيانات الموظف للمرجعية فقط؛ حدد الوجهة المستهدفة بشكل مستقل عن محافظة العمل الحالية.</p><div class="smart-option-fields smart-option-fields-3">
+        <label for="missionEditEmployee">الموظف<input id="missionEditEmployee" value="{{m.employee.full_name}} — {{m.employee.job_code or '—'}}" disabled></label>
+        <label for="missionDestinationGovernorate">محافظة جهة المأمورية<select id="missionDestinationGovernorate" required><option value="">اختر المحافظة</option>{% for g in destination_governorates %}<option value="{{g.id}}" {% if m.destination and m.destination.governorate_id==g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>
+        <label for="missionDestinationBranch">فرع جهة المأمورية<select name="destination_branch_id" id="missionDestinationBranch" required><option value="">اختر الفرع</option>{% for b in branches %}<option value="{{b.id}}" data-governorate-id="{{b.governorate_id}}" {% if m.destination_branch_id==b.id %}selected{% endif %}>{{b.name}}</option>{% endfor %}</select><small class="ui-hint">تُعرض الفروع المتاحة داخل المحافظة المختارة.</small></label>
+      </div></fieldset>
+      <fieldset class="smart-option-group smart-option-group-wide"><legend>مدة المأمورية</legend><p class="smart-option-hint">تاريخ النهاية اختياري إذا كان الانتداب مفتوحًا.</p><div class="smart-option-fields smart-option-fields-2">
+        <label for="missionEditFromDate">من تاريخ البداية<input type="date" name="from_date" id="missionEditFromDate" value="{{m.from_date.isoformat() if m.from_date else ''}}" required autocomplete="off"></label>
+        <label for="missionEditToDate">إلى تاريخ النهاية <span class="ui-field-optional">اختياري للانتداب المفتوح</span><input type="date" name="to_date" id="missionEditToDate" value="{{m.to_date.isoformat() if m.to_date else ''}}" min="{{m.from_date.isoformat() if m.from_date else ''}}" autocomplete="off"><small class="ui-hint">يجب ألا يسبق تاريخ النهاية تاريخ البداية.</small></label>
+      </div></fieldset>
       <div class="ui-actions ui-grid-full mission-edit-actions">
         <button class="ui-btn ui-tone-teal" type="submit">حفظ التعديل</button>
         <a class="ui-btn ui-btn-secondary" href="/reports/assignments/print-missions">إلغاء والعودة</a>

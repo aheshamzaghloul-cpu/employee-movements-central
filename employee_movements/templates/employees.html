@@ -18,9 +18,8 @@
 
   <section class="smart-employee-search-card ds-directory-filters" id="employee-search" aria-label="البحث وتصفية الموظفين">
     <form method="get" action="/employees" id="employees-search-form" class="smart-employee-search-form" aria-label="تصفية دليل الموظفين">
-      <label class="smart-employee-query"><span>بحث سريع</span><input name="q" id="employees_search_input" type="search" value="{{q}}" maxlength="120" autocomplete="off" placeholder="اسم الموظف أو الكود الوظيفي أو الوظيفة"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 5 5"/></svg></label>
-      <label><span>المحافظة</span><select name="governorate_id" id="employee_governorate_filter"><option value="">كل المحافظات</option>{% for g in govs %}<option value="{{g.id}}" {% if gov_filter|int == g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>
-      <label><span>الفرع</span><select name="branch_id" id="employee_branch_filter"><option value="">كل الفروع</option>{% for b in bs %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}" {% if request.args.get('branch_id','')|int == b.id %}selected{% endif %}>{{b.name}}</option>{% endfor %}</select></label>
+      <label class="smart-employee-query"><span>بحث سريع</span><input name="q" id="employees_search_input" type="search" value="{{q}}" maxlength="120" autocomplete="off" placeholder="اسم الموظف أو الكود أو الوظيفة أو الفرع أو المحافظة"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 5 5"/></svg></label>
+      <div class="smart-filter-cluster" aria-label="تحديد نطاق الموظفين"><span class="smart-filter-cluster-label">النطاق</span><label><span>المحافظة</span><select name="governorate_id" id="employee_governorate_filter"><option value="">كل المحافظات</option>{% for g in govs %}<option value="{{g.id}}" {% if gov_filter|int == g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label><label><span>الفرع</span><select name="branch_id" id="employee_branch_filter"><option value="">كل الفروع</option>{% for b in bs %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}" {% if request.args.get('branch_id','')|int == b.id %}selected{% endif %}>{{b.name}}</option>{% endfor %}</select></label></div>
       <button class="ui-btn employees-primary" type="submit">بحث</button>
       {% if q or gov_filter or request.args.get('branch_id') %}<a class="ui-btn ui-btn-secondary" href="/employees">مسح</a>{% endif %}
     </form>
@@ -48,20 +47,22 @@
   {% endif %}
 
   <section class="smart-directory-card ds-directory-results">
-    <div class="smart-directory-head"><div><span class="home-kicker">دليل تشغيلي</span><h2>الموظفون حسب الفروع</h2></div><div class="smart-directory-summary"><span><b>{{total_rows}}</b> موظف</span><span><b>{{grouped_employees|length}}</b> محافظة</span></div></div>
+    {% if approximate_employee_ids %}<div class="ui-alert ui-alert-warning" role="status">لم نجد تطابقًا مباشرًا؛ هذه اقتراحات قريبة فقط. تحقق من الاسم والكود والفرع قبل فتح السجل.</div>{% endif %}
+    <div class="smart-directory-head"><div><span class="home-kicker">دليل تشغيلي</span><h2>الموظفون حسب الفروع</h2><p class="smart-directory-caption">تصفّح حسب المحافظة ثم افتح الفرع لعرض موظفيه. البحث يدعم الاسم والكود والوظيفة والفرع والمحافظة.</p></div><div class="smart-directory-head-tools"><div class="smart-directory-summary"><span><b>{{total_rows}}</b> موظف</span><span><b>{{grouped_employees|length}}</b> محافظة</span><span><b>{{grouped_branch_count}}</b> فرع</span></div><div class="smart-directory-disclosure-actions"><button type="button" class="ui-btn ui-btn-secondary ui-btn-mini" data-expand-branches>فتح الفروع</button><button type="button" class="ui-btn ui-btn-secondary ui-btn-mini" data-collapse-branches>طيّ الفروع</button></div></div></div>
     {% if grouped_employees %}
       <div class="smart-directory-list">
       {% for g in grouped_employees %}
-        <section class="smart-directory-gov">
+        <section class="smart-directory-gov" data-directory-governorate="{{((g.governorate.name if g.governorate else '') ~ ' ' ~ (' '.join(governorate_alias_text.get(g.governorate.id, [])) if g.governorate else ''))|e}}">
           <div class="smart-directory-gov-head"><div><span>المحافظة</span><strong>{{g.governorate.name if g.governorate else '—'}}</strong></div><em>{{g.branches|length}} فرع</em></div>
           {% for bg in g.branches %}
-            <details class="smart-directory-branch" {% if q or gov_filter or request.args.get('branch_id') %}open{% endif %}>
+            <details class="smart-directory-branch" data-directory-branch data-search="{{(bg.branch.name ~ ' ' ~ (bg.branch.code or '') ~ ' ' ~ (g.governorate.name if g.governorate else '') ~ ' ' ~ (' '.join(branch_alias_text.get(bg.branch.id, []))) ~ ' ' ~ (' '.join(governorate_alias_text.get(g.governorate.id, [])) if g.governorate else ''))|lower|e}}" {% if q or gov_filter or request.args.get('branch_id') %}open{% endif %}>
               <summary><div class="smart-branch-summary"><span class="smart-branch-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m3.5 10 8.5-6.5 8.5 6.5M5.5 9v11h13V9M9 20v-6h6v6"/></svg></span><span><strong>{{bg.branch.name}}</strong><small>{{bg.employees|length}} موظف</small></span></div><span class="smart-chevron">⌄</span></summary>
+              <div class="smart-employee-results-tools"><span data-branch-employee-count>{{bg.employees|length}} موظف</span><button type="button" class="ui-btn ui-btn-secondary ui-btn-mini" data-employee-more hidden>عرض المزيد</button></div>
               <div class="smart-employee-results">
               {% for e in bg.employees %}
                 {% set st=status_map.get(e.id) %}
-                <article class="smart-employee-row" data-employee-row data-search="{{(e.full_name ~ ' ' ~ (e.job_code or '') ~ ' ' ~ (e.job_title or ''))|lower}}">
-                  <a class="smart-employee-mainlink" href="/employee/{{e.id}}"><span class="smart-avatar">{{e.full_name[:1]}}</span><span><strong>{{e.full_name}}</strong><small>{{e.job_code or 'بدون كود'}} · {{e.job_title or 'موظف'}}</small></span></a>
+                <article class="smart-employee-row" data-employee-row data-search="{{(e.full_name ~ ' ' ~ (e.job_code or '') ~ ' ' ~ (e.employee_code or '') ~ ' ' ~ (e.job_title or '') ~ ' ' ~ (e.branch.name if e.branch else '') ~ ' ' ~ (e.branch.code if e.branch else '') ~ ' ' ~ (e.branch.governorate.name if e.branch and e.branch.governorate else '') ~ ' ' ~ (' '.join(employee_alias_text.get(e.id, [])) ~ ' ' ~ ' '.join(employee_code_alias_text.get(e.id, []))) ~ ' ' ~ (' '.join(branch_alias_text.get(e.branch_id, [])) if e.branch else '') ~ ' ' ~ (' '.join(governorate_alias_text.get(e.branch.governorate_id, [])) if e.branch and e.branch.governorate else ''))|lower|e}}">
+                  <a class="smart-employee-mainlink" href="/employee/{{e.id}}"><span class="smart-avatar">{{e.full_name[:1]}}</span><span><strong>{{e.full_name}}</strong><small>{{e.job_code or 'بدون كود'}} · {{e.job_title or 'موظف'}}</small>{% if e.id in approximate_employee_ids %}<small class="smart-match-caution">اقتراح قريب — تأكد من هوية الموظف</small>{% if approximate_employee_reasons.get(e.id) %}<small class="smart-match-caution">سبب الاقتراح: {{approximate_employee_reasons.get(e.id)}}</small>{% endif %}{% endif %}</span></a>
                   <div class="smart-employee-row-context"><span class="smart-entry-label">المدخل الأول</span><strong>{{entry_map.get(e.id) or 'غير مسند'}}</strong></div>
                   {% if can('view_reports') %}{% if st %}<div class="smart-row-status {{st.key}}"><b>{{st.label}}</b><small>{{st.detail}}</small></div>{% else %}<div class="smart-row-status smart-row-status-empty"><small>لا توجد حركة حالية</small></div>{% endif %}{% else %}<div class="smart-row-status smart-row-status-empty"><small>الحالة غير متاحة دون صلاحية التقارير</small></div>{% endif %}
                   <div class="smart-row-action"><a href="/employee/{{e.id}}" aria-label="فتح ملف {{e.full_name}}">فتح الملف →</a>{% if can_manage_employee(e) and can('manage_employees') %}<details class="employee-more"><summary aria-label="إجراءات الموظف">•••</summary><div class="employee-more-menu"><a href="/employees/{{e.id}}/edit">تعديل البيانات</a><form method="post" action="/employees/{{e.id}}/resign"><input type="hidden" name="_csrf" value="{{csrf}}"><label>تاريخ الاستقالة<input type="date" name="resignation_date" required></label><button class="ui-btn-danger" data-confirm="سيتم تسجيل الاستقالة ونقل الموظف إلى الموظفين المستقيلين. متابعة؟">استقالة</button></form>{% if has_role('مسؤول التطبيق') %}<form method="post" action="/employees/{{e.id}}/delete"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="danger-link" data-confirm="حذف إداري للموظف؟ استخدم الاستقالة إذا كانت الخدمة انتهت.">حذف إداري</button></form>{% endif %}</div></details>{% endif %}</div>
@@ -82,32 +83,48 @@
 <script>
 (function(){
   const root=document.querySelector('[data-employees-page]'); if(!root) return;
-  const input=document.getElementById('employees_search_input'); const rows=[...root.querySelectorAll('[data-employee-row]')]; const empty=root.querySelector('[data-no-results]');
+  const input=document.getElementById('employees_search_input'); const rows=[...root.querySelectorAll('[data-employee-row]')]; const branches=[...root.querySelectorAll('[data-directory-branch]')]; const empty=root.querySelector('[data-no-results]');
   const normalize=window.normalizeEmployeeSearchText||((v)=>(v||'').toLocaleLowerCase('ar-EG').trim()); const count=root.querySelector('[data-live-count]');
   const initialServerQuery=normalize(root.dataset.serverQuery||'');
   const hint=root.querySelector('.smart-live-hint');
+  const expandedEmployeeBranches=new Set();
   function filter(){
     const q=normalize(input?.value);
-    // The server has already narrowed rows when q was submitted. A new,
-    // different query cannot broaden that in-memory subset, so require submit.
-    if(initialServerQuery&&q!==initialServerQuery){
-      // Keep the last server result set truthful: do not imply that it matches a new query
-      // until the user submits that query to the server.
-      let previousCount=0;
-      rows.forEach(r=>{const matchesPrevious=normalize(r.dataset.search).includes(initialServerQuery);r.hidden=!matchesPrevious;if(matchesPrevious)previousCount++;});
-      if(empty)empty.hidden=previousCount!==0;
-      if(count)count.textContent=String(previousCount);
-      if(hint)hint.textContent='النتائج الحالية تخص البحث السابق «'+initialServerQuery+'»؛ اضغط Enter أو «بحث» لتطبيق البحث الجديد.';
-      root.querySelectorAll('.smart-directory-branch').forEach(d=>{const any=[...d.querySelectorAll('[data-employee-row]')].some(r=>!r.hidden);if(initialServerQuery)d.open=any;});
-      return;
-    }
-    let visible=0; rows.forEach(r=>{const ok=!q||normalize(r.dataset.search).includes(q);r.hidden=!ok;if(ok)visible++;});
+    // Rows were server-filtered when the page loaded. A new query cannot broaden that
+    // subset until submit, so preserve the original server query when it differs.
+    const useServerSubset=!!initialServerQuery&&q!==initialServerQuery;
+    const needle=useServerSubset?initialServerQuery:q;
+    let visible=0;
+    branches.forEach(branch=>{
+      const branchRows=[...branch.querySelectorAll('[data-employee-row]')];
+      const matched=branchRows.filter(row=>!needle||window.employeeSearchMatches(needle,row.dataset.search||''));
+      visible+=matched.length;
+      const expanded=expandedEmployeeBranches.has(branch);
+      const limit=expanded?matched.length:Math.min(8,matched.length);
+      const shown=new Set(matched.slice(0,limit));
+      branchRows.forEach(row=>{row.hidden=!shown.has(row);});
+      const more=branch.querySelector('[data-employee-more]');
+      const branchCount=branch.querySelector('[data-branch-employee-count]');
+      if(branchCount)branchCount.textContent=`${matched.length} موظف`;
+      if(more){more.hidden=matched.length<=8;more.textContent=expanded?'عرض أقل':`عرض المزيد (${Math.max(0,matched.length-limit)})`;}
+      branch.hidden=matched.length===0;
+      if(needle&&matched.length)branch.open=true;
+    });
     if(empty)empty.hidden=visible!==0;
     if(count)count.textContent=String(visible);
-    if(hint)hint.textContent='اكتب للبحث داخل النتائج المعروضة، أو اضغط Enter لتطبيق بحث جديد.';
-    root.querySelectorAll('.smart-directory-branch').forEach(d=>{if(q){const any=[...d.querySelectorAll('[data-employee-row]')].some(r=>!r.hidden);d.open=any;}});
+    if(hint)hint.textContent=useServerSubset
+      ? 'النتائج الحالية تخص البحث السابق «'+initialServerQuery+'»؛ اضغط Enter أو «بحث» لتطبيق البحث الجديد.'
+      : 'تظهر أول 8 نتائج بكل فرع. استخدم البحث أو «عرض المزيد» للوصول إلى بقية الموظفين.';
+    root.querySelectorAll('[data-directory-governorate]').forEach(g=>{g.hidden=![...g.querySelectorAll('[data-directory-branch]')].some(b=>!b.hidden);});
   }
-  input?.addEventListener('input',filter); filter();
+  input?.addEventListener('input',()=>{expandedEmployeeBranches.clear();filter();});
+  branches.forEach(branch=>{
+    const more=branch.querySelector('[data-employee-more]');
+    more?.addEventListener('click',()=>{if(expandedEmployeeBranches.has(branch))expandedEmployeeBranches.delete(branch);else expandedEmployeeBranches.add(branch);filter();});
+  });
+  root.querySelector('[data-expand-branches]')?.addEventListener('click',()=>branches.forEach(d=>{if(!d.hidden)d.open=true;}));
+  root.querySelector('[data-collapse-branches]')?.addEventListener('click',()=>branches.forEach(d=>d.open=false));
+  filter();
   // The global quick action targets a closed <details>; open the form before the anchor scrolls.
   const addPanel=document.getElementById('employee-add');
   if(addPanel){

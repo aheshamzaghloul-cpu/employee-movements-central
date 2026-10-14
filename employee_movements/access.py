@@ -232,42 +232,69 @@ def is_scope_required_endpoint():
 
 
 def scope_governorate_id():
+    """Resolve the selected work governorate without inventing an admin/manager default.
+
+    A supervisor with exactly one active assigned/delegated governorate gets that
+    governorate automatically. Supervisors with multiple governorates must select
+    one explicitly; Admin and Manager always make an explicit work-scope choice.
+    """
     if not has_request_context():
         return None
     u = me()
     if not u:
         return None
+
     rs = roles(u)
-    # نطاق العمل تشغيلي مستقل تمامًا عن المحافظات المرتبطة بأدوار الحساب.
-    # لا نرث محافظة مشرف (مثل سوهاج) كاختيار تلقائي لمسؤول التطبيق/Manager.
+    scoped_roles = {'مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'}
+    current_scope_role = next(iter(rs & scoped_roles), None)
+    allowed_ids = {g.id for g in scope_governorates_for_user(u)}
+
     raw = request.args.get('governorate_id') or request.args.get('manager_governorate_id') or ''
     if raw.isdigit():
         gid = int(raw)
-        allowed = {g.id for g in scope_governorates_for_user(u)}
-        if gid in allowed and Governorate.query.filter_by(id=gid, is_active=True).first():
+        if gid in allowed_ids and Governorate.query.filter_by(id=gid, is_active=True).first():
             session['operational_governorate_id'] = gid
             session['operational_scope_uid'] = u.id
-            session['operational_scope_role'] = next(
-                iter(rs & {'مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'}),
-                None,
-            )
+            session['operational_scope_role'] = current_scope_role
+
     selected = session.get('operational_governorate_id')
-    # إذا كان الاختيار محفوظًا لحساب/دور مختلف، فلا نستخدمه.
     scope_uid = session.get('operational_scope_uid')
     scope_role = session.get('operational_scope_role')
-    current_scope_role = next(iter(rs & {'مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'}), None)
     if scope_uid != u.id or scope_role != current_scope_role:
         session.pop('operational_governorate_id', None)
         session.pop('operational_scope_uid', None)
         session.pop('operational_scope_role', None)
-        return None
-    # Treat malformed/stale session values as no selection rather than raising
-    # ValueError and turning an otherwise recoverable request into a 500.
+        selected = None
+
+    # An assignment can be revoked while the session is still alive. A saved
+    # governorate is valid only while it remains inside the current user's scope.
     if selected is not None:
         selected_text = str(selected).strip()
-        if not selected_text.isdigit() or not Governorate.query.filter_by(id=int(selected_text), is_active=True).first():
+        if not selected_text.isdigit():
+            selected = None
+        else:
+            selected_int = int(selected_text)
+            valid = (
+                selected_int in allowed_ids
+                and Governorate.query.filter_by(id=selected_int, is_active=True).first() is not None
+            )
+            if valid:
+                selected = selected_int
+            else:
+                selected = None
+        if selected is None:
             session.pop('operational_governorate_id', None)
-            return None
+            session.pop('operational_scope_uid', None)
+            session.pop('operational_scope_role', None)
+
+    # The only implicit work-scope selection is the unambiguous supervisor case.
+    # Admin and Manager remain unselected until they deliberately choose a scope.
+    if selected is None and current_scope_role == 'مشرف محافظة' and len(allowed_ids) == 1:
+        selected = next(iter(allowed_ids))
+        session['operational_governorate_id'] = selected
+        session['operational_scope_uid'] = u.id
+        session['operational_scope_role'] = current_scope_role
+
     return selected
 
 

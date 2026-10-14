@@ -3,29 +3,36 @@
 <div class="ui-report-result-head no-print"><div><h1>{{title}}</h1><p class="ui-muted">النتيجة تظهر مباشرة داخل التطبيق. يمكنك الطباعة أو التحميل اختياريًا.</p></div><div class="ui-actions"><button type="button" class="ui-btn" onclick="window.print()"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="M18 12h.01"/></svg>️ طباعة التقرير</button><a class="ui-btn ui-btn-secondary" href="/reports">العودة للتقارير</a></div></div>
 <div class="print-header"><h1>{{title}}</h1><div>نظام حركات الموظفين المركزي</div><div class="print-meta">تاريخ الطباعة: {{ now().strftime("%Y-%m-%d") if now is defined else "" }}</div></div>
 <div class="ui-card ui-report-filter-card no-print">{% if filter_error %}<div class="ui-alert ui-alert-warning" role="status">تعذر تطبيق أحد المرشحات؛ لم يتم توسيع النتائج. راجع المحافظة والفرع والموظف والحالة والتواريخ.</div>{% endif %}<form method="get" class="ui-grid ui-report-filter-grid" id="reportFilterForm">
-<div><label>المحافظة</label>
+<fieldset class="smart-option-group smart-option-group-wide"><legend>نطاق الموظف</legend><p class="smart-option-hint">المحافظة ← الفرع ← الموظف. تضييق الاختيار في مستوى يحدّث المستويات التابعة له.</p><div class="smart-option-fields smart-option-fields-3">
+<label>المحافظة
 <select name="governorate_id" id="reportGovernorate" onchange="this.form.branch_id.value=''; this.form.employee_id.value=''; this.form.submit()">
 <option value="">كل المحافظات</option>
 {% for g in report_governorates %}<option value="{{g.id}}" {% if selected_governorate == g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}
-</select></div>
-<div><label>الفرع</label>
+</select></label>
+<label>الفرع
 <select name="branch_id" id="reportBranch" onchange="this.form.employee_id.value=''; this.form.submit()" {% if not selected_governorate %}disabled{% endif %}>
 <option value="">كل الفروع</option>
 {% for b in report_branches %}<option value="{{b.id}}" {% if selected_branch == b.id|string %}selected{% endif %}>{{b.name}}</option>{% endfor %}
-</select></div>
-<div><label>اسم الموظف</label>
+</select></label>
+<label>اسم الموظف
 <select name="employee_id" id="reportEmployee" {% if not selected_branch %}disabled{% endif %}>
 <option value="">كل الموظفين</option>
 {% for e in employees %}<option value="{{e.id}}" {% if selected_employee == e.id|string %}selected{% endif %}>{{e.full_name}} — {{e.job_code or "—"}}</option>{% endfor %}
-</select></div>
-<div><label>الحالة</label><select name="status"><option value="">كل الحالات</option>{% for x in statuses %}<option value="{{x}}" {% if status==x %}selected{% endif %}>{{x}}</option>{% endfor %}</select></div>
-<div><label>من يوم</label><input type="date" name="date_from" value="{{date_from}}"></div>
-<div><label>إلى يوم</label><input type="date" name="date_to" value="{{date_to}}"></div>
-<div class="ui-actions">
-<button>تطبيق</button>
-<a class="ui-btn ui-btn-secondary" href="/reports/{{report_type}}">مسح</a>
+</select></label>
+</div></fieldset>
+<details class="workspace-advanced-filters" {% if status or date_from or date_to %}open{% endif %}>
+  <summary><span>تصفية إضافية</span><small>الحالة والتواريخ</small></summary>
+  <div class="workspace-advanced-grid">
+    <div><label>الحالة</label><select name="status"><option value="">كل الحالات</option>{% for x in statuses %}<option value="{{x}}" {% if status==x %}selected{% endif %}>{{x}}</option>{% endfor %}</select></div>
+    <div><label>من يوم</label><input type="date" name="date_from" value="{{date_from}}"></div>
+    <div><label>إلى يوم</label><input type="date" name="date_to" value="{{date_to}}"></div>
+  </div>
+</details>
+<div class="smart-option-actions smart-option-actions-filter"><span>اعرض النتائج بالتصفية الحالية أو صدّرها.</span><div>
+<button>تطبيق الفلاتر</button>
+<a class="ui-btn ui-btn-secondary" href="/reports/{{report_type}}">مسح الفلاتر</a>
 <a class="ui-btn" href="/reports/{{report_type}}.xlsx?status={{status|urlencode}}&employee_id={{selected_employee|urlencode}}&governorate_id={{selected_governorate|urlencode}}&branch_id={{selected_branch|urlencode}}&date_from={{date_from|urlencode}}&date_to={{date_to|urlencode}}">تصدير Excel</a>
-</div>
+</div></div>
 </form></div>
 <div class="ui-card ui-report-results report-print-area" data-report-search-root>
 {% if rows %}

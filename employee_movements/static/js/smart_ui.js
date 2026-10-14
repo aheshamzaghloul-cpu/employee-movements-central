@@ -73,6 +73,74 @@
 
   window.toast=function(message,type='info',duration=3200){const region=qs('#toastRegion');if(!region)return;const el=document.createElement('div');el.className='interactive-toast interactive-toast-'+type;el.textContent=message;region.appendChild(el);requestAnimationFrame(()=>el.classList.add('is-visible'));setTimeout(()=>{el.classList.remove('is-visible');setTimeout(()=>el.remove(),220)},duration);};
 
+  // First-entry directory: search by name and reveal the long list progressively.
+  const entryDirectory=qs('#entry-directory');
+  if(entryDirectory){
+    const entrySearch=qs('#smartEntrySearch',entryDirectory);
+    const entryMore=qs('#smartEntryShowAll',entryDirectory);
+    const entryCount=qs('#smartEntryCount',entryDirectory);
+    const entryRows=qsa('[data-smart-entry-item]',entryDirectory);
+    const PAGE_SIZE=8; let expanded=false;
+    function applyEntryDirectory(){
+      const q=norm(entrySearch?.value||'');
+      const matched=entryRows.filter(row=>!q||window.employeeSearchMatches(q,row.dataset.search||row.textContent||''));
+      const limit=expanded?matched.length:Math.min(PAGE_SIZE,matched.length);
+      const shown=new Set(matched.slice(0,limit));
+      entryRows.forEach(row=>{row.hidden=!shown.has(row);});
+      if(entryCount)entryCount.textContent=`${matched.length} مدخل`;
+      if(entryMore){entryMore.hidden=matched.length<=PAGE_SIZE;entryMore.textContent=expanded?'عرض أقل':`عرض المزيد (${Math.max(0,matched.length-limit)})`;}
+    }
+    entrySearch?.addEventListener('input',()=>{expanded=false;applyEntryDirectory();});
+    entryMore?.addEventListener('click',()=>{expanded=!expanded;applyEntryDirectory();});
+    applyEntryDirectory();
+  }
+
+  // Progressive branches inside each first-entry assignment.
+  qsa('.smart-entry-body').forEach(body=>{
+    const input=qs('[data-entry-branch-search]',body);
+    const more=qs('[data-entry-branch-more]',body);
+    const count=qs('[data-entry-branch-count]',body);
+    const noMatch=qs('[data-entry-branch-no-match]',body);
+    const rows=qsa('[data-entry-branch-item]',body);
+    const PAGE_SIZE=8; let expanded=false;
+    function applyEntryBranchSearch(){
+      const q=norm(input?.value||'');
+      const matched=rows.filter(row=>!q||window.employeeSearchMatches(q,row.dataset.search||row.textContent||''));
+      const limit=expanded?matched.length:Math.min(PAGE_SIZE,matched.length);
+      const shown=new Set(matched.slice(0,limit));
+      rows.forEach(row=>{row.hidden=!shown.has(row);});
+      if(count)count.textContent=`${matched.length} من ${rows.length} فرع`;
+      if(noMatch)noMatch.hidden=matched.length!==0||rows.length===0;
+      if(more){more.hidden=matched.length<=PAGE_SIZE;more.textContent=expanded?'عرض أقل':`عرض المزيد (${Math.max(0,matched.length-limit)})`;}
+    }
+    input?.addEventListener('input',()=>{expanded=false;applyEntryBranchSearch();});
+    more?.addEventListener('click',()=>{expanded=!expanded;applyEntryBranchSearch();});
+    applyEntryBranchSearch();
+  });
+
+  // Progressive first-entry directory: show a small initial set and reveal more on demand.
+  qsa('.smart-entry-branch').forEach(branch=>{
+    const input=qs('[data-entry-employee-search]',branch);
+    const more=qs('[data-entry-employee-more]',branch);
+    const count=qs('[data-entry-employee-count]',branch);
+    const noMatch=qs('[data-entry-employee-no-match]',branch);
+    const rows=qsa('[data-entry-employee-item]',branch);
+    const PAGE_SIZE=8; let expanded=false;
+    function applyEntryEmployeeSearch(){
+      const q=norm(input?.value||'');
+      const matched=rows.filter(row=>!q||window.employeeSearchMatches(q,row.dataset.search||row.textContent||''));
+      const limit=expanded?matched.length:Math.min(PAGE_SIZE,matched.length);
+      const shown=new Set(matched.slice(0,limit));
+      rows.forEach(row=>{row.hidden=!shown.has(row);});
+      if(count)count.textContent=`${matched.length} من ${rows.length} موظف`;
+      if(noMatch)noMatch.hidden=matched.length!==0||rows.length===0;
+      if(more){more.hidden=matched.length<=PAGE_SIZE;more.textContent=expanded?'عرض أقل':`عرض المزيد (${Math.max(0,matched.length-limit)})`;}
+    }
+    input?.addEventListener('input',()=>{expanded=false;applyEntryEmployeeSearch();});
+    more?.addEventListener('click',()=>{expanded=!expanded;applyEntryEmployeeSearch();});
+    applyEntryEmployeeSearch();
+  });
+
   // Smart date validation for movement forms: never allow an impossible interval to reach the server.
   qsa('form').forEach(form=>{
     const from=qs('input[name="from_date"],#from_date',form), to=qs('input[name="to_date"],#to_date',form);

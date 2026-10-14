@@ -128,7 +128,7 @@
     if(!homeLiveResults)return;
     if(!items.length){homeLiveResults.innerHTML='<div class="smart-empty compact">لا توجد نتائج مطابقة. جرّب الاسم أو الكود أو غيّر مرشحات المحافظة والفرع.</div>';homeLiveResults.hidden=false;return;}
     const paramsFor=(id)=>{const p=new URLSearchParams();p.set('movement_name',query);if(homeSearchGov?.value)p.set('movement_governorate_id',homeSearchGov.value);if(homeSearchBranch?.value)p.set('movement_branch_id',homeSearchBranch.value);p.set('employee_id',String(id));return '/?'+p.toString()+'#employee-search';};
-    homeLiveResults.innerHTML=items.map(e=>`<a href="${esc(paramsFor(e.id))}"><i>${esc((e.name||'م').slice(0,1))}</i><span><b>${esc(e.name)}</b><small>${esc(e.job_title||'موظف')} · كود شئون العاملين: ${esc(e.code||'—')}</small></span><em>${esc(e.branch||'—')} · ${esc(e.governorate||'—')}</em></a>`).join('');
+    homeLiveResults.innerHTML=items.map(e=>`<a href="${esc(paramsFor(e.id))}"><i>${esc((e.name||'م').slice(0,1))}</i><span><b>${esc(e.name)}</b><small>${esc(e.job_title||'موظف')} · كود شئون العاملين: ${esc(e.code||'—')} ${e.match_kind==='approximate'?'<strong class="smart-match-caution">اقتراح قريب — تأكد من الهوية</strong>':''}</small></span><em>${esc(e.branch||'—')} · ${esc(e.governorate||'—')}</em></a>`).join('');
     homeLiveResults.hidden=false;
   }
   async function runHomeLiveSearch(){
@@ -228,18 +228,30 @@
     const normalize=window.normalizeEmployeeSearchText||((v)=>String(v||'').toLocaleLowerCase('ar').trim());
     const sourceRows=[...rows];
     const rowSearchText=row=>window.getEmployeeSearchableRowText?window.getEmployeeSearchableRowText(row,table):(row.textContent||'');
+    const pageSize=Math.max(5,Math.min(50,Number.parseInt(table.dataset.pageSize||'10',10)||10));
+    let expanded=false;
+    let previousQuery='';
+    let more=table.parentElement?.querySelector(':scope > .smart-data-more');
+    if(!more){more=document.createElement('button');more.type='button';more.className='ui-btn ui-btn-secondary ui-btn-mini smart-data-more';more.hidden=true;more.setAttribute('aria-controls',table.id);table.insertAdjacentElement('afterend',more);}
     input.maxLength=120;
     function render(){
-      const q=normalize(input.value);let shown=0;
-      sourceRows.forEach(row=>{const hit=!q||normalize(rowSearchText(row)).includes(q);row.hidden=!hit;if(hit)shown++;});
+      const q=normalize(input.value);if(q!==previousQuery){expanded=false;previousQuery=q;}
+      const matches=sourceRows.filter(row=>!q||window.employeeSearchMatches(q,rowSearchText(row)));
+      const visibleLimit=expanded?matches.length:pageSize;
+      const visibleSet=new Set(matches.slice(0,visibleLimit));
+      sourceRows.forEach(row=>{row.hidden=!visibleSet.has(row);});
       const blank=body.querySelector('.ui-empty');if(blank)blank.hidden=!!q;
-      status.textContent=q?`نتيجة ظاهرة: ${shown} من ${sourceRows.length}`:`${sourceRows.length} سجل`;
-      empty.hidden=!q||shown>0;
+      const shown=Math.min(visibleLimit,matches.length);
+      status.textContent=q?`عرض ${shown} من ${matches.length} نتيجة`:`عرض ${shown} من ${sourceRows.length} سجل`;
+      more.hidden=matches.length<=pageSize;
+      more.textContent=expanded?'عرض أقل':`عرض المزيد (${Math.max(0,matches.length-pageSize)})`;
+      more.setAttribute('aria-expanded',String(expanded));
+      empty.hidden=!q||matches.length>0;
       input.setAttribute('aria-controls',table.id);
       if(!empty.id)empty.id=table.id+'-search-empty';
       input.setAttribute('aria-describedby',empty.id);
     }
-    input.addEventListener('input',render);render();
+    input.addEventListener('input',render);more.addEventListener('click',()=>{expanded=!expanded;render();});render();
   });
 
   qsa('form').forEach(form=>form.addEventListener('submit',()=>{
@@ -259,7 +271,7 @@
       const norm=window.normalizeEmployeeSearchText||((v)=>String(v||'').toLowerCase().trim()); const q=norm(historySearch?.value); let shown=0;
       historyRows.forEach(row=>{
         const okType=historyFilter==='all'||row.dataset.movementType===historyFilter;
-        const okText=!q||norm(row.innerText).includes(q);
+        const okText=!q||window.employeeSearchMatches(q,row.innerText);
         row.hidden=!(okType&&okText); if(okType&&okText)shown++;
       });
       if(historyNo) historyNo.hidden=shown!==0;
@@ -416,15 +428,17 @@ document.addEventListener('DOMContentLoaded', function(){
     const rows=[...body.rows].filter(r=>!r.classList.contains('ui-empty')&&!r.querySelector('th'));
     if(!rows.length) return;
     table.dataset.smartReady='1';
-    const wrap=table.closest('.ui-table-wrap') || table.parentElement;
+    const scrollSurface=table.closest('.ui-overflow-auto');
+    const wrap=table.closest('.ui-table-wrap') || scrollSurface?.parentElement || table.parentElement;
     if(!wrap) return;
+    const surface=scrollSurface || table;
     const head=table.tHead;
     const title=(wrap.querySelector('.ui-section-title h3')||wrap.querySelector('h2,h3'))?.textContent?.trim() || 'البيانات';
     let bar=wrap.querySelector(':scope > .smart-data-toolbar');
     if(!bar){
       bar=document.createElement('div'); bar.className='smart-data-toolbar';
       bar.innerHTML=`<div class="smart-data-summary"><strong>${title}</strong><span data-smart-count></span></div><label class="smart-data-search"><span class="sr-only">بحث داخل الجدول</span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg><input type="search" data-smart-table-search placeholder="بحث داخل البيانات…" title="تصفية محلية للصفوف المعروضة فقط" aria-label="بحث داخل البيانات المعروضة" autocomplete="off"></label>`;
-      wrap.insertBefore(bar,table);
+      wrap.insertBefore(bar,surface);
     }
     const input=bar.querySelector('[data-smart-table-search]');
     if(input){
@@ -438,19 +452,30 @@ document.addEventListener('DOMContentLoaded', function(){
     }
     const count=bar.querySelector('[data-smart-count]');
     let empty=wrap.querySelector(':scope > .search-filter-empty');
-    if(!empty){empty=document.createElement('div');empty.className='search-filter-empty ui-empty';empty.hidden=true;empty.textContent='لا توجد نتائج مطابقة للبحث.';table.insertAdjacentElement('afterend',empty);}
+    if(!empty){empty=document.createElement('div');empty.className='search-filter-empty ui-empty';empty.hidden=true;empty.textContent='لا توجد نتائج مطابقة للبحث.';surface.insertAdjacentElement('afterend',empty);}
     const existingSearch=wrap.querySelector('[data-auto-search]');
     if(existingSearch){ bar.hidden=true; return; }
+    const pageSize=Math.max(5,Math.min(50,Number.parseInt(table.dataset.pageSize||'10',10)||10));
+    let expanded=false,previousQuery='';
+    let more=wrap.querySelector(':scope > .smart-data-more');
+    if(!more){more=document.createElement('button');more.type='button';more.className='ui-btn ui-btn-secondary ui-btn-mini smart-data-more';more.hidden=true;surface.insertAdjacentElement('afterend',more);}
     const rowSearchText=row=>window.getEmployeeSearchableRowText?window.getEmployeeSearchableRowText(row,table):(row.textContent||'');
     function render(){
-      const q=norm(input?.value); let visible=0;
-      rows.forEach(row=>{const ok=!q||norm(rowSearchText(row)).includes(q);row.hidden=!ok;if(ok)visible++});
-      if(count) count.textContent=`${visible} من ${rows.length}`;
-      empty.hidden=!q||visible>0;
+      const q=norm(input?.value);if(q!==previousQuery){expanded=false;previousQuery=q;}
+      const matches=rows.filter(row=>!q||window.employeeSearchMatches(q,rowSearchText(row)));
+      const visibleLimit=expanded?matches.length:pageSize;
+      const visibleSet=new Set(matches.slice(0,visibleLimit));
+      rows.forEach(row=>{row.hidden=!visibleSet.has(row)});
+      const visible=Math.min(visibleLimit,matches.length);
+      if(count) count.textContent=`عرض ${visible} من ${matches.length}`;
+      more.hidden=matches.length<=pageSize;
+      more.textContent=expanded?'عرض أقل':`عرض المزيد (${Math.max(0,matches.length-pageSize)})`;
+      more.setAttribute('aria-controls',table.id);more.setAttribute('aria-expanded',String(expanded));
+      empty.hidden=!q||matches.length>0;
       if(input){input.setAttribute('aria-controls',table.id);if(!empty.id)empty.id=table.id+'-search-empty';input.setAttribute('aria-describedby',empty.id);}
       table.classList.toggle('has-smart-filter',!!q);
     }
-    input?.addEventListener('input',render);
+    input?.addEventListener('input',render);more.addEventListener('click',()=>{expanded=!expanded;render();});
     render();
     if(head) head.classList.add('smart-table-head');
   });
@@ -461,27 +486,70 @@ document.addEventListener('DOMContentLoaded', function(){
     const empty=root.querySelector('[data-report-search-empty]');
     if(!input||!groups.length)return;
     const norm=window.normalizeEmployeeSearchText||((v)=>String(v||'').toLocaleLowerCase('ar').trim());
+    const pageSize=8;let expanded=false,previousQuery='';
+    let more=root.querySelector('[data-report-search-more]');
+    if(!more){more=document.createElement('button');more.type='button';more.className='ui-btn ui-btn-secondary ui-btn-mini smart-data-more';more.dataset.reportSearchMore='';groups[groups.length-1].insertAdjacentElement('afterend',more);}
     input.maxLength=120;
     function render(){
-      const q=norm(input.value);let visibleGroups=0,visibleRows=0;
+      const q=norm(input.value);if(q!==previousQuery){expanded=false;previousQuery=q;}
+      const matches=[];let totalMatchedRows=0;
       groups.forEach(group=>{
         const identity=norm(group.dataset.employeeSearch||'');
         const table=group.querySelector('table');
         const rows=[...(table?.tBodies?.[0]?.rows||[])].filter(row=>!row.classList.contains('ui-empty')&&!row.querySelector('th'));
-        const identityMatch=!q||identity.includes(q);
-        let matchedRows=0;
+        const identityMatch=!q||window.employeeSearchMatches(q,identity);let matchedRows=0;
         rows.forEach(row=>{
           const rowText=window.getEmployeeSearchableRowText?window.getEmployeeSearchableRowText(row,table):(row.textContent||'');
-          const match=!q||identityMatch||norm(rowText).includes(q);
-          row.hidden=!match;if(match)matchedRows++;
+          const match=!q||identityMatch||window.employeeSearchMatches(q,rowText);row.hidden=!match;if(match)matchedRows++;
         });
         const matchGroup=!q||identityMatch||matchedRows>0;
-        group.hidden=!matchGroup;
-        if(matchGroup){visibleGroups++;visibleRows+=matchedRows;}
+        if(matchGroup){matches.push({group,matchedRows});totalMatchedRows+=matchedRows;}
       });
-      if(count)count.textContent=`${visibleGroups} موظف · ${visibleRows} حركة`;
-      if(empty)empty.hidden=visibleGroups>0;
+      const shownGroups=expanded?matches:matches.slice(0,pageSize);
+      const visibleGroups=new Set(shownGroups.map(x=>x.group));
+      groups.forEach(group=>{group.hidden=!visibleGroups.has(group);});
+      const visibleRows=shownGroups.reduce((n,x)=>n+x.matchedRows,0);
+      if(count)count.textContent=`عرض ${shownGroups.length} من ${matches.length} موظف · ${visibleRows} حركة ظاهرة`;
+      if(empty)empty.hidden=matches.length>0;
+      more.hidden=matches.length<=pageSize;
+      more.textContent=expanded?'عرض أقل':`عرض المزيد (${Math.max(0,matches.length-pageSize)})`;
+      more.setAttribute('aria-expanded',String(expanded));
+      if(!root.id)root.id='report-search-groups';
+      more.setAttribute('aria-controls',root.id);
     }
-    input.addEventListener('input',render);render();
+    input.addEventListener('input',render);more.addEventListener('click',()=>{expanded=!expanded;render();});render();
+  });
+
+  // v68.30 — progressive discovery for remaining card-based workspaces.
+  document.querySelectorAll('[data-progressive-list]').forEach(root=>{
+    const selector=root.dataset.progressiveItemSelector||'[data-progressive-item]';
+    const items=[...root.querySelectorAll(selector)];
+    const container=root.querySelector('[data-progressive-container]')||root.querySelector('.ui-person-control-grid,.interactive-notification-list');
+    if(!items.length||!container)return;
+    const search=root.querySelector('[data-progressive-search]');
+    const count=root.querySelector('[data-progressive-count]');
+    const pageSize=Math.max(4,Math.min(30,Number.parseInt(root.dataset.pageSize||'8',10)||8));
+    let expanded=false,previousQuery='';
+    let more=root.querySelector('[data-progressive-more]');
+    if(!more){more=document.createElement('button');more.type='button';more.className='ui-btn ui-btn-secondary ui-btn-mini smart-data-more';more.dataset.progressiveMore='';more.hidden=true;container.insertAdjacentElement('afterend',more);}
+    let empty=root.querySelector('[data-progressive-empty]');
+    if(!empty){empty=document.createElement('div');empty.className='ui-empty';empty.dataset.progressiveEmpty='';empty.hidden=true;empty.textContent='لا توجد عناصر تطابق البحث.';container.insertAdjacentElement('afterend',empty);}
+    const normalize=window.normalizeEmployeeSearchText||((v)=>String(v||'').toLocaleLowerCase('ar').trim());
+    function render(){
+      const q=normalize(search?.value||'');if(q!==previousQuery){expanded=false;previousQuery=q;}
+      const matches=items.filter(item=>!q||window.employeeSearchMatches(q,item.dataset.search||item.textContent||''));
+      const limit=expanded?matches.length:pageSize;
+      const visibleSet=new Set(matches.slice(0,limit));
+      items.forEach(item=>{item.hidden=!visibleSet.has(item);});
+      if(count)count.textContent=`عرض ${Math.min(limit,matches.length)} من ${matches.length}`;
+      more.hidden=matches.length<=pageSize;
+      more.textContent=expanded?'عرض أقل':`عرض المزيد (${Math.max(0,matches.length-pageSize)})`;
+      more.setAttribute('aria-expanded',String(expanded));
+      if(search){search.maxLength=120;search.setAttribute('aria-controls',container.id||(container.id='progressive-list-'+Math.random().toString(36).slice(2,8)));}
+      empty.hidden=matches.length>0;
+    }
+    search?.addEventListener('input',render);
+    more.addEventListener('click',()=>{expanded=!expanded;render();});
+    render();
   });
 })();

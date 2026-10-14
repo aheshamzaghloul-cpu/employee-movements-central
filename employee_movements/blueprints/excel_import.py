@@ -15,7 +15,9 @@ from sqlalchemy import func
 
 from ..access import bids, can, gids, has_role, log, req, roles
 from ..extensions import db
-from ..models import Branch, Employee, Governorate
+from ..models import Branch, BranchNameAlias, Employee, EmployeeNameAlias, Governorate, GovernorateNameAlias, TicketEmployeeCodeAlias
+from ..services.entity_matching import normalize_alias_key
+from ..services.ticket_matching import job_code_lookup_variants, normalize_job_code
 from ..validation import valid_email
 
 bp = Blueprint('excel_import', __name__)
@@ -535,19 +537,35 @@ def excel_import_confirm(kind):
             )
         allowed_gids = _excel_scope_governorates()
         errors = []
-        govs = {
-            _excel_key(g.name): g
-            for g in Governorate.query.filter(Governorate.is_active == True, Governorate.id.in_(allowed_gids)).all()
-        }
+        scoped_governorates = Governorate.query.filter(Governorate.is_active == True, Governorate.id.in_(allowed_gids)).all()
+        govs = {_excel_key(g.name): g for g in scoped_governorates}
+        for alias in GovernorateNameAlias.query.filter(GovernorateNameAlias.governorate_id.in_(allowed_gids)).all():
+            owner = next((g for g in scoped_governorates if g.id == alias.governorate_id), None)
+            if owner:
+                govs.setdefault(_excel_key(alias.alias_text), owner)
         branches_by_gov = {}
-        for b in (
-            Branch.query.filter(Branch.is_active == True, Branch.governorate_id.in_(allowed_gids))
-            .all()
-        ):
+        active_import_branches = (
+            Branch.query.filter(Branch.is_active == True, Branch.governorate_id.in_(allowed_gids)).all()
+        )
+        branch_alias_keys_by_id = {}
+        for b in active_import_branches:
             branches_by_gov.setdefault(b.governorate_id, {})[_excel_key(b.name)] = b
+            branch_alias_keys_by_id.setdefault(b.id, set())
+        active_branch_ids_for_import = [b.id for b in active_import_branches]
+        if active_branch_ids_for_import:
+            for alias in BranchNameAlias.query.filter(BranchNameAlias.branch_id.in_(active_branch_ids_for_import)).all():
+                b = next((row for row in active_import_branches if row.id == alias.branch_id), None)
+                if b:
+                    branches_by_gov.setdefault(b.governorate_id, {}).setdefault(_excel_key(alias.alias_text), b)
+                    branch_alias_keys_by_id.setdefault(b.id, set()).add(_excel_key(alias.alias_text))
         actions = []
         if kind == 'governorates':
-            existing = {_excel_key(g.name): g for g in Governorate.query.filter_by(is_active=True).all()}
+            active_existing_governorates = Governorate.query.filter_by(is_active=True).all()
+            existing = {_excel_key(g.name): g for g in active_existing_governorates}
+            for alias in GovernorateNameAlias.query.all():
+                owner = next((g for g in active_existing_governorates if g.id == alias.governorate_id), None)
+                if owner:
+                    existing.setdefault(_excel_key(alias.alias_text), owner)
             pending = set(existing)
             for (rno, row) in enumerate(ws.iter_rows(min_row=2, values_only=False), 2):
                 vals = {k: _mapped_value(row, mapping, k) for k in spec}
@@ -585,7 +603,8 @@ def excel_import_confirm(kind):
                 )
                 if b:
                     changes = {}
-                    if vals['name'] and vals['name'] != b.name:
+                    is_known_alias = _excel_key(vals['name']) in branch_alias_keys_by_id.get(b.id, set())
+                    if vals['name'] and vals['name'] != b.name and not is_known_alias:
                         changes['name'] = {'old': b.name, 'new': vals['name']}
                     if vals['code'] and vals['code'] != b.code:
                         dup = (
@@ -656,10 +675,14 @@ def excel_import_confirm(kind):
             )
             for b in active_import_branches:
                 governorate_key = _excel_key(b.governorate.name)
-                # Names are a compatibility fallback; normalized branch codes
-                # are the primary identifier whenever the workbook supplies one.
-                branch_cache[(governorate_key, _excel_key(b.name))] = b
-                branches_by_name.setdefault(_excel_key(b.name), []).append(b)
+                # Canonical names remain authoritative; aliases locate the same record
+                # but must never rename it just because the workbook used a variant.
+                canonical_key = _excel_key(b.name)
+                branch_cache[(governorate_key, canonical_key)] = b
+                branches_by_name.setdefault(canonical_key, []).append(b)
+                for alias_key in branch_alias_keys_by_id.get(b.id, set()):
+                    branch_cache[(governorate_key, alias_key)] = b
+                    branches_by_name.setdefault(alias_key, []).append(b)
                 if b.code not in (None, ''):
                     code_key = _excel_key(b.code)
                     branches_by_code.setdefault(code_key, []).append(b)
@@ -708,10 +731,30 @@ def excel_import_confirm(kind):
                 _excel_key(e.email): e
                 for e in Employee.query.filter(Employee.email.isnot(None)).all()
             }
-            job_codes = {
-                _excel_key(e.job_code): e
-                for e in Employee.query.filter(Employee.job_code.isnot(None)).all()
-            }
+            code_buckets = {}
+            for employee in Employee.query.filter(Employee.job_code.isnot(None)).all():
+                code_key = normalize_job_code(employee.job_code)
+                for variant in job_code_lookup_variants(code_key):
+                    code_buckets.setdefault(variant, set()).add(employee.id)
+            for alias in TicketEmployeeCodeAlias.query.all():
+                for variant in job_code_lookup_variants(alias.normalized_alias):
+                    code_buckets.setdefault(variant, set()).add(alias.employee_id)
+            all_code_employees = {e.id: e for e in Employee.query.all()}
+            job_codes = {key: all_code_employees[next(iter(ids))] for key, ids in code_buckets.items() if len(ids) == 1}
+            ambiguous_job_codes = {key for key, ids in code_buckets.items() if len(ids) > 1}
+            # Exact official names and confirmed aliases help detect a likely
+            # existing person when a spreadsheet code was mistyped. This is a
+            # duplicate-prevention hint only; it never silently assigns a row.
+            employee_names_by_branch = {}
+            for existing_employee in all_code_employees.values():
+                name_key = _excel_key(existing_employee.full_name)
+                if existing_employee.branch_id and name_key:
+                    employee_names_by_branch.setdefault((existing_employee.branch_id, name_key), set()).add(existing_employee.id)
+            for alias in EmployeeNameAlias.query.all():
+                owner = all_code_employees.get(alias.employee_id)
+                alias_key = _excel_key(alias.alias_text)
+                if owner and owner.branch_id and alias_key:
+                    employee_names_by_branch.setdefault((owner.branch_id, alias_key), set()).add(owner.id)
             seen_job_codes = set()
             seen_emails = set()
             for (rno, row) in enumerate(ws.iter_rows(min_row=2, values_only=False), 2):
@@ -760,17 +803,33 @@ def excel_import_confirm(kind):
                     errors.append(f'صف {rno}: تاريخ التعيين غير صحيح.')
                     continue
                 ck = _excel_key(vals['job_code'])
+                normalized_code = normalize_job_code(vals['job_code'])
+                code_variants = job_code_lookup_variants(normalized_code)
                 ek = _excel_key(vals['email']) if vals['email'] else ''
-                if ck in seen_job_codes:
+                if code_variants & ambiguous_job_codes:
+                    errors.append(f"صف {rno}: الكود الوظيفي يطابق أكثر من موظف بعد مراعاة بادئة 200 أو الأكواد البديلة؛ راجع الكود يدويًا.")
+                    continue
+                if code_variants & {normalize_job_code(seen) for seen in seen_job_codes}:
                     errors.append(f"صف {rno}: الكود الوظيفي مكرر داخل ملف Excel: {vals.get('job_code', '')}.")
                     continue
                 if ek and ek in seen_emails:
                     errors.append(f"صف {rno}: البريد الإلكتروني مكرر داخل ملف Excel: {vals.get('email', '')}.")
                     continue
-                seen_job_codes.add(ck)
+                seen_job_codes.update(code_variants)
                 if ek:
                     seen_emails.add(ek)
                 e = job_codes.get(ck) or (emails.get(ek) if ek else None)
+                name_match_ids = employee_names_by_branch.get((b.id, _excel_key(vals.get('name'))), set())
+                if e and name_match_ids and e.id not in name_match_ids:
+                    errors.append(f"صف {rno}: الكود والبريد يحددان سجلًا، لكن الاسم يطابق موظفًا آخر داخل الفرع؛ راجع الهوية قبل الاستيراد.")
+                    continue
+                if not e and name_match_ids:
+                    if len(name_match_ids) == 1:
+                        possible = all_code_employees.get(next(iter(name_match_ids)))
+                        errors.append(f"صف {rno}: الاسم يطابق موظفًا موجودًا في الفرع ({possible.full_name if possible else 'موظف مسجل'}) لكن الكود الوظيفي أو البريد لا يطابقه؛ صحح المعرف لتجنب إنشاء سجل مكرر.")
+                    else:
+                        errors.append(f"صف {rno}: الاسم يطابق أكثر من موظف داخل الفرع، والكود لا يحسم الهوية؛ راجع الكود والبريد يدويًا.")
+                    continue
                 if e:
                     # If email points to another employee while the job code points to this one, flag it.
                     if (
@@ -788,7 +847,7 @@ def excel_import_confirm(kind):
                     candidate = {
                         'branch_id': b.id,
                         'branch': b.name,
-                        'full_name': vals['name'],
+                        'full_name': e.full_name if e.id in name_match_ids else vals['name'],
                         'email': vals['email'],
                         'job_title': vals['job_title'],
                         'job_code': vals['job_code'],

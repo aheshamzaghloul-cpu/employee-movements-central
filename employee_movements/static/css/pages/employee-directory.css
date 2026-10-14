@@ -188,3 +188,27 @@ body[data-workspace-path="/employees"] .premium-commandbar { display: none !impo
 .ds-directory-page .ds-directory-scope > span:first-child { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 9px; background: #e4f6f6; }
 .ds-directory-page .ds-directory-scope > span:first-child > svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; }
 .ds-directory-page .smart-branch-icon > svg { display: block; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+
+/* v68.28.0 — branch-aware search and progressive employee-directory controls. */
+.smart-directory-caption { max-width:720px; margin:5px 0 0; color:var(--ui-muted); font-size:12px; line-height:1.8; }
+.smart-directory-head-tools { display:grid; justify-items:end; gap:8px; }
+.smart-directory-disclosure-actions { display:flex; flex-wrap:wrap; gap:6px; }
+.smart-directory-disclosure-actions .ui-btn { min-height:30px; }
+.smart-directory-gov[hidden],.smart-directory-branch[hidden],.smart-employee-row[hidden] { display:none!important; }
+.smart-directory-branch>summary { transition:background-color .16s ease,border-color .16s ease; }
+.smart-directory-branch[open]>summary { border-color:#bfe1e4; background:#f5fbfc; }
+@media(max-width:760px) { .smart-directory-head { align-items:flex-start; flex-direction:column; gap:10px; } .smart-directory-head-tools { width:100%; justify-items:start; } .smart-directory-summary { flex-wrap:wrap; } }
+@media(prefers-reduced-motion:reduce) { .smart-directory-branch>summary { transition:none; } }
+
+/* Progressive employee results: eight records per expanded branch by default. */
+.ds-directory-page .smart-employee-results-tools { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 12px 6px; color:var(--ui-muted); font-size:11px; }
+.ds-directory-page .smart-employee-results-tools [hidden] { display:none!important; }
+.ds-directory-page .smart-employee-results { max-height:380px; overflow:auto; overscroll-behavior:contain; }
+@media(max-width:620px) { .ds-directory-page .smart-employee-results-tools { padding-inline:8px; } }
+
+/* v68.32.0 — keep employee search primary while pairing its scope filters. */
+.ds-directory-page .smart-employee-search-form > .smart-filter-cluster { grid-column: span 2; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-content:end; gap:6px 9px; min-width:0; padding:8px 10px; border:1px solid #d8e8e9; border-radius:12px; background:#f7fbfb; }
+.ds-directory-page .smart-filter-cluster-label { margin-bottom:0; }
+.ds-directory-page .smart-filter-cluster label { min-width:0; }
+@media(max-width:600px){.ds-directory-page .smart-employee-search-form > .smart-filter-cluster{grid-column:auto;grid-template-columns:minmax(0,1fr);padding:9px}.ds-directory-page .smart-filter-cluster-label{grid-column:auto}}

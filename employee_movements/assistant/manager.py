@@ -19,6 +19,7 @@ from ..validation import parse_date, valid_email
 from .directory import find_branch, find_employee
 from .movement_queries import resolve_movement_for_employee
 from .manager_resolvers import resolve_active_supervisor_by_name
+from ..services.entity_matching import governorate_search_filter, rank_governorate_suggestions
 from ..assignments import sync_role_accounts
 
 ADMIN_ROLE = 'مسؤول التطبيق'
@@ -29,20 +30,23 @@ def is_app_manager():
 
 
 def _match_gov(name):
+    """Resolve exact/confirmed governorate names; fuzzy results always need a choice."""
     if not name:
         return None, []
-    q = str(name).strip().lower()
-    exact = (Governorate.query.filter(
-        Governorate.is_active == True,
-        Governorate.name.ilike(q),
-    ).order_by(Governorate.name).limit(2).all())
-    if len(exact) == 1:
-        return exact[0], []
-    partial = (Governorate.query.filter(
-        Governorate.is_active == True,
-        Governorate.name.ilike(f'%{q}%'),
-    ).order_by(Governorate.name).limit(11).all())
-    return (partial[0], partial[1:]) if len(partial) == 1 else (None, partial[:10])
+    q = str(name).strip()
+    if not q or len(q) > 120:
+        return None, []
+    scoped = Governorate.query.filter(Governorate.is_active == True)
+    # Shared matcher includes confirmed governorate aliases and Arabic normalization.
+    partial = scoped.filter(governorate_search_filter(q)).order_by(Governorate.name).limit(11).all()
+    if len(partial) == 1:
+        return partial[0], []
+    if partial:
+        return None, partial[:10]
+    pool = scoped.order_by(Governorate.name).limit(2500).all()
+    ranked = rank_governorate_suggestions(q, pool, limit=8)
+    # Approximate matches are suggestions only: never silently target a governorate.
+    return None, [item['governorate'] for item in ranked]
 
 
 def plan(a):

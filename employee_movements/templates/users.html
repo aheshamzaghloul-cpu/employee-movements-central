@@ -31,18 +31,24 @@
         <p class="users-role-note" data-manager-scope-note hidden>يعمل Manager على مستوى المحافظات، ويحدد محافظة العمل من محدد المحافظة في أعلى التطبيق؛ هذا الدور لا يمنح صلاحيات إدارة الحسابات.</p>
         <section class="users-scope-picker" data-create-scope="supervisor" hidden aria-labelledby="createSupervisorScopeTitle">
           <div class="users-subsection-title"><h4 id="createSupervisorScopeTitle">نطاق المشرف</h4><span>اختر محافظة واحدة على الأقل</span></div>
-          <div class="choice-list ui-choice-list compact ui-role-choice-grid users-choice-grid">
-            {% for g in gs %}<label class="choice-item ui-choice-item users-choice-item"><input type="checkbox" name="governorate_id" value="{{g.id}}"><span>{{g.name}}</span></label>{% endfor %}
-          </div>
+          <details class="workspace-optional-options users-governorate-options">
+            <summary><span>تحديد محافظات الإشراف</span><small data-create-scope-summary>لم تُحدد محافظة بعد</small></summary>
+            <div class="choice-list ui-choice-list compact ui-role-choice-grid users-choice-grid">
+              {% for g in gs %}<label class="choice-item ui-choice-item users-choice-item"><input type="checkbox" name="governorate_id" value="{{g.id}}"><span>{{g.name}}</span></label>{% endfor %}
+            </div>
+          </details>
         </section>
       </section>
       <p class="users-role-note" data-admin-permission-note hidden>دور مسؤول التطبيق يمنح الصلاحيات الإدارية الكاملة تلقائيًا؛ لا يلزم اختيار صلاحيات إضافية.</p>
       <section class="users-form-section users-permission-picker" data-create-permission-picker aria-labelledby="createPermissionsTitle">
         <div class="users-subsection-title"><h3 id="createPermissionsTitle">صلاحيات إضافية</h3><span>03 · الصلاحيات</span></div>
         <p class="users-section-help">تُمنح صلاحيات الدور الأساسية تلقائيًا عند الإنشاء؛ الاختيارات التالية تضيف صلاحيات أخرى ولا تلغي الافتراضيات.</p>
-        <div class="choice-list ui-choice-list compact ui-role-choice-grid users-choice-grid">
-          {% for key,label in PERMISSIONS.items() %}{% if 'مسؤول التطبيق' in roles or key in ['manage_employees','manage_movements','view_reports'] %}<label class="choice-item ui-choice-item users-choice-item"><input type="checkbox" name="permissions" value="{{key}}"><span>{{label}}</span></label>{% endif %}{% endfor %}
-        </div>
+        <details class="workspace-optional-options">
+          <summary><span>اختيارات الصلاحيات الإضافية</span><small>افتحها فقط عند الحاجة</small></summary>
+          <div class="choice-list ui-choice-list compact ui-role-choice-grid users-choice-grid">
+            {% for key,label in PERMISSIONS.items() %}{% if 'مسؤول التطبيق' in roles or key in ['manage_employees','manage_movements','view_reports'] %}<label class="choice-item ui-choice-item users-choice-item"><input type="checkbox" name="permissions" value="{{key}}"><span>{{label}}</span></label>{% endif %}{% endfor %}
+          </div>
+        </details>
       </section>
       <div class="users-create-footer"><span>راجع الدور ونطاق العمل قبل الحفظ. يمكن تعديل الحساب والصلاحيات لاحقًا.</span><button class="ui-btn ui-btn-primary" type="submit">إضافة المستخدم</button></div>
     </form>
@@ -55,6 +61,13 @@
     const managerNote=f.querySelector('[data-manager-scope-note]');
     const adminNote=f.querySelector('[data-admin-permission-note]');
     const permissionPicker=f.querySelector('[data-create-permission-picker]');
+    const govChecks=[...f.querySelectorAll('input[name="governorate_id"]')];
+    const govCount=f.querySelector('[data-create-scope-summary]');
+    function updateScopeCount(){
+      const n=govChecks.filter(x=>x.checked).length;
+      if(govCount)govCount.textContent=n?`${n} محافظة محددة`:'لم تُحدد محافظة بعد';
+    }
+    govChecks.forEach(x=>x.addEventListener('change',updateScopeCount));
     function update(){
       const sup=roles.some(x=>x.checked&&x.value==='مشرف محافظة');
       const manager=roles.some(x=>x.checked&&x.value==='Manager Application Support');
@@ -64,17 +77,18 @@
       if(adminNote) adminNote.hidden=!admin;
       if(permissionPicker) permissionPicker.hidden=admin;
     }
-    roles.forEach(x=>x.addEventListener('change',update)); update();
+    roles.forEach(x=>x.addEventListener('change',update)); update(); updateScopeCount();
   })();
   </script>
-<section class="ui-people-control users-people-section" id="people-control">
+<section class="ui-people-control users-people-section" id="people-control" data-progressive-list data-page-size="8">
   <div class="ui-people-control-head">
     <div><span class="eyebrow">إدارة الشخص من مكان واحد</span><h2>مركز التحكم في الأدوار والنطاقات</h2><p>اختر أي شخص لمراجعة هويته، أدواره التقنية والتشغيلية، المحافظات، الفروع، الحسابات الموازية، وتكليف «المدخل الأول» قبل إجراء أي تعديل.</p></div>
     <div class="ui-people-control-legend"><span><i class="ui-dot ui-dot-tech"></i> دور تقني</span><span><i class="ui-dot ui-dot-op"></i> دور تشغيلي</span><span><i class="ui-dot ui-dot-entry"></i> تكليف مدخل أول</span></div>
   </div>
-  <div class="ui-people-control-grid">
+  <div class="users-people-tools"><label><span class="sr-only">بحث في الأشخاص والأدوار والنطاقات</span><input type="search" data-progressive-search maxlength="120" autocomplete="off" placeholder="ابحث بالاسم أو الدور أو المحافظة أو الفرع…"></label><span data-progressive-count aria-live="polite"></span></div>
+  <div class="ui-people-control-grid" data-progressive-container id="usersPeopleGrid">
   {% for item in people_control %}{% set person=item.user %}
-    <article class="ui-person-control-card">
+    <article class="ui-person-control-card" data-progressive-item data-search="{{((person.full_name or '') ~ ' ' ~ (person.username or '') ~ ' ' ~ (person.job_code or '') ~ ' ' ~ (person.job_title or '') ~ ' ' ~ (person.email or '') ~ ' ' ~ (item.roles|join(' ')) ~ ' ' ~ (item.governorates|map(attribute='name')|join(' ')) ~ ' ' ~ (item.branches|map(attribute='name')|join(' ')))|lower|e}}">
       <div class="ui-person-control-top">
         <div class="ui-person-identity"><div class="ui-person-avatar">{{(person.full_name or '؟')[:1]}}</div><div><h3>{{person.full_name}}</h3><span>{{person.job_title or '—'}} · {{person.job_code or '—'}}</span><small>{{person.username}} · {{person.email or 'لا يوجد بريد'}}</small></div></div>
         <div class="ui-person-actions"><a class="ui-btn ui-btn-primary ui-btn-mini" href="/users/{{person.id}}/edit">تعديل الشخص</a>{% if 'مسؤول التطبيق' in roles and person.id!=me.id %}<form class="ui-inline" method="post" action="/users/{{person.id}}/toggle"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="ui-btn-secondary ui-btn-mini">{{'تعطيل' if person.is_active else 'تفعيل'}}</button></form>{% endif %}</div>

@@ -55,7 +55,7 @@ def test_admin_contextual_assistant_buttons_do_not_use_browser_default_styling()
 
 def test_cache_busting_is_synchronized_for_the_shared_stylesheet_and_scripts():
     version = (ROOT / 'VERSION.md').read_text(encoding='utf-8').strip()
-    assert BASE.count(f'v={version}') == 13
+    assert BASE.count(f'v={version}') == 14
     for stale_version in ('68.22.57', '68.22.56', '68.22.55', '68.22.54', '68.22.52', '68.22.51', '68.22.50'):
         if stale_version != version:
             assert f'v={stale_version}' not in BASE

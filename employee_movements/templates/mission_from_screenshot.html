@@ -22,12 +22,12 @@
     <form method="post" action="/missions/from-screenshot/scan" enctype="multipart/form-data" class="ticket-image-upload-form">
       <input type="hidden" name="_csrf" value="{{ csrf }}">
       <label class="ticket-image-dropzone" for="ticketScreenshot">
-        <span class="ticket-image-drop-icon" aria-hidden="true">↑</span>
+        <span class="ticket-image-drop-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 16v4h16v-4"/></svg></span>
         <strong>اختر صورة من جهازك</strong>
         <span>يفضل أن تشمل الصورة الحقول والتواريخ كاملة وبوضوح</span>
         <input id="ticketScreenshot" type="file" name="screenshot" accept="image/png,image/jpeg,image/webp" required>
       </label>
-      <div class="ticket-image-privacy"><span aria-hidden="true">🔒</span> تتم قراءة الصورة محليًا على خادم التطبيق. لا تُحفظ الصورة في قاعدة البيانات أو ملفات المشروع، ولا تُرسل إلى خدمة ذكاء اصطناعي خارجية.</div>
+      <div class="ticket-image-privacy"><svg class="ticket-image-privacy-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> تتم قراءة الصورة محليًا على خادم التطبيق. لا تُحفظ الصورة في قاعدة البيانات أو ملفات المشروع، ولا تُرسل إلى خدمة ذكاء اصطناعي خارجية.</div>
       <button class="ui-btn ui-tone-teal" type="submit">قراءة الحقول السبعة</button>
     </form>
   </section>

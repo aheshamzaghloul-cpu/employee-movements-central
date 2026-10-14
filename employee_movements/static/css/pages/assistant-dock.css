@@ -1,0 +1,67 @@
+/* v68.44.2 — shared assistant dock and chat surfaces.
+   Loaded only for authenticated sessions where the assistant is available. */
+/* Assistant: an unobtrusive icon-only launcher with an accessible name. */
+.assistant-visually-hidden {
+  position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important;
+  margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important; border: 0 !important;
+}
+.assistant-dock { width: auto; }
+.assistant-dock-trigger {
+  position: relative;
+  display: grid !important; place-items: center !important; gap: 0 !important;
+  width: 46px !important; min-width: 46px !important; height: 46px !important; min-height: 46px !important;
+  padding: 5px !important; border: 1px solid #cfe4f3 !important; border-radius: 15px !important;
+  background: linear-gradient(145deg, #fff, #f2f9ff) !important;
+  color: #176c9d !important; box-shadow: 0 4px 13px rgba(20, 96, 142, .075) !important;
+}
+.assistant-dock-trigger .basyouni-mark {
+  display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 34px;
+  border: 1px solid #cfe5f5; border-radius: 11px; background: #e8f5ff !important; color: #126c9b !important;
+}
+.assistant-dock-trigger .basyouni-mark svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.assistant-dock-trigger:hover,
+.assistant-dock[data-open="1"] .assistant-dock-trigger {
+  border-color: #8fc6e6 !important; background: #edf8ff !important;
+  box-shadow: 0 0 0 3px rgba(20, 124, 173, .1), 0 7px 17px rgba(20, 96, 142, .08) !important;
+}
+.assistant-dock-presence { position: absolute; inset-inline-start: 2px; inset-block-start: 2px; width: 7px; height: 7px; border: 1px solid #fff; background: #21a575; box-shadow: 0 0 0 3px #e4f7ef; }
+.assistant-dock-panel-head b { font-size: 14px !important; color: var(--ui-ink); }
+.assistant-dock-panel-head small { font-size: 11px !important; line-height: 1.65; color: var(--ui-muted) !important; }
+.assistant-dock-panel {
+  width: min(390px, calc(100vw - 24px)) !important; max-width: calc(100vw - 24px) !important;
+  border: 1px solid #d8e8f3 !important; border-radius: 20px !important;
+  box-shadow: 0 20px 54px rgba(17, 61, 91, .18) !important;
+}
+.assistant-dock-panel-head { background: linear-gradient(115deg, #f4faff, #fff); }
+.assistant-dock-context { border-color: #d9e9f4 !important; background: #f1f8fd !important; color: #36576e !important; }
+.assistant-dock-thread .chat-bubble { max-width: 100%; overflow-wrap: anywhere; border-radius: 14px; }
+.assistant-dock-composer { gap: 8px; }
+.assistant-dock-composer input { min-width: 0; min-height: 42px; border-radius: 12px !important; }
+.assistant-dock-send { min-height: 42px; min-width: 56px; border-radius: 12px !important; background: linear-gradient(135deg, #147cad, #126c9b) !important; }
+.assistant-chat-shell { display: grid; grid-template-rows: auto minmax(300px, 1fr) auto; gap: 0; overflow: hidden; border: 1px solid #dce9f3; border-radius: 20px; background: #fff; box-shadow: 0 8px 26px rgba(20, 79, 117, .055); }
+.assistant-chat-topbar { min-width: 0; padding: 15px 18px; border-bottom: 1px solid #e5eef5; background: linear-gradient(110deg, #f2f9ff, #fff 72%); }
+.assistant-chat-body { min-height: 300px; max-height: min(67vh, 760px); overflow: auto; padding: clamp(13px, 2vw, 24px); background: #fbfdff; overscroll-behavior: contain; }
+.assistant-chat-input { align-items: end; gap: 9px; padding: 12px; border-top: 1px solid #e5eef5; background: #fff; }
+.assistant-chat-input textarea { min-width: 0; border-color: #d8e7f1; border-radius: 13px; background: #f8fcff; }
+.assistant-chat-input textarea:focus-visible { outline: 3px solid rgba(20,124,173,.2); outline-offset: 1px; }
+.assistant-chat-input button { display: grid; place-items: center; width: 46px; min-width: 46px; height: 46px; border-radius: 13px; background: #147cad; color: #fff; }
+.assistant-chat-input button:hover { background: #126c9b; }
+.assistant-chat-shell :is(button,a):focus-visible,
+.assistant-dock-panel :is(button,a,input):focus-visible { outline: 3px solid rgba(20,124,173,.2); outline-offset: 2px; }
+.chat-msg { margin-block: 10px; }
+.chat-bubble { overflow-wrap: anywhere; line-height: 1.85; }
+.chat-topic-grid button, .chat-suggestions button { border-color: #dce9f3; background: #fff; }
+.chat-topic-grid button:hover, .chat-suggestions button:hover { border-color: #a8d2ed; background: #f1f8ff; }
+
+@media (max-width: 620px) {
+  .assistant-dock-trigger { width: 42px !important; min-width: 42px !important; height: 42px !important; min-height: 42px !important; }
+  .assistant-dock-trigger .basyouni-mark { width: 31px; height: 31px; flex-basis: 31px; }
+  .assistant-dock-panel { position: fixed !important; inset-inline: 10px !important; inset-block-end: 68px !important; width: auto !important; max-width: none !important; }
+  .assistant-chat-shell { border-radius: 15px; }
+  .assistant-chat-body { max-height: 58vh; }
+  .assistant-chat-input { padding: 9px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .assistant-dock-trigger, .assistant-chat-shell :is(button,a), .assistant-dock-panel :is(button,a) { transition: none !important; transform: none !important; }
+}

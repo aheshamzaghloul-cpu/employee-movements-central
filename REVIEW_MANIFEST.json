@@ -1,180 +1,156 @@
 {
-  "version": "68.36.0",
-  "title": "Context-conflict safeguards for confidence-aware intelligent matching",
-  "scope": "Arabic-aware multi-evidence identity ranking and safe identity decisions for employees across homepage, employee directory, movement forms, assistant and screenshot ticket matching; scoped confirmed aliases and no automatic writes from fuzzy matches. Added conflict blocking when a unique identity code contradicts fuzzy employee-name, basic-branch or governorate context.",
-  "template_count": 46,
-  "pages_redesigned": [
-    "Homepage global employee search and dashboard employee finder",
-    "/employees — directory and edit-data search",
-    "/movements — employee/branch pickers and movement worklist",
-    "/branches and /governorates — confirmed alternate names in catalog search",
-    "Assistant tools and directory — employees, branches, governorates",
-    "Admin assistant governorate resolution",
-    "Excel employee import — alias-aware duplicate detection",
-    "Client-side table, catalog, delegation and dashboard filters"
-  ],
-  "page_stylesheet": {
-    "file": "employee_movements/static/css/pages/workspace-pages.css",
-    "condition": "catalog routes /branches and /governorates use shared workspace sheet; employee directory uses dedicated stylesheet"
-  },
-  "shared_css_bytes": 242323,
-  "shared_css_lines": 2788,
-  "shared_css_media_blocks": 106,
-  "shared_css_important_occurrences": 616,
-  "page_css_bytes": 124582,
-  "page_css_lines": 1381,
-  "css_files_checked": 6,
-  "css_parse_errors": 0,
-  "js_files_checked": 8,
-  "js_syntax_errors": 0,
-  "python_source_compile_errors": 0,
-  "contract_test_count": 272,
-  "contract_test_status": "passed",
-  "contract_test_summary": "272 contract tests passed for v68.36.0. 15 isolated matcher behavior tests were invoked directly; five runtime contract checks cover exact-code conflicts with fuzzy employee-name, basic-branch and governorate context plus safe handling of spelling noise. 46 Jinja templates, 8 JavaScript files, 6 CSS files and 172 Python files passed syntax checks. UI integrity, 59 POST route checks and 13 homepage/workflow contracts passed. Full Flask integration tests could not start because Flask is absent in the review environment.",
-  "full_flask_tests": "attempted_not_run: ModuleNotFoundError: Flask is not installed; no live app or database test is claimed.",
-  "backend_business_logic_changed": "Added conservative context conflict blocking to the shared identity resolver. A unique code/name cannot prefill a record if fuzzy employee-name, basic-branch or governorate context strongly points to another authorized candidate; exact governorate mismatch is checked alongside branch context. Similarity is used to block unsafe prefill only, never to auto-select an alternative. No deployment or production database changes.",
-  "production_deployed": false,
-  "production_database_changed": false,
-  "report": "docs/design/CONFIDENCE_MATCHING_V68.36.0.md",
-  "form_inventory": "docs/design/MOVEMENT_FORM_INVENTORY_v68.23.2.md",
-  "blueprint": "docs/design/DESIGN_SYSTEM_BLUEPRINT_v68.23.2.md",
-  "base_asset_cache_busters": 14,
-  "jinja_template_parse_errors": 0,
-  "css_recursive_parse_errors": 0,
-  "css_cleanup": {
-    "method": "Removed only CSS rules whose complete declaration sets were provably superseded by later declarations for the same selector and matching at-rule context; retained unique or uncertain rules. Changed a defined set of legacy charcoal color remnants to shared light/cyan theme tokens. Did not blindly remove all !important declarations.",
-    "fully_removed_qualified_rules": 191,
-    "bytes_removed_from_duplicate_rule_text": 14176,
-    "app_css_bytes_before": 238394,
-    "app_css_bytes_after": 224819,
-    "app_css_lines_after": 2615,
-    "important_before": 637,
-    "important_after": 586,
-    "palette_review_colors_remaining": {
-      "#252b33": 0,
-      "#171b20": 0,
-      "#191d22": 0,
-      "#2b3138": 0,
-      "#3c444e": 0
-    },
-    "sidebar": "light white/cyan surface with dark readable nav text and a low-glow active state"
-  },
-  "page_stylesheet_map": "docs/design/PAGE_STYLESHEET_MAP_v68.29.0.md",
-  "current_phase_verification": {
-    "release": "68.36.0",
+  "version": "68.45.0",
+  "title": "Premium sky-blue homepage composition aligned to the selected design concept",
+  "scope": "Actual homepage template composition redesign: hero hierarchy, four compact quick actions, separated operational workbench for movement registration and all-governorates employee search, preserving the existing forms, permissions, links, and single work-governorate selector in the topbar.",
+  "results": {
     "contract_tests": {
-      "collected": 272,
-      "passed": 272,
+      "collected": 348,
+      "passed": 348,
+      "failed": 0,
       "status": "passed"
     },
-    "isolated_matching_behavior_tests": {
-      "collected": 15,
-      "passed": 15,
+    "home_workflow_contracts": {
+      "passed": 13,
+      "failed": 0,
       "status": "passed"
     },
-    "python_ast": {
-      "sources_checked": 172,
-      "errors": 0,
-      "status": "passed"
-    },
-    "javascript_syntax": {
-      "standalone_files_checked": 8,
-      "errors": 0,
-      "status": "passed"
-    },
+    "post_routes_reviewed": 59,
+    "post_route_security": "POST_ROUTE_SECURITY=OK",
+    "ui_integrity": "UI_INTEGRITY=OK (templates=46, css_files=10, js_files=8)",
     "jinja_templates": {
-      "total": 46,
+      "count": 46,
       "parse_errors": 0,
       "status": "passed"
     },
-    "css_parse": {
-      "files_checked": 6,
-      "errors": 0,
-      "parser": "tinycss2",
+    "css": {
+      "count": 10,
+      "parse_errors": 0,
+      "parser": "tinycss2 recursive stylesheet/rule/declaration checks",
       "status": "passed"
     },
-    "ui_integrity": {
-      "status": "passed",
-      "templates": 46,
-      "css_files": 6,
-      "js_files": 8
-    },
-    "post_route_security_review": {
-      "status": "passed",
-      "routes_reviewed": 59
-    },
-    "homepage_workflow_contracts": {
-      "status": "passed",
-      "checks": 13
-    },
-    "full_flask_tests": "attempted_not_run: ModuleNotFoundError: Flask is not installed; no live app or database test is claimed.",
-    "context_conflict_runtime_tests": {
-      "collected": 5,
-      "passed": 5,
+    "javascript": {
+      "count": 8,
+      "syntax_errors": 0,
+      "parser": "node --check",
       "status": "passed"
+    },
+    "python": {
+      "source_files_in_app_tests_scripts": 192,
+      "compile_errors": 0,
+      "parser": "python -m compileall for application, tests, contracts and scripts, plus root-level utilities",
+      "status": "passed"
+    },
+    "css_custom_properties": {
+      "defined": 110,
+      "used": 77,
+      "undefined_references": 0,
+      "root_blocks": 1
+    },
+    "legacy_palette_targets": {
+      "remaining_matches": 0,
+      "status": "passed"
+    },
+    "visual_review": {
+      "rendered_templates_and_states": 1,
+      "viewport_widths": [
+        1440,
+        390
+      ],
+      "screenshots": 2,
+      "pixel_identical_before_after": null,
+      "changed_screenshots": 2,
+      "browser_errors": 0,
+      "horizontal_overflows": 0,
+      "source": "Actual modified home.html/base.html rendered via Jinja with synthetic Admin context; local CSS assets inlined for Chromium screenshots; page scripts removed for deterministic visual review.",
+      "status": "passed_local_template_preview_not_e2e"
+    },
+    "base_cache_buster_references": 18,
+    "full_pytest_suite": {
+      "status": "could_not_start",
+      "reason": "ModuleNotFoundError: No module named flask at tests/conftest.py before test collection; contract_tests ran separately and passed."
+    },
+    "css_cleanup_intra_stylesheet_previous_release": {
+      "shadowed_declarations_removed": 324,
+      "removed_by_file": {
+        "app.css": 284,
+        "design-system-cyan.css": 40
+      },
+      "status": "historical_v68_44_5"
+    },
+    "home_redesign": {
+      "quick_action_links": 4,
+      "workbench_cards": 2,
+      "search_is_separate_from_registration": true,
+      "work_governorate_selector": "topbar only",
+      "desktop_screenshot": "docs/design/preview-v68.45.0/home-desktop.png",
+      "mobile_screenshot": "docs/design/preview-v68.45.0/home-mobile.png",
+      "preview_results": "docs/design/preview-v68.45.0/preview-results.json",
+      "status": "passed_local_visual_preview"
+    },
+    "css_cleanup_v68_44_5_historical": {
+      "shadowed_declarations_removed_this_release": 324,
+      "removed_by_file": {
+        "app.css": 284,
+        "design-system-cyan.css": 40
+      },
+      "remaining_candidates_under_conservative_exact_selector_context_audit": 0,
+      "duplicate_properties_in_same_rule_protected": true,
+      "comments_grouped_selectors_and_parse_oddities_protected": true,
+      "custom_property_names_case_sensitive": true,
+      "important_priority_respected": true,
+      "legacy_audit_helper_hardened_to_preserve_fallbacks": true,
+      "status": "passed_historical_intra_stylesheet_cleanup"
+    },
+    "cross_stylesheet_cleanup_v68_44_6_historical": {
+      "removed_declarations_this_release": 383,
+      "by_file": {
+        "app.css": 261,
+        "employee-directory.css": 18,
+        "home.css": 75,
+        "management.css": 16,
+        "movement-forms.css": 7,
+        "workspace-pages.css": 6
+      },
+      "remaining_candidates_on_rerun": 0,
+      "status": "passed_cross_stylesheet_cleanup"
     }
   },
-  "previous_movement_phase_responsive_viewport_cases": 12,
-  "previous_movement_phase_responsive_viewports": [
-    {
-      "width": 1440,
-      "height": 900
-    },
-    {
-      "width": 390,
-      "height": 844
-    },
-    {
-      "width": 320,
-      "height": 700
-    }
+  "stylesheet_policy": {
+    "canonical_tokens": "Only in employee_movements/static/css/app.css; design-system-cyan.css contains component-specific rules.",
+    "shared_design_system": "Loaded globally after legacy and route-specific CSS.",
+    "admin_reports_stylesheet": "Loaded only on relevant administration/report/manager/audit routes.",
+    "assistant_stylesheet": "Loaded for authenticated workspace sessions.",
+    "page_files": [
+      "employee_movements/static/css/pages/home-journey.css",
+      "employee_movements/static/css/pages/admin-reports-assistant.css",
+      "employee_movements/static/css/pages/assistant-dock.css"
+    ],
+    "movement_forms_stylesheet": "Loaded for /movements*, /missions/from-screenshot*, /reports/assignments/mission-edit* and /reports/assignments/edit-requests*.",
+    "css_shadowing_audit": "scripts/audit_css_shadowing.py, scripts/cleanup_shadowed_declarations_v68_44_5.py, and scripts/cleanup_cross_stylesheet_shadow_v68_44_6.py; all safe exact-selector/context candidates return zero after cleanup.",
+    "homepage_stylesheet": "css/pages/home-journey.css; loaded only when request.path == '/', after design-system-cyan.css"
+  },
+  "behavioral_scope": {
+    "business_logic_changed": false,
+    "permission_rules_changed": false,
+    "form_field_names_changed": false,
+    "database_schema_changed": false,
+    "production_database_changed": false,
+    "deployed": false
+  },
+  "limitations": [
+    "The new homepage composition is based on the existing Jinja template and retains the existing registration/search forms, route destinations, role gates and single topbar work-governorate selector.",
+    "Local Chromium previews were rendered from the modified Jinja templates using a synthetic Admin context and mock data; JavaScript was omitted for deterministic screenshots. No live Flask session or production database was used.",
+    "All 46 Jinja templates, 10 CSS files, JavaScript syntax, and Python compilation checks passed. The 348 contract tests, 13 workflow source-contract checks, and 59 POST-route security review passed.",
+    "The full Flask test suite could not start because Flask is not installed in the review environment. No deployment to GitHub or Blitz was performed."
   ],
-  "previous_movement_phase_responsive_horizontal_overflow": false,
-  "previous_movement_phase_interaction_groups": 4,
-  "previous_movement_phase_interaction_status": "passed",
-  "previous_movement_phase_javascript_page_errors": 0,
-  "previous_movement_phase_interaction_fixture_file": "docs/design/INTERACTION_CHECKS_v68.23.2.json",
-  "previous_movement_phase_page_errors": 0,
-  "previous_movement_phase_interaction_test_groups": [
-    "movement create and dependent choices",
-    "movement edit open assignment and date validation",
-    "mission edit date validation",
-    "manager review state-dependent end date requirement"
-  ],
-  "previous_movement_phase_hidden_field_validation_reset_test": "passed: invalid leave/assignment end-date constraints do not block a valid permission after switching movement type",
-  "page_stylesheets": [
-    {
-      "file": "employee_movements/static/css/pages/home.css",
-      "condition": "request.path == /"
-    },
-    {
-      "file": "employee_movements/static/css/pages/employee-directory.css",
-      "condition": "request.path == /employees"
-    },
-    {
-      "file": "employee_movements/static/css/pages/movement-forms.css",
-      "condition": "movement and mission edit-request routes"
-    },
-    {
-      "file": "employee_movements/static/css/pages/management.css",
-      "condition": "/structure, /users, /delegations"
-    },
-    {
-      "file": "employee_movements/static/css/pages/workspace-pages.css",
-      "condition": "catalog, import, report, manager, notification, account, employee detail/edit and replacement routes, excluding movement form subroutes"
-    }
-  ],
-  "app_css_important_occurrences": 616,
-  "final_visual_review_limits": "No live Flask/browser/database session was available for this phase. Verification is based on contracts, source checks, syntax analysis, and Python compilation. Production remains unchanged.",
-  "local_qa_report": "docs/design/QA_CONFIDENCE_MATCHING_V68.36.0.md",
-  "ticket_matching": {
-    "official_code_normalization": "passed_contract_tests",
-    "missing_200_prefix": "auto-resolve_only_if_unique",
-    "fuzzy_employee_code": "manual_choice_only",
-    "branch_code_auto_selection": "only_when_unique_across_all_active_branches",
-    "explicit_alias_learning": "required",
-    "alias_persistence": "after_successful_mission_creation_in_same_transaction",
-    "privacy_masking": "learned_code_aliases_added_to_local_screening",
-    "database_schema_created_in_production": false
+  "artifacts": {
+    "qa_review": "docs/QA_REVIEW_v68.45.0.md",
+    "page_stylesheet_map": "docs/design/PAGE_STYLESHEET_MAP_v68.45.0.md",
+    "home_visual_review": "docs/design/HOME_REDESIGN_VISUAL_REVIEW_v68.45.0.md",
+    "visual_diff": "docs/design/HOME_REDESIGN_VISUAL_DIFF_v68.45.0.json",
+    "desktop_preview": "docs/design/preview-v68.45.0/home-desktop.png",
+    "mobile_preview": "docs/design/preview-v68.45.0/home-mobile.png",
+    "preview_results": "docs/design/preview-v68.45.0/preview-results.json",
+    "home_redesign_visual_diff": "docs/design/HOME_REDESIGN_VISUAL_DIFF_v68.45.0.json"
   }
 }

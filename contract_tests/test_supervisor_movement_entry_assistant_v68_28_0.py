@@ -43,11 +43,11 @@ def test_movement_picker_checks_api_response_and_uses_selected_employee_id():
     assert "employeeId.value=e.id; detailsStep.hidden=false; selectedEmployee.innerHTML=''" in MOVEMENTS
 
 
-def test_home_choose_employee_action_scrolls_and_focuses_the_search_field():
-    assert 'id="homeChooseEmployeeAction"' in HOME
-    assert "chooseEmployeeAction?.addEventListener('click'" in HOME
-    assert "employeeSearchSection?.scrollIntoView" in HOME
-    assert "employeeSearchInput?.focus({preventScroll:true})" in HOME
+def test_home_movement_action_opens_the_dedicated_movement_wizard():
+    assert 'id="homeStartMovementAction"' in HOME
+    assert 'href="/movements#movement-create"' in HOME
+    assert 'id="homeChooseEmployeeAction"' not in HOME
+    assert "employeeSearchSection?.scrollIntoView" not in HOME
 
 
 def test_first_entry_branches_expand_and_employee_rows_link_to_employee_profiles():

@@ -1,0 +1,171 @@
+/* v68.44.2 — route-specific administration, reports, permissions, manager and audit refinement.
+   Loaded only on relevant workspace routes after the canonical sky-blue design system. */
+/* Administration, reports, access management and audit refinements. */
+
+/* Administration: calm command center, clear action hierarchy and restrained navy. */
+body[data-workspace-path^="/structure"] .admin-workspace { gap: 20px; }
+.admin-workspace .admin-ai-hero {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #d5e8f7;
+  border-inline-start: 4px solid #173f5c;
+  background: linear-gradient(112deg, #e6f4ff 0%, #f8fcff 54%, #fff 100%);
+}
+.admin-workspace .admin-ai-hero::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  width: 5px;
+  background: linear-gradient(180deg, #147cad, #b9e5fb);
+  opacity: .72;
+}
+.admin-workspace .admin-ai-kpi {
+  position: relative;
+  overflow: hidden;
+  border-color: #dfebf4;
+  transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+.admin-workspace .admin-ai-kpi::after {
+  content: "";
+  position: absolute;
+  inset-inline: 14px auto;
+  inset-block-end: 0;
+  width: 34px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: #b9e5fb;
+}
+.admin-workspace .admin-ai-kpi:hover {
+  border-color: #9ecce8;
+  box-shadow: 0 9px 23px rgba(19, 91, 133, .085);
+  transform: translateY(-2px);
+}
+.admin-workspace .admin-ai-panel-head { gap: 12px; }
+.admin-workspace .admin-ai-live { border: 1px solid #c9e6f7; background: #eef8ff; color: #176c9d; }
+.admin-workspace .admin-ai-signal { border-radius: 13px; }
+.admin-workspace .admin-ai-signal-actions a,
+.admin-workspace .admin-ai-link { text-underline-offset: 3px; }
+
+/* Users and permissions: legible form hierarchy without overboxing every control. */
+.users-workspace, .user-edit-workspace, .delegation-workspace { gap: 18px; }
+.users-workspace .users-page-head,
+.user-edit-workspace .user-edit-page-head,
+.delegation-workspace > .ui-page-head { padding-block: 4px 8px; }
+.users-workspace .users-create-card,
+.user-edit-workspace .user-edit-card,
+.delegation-workspace .delegation-create-card,
+.delegation-workspace #delegation-history { border-color: #dfeaf3; box-shadow: 0 4px 18px rgba(20, 79, 117, .045); }
+.users-workspace .users-form-section,
+.user-edit-workspace .workflow-form-section { background: #fbfdff; border-color: #e2edf5; }
+.users-workspace .users-subsection-title,
+.user-edit-workspace .workflow-form-section-head { border-color: #e5eef5; }
+.users-workspace .users-subsection-title > span,
+.user-edit-workspace .workflow-form-section-head > span { color: #587c96; }
+.users-workspace .users-choice-item:has(input:checked),
+.user-edit-workspace .ui-choice-item:has(input:checked) {
+  border-color: #8fc6e6;
+  background: #eef8ff;
+  color: #145c86;
+  box-shadow: inset 0 0 0 1px rgba(20, 124, 173, .045);
+}
+.users-workspace .users-choice-item:hover,
+.user-edit-workspace .ui-choice-item:hover { border-color: #b8d9ed; background: #f7fbff; }
+.users-workspace .users-role-note,
+.users-workspace .users-scope-picker { border-color: #cfe4f3; background: #f1f8fd; color: #285773; }
+.users-workspace .users-account-table > .ui-section-title { border-bottom: 1px solid #e7eff5; }
+.users-workspace .users-account-table tbody tr:hover,
+.delegation-workspace .delegation-table tbody tr:hover { background: #f5faff; }
+.users-workspace :is(input, select, textarea):focus-visible,
+.user-edit-workspace :is(input, select, textarea, button):focus-visible,
+.delegation-workspace :is(input, select, textarea, button):focus-visible {
+  outline: 3px solid rgba(20, 124, 173, .2);
+  outline-offset: 2px;
+}
+.users-workspace .users-create-footer { border-top-color: #e3edf4; }
+.delegation-workspace .delegation-create-card { border-top: 3px solid #147cad; }
+.delegation-workspace .ui-delegation-summary > div { border: 1px solid #e0ebf4; background: #fff; }
+.delegation-workspace .ui-delegation-tabs button { min-height: 38px; }
+.delegation-workspace .ui-revoke-form { gap: 7px; }
+
+/* Reports: action catalog, filters, metrics and dense results use one rhythm. */
+body[data-workspace-path^="/reports"] .ui-report-page-head,
+body[data-workspace-path^="/reports-missions"] .ui-report-page-head {
+  display: flex; justify-content: space-between; align-items: center; gap: 18px;
+  padding: 4px 0 8px; margin-bottom: 16px;
+}
+.ui-report-page-head > div:first-child { min-width: 0; }
+.ui-report-page-head h1 { margin: 0; color: var(--ui-ink); font-size: clamp(25px, 2.2vw, 32px); line-height: 1.35; letter-spacing: -.025em; }
+.ui-report-page-head p { max-width: 78ch; margin: 5px 0 0; color: var(--ui-muted); line-height: 1.8; }
+.ui-report-catalog { margin-block: 0 18px; }
+.ui-report-group { min-width: 0; padding: clamp(15px, 1.8vw, 22px); border: 1px solid #e0ebf4; border-radius: 18px; background: #fff; box-shadow: var(--ui-shadow-card); }
+.ui-report-group-head { align-items: center; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid #e8f0f6; }
+.ui-report-group-icon { display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 44px; border: 1px solid #d2eafa; border-radius: 13px; background: #edf8ff; color: #176c9d; }
+.ui-report-group-icon .ui-icon { width: 21px; height: 21px; }
+.ui-report-link-grid { gap: 9px; padding-top: 14px; }
+.ui-report-link-grid > a {
+  min-width: 0; padding: 13px; border: 1px solid #e3edf5; border-radius: 13px;
+  background: #fbfdff; transition: background .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+.ui-report-link-grid > a:hover { border-color: #a8d2ed; background: #f2f9ff; box-shadow: 0 7px 18px rgba(20, 96, 142, .065); transform: translateY(-1px); }
+.ui-report-link-grid > a:focus-visible,
+.smart-report-metric:focus-visible,
+.smart-report-actions > a:focus-visible,
+.smart-report-attention-item:focus-visible { outline: 3px solid rgba(20, 124, 173, .2); outline-offset: 3px; }
+.ui-report-link-grid > a > span { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 11px; background: #eaf6ff; color: #176c9d; }
+.ui-report-link-grid > a > span .ui-icon { width: 19px; height: 19px; }
+.ui-report-link-grid > a > b { color: #17364f; }
+.ui-report-link-grid > a > small { color: #6e8295; line-height: 1.75; }
+.ui-report-stat-grid { gap: 12px; }
+.ui-report-stat { border: 1px solid #e1ebf3; border-radius: 16px; box-shadow: 0 3px 11px rgba(19, 63, 94, .035); }
+.ui-report-stat.total { border-top-color: #147cad; }
+.ui-report-quick-filter-card { padding: clamp(14px, 1.7vw, 21px); border-color: #dfeaf3; }
+.ui-report-launch-form { align-items: end; gap: 12px; }
+.ui-report-launch-form label { min-width: 0; }
+.ui-report-launch-form select { min-height: 44px; }
+.smart-reports-workspace { gap: 18px; }
+.smart-report-metric { border-radius: 17px; }
+.smart-report-command-grid > .ui-work-card,
+.smart-report-live-grid > .ui-work-card { border-color: #dfeaf3; box-shadow: 0 4px 18px rgba(20, 79, 117, .04); }
+.smart-report-actions > a { min-height: 116px; border-color: #e0ebf4; border-radius: 14px; padding: 15px; }
+.smart-report-note { border-color: #cfe4f3; background: #f1f8fd; }
+.ui-mission-filter-card { border-color: #dfeaf3; box-shadow: 0 4px 18px rgba(20, 79, 117, .04); }
+.ui-mission-filter-card .smart-option-group { border-color: #e0ebf4; border-radius: 14px; }
+.ui-mission-filter-card .workspace-advanced-filters { border-color: #dbe9f3; border-radius: 13px; }
+.ui-mission-filter-card .workspace-advanced-filters > summary { min-height: 46px; padding: 10px 13px; }
+.ui-mission-results { border: 1px solid #dfeaf3; border-radius: 17px; }
+.ui-mission-results > .ui-section-title { padding: 16px 18px; border-bottom: 1px solid #e5eef5; margin: 0; }
+.ui-mission-table thead th { background: #f1f8fd; color: #315a76; border-bottom-color: #dce9f2; }
+.ui-mission-table tbody tr { transition: background .12s ease; }
+.ui-mission-table tbody tr:hover { background: #f7fbff; }
+.ui-mission-actions { min-width: 150px; }
+.ui-mission-actions form { display: flex !important; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ui-mission-actions input { min-width: 150px; max-width: 210px; }
+
+/* Manager and audit pages get a clear page frame and readable data rows. */
+body[data-workspace-path="/manager"] > .ui-shell .manager-hub-workspace { display: grid; gap: 18px; }
+body[data-workspace-path="/manager"] .ui-grid-3-gap-16 > .ui-card { border: 1px solid #dfeaf3; border-radius: 17px; box-shadow: 0 4px 18px rgba(20, 79, 117, .04); }
+body[data-workspace-path="/manager"] .ui-grid-3-gap-16 > .ui-card h2 { line-height: 1.45; }
+body[data-workspace-path="/manager"] .ui-card .ui-mission-table tbody tr:hover { background: #f5faff; }
+body[data-workspace-path^="/audit"] .audit-workspace { display: grid; gap: 16px; }
+body[data-workspace-path^="/audit"] .audit-table-card { border: 1px solid #dfeaf3; border-radius: 17px; box-shadow: 0 4px 18px rgba(20, 79, 117, .04); }
+body[data-workspace-path^="/audit"] .audit-table-card table thead th { position: sticky; top: 0; z-index: 1; background: #f1f8fd; color: #315a76; }
+body[data-workspace-path^="/audit"] .audit-table-card tbody tr:hover { background: #f5faff; }
+
+@media (max-width: 900px) {
+  .admin-workspace .admin-ai-hero { border-inline-start-width: 3px; }
+  .ui-report-group { padding: 14px; }
+  .ui-report-page-head { align-items: stretch !important; }
+  .ui-report-page-head > .ui-btn { align-self: flex-start; }
+}
+@media (max-width: 620px) {
+  .ui-report-page-head > .ui-btn { width: 100%; justify-content: center; }
+  .ui-report-group-head { align-items: flex-start; }
+  .ui-report-stat-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .ui-report-launch-form { align-items: stretch; }
+  .ui-report-launch-form > button { width: 100%; }
+  .ui-mission-results > .ui-section-title { padding: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-workspace .admin-ai-kpi, .ui-report-link-grid > a, .smart-report-metric, .smart-report-actions > a { transition: none !important; transform: none !important; }
+}

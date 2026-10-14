@@ -12,7 +12,9 @@ EMPLOYEE_ROUTES = (ROOT / "employee_movements/blueprints/employees.py").read_tex
 
 
 def test_assistant_has_a_clear_named_launcher_and_preserves_accessibility():
-    assert 'class="assistant-dock-copy"><strong>بسيوني</strong><small>في خدمتك</small>' in DOCK
+    assert 'class="assistant-dock-copy assistant-visually-hidden">بسيوني — المساعد الذكي</span>' in DOCK
+    assert 'aria-label="فتح مساعد بسيوني الذكي"' in DOCK
+    assert 'class="basyouni-mark" aria-hidden="true"><svg' in DOCK
     assert 'aria-label="فتح مساعد بسيوني الذكي"' in DOCK
     assert 'aria-expanded="false"' in DOCK
     assert BASE.index("{% include 'assistant_dock.html' %}") < BASE.index('id="sidebarToggle"')

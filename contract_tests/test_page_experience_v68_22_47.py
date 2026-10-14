@@ -4,6 +4,7 @@ ROOT = Path(__file__).parents[1]
 BASE = (ROOT / "employee_movements/templates/base.html").read_text(encoding="utf-8")
 LOGIN = (ROOT / "employee_movements/templates/login.html").read_text(encoding="utf-8")
 CSS = (ROOT / "employee_movements/static/css/app.css").read_text(encoding="utf-8")
+DESIGN_CSS = (ROOT / "employee_movements/static/css/design-system-cyan.css").read_text(encoding="utf-8")
 APP_JS = (ROOT / "employee_movements/static/js/app.js").read_text(encoding="utf-8")
 
 
@@ -17,11 +18,12 @@ def test_mobile_menu_toggle_is_outside_the_breadcrumb_that_hides_on_mobile():
     assert ".premium-mobile-menu { display: inline-grid !important;" in CSS
 
 
-def test_anonymous_auth_content_uses_full_page_container_not_legacy_430px_card():
+def test_anonymous_auth_content_uses_canonical_shared_container_not_legacy_430px_card():
     assert '{% if not me %}<div class="auth-content">{% endif %}' in BASE
     assert '.auth-content {' in CSS
-    auth = CSS[CSS.index('.auth-content {'):CSS.index('}', CSS.index('.auth-content {'))]
-    assert 'width: min(1120px, 100%);' in auth
+    auth = DESIGN_CSS[DESIGN_CSS.index('.auth-content {'):DESIGN_CSS.index('}', DESIGN_CSS.index('.auth-content {'))]
+    assert 'width: min(1080px,100%);' in auth
+    assert 'width: min(1120px, 100%);' not in CSS
     assert '{% if not me %}<div class="login">{% endif %}' not in BASE
 
 
@@ -44,7 +46,7 @@ def test_login_mobile_keeps_branding_and_form_instead_of_hiding_the_hero():
 
 def test_primary_actions_and_active_tabs_use_shared_brand_tokens():
     # Shared styles may be reorganized without relying on a version-specific marker comment.
-    assert '--ui-brand-strong: #066773' in CSS
+    assert '--ui-brand-strong: #126c9b' in CSS
     assert 'background: linear-gradient(120deg, var(--ui-brand-strong)' in CSS
     assert '.ui-filter-pill.active, .section-tab.active' in CSS
 

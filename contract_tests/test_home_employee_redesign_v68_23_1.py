@@ -78,6 +78,6 @@ def test_directory_page_css_is_scoped_and_has_safe_narrow_layouts():
 
 
 def test_shared_and_page_stylesheets_keep_versioned_asset_urls_in_sync():
-    assert BASE.count(f"v={VERSION}") == 14
+    assert BASE.count(f"v={VERSION}") == 18
     assert "68.23.0" not in BASE
     assert re.search(r"version\s*=\s*\"" + re.escape(VERSION) + r"\"", (ROOT / "pyproject.toml").read_text(encoding="utf-8"))

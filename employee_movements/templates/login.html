@@ -2,9 +2,10 @@
 {% block title %}تسجيل الدخول{% endblock %}
 {% block content %}
 <div class="login-shell">
-  <section class="login-hero" aria-label="عن النظام">
-    <div class="brandmark" aria-hidden="true">م</div>
-    <h1>نظام إدارة حركات الموظفين</h1>
+  <section class="login-hero" aria-labelledby="loginBrandTitle">
+    <div class="brandmark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 4h12v4H9v4h7v4H9v4H6V4Z"/></svg></div>
+    <div class="login-eyebrow">بوابة الدخول الآمن</div>
+    <h1 id="loginBrandTitle">نظام إدارة حركات الموظفين</h1>
     <p>منصة مركزية لإدارة الإجازات والانتدابات والأذون.</p>
     <div class="feature-list">
       <div>
@@ -21,14 +22,15 @@
       </div>
     </div>
   </section>
-  <section class="login-card">
+  <section class="login-card" aria-labelledby="loginFormTitle">
     <div class="login-card-inner">
-      <h2>تسجيل الدخول</h2>
+      <div class="login-form-eyebrow">مساحة العمل الخاصة بك</div>
+      <h2 id="loginFormTitle">تسجيل الدخول</h2>
       <p class="ui-subtitle">مرحبًا بك في النظام المركزي</p>
       <form method="post">
         <input type="hidden" name="_csrf" value="{{ csrf }}">
-        <label>اسم المستخدم
-          <input name="username" autocomplete="username" required autofocus>
+        <label for="loginUsername">اسم المستخدم
+          <input id="loginUsername" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
         </label>
         <div class="auth-field">
           <label for="loginPassword">كلمة المرور</label>
@@ -38,7 +40,7 @@
           <svg class="ui-btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H6M11 6l-6 6 6 6"/></svg>
         </button>
       </form>
-      <div class="login-foot">نظام آمن ومخصص حسب صلاحيات المستخدم</div>
+      <div class="login-trust-note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 6v5c0 4.5-2.8 7.7-7 10-4.2-2.3-7-5.5-7-10V6l7-3Z"/><path d="m9 12 2 2 4-4"/></svg><span>تُعرض صفحات النظام والإجراءات المتاحة وفق صلاحيات حسابك.</span></div><div class="login-foot">نظام إدارة حركات الموظفين · بوابة داخلية</div>
     </div>
   </section>
 </div>

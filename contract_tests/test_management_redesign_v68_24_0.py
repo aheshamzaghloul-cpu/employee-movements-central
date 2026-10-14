@@ -84,5 +84,5 @@ def test_release_assets_use_the_single_68_24_0_cache_version():
     assert re.fullmatch(r'\d+\.\d+\.\d+', version)
     assert f"__version__ = '{version}'" in init
     assert f'version = "{version}"' in project
-    assert BASE.count(f'?v={version}') == 14
+    assert BASE.count(f'?v={version}') == 18
     assert f'v{version}' in CSS.splitlines()[1]

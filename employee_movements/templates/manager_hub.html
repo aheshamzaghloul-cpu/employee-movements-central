@@ -1,7 +1,8 @@
 {% extends 'base.html' %}
 {% block title %}المدير | مركز المتابعة{% endblock %}
 {% block content %}
-<section class="ui-page-head">
+<div class="ui-page manager-hub-workspace">
+<section class="ui-page-head manager-hub-head">
   <div><span class="home-kicker">مركز المتابعة الإدارية</span><h1>المدير</h1><p class="ui-muted">مركز إشرافي موحّد لمتابعة جميع المحافظات وطلبات مشرفيها وتقارير المأموريات.</p></div>
   <div class="ui-actions"><a class="ui-btn ui-tone-teal" href="/reports/assignments/edit-requests">طلبات التعديل{% if pending_count %} ({{ pending_count }}){% endif %}</a><a class="ui-btn ui-btn-secondary" href="/reports/assignments/monthly">التقرير الشهري للمأموريات</a></div>
 </section>
@@ -19,4 +20,5 @@
   {% if not scope_has_data and not manager_hub_is_admin %}<div class="ui-empty">لا توجد فروع نشطة حاليًا في قاعدة البيانات.</div>
   {% elif governorate_reports %}<div class="ui-table-wrap"><table class="ui-mission-table" data-smart-table data-page-size="8"><thead><tr><th>المحافظة</th><th>الفروع النشطة</th><th>الموظفون النشطون</th><th>الإجازات</th><th>الانتدابات</th><th>الأذونات</th><th>المأموريات المغلقة</th><th></th></tr></thead><tbody>{% for row in governorate_reports %}<tr><td><b>{{ row.governorate.name }}</b></td><td>{{ row.branches }}</td><td>{{ row.employees }}</td><td>{{ row.leave }}</td><td>{{ row.assignments }}</td><td>{{ row.permissions }}</td><td>{{ row.closed_missions }}</td><td><a class="ui-btn ui-btn-secondary ui-btn-mini" href="/reports-missions?governorate_id={{ row.governorate.id }}">تفاصيل التقارير</a></td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="ui-empty">لا توجد بيانات فروع نشطة لعرضها في التقرير.</div>{% endif %}
 </section>
+</div>
 {% endblock %}

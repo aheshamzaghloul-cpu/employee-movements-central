@@ -11,14 +11,14 @@ def test_cyan_visual_tokens_are_the_authoritative_shared_palette():
     end = CSS.index('}', start)
     tokens = CSS[start:end]
     assert CSS.count('\n:root {') == 1
-    assert '--ui-brand: #077884' in tokens
-    assert '--ui-brand-2: #0a7d88' in tokens
-    assert '--ui-brand-strong: #066773' in tokens
-    assert '--ui-page: #f3f8f9' in tokens
-    assert '--ui-line: #d8e7ea' in tokens
+    assert '--ui-brand: #147cad' in tokens
+    assert '--ui-brand-2: #268fca' in tokens
+    assert '--ui-brand-strong: #126c9b' in tokens
+    assert '--ui-page: #f6faff' in tokens
+    assert '--ui-line: #dce8f2' in tokens
     assert '--ui-space-4: 16px' in tokens
     assert '--ui-type-base: 15.5px' in tokens
-    assert '--ui-control-md: 42px' in tokens
+    assert '--ui-control-md: 44px' in tokens
 
 
 def test_card_components_are_not_individually_centered_to_a_fixed_content_width():
@@ -55,7 +55,7 @@ def test_admin_contextual_assistant_buttons_do_not_use_browser_default_styling()
 
 def test_cache_busting_is_synchronized_for_the_shared_stylesheet_and_scripts():
     version = (ROOT / 'VERSION.md').read_text(encoding='utf-8').strip()
-    assert BASE.count(f'v={version}') == 14
+    assert BASE.count(f'v={version}') == 18
     for stale_version in ('68.22.57', '68.22.56', '68.22.55', '68.22.54', '68.22.52', '68.22.51', '68.22.50'):
         if stale_version != version:
             assert f'v={stale_version}' not in BASE

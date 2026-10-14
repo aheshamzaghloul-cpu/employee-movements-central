@@ -14,7 +14,7 @@
   <section class="ui-work-card movement-create-card movement-hierarchy-card" id="movement-create">
     <div class="ui-card-head">
       <div><span class="ui-eyebrow">تسجيل تشغيلي</span><h2>تسجيل حركة جديدة</h2><p>اختر المحافظة، ثم الفرع، ثم الموظف لتظهر بيانات الحركة المطلوبة.</p></div>
-      <span class="ui-card-icon">＋</span>
+      <span class="ui-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
     </div>
 
     <form method="post" action="/movements/create" class="ui-form" id="movementCreateForm">
@@ -232,7 +232,7 @@
   }
   function branchCard(b){
     const button=document.createElement('button'); button.type='button'; button.className='movement-branch-card'; button.dataset.id=b.id;
-    button.innerHTML='<span class="movement-branch-card-icon">⌂</span><span class="movement-branch-card-main"><b></b><small></small></span><span class="movement-card-arrow">‹</span>';
+    button.innerHTML='<span class="movement-branch-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3.5 10 12 3.5 20.5 10M5.5 9.2V20h13V9.2M9 20v-6h6v6"/></svg></span><span class="movement-branch-card-main"><b></b><small></small></span><span class="movement-card-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></span>';
     button.querySelector('b').textContent=b.name;
     button.querySelector('small').textContent=b.code?'كود الفرع: '+b.code+' · عرض الموظفين':'عرض موظفي الفرع';
     button.addEventListener('click',()=>loadCreateEmployees(b));

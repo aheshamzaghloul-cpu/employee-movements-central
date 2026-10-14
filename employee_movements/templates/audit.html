@@ -1,1 +1,20 @@
-{% extends 'base.html' %}{% block title %}سجل العمليات{% endblock %}{% block content %}<div class='ui-toolbar'><div><h1>سجل العمليات</h1><p class='ui-subtitle'>آخر 1000 عملية مسجلة مع اسم المستخدم والتفاصيل.</p></div></div><div class='ui-card ui-table-wrap'><table data-smart-table><thead><tr><th>التاريخ</th><th>المستخدم</th><th>العملية</th><th>الكيان</th><th>التفاصيل</th></tr></thead><tbody>{% for x in rows %}<tr><td>{{x.created_at.strftime('%Y-%m-%d %H:%M') if x.created_at else '-'}}</td><td>{{audit_users.get(x.user_id,'-')}}</td><td>{{x.action}}</td><td>{{x.entity or '-'}} #{{x.entity_id or ''}}</td><td>{{x.details or ''}}</td></tr>{% else %}<tr><td colspan='5' class='ui-empty'>لا توجد عمليات.</td></tr>{% endfor %}</tbody></table></div>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}سجل العمليات{% endblock %}
+{% block content %}
+<div class="ui-page audit-workspace">
+  <header class="ui-toolbar ui-page-head audit-page-head">
+    <div><span class="ui-eyebrow">الحوكمة والمراجعة</span><h1>سجل العمليات</h1><p class="ui-subtitle">آخر 1000 عملية مسجلة، مع المستخدم والعملية والكيان والتفاصيل.</p></div>
+    <span class="ui-tag">{{ rows|length }} سجل معروض</span>
+  </header>
+  <section class="ui-card ui-table-wrap audit-table-card" aria-label="سجل العمليات المسجل">
+    <table data-smart-table>
+      <thead><tr><th>التاريخ</th><th>المستخدم</th><th>العملية</th><th>الكيان</th><th>التفاصيل</th></tr></thead>
+      <tbody>
+        {% for x in rows %}
+        <tr><td>{{x.created_at.strftime('%Y-%m-%d %H:%M') if x.created_at else '—'}}</td><td>{{audit_users.get(x.user_id,'—')}}</td><td>{{x.action}}</td><td>{{x.entity or '—'}} #{{x.entity_id or ''}}</td><td>{{x.details or ''}}</td></tr>
+        {% else %}<tr><td colspan="5" class="ui-empty">لا توجد عمليات مسجلة حتى الآن.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+{% endblock %}

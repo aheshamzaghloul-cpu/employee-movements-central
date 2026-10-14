@@ -1,0 +1,350 @@
+{
+  "version": "68.44.4",
+  "baseline": "68.44.3",
+  "scope": "12 selected pages/states, desktop 1440x1000 and mobile 390x844",
+  "count": 24,
+  "pixel_identical": 24,
+  "differences": 0,
+  "missing": 0,
+  "browser_errors": 0,
+  "horizontal_overflow_screens": 0,
+  "screenshots": [
+    {
+      "screenshot": "home--مسؤول_التطبيق-desktop.png",
+      "viewport": "desktop",
+      "viewport_width": 1440,
+      "status": "pixel_identical",
+      "dimensions": [
+        1440,
+        2017
+      ],
+      "difference_bbox": null,
+      "browser_errors": 0,
+      "document_width": 1440,
+      "body_width": 1440
+    },
+    {
+      "screenshot": "home--مسؤول_التطبيق-mobile.png",
+      "viewport": "mobile",
+      "viewport_width": 390,
+      "status": "pixel_identical",
+      "dimensions": [
+        390,
+        2617
+      ],
+      "difference_bbox": null,
+      "browser_errors": 0,
+      "document_width": 390,
+      "body_width": 390
+    },
+    {
+      "screenshot": "home--مسؤول_التطبيق-scope-gate-desktop.png",
+      "viewport": "desktop",
+      "viewport_width": 1440,
+      "status": "pixel_identical",
+      "dimensions": [
+        1440,
+        2157
+      ],
+      "difference_bbox": null,
+      "browser_errors": 0,
+      "document_width": 1440,
+      "body_width": 1440
+    },
+    {
+      "screenshot": "home--مسؤول_التطبيق-scope-gate-mobile.png",
+      "viewport": "mobile",
+      "viewport_width": 390,
+      "status": "pixel_identical",
+      "dimensions": [
+        390,
+        2801
+      ],
+      "difference_bbox": null,
+      "browser_errors": 0,
+      "document_width": 390,
+      "body_width": 390
+    },
+    {
+      "screenshot": "login-login--desktop.png",
+      "viewport": "desktop",
+      "viewport_width": 1440,
+      "status": "pixel_identical",
+      "dimensions": [
+        1440,
+        1000
+      ],
+      "difference_bbox": null,
+      "browser_errors": 0,
+      "document_width": 1440,
+      "body_width": 1440
+    },
+    {
+      "screenshot": "login-login--mobile.png",
+      "viewport": "mobile",
+      "viewport_width": 390,
+      "status": "pixel_identical",
+      "dimensions": [
+        390,
+        923
+      ],
+      "difference_bbox": null,
+      "browser_errors": 0,
+      "document_width": 390,
+      "body_width": 390
+    },
+    {
+      "screenshot": "employees-employees-مسؤول_التطبيق-desktop.png",
+      "viewport": "desktop",
+      "viewport_width": 1440,
+      "status": "pixel_identical",
+      "dimensions": [
+        1440,
+        1000
+      ],
+      "difference_bbox": null,
+      "browser_errors": 0,
+      "document_width": 1440,
+      "body_width": 1440
+    },
+    {
+      "screenshot": "employees-employees-مسؤول_التطبيق-mobile.png",
+      "viewport": "mobile",
+      "viewport_width": 390,
+      "status": "pixel_identical",
+      "dimensions": [
+        390,
+        1413
+      ],
+      "difference_bbox": null,
+      "browser_errors": 0,
+      "document_width": 390,
+      "body_width": 390
+    },
+    {
+      "screenshot": "movements-movements-مسؤول_التطبيق-desktop.png",
+      "viewport": "desktop",
+      "viewport_width": 1440,
+      "status": "pixel_identical",
+      "dimensions": [
+        1440,
+        1770
+      ],
+      "difference_bbox": null,
+      "browser_errors": 0,
+      "document_width": 1440,
+      "body_width": 1440
+    },
+    {
+      "screenshot": "movements-movements-مسؤول_التطبيق-mobile.png",
+      "viewport": "mobile",
+      "viewport_width": 390,
+      "status": "pixel_identical",
+      "dimensions": [
+        390,
+        2178
+      ],
+      "difference_bbox": null,
+      "browser_errors": 0,
+      "document_width": 390,
+      "body_width": 390
+    },
+    {
+      "screenshot": "structure-structure-مسؤول_التطبيق-desktop.png",
+      "viewport": "desktop",
+      "viewport_width": 1440,
+      "status": "pixel_identical",
+      "dimensions": [
+        1440,
+        1000
+      ],
+      "difference_bbox": null,
+      "browser_errors": 0,
+      "document_width": 1440,
+      "body_width": 1440
+    },
+    {
+      "screenshot": "structure-structure-مسؤول_التطبيق-mobile.png",
+      "viewport": "mobile",
+      "viewport_width": 390,
+      "status": "pixel_identical",
+      "dimensions": [
+        390,
+        844
+      ],
+      "difference_bbox": null,
+      "browser_errors": 0,
+      "document_width": 390,
+      "body_width": 390
+    },
+    {
+      "screenshot": "users-users-مسؤول_التطبيق-desktop.png",
+      "viewport": "desktop",
+      "viewport_width": 1440,
+      "status": "pixel_identical",
+      "dimensions": [
+        1440,
+        1832
+      ],
+      "difference_bbox": null,
+      "browser_errors": 0,
+      "document_width": 1440,
+      "body_width": 1440
+    },
+    {
+      "screenshot": "users-users-مسؤول_التطبيق-mobile.png",
+      "viewport": "mobile",
+      "viewport_width": 390,
+      "status": "pixel_identical",
+      "dimensions": [
+        390,
+        3024
+      ],
+      "difference_bbox": null,
+      "browser_errors": 0,
+      "document_width": 390,
+      "body_width": 390
+    },
+    {
+      "screenshot": "reports-reports-مسؤول_التطبيق-desktop.png",
+      "viewport": "desktop",
+      "viewport_width": 1440,
+      "status": "pixel_identical",
+      "dimensions": [
+        1440,
+        1000
+      ],
+      "difference_bbox": null,
+      "browser_errors": 0,
+      "document_width": 1440,
+      "body_width": 1440
+    },
+    {
+      "screenshot": "reports-reports-مسؤول_التطبيق-mobile.png",
+      "viewport": "mobile",
+      "viewport_width": 390,
+      "status": "pixel_identical",
+      "dimensions": [
+        390,
+        1323
+      ],
+      "difference_bbox": null,
+      "browser_errors": 0,
+      "document_width": 390,
+      "body_width": 390
+    },
+    {
+      "screenshot": "reports_missions-reports-missions-مسؤول_التطبيق-desktop.png",
+      "viewport": "desktop",
+      "viewport_width": 1440,
+      "status": "pixel_identical",
+      "dimensions": [
+        1440,
+        1244
+      ],
+      "difference_bbox": null,
+      "browser_errors": 0,
+      "document_width": 1440,
+      "body_width": 1440
+    },
+    {
+      "screenshot": "reports_missions-reports-missions-مسؤول_التطبيق-mobile.png",
+      "viewport": "mobile",
+      "viewport_width": 390,
+      "status": "pixel_identical",
+      "dimensions": [
+        390,
+        2658
+      ],
+      "difference_bbox": null,
+      "browser_errors": 0,
+      "document_width": 390,
+      "body_width": 390
+    },
+    {
+      "screenshot": "mission_from_screenshot-missions_from-screenshot-مسؤول_التطبيق-desktop.png",
+      "viewport": "desktop",
+      "viewport_width": 1440,
+      "status": "pixel_identical",
+      "dimensions": [
+        1440,
+        1000
+      ],
+      "difference_bbox": null,
+      "browser_errors": 0,
+      "document_width": 1440,
+      "body_width": 1440
+    },
+    {
+      "screenshot": "mission_from_screenshot-missions_from-screenshot-مسؤول_التطبيق-mobile.png",
+      "viewport": "mobile",
+      "viewport_width": 390,
+      "status": "pixel_identical",
+      "dimensions": [
+        390,
+        963
+      ],
+      "difference_bbox": null,
+      "browser_errors": 0,
+      "document_width": 390,
+      "body_width": 390
+    },
+    {
+      "screenshot": "delegations-delegations-مشرف_محافظة-desktop.png",
+      "viewport": "desktop",
+      "viewport_width": 1440,
+      "status": "pixel_identical",
+      "dimensions": [
+        1440,
+        1094
+      ],
+      "difference_bbox": null,
+      "browser_errors": 0,
+      "document_width": 1440,
+      "body_width": 1440
+    },
+    {
+      "screenshot": "delegations-delegations-مشرف_محافظة-mobile.png",
+      "viewport": "mobile",
+      "viewport_width": 390,
+      "status": "pixel_identical",
+      "dimensions": [
+        390,
+        2138
+      ],
+      "difference_bbox": null,
+      "browser_errors": 0,
+      "document_width": 390,
+      "body_width": 390
+    },
+    {
+      "screenshot": "manager_hub-manager-Manager_Application_Support-desktop.png",
+      "viewport": "desktop",
+      "viewport_width": 1440,
+      "status": "pixel_identical",
+      "dimensions": [
+        1440,
+        1000
+      ],
+      "difference_bbox": null,
+      "browser_errors": 0,
+      "document_width": 1440,
+      "body_width": 1440
+    },
+    {
+      "screenshot": "manager_hub-manager-Manager_Application_Support-mobile.png",
+      "viewport": "mobile",
+      "viewport_width": 390,
+      "status": "pixel_identical",
+      "dimensions": [
+        390,
+        1268
+      ],
+      "difference_bbox": null,
+      "browser_errors": 0,
+      "document_width": 390,
+      "body_width": 390
+    }
+  ],
+  "note": "Local Chromium screenshots from static Jinja fixtures; external JavaScript was not executed, and this is not a live database/end-to-end test."
+}

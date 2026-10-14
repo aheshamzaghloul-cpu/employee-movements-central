@@ -148,11 +148,11 @@ assert.equal(window.employeeSearchMatches('20453', 'كود 20020353'), false);
 
 
 def test_version_metadata_and_asset_cache_busting_are_ready_for_current_release():
-    assert read("VERSION.md").strip() == "68.36.0"
-    assert 'version = "68.36.0"' in read("pyproject.toml")
-    assert "__version__ = '68.36.0'" in read("employee_movements/__init__.py")
+    assert read("VERSION.md").strip() == "68.45.0"
+    assert 'version = "68.45.0"' in read("pyproject.toml")
+    assert "__version__ = '68.45.0'" in read("employee_movements/__init__.py")
     base = read("employee_movements/templates/base.html")
-    assert "v=68.36.0" in base
+    assert "v=68.45.0" in base
     assert "v=68.35.0" not in base and "v=68.34.0" not in base and "v=68.33.0" not in base
 
 

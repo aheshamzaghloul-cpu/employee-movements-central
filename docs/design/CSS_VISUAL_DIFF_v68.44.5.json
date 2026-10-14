@@ -1,0 +1,19 @@
+{
+  "version": "68.44.5",
+  "baseline": "v68.44.4",
+  "method": "pixel-by-pixel RGBA comparison of complete-page Chromium screenshots with identical static Jinja fixtures and CSS inlined",
+  "viewport_widths": [
+    1440,
+    390
+  ],
+  "before_screenshots": 78,
+  "after_screenshots": 78,
+  "missing": [],
+  "extra": [],
+  "size_mismatches": [],
+  "changed_images_count": 0,
+  "changed_images": [],
+  "metrics_count": 78,
+  "errors": 0,
+  "overflows": 0
+}

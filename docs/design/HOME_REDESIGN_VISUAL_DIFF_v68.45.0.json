@@ -1,0 +1,35 @@
+{
+  "version": "68.45.0",
+  "kind": "local-rendered-template-review",
+  "source": "Actual modified Jinja home.html and base.html rendered using synthetic Admin context; current CSS assets inlined into a local Chromium preview. JavaScript stripped for deterministic screenshots.",
+  "design_goal": "Premium minimal sky-blue homepage, clear sidebar, limited navy accents, four quick actions separated from the operational workbench.",
+  "screenshots": [
+    {
+      "path": "docs/design/preview-v68.45.0/home-desktop.png",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "quick_actions": 4,
+      "workbench_cards": 2,
+      "topbar_work_governorate_selector": true,
+      "horizontal_overflow": false,
+      "console_errors": 0
+    },
+    {
+      "path": "docs/design/preview-v68.45.0/home-mobile.png",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "quick_actions": 4,
+      "workbench_cards": 2,
+      "topbar_work_governorate_selector": true,
+      "horizontal_overflow": false,
+      "console_errors": 0
+    }
+  ],
+  "visual_diff": "No pixel-before/after score is asserted because the purpose of this release is to change homepage composition. Screenshots document the redesigned result.",
+  "runtime_validation": "Not end-to-end; no live Flask session or production database.",
+  "status": "passed_local_visual_preview"
+}

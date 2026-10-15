@@ -48,8 +48,8 @@ def test_mission_textarea_is_not_overridden_by_the_fixed_height_input_rule():
 
 def test_stylesheet_cache_busters_are_synchronized_for_the_release():
     version = (ROOT / "VERSION.md").read_text(encoding="utf-8").strip()
-    assert version == "68.45.0"
-    assert BASE.count(f"v={version}") == 18
+    assert version == "68.49.0"
+    assert BASE.count(f"v={version}") == 21
     assert f'data-app-version="{version}"' in BASE
 
 

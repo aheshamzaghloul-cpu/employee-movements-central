@@ -21,15 +21,15 @@ def test_legacy_turquoise_accents_are_removed_from_active_css():
     for stale in ("#087f8c", "rgba(8,127,140", "#49b8c2", "#0a8d99", "#066b77", "#078793", "#087783", "#087e95", "#e1f5f6", "#e6f8f9", "#0795a4", "#168aa3", "#0a9aa6", "#0b8b95", "#078894", "#0a737e", "#0b858f", "#066b76", "#cbe8eb", "#e4f7f8"):
         assert stale not in active.lower(), stale
 
-def test_assistant_launcher_uses_the_scoped_icon_only_stylesheet():
+def test_assistant_launcher_uses_the_scoped_visible_label_stylesheet():
     assert ".assistant-dock-trigger {" in DOCK
-    assert "width: 46px !important" in DOCK
-    assert ".assistant-visually-hidden" in DOCK
+    assert "min-width: 132px !important" in DOCK
+    assert ".assistant-dock-label" in DOCK
     assert "min-width:148px" not in APP and "min-width: 148px" not in APP
     assert "assistant-dock.css" in BASE
 
 def test_cache_busters_and_application_version_match():
     version = (ROOT / "VERSION.md").read_text(encoding="utf-8").strip()
-    assert version == "68.45.0"
-    assert BASE.count(f"v={version}") == 18
+    assert version == "68.49.0"
+    assert BASE.count(f"v={version}") == 21
     assert f'data-app-version="{version}"' in BASE

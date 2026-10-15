@@ -22,9 +22,9 @@ for p,s in texts:
         if token in s: errors.append(f'forbidden component {token}: {p}')
 
 css_entrypoints=list(CSS_DIR.glob('*.css'))
-expected_entrypoints = {CSS_DIR/'app.css', CSS_DIR/'design-system-cyan.css'}
+expected_entrypoints = {CSS_DIR/'app.css', CSS_DIR/'design-system-cyan.css', CSS_DIR/'navigation-color-system.css'}
 if set(css_entrypoints) != expected_entrypoints:
-    errors.append(f'expected app.css plus the globally loaded design-system-cyan.css, found: {[p.name for p in css_entrypoints]}')
+    errors.append(f'expected app.css, design-system-cyan.css, and navigation-color-system.css, found: {[p.name for p in css_entrypoints]}')
 css_files=list(CSS_DIR.rglob('*.css'))
 for css_path in css_files:
     css=(css_path).read_text(encoding='utf-8')

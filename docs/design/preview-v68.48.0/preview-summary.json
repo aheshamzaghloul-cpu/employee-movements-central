@@ -1,0 +1,188 @@
+{
+  "release": "68.48.0",
+  "fixture_type": "synthetic content with project CSS",
+  "routes_rendered": 6,
+  "screenshots": 17,
+  "errors": 0,
+  "horizontal_overflow_cases": 0,
+  "checks": [
+    {
+      "page": "reports-missions",
+      "mode": "desktop",
+      "file": "reports-missions-desktop.png",
+      "viewport": 1440,
+      "body_scroll_width": 1440,
+      "document_scroll_width": 1440,
+      "horizontal_overflow": false,
+      "page_errors": 0
+    },
+    {
+      "page": "reports-missions",
+      "mode": "mobile",
+      "file": "reports-missions-mobile.png",
+      "viewport": 390,
+      "body_scroll_width": 390,
+      "document_scroll_width": 390,
+      "horizontal_overflow": false,
+      "page_errors": 0
+    },
+    {
+      "page": "reports-missions",
+      "mode": "narrow",
+      "file": "reports-missions-narrow.png",
+      "viewport": 360,
+      "body_scroll_width": 360,
+      "document_scroll_width": 360,
+      "horizontal_overflow": false,
+      "page_errors": 0
+    },
+    {
+      "page": "reports-catalog",
+      "mode": "desktop",
+      "file": "reports-catalog-desktop.png",
+      "viewport": 1440,
+      "body_scroll_width": 1440,
+      "document_scroll_width": 1440,
+      "horizontal_overflow": false,
+      "page_errors": 0
+    },
+    {
+      "page": "reports-catalog",
+      "mode": "mobile",
+      "file": "reports-catalog-mobile.png",
+      "viewport": 390,
+      "body_scroll_width": 390,
+      "document_scroll_width": 390,
+      "horizontal_overflow": false,
+      "page_errors": 0
+    },
+    {
+      "page": "reports-catalog",
+      "mode": "narrow",
+      "file": "reports-catalog-narrow.png",
+      "viewport": 360,
+      "body_scroll_width": 360,
+      "document_scroll_width": 360,
+      "horizontal_overflow": false,
+      "page_errors": 0
+    },
+    {
+      "page": "mission-reports",
+      "mode": "desktop",
+      "file": "mission-reports-desktop.png",
+      "viewport": 1440,
+      "body_scroll_width": 1440,
+      "document_scroll_width": 1440,
+      "horizontal_overflow": false,
+      "page_errors": 0
+    },
+    {
+      "page": "mission-reports",
+      "mode": "mobile",
+      "file": "mission-reports-mobile.png",
+      "viewport": 390,
+      "body_scroll_width": 390,
+      "document_scroll_width": 390,
+      "horizontal_overflow": false,
+      "page_errors": 0
+    },
+    {
+      "page": "mission-reports",
+      "mode": "narrow",
+      "file": "mission-reports-narrow.png",
+      "viewport": 360,
+      "body_scroll_width": 360,
+      "document_scroll_width": 360,
+      "horizontal_overflow": false,
+      "page_errors": 0
+    },
+    {
+      "page": "manager",
+      "mode": "desktop",
+      "file": "manager-desktop.png",
+      "viewport": 1440,
+      "body_scroll_width": 1440,
+      "document_scroll_width": 1440,
+      "horizontal_overflow": false,
+      "page_errors": 0
+    },
+    {
+      "page": "manager",
+      "mode": "mobile",
+      "file": "manager-mobile.png",
+      "viewport": 390,
+      "body_scroll_width": 390,
+      "document_scroll_width": 390,
+      "horizontal_overflow": false,
+      "page_errors": 0
+    },
+    {
+      "page": "manager",
+      "mode": "narrow",
+      "file": "manager-narrow.png",
+      "viewport": 360,
+      "body_scroll_width": 360,
+      "document_scroll_width": 360,
+      "horizontal_overflow": false,
+      "page_errors": 0
+    },
+    {
+      "page": "assistant",
+      "mode": "desktop",
+      "file": "assistant-desktop.png",
+      "viewport": 1440,
+      "body_scroll_width": 1440,
+      "document_scroll_width": 1440,
+      "horizontal_overflow": false,
+      "page_errors": 0
+    },
+    {
+      "page": "assistant",
+      "mode": "mobile",
+      "file": "assistant-mobile.png",
+      "viewport": 390,
+      "body_scroll_width": 390,
+      "document_scroll_width": 390,
+      "horizontal_overflow": false,
+      "page_errors": 0
+    },
+    {
+      "page": "assistant",
+      "mode": "narrow",
+      "file": "assistant-narrow.png",
+      "viewport": 360,
+      "body_scroll_width": 360,
+      "document_scroll_width": 360,
+      "horizontal_overflow": false,
+      "page_errors": 0
+    },
+    {
+      "page": "assistant-dock",
+      "mode": "dock-desktop",
+      "file": "assistant-dock-desktop.png",
+      "viewport": 1440,
+      "body_scroll_width": 1440,
+      "document_scroll_width": 1440,
+      "horizontal_overflow": false,
+      "page_errors": 0
+    },
+    {
+      "page": "assistant-dock",
+      "mode": "dock-mobile",
+      "file": "assistant-dock-mobile.png",
+      "viewport": 390,
+      "body_scroll_width": 390,
+      "document_scroll_width": 390,
+      "horizontal_overflow": false,
+      "page_errors": 0
+    }
+  ],
+  "stylesheets": [
+    "app.css",
+    "pages/workspace-pages.css",
+    "design-system-cyan.css",
+    "pages/admin-reports-assistant.css",
+    "pages/assistant-dock.css",
+    "navigation-color-system.css"
+  ]
+}

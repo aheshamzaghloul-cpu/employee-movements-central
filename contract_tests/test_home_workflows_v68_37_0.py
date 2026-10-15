@@ -56,7 +56,7 @@ def test_shared_visual_polish_covers_shell_login_forms_tables_and_focus():
 
 def test_sky_blue_cyan_design_system_is_loaded_after_page_styles_and_cache_busted():
     assert "design-system-cyan.css" in BASE
-    assert "v=68.45.0" in BASE
-    assert "v68.45.0" in (ROOT / "employee_movements/static/css/design-system-cyan.css").read_text(encoding="utf-8")
+    assert "v=68.49.0" in BASE
+    assert "v68.46.0" in (ROOT / "employee_movements/static/css/design-system-cyan.css").read_text(encoding="utf-8")
     assert "--ui-brand: #147cad" in APP_CSS
     assert "--ui-brand-soft: #e8f5ff" in APP_CSS

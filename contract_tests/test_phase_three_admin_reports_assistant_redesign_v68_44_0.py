@@ -17,11 +17,11 @@ ASSISTANT_CSS = (ROOT / "employee_movements/static/css/pages/assistant-dock.css"
 
 
 def test_release_metadata_and_global_stylesheet_cache_buster_are_synchronized():
-    assert (ROOT / "VERSION.md").read_text(encoding="utf-8").strip() == "68.45.0"
-    assert 'version = "68.45.0"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert "__version__ = '68.45.0'" in (ROOT / "employee_movements/__init__.py").read_text(encoding="utf-8")
-    assert 'data-app-version="68.45.0"' in BASE
-    assert BASE.count("v=68.45.0") == 18
+    assert (ROOT / "VERSION.md").read_text(encoding="utf-8").strip() == "68.49.0"
+    assert 'version = "68.49.0"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert "__version__ = '68.49.0'" in (ROOT / "employee_movements/__init__.py").read_text(encoding="utf-8")
+    assert 'data-app-version="68.49.0"' in BASE
+    assert BASE.count("v=68.49.0") == 21
     assert BASE.index("css/design-system-cyan.css") < BASE.index("css/pages/admin-reports-assistant.css")
     assert "{% if me %}<link rel=\"stylesheet\" href=\"{{url_for('static',filename='css/pages/assistant-dock.css')" in BASE
     assert "startswith('/structure')" in BASE[:BASE.index("css/pages/admin-reports-assistant.css")]
@@ -57,10 +57,10 @@ def test_manager_and_audit_pages_use_structured_workspace_wrappers():
     assert "audit_users.get(x.user_id" in AUDIT
 
 
-def test_assistant_launcher_is_icon_only_and_retains_accessible_name():
-    assert 'aria-label="فتح مساعد بسيوني الذكي"' in DOCK
+def test_assistant_launcher_shows_a_visible_label_and_retains_accessible_name():
+    assert 'aria-label="فتح المساعد الذكي بسيوني"' in DOCK
     assert 'class="basyouni-mark" aria-hidden="true"><svg' in DOCK
-    assert "assistant-visually-hidden" in DOCK
+    assert 'class="assistant-dock-label">المساعد الذكي</span>' in DOCK
     assert "بسيوني — المساعد الذكي" in DOCK
     assert 'id="assistantDockToggle"' in DOCK and 'id="assistantDockPanel"' in DOCK
     assert 'action="/assistant"' in ASSISTANT

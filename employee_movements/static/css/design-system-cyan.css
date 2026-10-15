@@ -1,4 +1,4 @@
-/* v68.45.0 — cascade cleanup follow-up: keep shared component styling conflict-free. */
+/* v68.46.0 — governance interface release alignment: keep shared component styling conflict-free. */
 /* v68.44.2 — premium sky-blue component layer; canonical tokens live in app.css.
    Loaded after route-specific styles; contains component rules only, with a scoped refinement layer for admin/reports/assistant UI. */
  
@@ -17,7 +17,7 @@ body, button, input, select, textarea { font-family: "Cairo", Tahoma, Arial, san
 
 /* Navigation frame */
 
-.premium-brand { border-bottom-color: #e5f0f5; }
+/* Brand divider color is set in the canonical shell rule below. */
 .ui-brand-mark {
   color: #fff;
   background: linear-gradient(145deg, #17364f 0%, #1b5276 64%, #126c9b 100%);
@@ -63,14 +63,14 @@ body, button, input, select, textarea { font-family: "Cairo", Tahoma, Arial, san
   box-shadow: inset -3px 0 #147cad, 0 3px 10px rgba(20, 124, 173,.045);
 }
 .premium-nav a.active svg { color: #167dae; background: #c9ebf8; }
-.premium-side-footer { border-top-color: #e2eff4; }
+/* Divider color is set in the canonical footer rule below. */
 .premium-side-footer > a, .premium-side-footer button {
   min-height: 41px;
   border-radius: 12px;
   color: #557082;
   font-size: 12px;
 }
-.premium-side-footer > a:hover, .premium-side-footer button:hover { background: #e6f5fc; color: #126c9b; }
+.premium-side-footer > a:hover, .premium-side-footer button:hover { background: rgba(255,255,255,.8); color: #126c9b; }
 .ui-version { color: #8aa0af; font-size: 10px; }
 .ui-collapse, .premium-mobile-menu {
   border-color: #d7e7f0;
@@ -804,22 +804,22 @@ select { max-width: 100%; }
 .premium-shell { min-height: 100dvh; }
 .premium-sidebar {
   display: flex; flex-direction: column; gap: 8px;
-  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 72%, #f2f8fe 100%);
-  border-inline-start: 1px solid var(--ui-line);
-  box-shadow: 0 8px 30px rgba(23,54,79,.045);
+  background: linear-gradient(180deg, #eaf5fd 0%, #e5f1fb 52%, #dcebf8 100%);
+  border-inline-start: 1px solid #c6deef;
+  box-shadow: 0 8px 30px rgba(25,76,112,.075);
 }
-.premium-brand { padding: 5px 7px 15px; margin-bottom: 2px; border-bottom: 1px solid var(--ui-line-soft); }
-.premium-side-user { margin: 2px 2px 7px; padding: 10px; border: 1px solid var(--ui-line-soft); border-radius: 16px; background: linear-gradient(135deg,#fff,#f7fbff); }
-.premium-nav-label { padding: 13px 11px 5px; color: #7e95a8 !important; font-size: 10px; font-weight: 800; letter-spacing: .02em; }
+.premium-brand { padding: 5px 7px 15px; margin-bottom: 2px; border-bottom: 1px solid #cfe2f0; }
+.premium-side-user { margin: 2px 2px 7px; padding: 10px; border: 1px solid #cfe2f0; border-radius: 16px; background: linear-gradient(140deg,#fff,#f6fbff); }
+.premium-nav-label { padding: 13px 11px 5px; color: #617f97 !important; font-size: 10px; font-weight: 800; letter-spacing: .02em; }
 .premium-nav-label.admin { color: #68839b !important; }
 .premium-nav { gap: 4px; }
-.premium-nav a { min-height: 44px; padding-inline: 10px; gap: 10px; border: 1px solid transparent; border-radius: 12px; color: #49647a; font-weight: 700; }
+.premium-nav a { min-height: 44px; padding-inline: 10px; gap: 10px; border: 1px solid transparent; border-radius: 12px; color: #395a75; font-weight: 700; }
 .premium-nav a svg { width: 31px; height: 31px; padding: 7px; border-radius: 10px; color: #4e85aa; background: #f2f8fd; }
 .premium-nav a:hover { background: #f5faff; border-color: #deebf6; color: #173f5a; transform: translateX(-1px); }
 .premium-nav a:hover svg { color: #147cad; background: #e7f4ff; }
 .premium-nav a.active, .premium-nav a[aria-current=page] { color: #126c9b; background: #e8f5ff; border-color: #d8eaf7; font-weight: 800; }
 .premium-nav a.active svg, .premium-nav a[aria-current=page] svg { color: #126c9b; background: #d9edfb; }
-.premium-side-footer { padding-top: 10px; border-top: 1px solid var(--ui-line-soft); }
+.premium-side-footer { padding-top: 10px; border-top: 1px solid #cfe2f0; }
 .premium-topbar {
   gap: 12px; background: rgba(255,255,255,.94);
   border-bottom: 1px solid rgba(213,229,242,.92);
@@ -954,3 +954,15 @@ select { max-width: 100%; }
 @media (max-width: 800px) { .premium-topbar .premium-mobile-menu { flex: 0 0 38px; } }
 
 .ui-visually-hidden:focus-visible { position: static !important; width: auto !important; height: auto !important; margin: 0 !important; overflow: visible !important; clip: auto !important; white-space: normal !important; padding: 6px 10px !important; border: 1px solid var(--ui-brand) !important; border-radius: 8px !important; background: #fff !important; color: var(--ui-brand-strong) !important; }
+
+
+/* v68.45.2 — per-section navigation icon colors (color alone does not encode state). */
+.premium-nav a[href="/"] svg { color: #147cad; background: #d9efff; }
+.premium-nav a[href="/employees"] svg { color: #0b9288; background: #d9f4ef; }
+.premium-nav a[href="/movements"] svg { color: #7056c7; background: #ebe6ff; }
+.premium-nav a[href="/reports-missions"] svg { color: #315da8; background: #e1ebff; }
+.premium-nav a[href="/delegations"] svg { color: #21866b; background: #def4e9; }
+.premium-nav a[href="/manager"] svg { color: #b87522; background: #fff0da; }
+.premium-nav a[href="/structure"] svg { color: #7056c7; background: #eee8ff; }
+.premium-nav a:hover svg { filter: saturate(1.08); }
+

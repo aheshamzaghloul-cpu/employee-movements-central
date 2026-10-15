@@ -12,11 +12,11 @@ MOVEMENT_CSS = (ROOT / "employee_movements/static/css/pages/movement-forms.css")
 
 
 def test_phase_two_release_metadata_and_asset_cache_keys_are_synchronized():
-    assert (ROOT / "VERSION.md").read_text(encoding="utf-8").strip() == "68.45.0"
-    assert 'version = "68.45.0"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert "__version__ = '68.45.0'" in (ROOT / "employee_movements/__init__.py").read_text(encoding="utf-8")
-    assert 'data-app-version="68.45.0"' in BASE
-    assert BASE.count("v=68.45.0") == 18
+    assert (ROOT / "VERSION.md").read_text(encoding="utf-8").strip() == "68.49.0"
+    assert 'version = "68.49.0"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert "__version__ = '68.49.0'" in (ROOT / "employee_movements/__init__.py").read_text(encoding="utf-8")
+    assert 'data-app-version="68.49.0"' in BASE
+    assert BASE.count("v=68.49.0") == 21
 
 
 def test_branch_catalogue_uses_consistent_line_icons_not_decorative_text_glyphs():

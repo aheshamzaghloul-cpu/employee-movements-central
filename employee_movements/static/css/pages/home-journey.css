@@ -1,8 +1,8 @@
-/* v68.45.0 — Home composition aligned to the approved premium sky-blue concept. */
+/* v68.45.2 — Home composition aligned to the approved premium sky-blue concept. */
 .ds-home-page .ds-home-hero {
-  min-height: 132px;
-  padding: clamp(22px, 2.8vw, 36px);
-  border-radius: 24px;
+  min-height: 104px;
+  padding: clamp(14px, 1.05vw, 18px);
+  border-radius: 20px;
   background:
     radial-gradient(circle at 9% 18%, rgba(190, 228, 250, .40), transparent 24%),
     linear-gradient(112deg, #ffffff 0%, #fbfdff 53%, #edf7ff 100%);
@@ -14,8 +14,8 @@
   border-radius: 0 99px 99px 0;
   background: linear-gradient(180deg, #42b3e8 0%, #147cad 58%, #126c9b 100%);
 }
-.ds-home-page .ds-home-hero h1 { color: #153b59; font-size: clamp(27px, 2.4vw, 35px); }
-.ds-home-page .ds-home-hero p { color: #637c91; }
+.ds-home-page .ds-home-hero h1 { color: #153b59; margin: 3px 0 4px; font-size: clamp(23px, 1.9vw, 30px); line-height: 1.25; }
+.ds-home-page .ds-home-hero p { color: #637c91; font-size: 12.5px; line-height: 1.6; }
 .ds-home-page .ds-home-context,
 .ds-home-page .smart-context { position: relative; z-index: 1; }
 .ds-home-page .ds-home-section-intro { gap: 5px; padding: 3px 2px 7px; }
@@ -88,10 +88,10 @@
 .ds-home-page .ds-home-quick-arrow { width: 15px; height: 15px; color: #7da5bf; transition: transform .18s ease, color .18s ease; }
 .ds-home-page .ds-home-quick-action:hover .ds-home-quick-arrow { color: #126c9b; transform: translateX(-2px); }
 .ds-home-page .ds-home-quick-register { background: linear-gradient(140deg, #f3faff 0%, #fff 82%); }
-.ds-home-page .ds-home-quick-register .ds-home-quick-icon { background: linear-gradient(145deg, #d9f0ff, #eff9ff); color: #0d70a5; }
+.ds-home-page .ds-home-quick-register .ds-home-quick-icon { background: linear-gradient(145deg, #d9f0ff, #eff9ff); color: #087fc0; border-color: #bfe3f7; }
 .ds-home-page .ds-home-quick-ticket-mission,
 .ds-home-page .ds-home-ticket-mission { background: linear-gradient(145deg, #fff 0%, #f4faff 100%); }
-.ds-home-page .ds-home-quick-print .ds-home-quick-icon { background: linear-gradient(145deg, #e9f2ff, #f8fbff); color: #234f83; }
+.ds-home-page .ds-home-quick-print .ds-home-quick-icon { background: linear-gradient(145deg, #e2ebff, #f5f8ff); color: #315da8; border-color: #cbd9fb; }
 .ds-home-page .ds-home-workbench { display: grid; gap: 13px; min-width: 0; }
 .ds-home-page .ds-home-workbench-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; min-width: 0; padding: 1px 2px; }
 .ds-home-page .ds-home-workbench-head > div { display: grid; gap: 4px; min-width: 0; }
@@ -140,8 +140,62 @@
   .ds-home-page .ds-home-quick-action { min-height: 88px; }
   .ds-home-page .ds-home-quick-copy strong { font-size: 13px; }
 }
+@media (max-width: 380px) {
+  .ds-home-page .ds-home-hero { align-items: flex-start; flex-direction: column; gap: 8px; padding: 14px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ds-home-page .ds-home-quick-action,
   .ds-home-page .ds-home-quick-arrow { transition: none; }
   .ds-home-page .ds-home-quick-action:hover { transform: none; }
+}
+
+
+/* v68.45.2 — compact welcome panel aligned to the chosen premium concept. */
+.ds-home-page .ds-home-hero {
+  min-height: 92px;
+  padding: clamp(11px, .9vw, 15px) !important;
+  border-radius: 18px;
+}
+.ds-home-page .ds-home-hero h1 {
+  margin: 2px 0 3px;
+  font-size: clamp(22px, 1.8vw, 28px);
+  line-height: 1.2;
+}
+.ds-home-page .ds-home-hero p { font-size: 12px; line-height: 1.55; }
+.ds-home-page .smart-context > span,
+.ds-home-page .smart-context > b { min-height: 36px; padding: 6px 10px; }
+
+/* Distinct, semantically grouped icon colors: all stay within a cool premium palette. */
+.ds-home-page .ds-home-quick-register::before { background: #56afe0; }
+.ds-home-page .ds-home-ticket-mission .ds-home-quick-icon {
+  color: #0b9288; background: linear-gradient(145deg, #dff8f4, #f2fffd); border-color: #bcebe3;
+}
+.ds-home-page .ds-home-ticket-mission::before { background: #39b9ab; }
+.ds-home-page .ds-home-quick-search .ds-home-quick-icon {
+  color: #7056c7; background: linear-gradient(145deg, #eee9ff, #faf8ff); border-color: #d9cffb;
+}
+.ds-home-page .ds-home-quick-search::before { background: #8a73df; }
+.ds-home-page .ds-home-quick-print::before { background: #527ac5; }
+.ds-home-page .ds-home-workbench-grid .ds-home-register .smart-action-icon {
+  color: #087fc0 !important; background: #e3f4ff !important; border-color: #bfe3f7 !important;
+}
+.ds-home-page .ds-home-workbench-grid .ds-home-search .smart-action-icon {
+  color: #7056c7 !important; background: #f0ebff !important; border-color: #dbd1fa !important;
+}
+.ds-home-page .ds-home-tools-grid > a[href="/employees"] > i { color: #0b9288; background: #e0f7f3; }
+.ds-home-page .ds-home-tools-grid > a[href="/reports-missions"] > i { color: #315da8; background: #e5edff; }
+.ds-home-page .ds-home-tools-grid > a[href="/structure"] > i { color: #7056c7; background: #f0ebff; }
+
+@media (max-width: 820px) {
+  .ds-home-page .ds-home-hero { min-height: 0; align-items: center; flex-direction: row; padding: 11px !important; gap: 8px; }
+  .ds-home-page .ds-home-hero > div:first-child { flex: 1 1 auto; min-width: 0; }
+  .ds-home-page .ds-home-hero h1 { font-size: 21px; line-height: 1.22; }
+  .ds-home-page .ds-home-hero p { font-size: 10.7px; line-height: 1.42; }
+  .ds-home-page .ds-home-hero .smart-context { display: flex; flex: 0 0 auto; width: auto; max-width: none; align-items: center; }
+  .ds-home-page .ds-home-hero .ds-home-date { min-height: 29px; padding: 4px 6px; gap: 5px; font-size: 9.5px; white-space: nowrap; }
+}
+@media (max-width: 380px) {
+  .ds-home-page .ds-home-hero { align-items: flex-start; flex-direction: column; gap: 7px; }
+  .ds-home-page .ds-home-hero .smart-context { align-self: flex-start; }
 }

@@ -73,5 +73,5 @@ def test_current_release_and_asset_cache_tags_are_synchronized():
     assert re.fullmatch(r'\d+\.\d+\.\d+', version)
     assert f"__version__ = '{version}'" in init
     assert f'version = "{version}"' in project
-    assert BASE.count(f'?v={version}') == 18
+    assert BASE.count(f'?v={version}') == 21
     assert f'v{version}' in APP_CSS.splitlines()[1]

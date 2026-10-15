@@ -1,4 +1,4 @@
-/* v68.44.2 — route-specific administration, reports, permissions, manager and audit refinement.
+/* v68.48.0 — route-specific administration, reports, permissions, manager and audit refinement.
    Loaded only on relevant workspace routes after the canonical sky-blue design system. */
 /* Administration, reports, access management and audit refinements. */
 
@@ -168,4 +168,89 @@ body[data-workspace-path^="/audit"] .audit-table-card tbody tr:hover { backgroun
 }
 @media (prefers-reduced-motion: reduce) {
   .admin-workspace .admin-ai-kpi, .ui-report-link-grid > a, .smart-report-metric, .smart-report-actions > a { transition: none !important; transform: none !important; }
+}
+
+/* v68.48.0 — reporting and manager workspaces: stronger semantic hierarchy. */
+.ui-report-group:nth-child(1) .ui-report-group-icon { color: #075ec9; background: linear-gradient(145deg,#d5e8ff,#f0f7ff); border-color: #a8ceff; }
+.ui-report-group:nth-child(2) .ui-report-group-icon { color: #087f73; background: linear-gradient(145deg,#c9f6eb,#effff9); border-color: #8fe1d0; }
+.ui-report-link-grid > a:nth-child(1) > span { color: #075ec9; background: linear-gradient(145deg,#d5e8ff,#f0f7ff); }
+.ui-report-link-grid > a:nth-child(2) > span { color: #087f73; background: linear-gradient(145deg,#c9f6eb,#effff9); }
+.ui-report-link-grid > a:nth-child(3) > span { color: #6f42c1; background: linear-gradient(145deg,#e8dcff,#f8f4ff); }
+.ui-report-link-grid > a:hover { border-color: #80bce8; box-shadow: 0 10px 22px rgba(19,88,141,.10); }
+.ui-report-stat { position: relative; overflow: hidden; background: linear-gradient(145deg,#fff 0%,#f8fbff 100%); }
+.ui-report-stat::after { content:""; position:absolute; inset-block:0; inset-inline-end:0; width:4px; background:#147cad; opacity:.9; }
+.ui-report-stat.leave::after { background:#cf7b15; }
+.ui-report-stat.assignment::after { background:#078c87; }
+.ui-report-stat.permission::after { background:#7754cf; }
+.smart-reports-head .ui-head-stats span { border-color:#c9e2f5; background:linear-gradient(145deg,#fff,#f2f9ff); box-shadow:0 3px 10px rgba(18,73,118,.04); }
+.smart-reports-head .ui-head-stats span:nth-child(2) b { color:#087f73; }
+.smart-reports-head .ui-head-stats span:nth-child(3) b { color:#b66a0b; }
+.smart-report-metric { position:relative; overflow:hidden; background:linear-gradient(145deg,#fff 0%,#f8fbff 100%); box-shadow:0 5px 16px rgba(15,63,105,.055); }
+.smart-report-metric.total { border-top-color:#147cad; }
+.smart-report-metric.leave { border-top-color:#cc7a16; }
+.smart-report-metric.assignment { border-top-color:#078b84; }
+.smart-report-metric.permission { border-top-color:#7350c7; }
+.smart-report-metric-label { display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:0; }
+.smart-report-metric-caption { min-width:0; color:var(--ui-muted); font-size:12px; font-weight:850; }
+.smart-report-metric-icon { display:grid; place-items:center; width:36px; height:36px; flex:0 0 36px; border:1px solid #a8d5f1; border-radius:11px; background:linear-gradient(145deg,#d8efff,#f1f9ff); color:#096fb5; }
+.smart-report-metric-icon svg { width:19px; height:19px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
+.smart-report-metric.total .smart-report-metric-icon { color:#096fb5; background:linear-gradient(145deg,#d8efff,#f1f9ff); border-color:#a8d5f1; }
+.smart-report-metric.leave .smart-report-metric-icon { color:#a85d07; background:linear-gradient(145deg,#ffe7bd,#fff7e8); border-color:#f2cd8b; }
+.smart-report-metric.assignment .smart-report-metric-icon { color:#08786f; background:linear-gradient(145deg,#c9f5e8,#effff8); border-color:#8edecb; }
+.smart-report-metric.permission .smart-report-metric-icon { color:#6942bd; background:linear-gradient(145deg,#e6dcff,#f7f3ff); border-color:#c6b4f4; }
+.smart-report-metric > strong { letter-spacing:-.035em; }
+.smart-report-metric.total > strong { color:#075f9f; }
+.smart-report-metric.leave > strong { color:#a85d07; }
+.smart-report-metric.assignment > strong { color:#08786f; }
+.smart-report-metric.permission > strong { color:#6942bd; }
+.smart-report-command-grid > .smart-report-primary { border-top:3px solid #147cad; }
+.smart-report-actions > a {
+  position:relative; grid-template-columns:44px minmax(0,1fr); column-gap:11px; row-gap:4px;
+  align-items:start; background:linear-gradient(145deg,#fff 0%,#f8fbff 100%);
+  box-shadow:0 3px 11px rgba(15,63,105,.035);
+}
+.smart-report-actions > a > .smart-report-action-icon { grid-column:1; grid-row:1 / span 3; display:grid; place-items:center; width:42px; height:42px; border:1px solid #93c9ef; border-radius:12px; background:linear-gradient(145deg,#d5edff,#f1f9ff); color:#076cb4; }
+.smart-report-action-icon svg { width:21px; height:21px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
+.smart-report-actions > a > b,
+.smart-report-actions > a > small,
+.smart-report-actions > a > span:not(.smart-report-action-icon) { grid-column:2; min-width:0; }
+.smart-report-actions > a > b { padding-top:2px; }
+.smart-report-actions > a > span:not(.smart-report-action-icon) { margin-top:4px; }
+.smart-report-actions > a.report-action-leave { border-inline-start:3px solid #cc7a16; }
+.smart-report-actions > a.report-action-leave > .smart-report-action-icon { color:#a85d07; background:linear-gradient(145deg,#ffe7bd,#fff7e8); border-color:#f2cd8b; }
+.smart-report-actions > a.report-action-assignment { border-inline-start:3px solid #078b84; }
+.smart-report-actions > a.report-action-assignment > .smart-report-action-icon { color:#08786f; background:linear-gradient(145deg,#c9f5e8,#effff8); border-color:#8edecb; }
+.smart-report-actions > a.report-action-permission { border-inline-start:3px solid #7350c7; }
+.smart-report-actions > a.report-action-permission > .smart-report-action-icon { color:#6942bd; background:linear-gradient(145deg,#e6dcff,#f7f3ff); border-color:#c6b4f4; }
+.smart-report-actions > a.report-action-print { border-inline-start:3px solid #315bb9; }
+.smart-report-actions > a.report-action-print > .smart-report-action-icon { color:#244caa; background:linear-gradient(145deg,#d3e1ff,#f1f5ff); border-color:#a7bdf4; }
+.smart-report-actions > a.report-action-scan { border-inline-start:3px solid #098d9a; }
+.smart-report-actions > a.report-action-scan > .smart-report-action-icon { color:#087c87; background:linear-gradient(145deg,#c8f2f4,#effcfc); border-color:#91dadd; }
+.smart-report-actions > a:hover { border-color:#87c4e9; box-shadow:0 9px 20px rgba(15,73,118,.085); }
+.smart-report-attention-item { transition:border-color .16s ease,background .16s ease,transform .16s ease; }
+.smart-report-attention-item.urgent { border-color:#f0d5a9; background:linear-gradient(145deg,#fffdf8,#fff8eb); }
+.smart-report-attention-item.urgent > strong { background:linear-gradient(145deg,#ffe2ad,#fff3d9); color:#9c5708; border:1px solid #f2ce8b; }
+.smart-report-live-grid > .ui-work-card:nth-child(1) { border-top:3px solid #147cad; }
+.smart-report-live-grid > .ui-work-card:nth-child(2) { border-top:3px solid #078b84; }
+.smart-report-live-grid > .ui-work-card:nth-child(3) { border-top:3px solid #315bb9; }
+.smart-report-live-number { background:linear-gradient(145deg,#f2f9ff,#fff); border-color:#cfe4f4; }
+.smart-report-live-grid > .ui-work-card:nth-child(2) .smart-report-live-number > strong { color:#08786f; }
+.smart-report-print-card > .ui-btn { box-shadow:0 5px 13px rgba(8,120,111,.15); }
+.smart-report-note { border-inline-start:4px solid #147cad; }
+body[data-workspace-path^="/reports"] .ui-mission-filter-card,
+body[data-workspace-path^="/reports-missions"] .ui-mission-filter-card { background:linear-gradient(150deg,#fff 0%,#f8fbff 100%); }
+body[data-workspace-path^="/reports"] .ui-mission-table thead th,
+body[data-workspace-path^="/manager"] .ui-mission-table thead th,
+body[data-workspace-path^="/audit"] .audit-table-card table thead th { background:#eaf5ff; color:#164a71; }
+body[data-workspace-path^="/reports"] .ui-mission-table tbody tr:hover,
+body[data-workspace-path^="/manager"] .ui-mission-table tbody tr:hover { background:#eef7ff; }
+body[data-workspace-path="/manager"] .ui-grid-3-gap-16 > .ui-card:nth-child(1) { border-top:3px solid #147cad; }
+body[data-workspace-path="/manager"] .ui-grid-3-gap-16 > .ui-card:nth-child(2) { border-top:3px solid #078b84; }
+body[data-workspace-path="/manager"] .ui-grid-3-gap-16 > .ui-card:nth-child(3) { border-top:3px solid #7350c7; }
+body[data-workspace-path="/manager"] .ui-grid-3-gap-16 > .ui-card { background:linear-gradient(150deg,#fff,#f9fcff); }
+body[data-workspace-path^="/audit"] .audit-page-head .ui-tag { border-color:#9dccef; background:#e7f5ff; color:#075f9f; }
+@media (max-width:620px) {
+  .smart-report-actions > a { grid-template-columns:40px minmax(0,1fr); column-gap:9px; padding:12px; }
+  .smart-report-actions > a > .smart-report-action-icon { width:38px; height:38px; }
+  .smart-report-metric-label { align-items:center; }
 }

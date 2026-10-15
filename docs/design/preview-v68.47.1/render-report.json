@@ -1,0 +1,362 @@
+[
+  {
+    "page": "employees",
+    "mode": "desktop",
+    "viewport": [
+      1440,
+      1000
+    ],
+    "docWidth": 1440,
+    "viewWidth": 1440,
+    "bodyWidth": 1440,
+    "sidebarBg": "rgba(0, 0, 0, 0)",
+    "sidebarImage": "linear-gradient(165deg, rgb(22, 75, 118) 0%, rgb(16, 56, 95) 52%, rgb(9, 41, 70) 100%)",
+    "mainWidth": 1208,
+    "contentWidth": 1144.65625,
+    "styleSheets": 7,
+    "sidebarOpen": false,
+    "errors": []
+  },
+  {
+    "page": "employees",
+    "mode": "mobile",
+    "viewport": [
+      390,
+      844
+    ],
+    "docWidth": 390,
+    "viewWidth": 390,
+    "bodyWidth": 390,
+    "sidebarBg": "rgba(0, 0, 0, 0)",
+    "sidebarImage": "linear-gradient(165deg, rgb(22, 75, 118) 0%, rgb(16, 56, 95) 52%, rgb(9, 41, 70) 100%)",
+    "mainWidth": 390,
+    "contentWidth": 366,
+    "styleSheets": 7,
+    "sidebarOpen": false,
+    "errors": []
+  },
+  {
+    "page": "employees",
+    "mode": "narrow",
+    "viewport": [
+      360,
+      800
+    ],
+    "docWidth": 360,
+    "viewWidth": 360,
+    "bodyWidth": 360,
+    "sidebarBg": "rgba(0, 0, 0, 0)",
+    "sidebarImage": "linear-gradient(165deg, rgb(22, 75, 118) 0%, rgb(16, 56, 95) 52%, rgb(9, 41, 70) 100%)",
+    "mainWidth": 360,
+    "contentWidth": 336,
+    "styleSheets": 7,
+    "sidebarOpen": false,
+    "errors": []
+  },
+  {
+    "page": "employees",
+    "mode": "mobile-sidebar-open",
+    "viewport": [
+      390,
+      844
+    ],
+    "docWidth": 390,
+    "viewWidth": 390,
+    "bodyWidth": 390,
+    "sidebarBg": "rgba(0, 0, 0, 0)",
+    "sidebarImage": "linear-gradient(165deg, rgb(22, 75, 118) 0%, rgb(16, 56, 95) 52%, rgb(9, 41, 70) 100%)",
+    "mainWidth": 390,
+    "contentWidth": 366,
+    "styleSheets": 7,
+    "sidebarOpen": true,
+    "errors": []
+  },
+  {
+    "page": "branches",
+    "mode": "desktop",
+    "viewport": [
+      1440,
+      1000
+    ],
+    "docWidth": 1440,
+    "viewWidth": 1440,
+    "bodyWidth": 1440,
+    "sidebarBg": "rgba(0, 0, 0, 0)",
+    "sidebarImage": "linear-gradient(165deg, rgb(22, 75, 118) 0%, rgb(16, 56, 95) 52%, rgb(9, 41, 70) 100%)",
+    "mainWidth": 1208,
+    "contentWidth": 1144.65625,
+    "styleSheets": 6,
+    "sidebarOpen": false,
+    "errors": []
+  },
+  {
+    "page": "branches",
+    "mode": "mobile",
+    "viewport": [
+      390,
+      844
+    ],
+    "docWidth": 390,
+    "viewWidth": 390,
+    "bodyWidth": 390,
+    "sidebarBg": "rgba(0, 0, 0, 0)",
+    "sidebarImage": "linear-gradient(165deg, rgb(22, 75, 118) 0%, rgb(16, 56, 95) 52%, rgb(9, 41, 70) 100%)",
+    "mainWidth": 390,
+    "contentWidth": 366,
+    "styleSheets": 6,
+    "sidebarOpen": false,
+    "errors": []
+  },
+  {
+    "page": "branches",
+    "mode": "narrow",
+    "viewport": [
+      360,
+      800
+    ],
+    "docWidth": 360,
+    "viewWidth": 360,
+    "bodyWidth": 360,
+    "sidebarBg": "rgba(0, 0, 0, 0)",
+    "sidebarImage": "linear-gradient(165deg, rgb(22, 75, 118) 0%, rgb(16, 56, 95) 52%, rgb(9, 41, 70) 100%)",
+    "mainWidth": 360,
+    "contentWidth": 336,
+    "styleSheets": 6,
+    "sidebarOpen": false,
+    "errors": []
+  },
+  {
+    "page": "branches",
+    "mode": "mobile-sidebar-open",
+    "viewport": [
+      390,
+      844
+    ],
+    "docWidth": 390,
+    "viewWidth": 390,
+    "bodyWidth": 390,
+    "sidebarBg": "rgba(0, 0, 0, 0)",
+    "sidebarImage": "linear-gradient(165deg, rgb(22, 75, 118) 0%, rgb(16, 56, 95) 52%, rgb(9, 41, 70) 100%)",
+    "mainWidth": 390,
+    "contentWidth": 366,
+    "styleSheets": 6,
+    "sidebarOpen": true,
+    "errors": []
+  },
+  {
+    "page": "movements",
+    "mode": "desktop",
+    "viewport": [
+      1440,
+      1000
+    ],
+    "docWidth": 1440,
+    "viewWidth": 1440,
+    "bodyWidth": 1440,
+    "sidebarBg": "rgba(0, 0, 0, 0)",
+    "sidebarImage": "linear-gradient(165deg, rgb(22, 75, 118) 0%, rgb(16, 56, 95) 52%, rgb(9, 41, 70) 100%)",
+    "mainWidth": 1208,
+    "contentWidth": 1144.65625,
+    "styleSheets": 7,
+    "sidebarOpen": false,
+    "errors": []
+  },
+  {
+    "page": "movements",
+    "mode": "mobile",
+    "viewport": [
+      390,
+      844
+    ],
+    "docWidth": 390,
+    "viewWidth": 390,
+    "bodyWidth": 390,
+    "sidebarBg": "rgba(0, 0, 0, 0)",
+    "sidebarImage": "linear-gradient(165deg, rgb(22, 75, 118) 0%, rgb(16, 56, 95) 52%, rgb(9, 41, 70) 100%)",
+    "mainWidth": 390,
+    "contentWidth": 366,
+    "styleSheets": 7,
+    "sidebarOpen": false,
+    "errors": []
+  },
+  {
+    "page": "movements",
+    "mode": "narrow",
+    "viewport": [
+      360,
+      800
+    ],
+    "docWidth": 360,
+    "viewWidth": 360,
+    "bodyWidth": 360,
+    "sidebarBg": "rgba(0, 0, 0, 0)",
+    "sidebarImage": "linear-gradient(165deg, rgb(22, 75, 118) 0%, rgb(16, 56, 95) 52%, rgb(9, 41, 70) 100%)",
+    "mainWidth": 360,
+    "contentWidth": 336,
+    "styleSheets": 7,
+    "sidebarOpen": false,
+    "errors": []
+  },
+  {
+    "page": "movements",
+    "mode": "mobile-sidebar-open",
+    "viewport": [
+      390,
+      844
+    ],
+    "docWidth": 390,
+    "viewWidth": 390,
+    "bodyWidth": 390,
+    "sidebarBg": "rgba(0, 0, 0, 0)",
+    "sidebarImage": "linear-gradient(165deg, rgb(22, 75, 118) 0%, rgb(16, 56, 95) 52%, rgb(9, 41, 70) 100%)",
+    "mainWidth": 390,
+    "contentWidth": 366,
+    "styleSheets": 7,
+    "sidebarOpen": true,
+    "errors": []
+  },
+  {
+    "page": "mission-from-ticket",
+    "mode": "desktop",
+    "viewport": [
+      1440,
+      1000
+    ],
+    "docWidth": 1440,
+    "viewWidth": 1440,
+    "bodyWidth": 1440,
+    "sidebarBg": "rgba(0, 0, 0, 0)",
+    "sidebarImage": "linear-gradient(165deg, rgb(22, 75, 118) 0%, rgb(16, 56, 95) 52%, rgb(9, 41, 70) 100%)",
+    "mainWidth": 1208,
+    "contentWidth": 1144.65625,
+    "styleSheets": 7,
+    "sidebarOpen": false,
+    "errors": []
+  },
+  {
+    "page": "mission-from-ticket",
+    "mode": "mobile",
+    "viewport": [
+      390,
+      844
+    ],
+    "docWidth": 390,
+    "viewWidth": 390,
+    "bodyWidth": 390,
+    "sidebarBg": "rgba(0, 0, 0, 0)",
+    "sidebarImage": "linear-gradient(165deg, rgb(22, 75, 118) 0%, rgb(16, 56, 95) 52%, rgb(9, 41, 70) 100%)",
+    "mainWidth": 390,
+    "contentWidth": 366,
+    "styleSheets": 7,
+    "sidebarOpen": false,
+    "errors": []
+  },
+  {
+    "page": "mission-from-ticket",
+    "mode": "narrow",
+    "viewport": [
+      360,
+      800
+    ],
+    "docWidth": 360,
+    "viewWidth": 360,
+    "bodyWidth": 360,
+    "sidebarBg": "rgba(0, 0, 0, 0)",
+    "sidebarImage": "linear-gradient(165deg, rgb(22, 75, 118) 0%, rgb(16, 56, 95) 52%, rgb(9, 41, 70) 100%)",
+    "mainWidth": 360,
+    "contentWidth": 336,
+    "styleSheets": 7,
+    "sidebarOpen": false,
+    "errors": []
+  },
+  {
+    "page": "mission-from-ticket",
+    "mode": "mobile-sidebar-open",
+    "viewport": [
+      390,
+      844
+    ],
+    "docWidth": 390,
+    "viewWidth": 390,
+    "bodyWidth": 390,
+    "sidebarBg": "rgba(0, 0, 0, 0)",
+    "sidebarImage": "linear-gradient(165deg, rgb(22, 75, 118) 0%, rgb(16, 56, 95) 52%, rgb(9, 41, 70) 100%)",
+    "mainWidth": 390,
+    "contentWidth": 366,
+    "styleSheets": 7,
+    "sidebarOpen": true,
+    "errors": []
+  },
+  {
+    "page": "employee-profile",
+    "mode": "desktop",
+    "viewport": [
+      1440,
+      1000
+    ],
+    "docWidth": 1440,
+    "viewWidth": 1440,
+    "bodyWidth": 1440,
+    "sidebarBg": "rgba(0, 0, 0, 0)",
+    "sidebarImage": "linear-gradient(165deg, rgb(22, 75, 118) 0%, rgb(16, 56, 95) 52%, rgb(9, 41, 70) 100%)",
+    "mainWidth": 1208,
+    "contentWidth": null,
+    "styleSheets": 6,
+    "sidebarOpen": false,
+    "errors": []
+  },
+  {
+    "page": "employee-profile",
+    "mode": "mobile",
+    "viewport": [
+      390,
+      844
+    ],
+    "docWidth": 390,
+    "viewWidth": 390,
+    "bodyWidth": 390,
+    "sidebarBg": "rgba(0, 0, 0, 0)",
+    "sidebarImage": "linear-gradient(165deg, rgb(22, 75, 118) 0%, rgb(16, 56, 95) 52%, rgb(9, 41, 70) 100%)",
+    "mainWidth": 390,
+    "contentWidth": null,
+    "styleSheets": 6,
+    "sidebarOpen": false,
+    "errors": []
+  },
+  {
+    "page": "employee-profile",
+    "mode": "narrow",
+    "viewport": [
+      360,
+      800
+    ],
+    "docWidth": 360,
+    "viewWidth": 360,
+    "bodyWidth": 360,
+    "sidebarBg": "rgba(0, 0, 0, 0)",
+    "sidebarImage": "linear-gradient(165deg, rgb(22, 75, 118) 0%, rgb(16, 56, 95) 52%, rgb(9, 41, 70) 100%)",
+    "mainWidth": 360,
+    "contentWidth": null,
+    "styleSheets": 6,
+    "sidebarOpen": false,
+    "errors": []
+  },
+  {
+    "page": "employee-profile",
+    "mode": "mobile-sidebar-open",
+    "viewport": [
+      390,
+      844
+    ],
+    "docWidth": 390,
+    "viewWidth": 390,
+    "bodyWidth": 390,
+    "sidebarBg": "rgba(0, 0, 0, 0)",
+    "sidebarImage": "linear-gradient(165deg, rgb(22, 75, 118) 0%, rgb(16, 56, 95) 52%, rgb(9, 41, 70) 100%)",
+    "mainWidth": 390,
+    "contentWidth": null,
+    "styleSheets": 6,
+    "sidebarOpen": true,
+    "errors": []
+  }
+]

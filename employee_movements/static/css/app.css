@@ -1,5 +1,5 @@
 /*
-   نظام الواجهة الموحد — v68.45.0
+   نظام الواجهة الموحد — v68.49.0
    مرجع مركزي لمتغيرات التصميم الأساسية مع الحفاظ على قواعد الصفحات المتخصصة.
 */
 :root {
@@ -73,9 +73,9 @@
   --ui-focus: 0 0 0 3px rgba(20, 124, 173, .16);
   --ui-overlay: rgba(12, 43, 65, .46);
   /* Application frame */
-  --ui-sidebar-bg-start: #ffffff;
-  --ui-sidebar-bg-mid: #fcfdff;
-  --ui-sidebar-bg-end: #f3f9fe;
+  --ui-sidebar-bg-start: #eaf5fd;
+  --ui-sidebar-bg-mid: #e5f1fb;
+  --ui-sidebar-bg-end: #dcebf8;
   --ui-sidebar-active: #e8f5ff;
   --ui-sidebar-active-mark: var(--ui-brand);
   --ui-login-surface: linear-gradient(145deg, #e9f6ff 0%, #f6fbff 58%, #ffffff 100%);
@@ -523,10 +523,13 @@ body.ui-sidebar-collapsed .premium-nav a{justify-content:center;padding-inline:0
 .interactive-notification-list-card{border-radius:18px!important}
 .interactive-notification-item{border-bottom:1px solid var(--ui-line-soft)!important}
 .interactive-notification-item:last-child{border-bottom:0!important}
-.error-page{width:min(620px,100%);padding:34px!important;border:1px solid var(--ui-line)!important;border-radius:24px!important;background:#fff!important;box-shadow:var(--ui-shadow-md)!important;text-align:center}
+.error-page{position:relative;overflow:hidden;width:min(620px,100%);padding:34px!important;border:1px solid #cfe2f1!important;border-radius:22px!important;background:linear-gradient(145deg,#fff,#f1f8ff)!important;box-shadow:var(--ui-shadow-md)!important;text-align:center}
+.error-page::before{content:"";display:block;width:58px;height:4px;margin:0 auto 12px;border-radius:999px;background:linear-gradient(90deg,#147cad,#38b6e8)}
 .error-code{font-size:54px!important;font-weight:800!important;letter-spacing:-.06em!important;color:var(--ui-brand)!important}
-.error-page h1,.error-page h2{margin:4px 0!important}
-.error-page p{font-size:12px!important;color:#7d858e!important}
+.error-page .error-code{color:#147cad!important;font-size:clamp(38px,5vw,58px)!important;font-weight:900;letter-spacing:-.04em}
+.error-page h1,.error-page h2{margin:4px 0!important;color:#153f60!important;font-size:clamp(22px,2.4vw,28px)}
+.error-page p{max-width:58ch;margin-inline:auto;font-size:13px!important;line-height:1.9;overflow-wrap:anywhere;color:#5c7990!important}
+.error-page .ui-btn{min-height:42px;border-radius:11px}
 .scope-empty-state{padding:42px 24px!important;min-height:260px;display:grid;place-items:center;text-align:center}
 .scope-empty-icon{width:56px!important;height:56px!important;border-radius:17px!important;background:#f0f2f4!important;color:#3d454d!important}
 .login-shell{align-items:stretch!important}

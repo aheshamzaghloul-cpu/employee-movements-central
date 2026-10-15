@@ -1,11 +1,11 @@
 {
-  "version": "68.45.0",
-  "title": "Premium sky-blue homepage composition aligned to the selected design concept",
-  "scope": "Actual homepage template composition redesign: hero hierarchy, four compact quick actions, separated operational workbench for movement registration and all-governorates employee search, preserving the existing forms, permissions, links, and single work-governorate selector in the topbar.",
+  "version": "68.46.0",
+  "title": "Admin and governance visual refinement using the approved premium sky-blue/navy design",
+  "scope": "Administration overview, governorates/branches catalog, users/permissions, and delegation UI. Existing role policies, form field names, route actions, and database schema remain unchanged.",
   "results": {
     "contract_tests": {
-      "collected": 348,
-      "passed": 348,
+      "collected": 360,
+      "passed": 360,
       "failed": 0,
       "status": "passed"
     },
@@ -16,14 +16,14 @@
     },
     "post_routes_reviewed": 59,
     "post_route_security": "POST_ROUTE_SECURITY=OK",
-    "ui_integrity": "UI_INTEGRITY=OK (templates=46, css_files=10, js_files=8)",
+    "ui_integrity": "UI_INTEGRITY=OK (templates=46, css_files=11, js_files=8)",
     "jinja_templates": {
       "count": 46,
       "parse_errors": 0,
       "status": "passed"
     },
     "css": {
-      "count": 10,
+      "count": 11,
       "parse_errors": 0,
       "parser": "tinycss2 recursive stylesheet/rule/declaration checks",
       "status": "passed"
@@ -35,9 +35,9 @@
       "status": "passed"
     },
     "python": {
-      "source_files_in_app_tests_scripts": 192,
+      "source_files_in_app_tests_scripts": 187,
       "compile_errors": 0,
-      "parser": "python -m compileall for application, tests, contracts and scripts, plus root-level utilities",
+      "parser": "python -m compileall for application, contract tests, tests and scripts",
       "status": "passed"
     },
     "css_custom_properties": {
@@ -51,23 +51,28 @@
       "status": "passed"
     },
     "visual_review": {
-      "rendered_templates_and_states": 1,
+      "rendered_templates_and_states": 16,
       "viewport_widths": [
         1440,
-        390
+        390,
+        360
       ],
-      "screenshots": 2,
-      "pixel_identical_before_after": null,
-      "changed_screenshots": 2,
+      "screenshots": 16,
       "browser_errors": 0,
       "horizontal_overflows": 0,
-      "source": "Actual modified home.html/base.html rendered via Jinja with synthetic Admin context; local CSS assets inlined for Chromium screenshots; page scripts removed for deterministic visual review.",
-      "status": "passed_local_template_preview_not_e2e"
+      "pages": [
+        "administration",
+        "governorates",
+        "users/permissions",
+        "delegations"
+      ],
+      "source": "Local Chromium static reference HTML using project CSS, with synthetic data; not a live Flask route or database session.",
+      "status": "passed_local_css_backed_preview_not_e2e"
     },
     "base_cache_buster_references": 18,
     "full_pytest_suite": {
-      "status": "could_not_start",
-      "reason": "ModuleNotFoundError: No module named flask at tests/conftest.py before test collection; contract_tests ran separately and passed."
+      "status": "not_run",
+      "reason": "Flask is unavailable in the review environment; the contract suite runs independently and passed."
     },
     "css_cleanup_intra_stylesheet_previous_release": {
       "shadowed_declarations_removed": 324,
@@ -82,10 +87,18 @@
       "workbench_cards": 2,
       "search_is_separate_from_registration": true,
       "work_governorate_selector": "topbar only",
-      "desktop_screenshot": "docs/design/preview-v68.45.0/home-desktop.png",
-      "mobile_screenshot": "docs/design/preview-v68.45.0/home-mobile.png",
-      "preview_results": "docs/design/preview-v68.45.0/preview-results.json",
-      "status": "passed_local_visual_preview"
+      "desktop_screenshot": "docs/design/preview-v68.45.1/interface-feedback-desktop.png",
+      "mobile_screenshot": "docs/design/preview-v68.45.1/interface-feedback-mobile.png",
+      "narrow_screenshot": "docs/design/preview-v68.45.1/interface-feedback-narrow.png",
+      "preview_results": "docs/design/preview-v68.45.1/preview-results.json",
+      "welcome_panel_height_px": {
+        "desktop_1728x864": 113.69,
+        "mobile_390x844": 109.48,
+        "narrow_360x780": 130.3
+      },
+      "assistant_label_visible": true,
+      "distinct_action_icon_colors": true,
+      "status": "passed_local_component_visual_preview"
     },
     "css_cleanup_v68_44_5_historical": {
       "shadowed_declarations_removed_this_release": 324,
@@ -113,6 +126,19 @@
       },
       "remaining_candidates_on_rerun": 0,
       "status": "passed_cross_stylesheet_cleanup"
+    },
+    "admin_governance_visual": {
+      "admin_kpi_icons": 6,
+      "admin_tool_icons": 9,
+      "governorate_kpi_icons": 4,
+      "catalog_record_icons": "SVG",
+      "delegation_summary_states": [
+        "is-live",
+        "is-planned",
+        "is-closed"
+      ],
+      "routes_forms_and_permission_hooks_preserved": true,
+      "status": "passed_contract_and_local_visual_review"
     }
   },
   "stylesheet_policy": {
@@ -138,19 +164,18 @@
     "deployed": false
   },
   "limitations": [
-    "The new homepage composition is based on the existing Jinja template and retains the existing registration/search forms, route destinations, role gates and single topbar work-governorate selector.",
-    "Local Chromium previews were rendered from the modified Jinja templates using a synthetic Admin context and mock data; JavaScript was omitted for deterministic screenshots. No live Flask session or production database was used.",
-    "All 46 Jinja templates, 10 CSS files, JavaScript syntax, and Python compilation checks passed. The 348 contract tests, 13 workflow source-contract checks, and 59 POST-route security review passed.",
-    "The full Flask test suite could not start because Flask is not installed in the review environment. No deployment to GitHub or Blitz was performed."
+    "Local Chromium preview uses static representative HTML with the project CSS and synthetic data. It does not render the live Flask/Jinja routes or connect to the application database.",
+    "All 360 contract tests passed. All 46 Jinja templates, 11 CSS files, 8 JavaScript files, and 187 Python source files passed syntax/compilation checks.",
+    "Flask is unavailable in the review environment, so live application/integration tests could not be run. No GitHub or Blitz deployment was performed."
   ],
   "artifacts": {
-    "qa_review": "docs/QA_REVIEW_v68.45.0.md",
-    "page_stylesheet_map": "docs/design/PAGE_STYLESHEET_MAP_v68.45.0.md",
-    "home_visual_review": "docs/design/HOME_REDESIGN_VISUAL_REVIEW_v68.45.0.md",
-    "visual_diff": "docs/design/HOME_REDESIGN_VISUAL_DIFF_v68.45.0.json",
-    "desktop_preview": "docs/design/preview-v68.45.0/home-desktop.png",
-    "mobile_preview": "docs/design/preview-v68.45.0/home-mobile.png",
-    "preview_results": "docs/design/preview-v68.45.0/preview-results.json",
-    "home_redesign_visual_diff": "docs/design/HOME_REDESIGN_VISUAL_DIFF_v68.45.0.json"
+    "qa_review": "docs/QA_REVIEW_v68.46.0.md",
+    "page_stylesheet_map": "docs/design/PAGE_STYLESHEET_MAP_v68.46.0.md",
+    "admin_governance_visual_review": "docs/design/ADMIN_GOVERNANCE_VISUAL_REVIEW_v68.46.0.md",
+    "preview_report": "docs/design/preview-v68.46.0/render-report.json",
+    "administration_preview": "docs/design/preview-v68.46.0/administration-desktop.png",
+    "governorates_preview": "docs/design/preview-v68.46.0/governorates-desktop.png",
+    "users_preview": "docs/design/preview-v68.46.0/users-desktop.png",
+    "delegations_preview": "docs/design/preview-v68.46.0/delegations-desktop.png"
   }
 }

@@ -6,10 +6,10 @@ DESIGN = (ROOT / "employee_movements/static/css/design-system-cyan.css").read_te
 APP_CSS = (ROOT / "employee_movements/static/css/app.css").read_text(encoding="utf-8")
 
 def test_current_release_is_bumped_atomically():
-    assert (ROOT / "VERSION.md").read_text(encoding="utf-8").strip() == "68.45.0"
-    assert 'version = "68.45.0"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert "__version__ = '68.45.0'" in (ROOT / "employee_movements/__init__.py").read_text(encoding="utf-8")
-    assert BASE.count("v=68.45.0") == 18
+    assert (ROOT / "VERSION.md").read_text(encoding="utf-8").strip() == "68.49.0"
+    assert 'version = "68.49.0"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert "__version__ = '68.49.0'" in (ROOT / "employee_movements/__init__.py").read_text(encoding="utf-8")
+    assert BASE.count("v=68.49.0") == 21
 
 def test_shared_design_layer_is_loaded_after_all_page_styles():
     assert BASE.index("css/design-system-cyan.css") > BASE.index("css/app.css")

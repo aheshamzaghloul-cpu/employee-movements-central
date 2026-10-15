@@ -28,9 +28,9 @@
     {% set current_count = rows|selectattr('is_active')|selectattr('starts_at','le',today)|selectattr('ends_at','ge',today)|list|length %}
     {% set planned_count = rows|selectattr('is_active')|selectattr('starts_at','gt',today)|list|length %}
     {% set closed_count = rows|length - current_count - planned_count %}
-    <div><b>{{current_count}}</b><span>ساري الآن</span></div>
-    <div><b>{{planned_count}}</b><span>مجدول</span></div>
-    <div><b>{{closed_count}}</b><span>منتهي / ملغى</span></div>
+    <div class="delegation-summary-item is-live"><span class="delegation-summary-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m7.5 12 3 3 6-6"/></svg></span><div class="delegation-summary-copy"><b>{{current_count}}</b><span>ساري الآن</span></div></div>
+    <div class="delegation-summary-item is-planned"><span class="delegation-summary-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/></svg></span><div class="delegation-summary-copy"><b>{{planned_count}}</b><span>مجدول</span></div></div>
+    <div class="delegation-summary-item is-closed"><span class="delegation-summary-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5 5 19"/><circle cx="12" cy="12" r="8.5"/></svg></span><div class="delegation-summary-copy"><b>{{closed_count}}</b><span>منتهي / ملغى</span></div></div>
   </div>
 
   <section class="ui-work-card" id="delegation-history">

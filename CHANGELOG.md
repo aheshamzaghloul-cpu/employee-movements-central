@@ -1,3 +1,55 @@
+# v68.49.0 — Secondary workspaces visual completion
+
+- Polished account/password, follow-up notifications, audit history, reference lists, administrative replacement, user-edit, and error/empty states.
+- Added route-scoped `secondary-workspaces.css`, loaded only on relevant paths after shared/operational styles.
+- Improved contrast, semantic status colors, audit table readability, reference-card hierarchy, replacement workflow framing, and responsive password-form layout.
+- Preserved form names, CSRF fields, route targets, access conditions, data models, and official print templates.
+- Follow-up visual inspection polished the two-column desktop layout for lookup types, moved error-card styling into the global `app.css` so unknown routes also receive the product styling, and unified Save/Enable/Disable/Delete button appearances.
+- Local Chromium preview: 7 page types across desktop/mobile/narrow, 22 screenshots, zero console errors and zero horizontal-overflow cases. Contract suite: 380 tests collected and passed; focused work-flow contracts 13/13 and POST-route review 59 routes.
+- Added semantic `data-page` identifiers for secondary workspaces.
+- Validation: contract tests and local synthetic browser previews; live Flask/database integration remains outside this environment.
+
+## v68.48.0 — Reports and assistant experience redesign
+
+- Improved report and mission overview metrics with accessible semantic icon tiles and distinct blue, teal, amber, violet and cobalt color families.
+- Added dedicated icon tiles to report actions while preserving all route destinations and permission guards.
+- Refined mission tables, report filters, manager summary cards and audit headers for stronger hierarchy and clearer scanning.
+- Upgraded the assistant dock header, presence, context, chat bubbles, suggestions and composer; added a visual mark to the dock panel while preserving CSRF fields, workspace context, send, clear and confirmation actions.
+- Updated current version and asset cache keys to `68.48.0`. No database schema, business logic, route authorization, or report scope behavior was intentionally changed.
+- Local visual review uses synthetic fixture data; production database and full Flask integration tests were not run in this environment.
+
+---
+
+## v68.47.1 — Operational pages visual refinement
+
+- Added a scoped operational-pages stylesheet for the employee directory, branch catalogue, movement workflow, ticket-image mission intake, mission-edit forms, and employee profile/detail pages.
+- Strengthened the employee-directory hero, search and summary hierarchy, and applied richer accessible icon accents to branch groups and employee avatars.
+- Refined branch record icon colors and destructive-action contrast without changing route targets or form payloads.
+- Improved movement workflow progress states, selection cards, status chips, counters, and mission image upload/review visual affordances.
+- Kept changes presentational: no route handlers, permissions, model fields, or database schema were changed.
+
+## v68.46.0 — Admin & Governance UI refinement
+- Refined the administration overview with consistent semantic icon tiles for governance KPI cards and administration tools.
+- Refined governorates catalogue KPI/record iconography and search/status styling using the existing sky-blue/navy identity.
+- Improved delegation status summaries with icon-led live/planned/closed treatments while preserving form actions, filters, and routes.
+- Aligned package/runtime/template/cache versions at 68.46.0 and added focused contract coverage for administration/governance UI structure.
+- Added local CSS-backed reference previews for administration, governorates, users/permissions, and delegations at desktop/mobile/narrow sizes. These are static representative previews, not a live Flask/database run.
+
+
+## v68.45.2 — Stronger Navigation and Icon Colors
+- Deepened the sidebar to a distinct navy/sky-blue gradient.
+- Increased contrast for section headers, selected navigation item, user card, footer and brand mark.
+- Added semantic, high-saturation icon colors for navigation and homepage quick actions.
+- Added a final `navigation-color-system.css` layer and bumped asset cache tags.
+- Added contract checks and local Chromium previews for desktop, mobile and narrow layouts.
+## v68.45.1 — ضبط الإطار الجانبي وبطاقة الترحيب وأيقونات الإجراءات والمساعد الذكي
+
+- تمييز القائمة الجانبية بخلفية سماوية زرقاء أوضح من مساحة المحتوى مع إبقاء النصوص والروابط عالية التباين.
+- تقليل ارتفاع بطاقة الترحيب في الرئيسية دون إخفاء تاريخ اليوم أو تقليص إمكانية القراءة.
+- إظهار تسمية «المساعد الذكي» بجوار الأيقونة، مع اسم وصول واضح وحجم متجاوب.
+- منح اختصارات الرئيسية وأيقونات التنقل ألوانًا دلالية مختلفة ضمن الهوية الزرقاء المعتمدة.
+- إضافة اختبارات عقود للتغييرات الأربعة.
+
 ## v68.45.0 — إعادة تصميم مرئية للرئيسية وفق التصور السماوي الفاخر
 
 - إعادة تنظيم الصفحة الرئيسية حول أربعة اختصارات واضحة: تسجيل حركة، مأمورية من المرفق، بحث عن موظف، وطباعة مأمورية؛ مع الحفاظ على شروط الأدوار والروابط الفعلية.
@@ -166,6 +218,15 @@
 - إضافة اختبارات تغطي جميع حالات الإجابتين، مع توثيق قيود الاختبار التشغيلي. لم يتم النشر أو تعديل قاعدة بيانات الإنتاج.
 
 # سجل التغييرات
+
+## v68.46.0 — Admin & Governance UI refinement
+
+- Refined the administration overview with semantic SVG KPI icons and stronger, consistent hierarchy.
+- Added per-tool icon tiles to governance navigation while preserving destinations and authorization checks.
+- Replaced governorate catalogue text glyphs with accessible line icons and stronger color-coded KPI/icon surfaces.
+- Added distinct icon-led states to delegation summary cards.
+- Updated application asset cache-busting and visible version metadata to 68.46.0.
+- No backend routes, form field names, CSRF controls, database behavior, or permission logic changed.
 
 ## v68.32.0 — تسجيل مأمورية من صورة تيكيت
 

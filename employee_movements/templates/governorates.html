@@ -8,10 +8,10 @@
   </header>
 
   <section class="catalog-kpis" aria-label="ملخص المحافظات">
-    <article class="catalog-kpi"><span class="catalog-kpi-icon">⌖</span><div><small>إجمالي المحافظات</small><strong>{{rows|length}}</strong><span>كل السجلات ضمن الهيكل</span></div></article>
-    <article class="catalog-kpi"><span class="catalog-kpi-icon is-active">✓</span><div><small>محافظات نشطة</small><strong>{{active_governorates}}</strong><span>متاحة للاستخدام</span></div></article>
-    <article class="catalog-kpi"><span class="catalog-kpi-icon">▦</span><div><small>إجمالي الفروع</small><strong>{{total_branches}}</strong><span>نشطة وغير نشطة</span></div></article>
-    <article class="catalog-kpi"><span class="catalog-kpi-icon">♙</span><div><small>الموظفون النشطون</small><strong>{{total_employees}}</strong><span>داخل الفروع النشطة</span></div></article>
+    <article class="catalog-kpi"><span class="catalog-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg></span><div><small>إجمالي المحافظات</small><strong>{{rows|length}}</strong><span>كل السجلات ضمن الهيكل</span></div></article>
+    <article class="catalog-kpi"><span class="catalog-kpi-icon is-active" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 12.5 4.3 4.3L19 7"/></svg></span><div><small>محافظات نشطة</small><strong>{{active_governorates}}</strong><span>متاحة للاستخدام</span></div></article>
+    <article class="catalog-kpi"><span class="catalog-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 21V5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5V21M8 8h2m4 0h2M8 12h2m4 0h2M3 21h18"/></svg></span><div><small>إجمالي الفروع</small><strong>{{total_branches}}</strong><span>نشطة وغير نشطة</span></div></article>
+    <article class="catalog-kpi"><span class="catalog-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1.2a6 6 0 0 1 12 0V20M16 5.5a3 3 0 0 1 0 6M17 15a4.5 4.5 0 0 1 4 4.5V20"/></svg></span><div><small>الموظفون النشطون</small><strong>{{total_employees}}</strong><span>داخل الفروع النشطة</span></div></article>
   </section>
 
   <section class="catalog-list-panel" aria-labelledby="governoratesListTitle">
@@ -26,7 +26,7 @@
     <div class="catalog-card-grid" data-catalog-items>
       {% for x in rows %}
       <article class="catalog-record-card" data-catalog-item data-status="{{'active' if x.is_active else 'inactive'}}" data-search="{{(x.name ~ ' ' ~ (' '.join(governorate_aliases.get(x.id, []))))|lower|e}}">
-        <div class="catalog-record-head"><span class="catalog-record-symbol">⌖</span><span class="catalog-state {{'is-active' if x.is_active else 'is-inactive'}}"><i></i>{{'نشطة' if x.is_active else 'غير نشطة'}}</span></div>
+        <div class="catalog-record-head"><span class="catalog-record-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg></span><span class="catalog-state {{'is-active' if x.is_active else 'is-inactive'}}"><i></i>{{'نشطة' if x.is_active else 'غير نشطة'}}</span></div>
         <h3>{{x.name}}</h3><p class="catalog-record-subtitle">محافظة ضمن الهيكل التنظيمي</p>
         <div class="catalog-record-metrics"><div><strong>{{branch_counts.get(x.id,0)}}</strong><span>فرع</span></div><div><strong>{{active_branch_counts.get(x.id,0)}}</strong><span>فرع نشط</span></div><div><strong>{{employee_counts.get(x.id,0)}}</strong><span>موظف نشط</span></div></div>
         <div class="catalog-record-actions">

@@ -10,11 +10,11 @@ TOKENS = (ROOT / "employee_movements/static/css/app.css").read_text(encoding="ut
 
 
 def test_phase_one_version_and_cache_busting_are_synchronized():
-    assert (ROOT / "VERSION.md").read_text(encoding="utf-8").strip() == "68.45.0"
-    assert 'version = "68.45.0"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert "__version__ = '68.45.0'" in (ROOT / "employee_movements/__init__.py").read_text(encoding="utf-8")
-    assert BASE.count("v=68.45.0") == 18
-    assert 'data-app-version="68.45.0"' in BASE
+    assert (ROOT / "VERSION.md").read_text(encoding="utf-8").strip() == "68.49.0"
+    assert 'version = "68.49.0"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert "__version__ = '68.49.0'" in (ROOT / "employee_movements/__init__.py").read_text(encoding="utf-8")
+    assert BASE.count("v=68.49.0") == 21
+    assert 'data-app-version="68.49.0"' in BASE
 
 
 def test_design_tokens_have_one_canonical_root_block():

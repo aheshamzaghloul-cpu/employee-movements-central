@@ -1,0 +1,71 @@
+[
+  {
+    "device": "desktop",
+    "screenshot": "/mnt/data/home-redesign-v68.45-source/docs/design/preview-v68.45.1/interface-feedback-desktop.png",
+    "metrics": {
+      "viewportWidth": 1728,
+      "documentWidth": 1728,
+      "bodyWidth": 1728,
+      "heroHeight": 113.69,
+      "heroPadding": "15px",
+      "heroTitleFont": "28px",
+      "sidebarBackground": "linear-gradient(rgb(234, 245, 253) 0%, rgb(229, 241, 251) 54%, rgb(220, 235, 248) 100%)",
+      "assistantLabelVisible": true,
+      "assistantButtonWidth": 136.09,
+      "labelWithinButton": true,
+      "actionIconColors": [
+        "rgb(8, 127, 192)",
+        "rgb(11, 146, 136)",
+        "rgb(112, 86, 199)",
+        "rgb(49, 93, 168)"
+      ]
+    },
+    "errors": []
+  },
+  {
+    "device": "mobile",
+    "screenshot": "/mnt/data/home-redesign-v68.45-source/docs/design/preview-v68.45.1/interface-feedback-mobile.png",
+    "metrics": {
+      "viewportWidth": 390,
+      "documentWidth": 390,
+      "bodyWidth": 390,
+      "heroHeight": 109.48,
+      "heroPadding": "11px",
+      "heroTitleFont": "21px",
+      "sidebarBackground": "linear-gradient(rgb(234, 245, 253) 0%, rgb(229, 241, 251) 54%, rgb(220, 235, 248) 100%)",
+      "assistantLabelVisible": true,
+      "assistantButtonWidth": 118,
+      "labelWithinButton": true,
+      "actionIconColors": [
+        "rgb(8, 127, 192)",
+        "rgb(11, 146, 136)",
+        "rgb(112, 86, 199)",
+        "rgb(49, 93, 168)"
+      ]
+    },
+    "errors": []
+  },
+  {
+    "device": "narrow",
+    "screenshot": "/mnt/data/home-redesign-v68.45-source/docs/design/preview-v68.45.1/interface-feedback-narrow.png",
+    "metrics": {
+      "viewportWidth": 360,
+      "documentWidth": 360,
+      "bodyWidth": 360,
+      "heroHeight": 130.3,
+      "heroPadding": "11px",
+      "heroTitleFont": "21px",
+      "sidebarBackground": "linear-gradient(rgb(234, 245, 253) 0%, rgb(229, 241, 251) 54%, rgb(220, 235, 248) 100%)",
+      "assistantLabelVisible": true,
+      "assistantButtonWidth": 118,
+      "labelWithinButton": true,
+      "actionIconColors": [
+        "rgb(8, 127, 192)",
+        "rgb(11, 146, 136)",
+        "rgb(112, 86, 199)",
+        "rgb(49, 93, 168)"
+      ]
+    },
+    "errors": []
+  }
+]

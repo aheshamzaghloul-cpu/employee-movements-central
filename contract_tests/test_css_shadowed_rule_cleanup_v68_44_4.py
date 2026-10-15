@@ -17,6 +17,6 @@ def test_reported_clean_release_version_is_synchronized():
     root = Path(__file__).resolve().parents[1]
     version = (root / "VERSION.md").read_text(encoding="utf-8").strip()
     base = (root / "employee_movements/templates/base.html").read_text(encoding="utf-8")
-    assert version == "68.45.0"
-    assert base.count(f"v={version}") == 18
+    assert version == "68.49.0"
+    assert base.count(f"v={version}") == 21
     assert f'data-app-version="{version}"' in base

@@ -1,0 +1,78 @@
+{
+  "version": "68.45.1",
+  "intent": "Apply screenshot feedback: distinctly colored sidebar, more compact welcome card, visible smart assistant name, and distinctive action icon colors.",
+  "before_after": {
+    "desktop_1728x864": {
+      "hero_height_before_px": 144,
+      "hero_height_after_px": 113.69,
+      "reduction_percent": 21.05
+    },
+    "mobile_390x844": {
+      "hero_height_before_px": 126,
+      "hero_height_after_px_px": 109.48,
+      "reduction_percent": 13.11
+    },
+    "narrow_360x780": {
+      "hero_height_before_px": 126,
+      "hero_height_after_px_px": 130.3,
+      "note": "Hero stacks vertically at <=380px to avoid crowding and keep date visible."
+    }
+  },
+  "sidebar": {
+    "gradient": [
+      "#eaf5fd",
+      "#e5f1fb",
+      "#dcebf8"
+    ],
+    "distinct_from_main_canvas": true
+  },
+  "assistant": {
+    "label": "المساعد الذكي",
+    "visible": true,
+    "desktop_button_width_px": 136.09,
+    "mobile_button_width_px": 118,
+    "label_inside_button_all_tested_sizes": true
+  },
+  "action_icon_colors": [
+    "rgb(8, 127, 192)",
+    "rgb(11, 146, 136)",
+    "rgb(112, 86, 199)",
+    "rgb(49, 93, 168)"
+  ],
+  "preview": {
+    "viewports": [
+      {
+        "device": "desktop",
+        "width": 1728,
+        "document_width": 1728,
+        "body_width": 1728,
+        "hero_height": 113.69,
+        "console_errors": 0
+      },
+      {
+        "device": "mobile",
+        "width": 390,
+        "document_width": 390,
+        "body_width": 390,
+        "hero_height": 109.48,
+        "console_errors": 0
+      },
+      {
+        "device": "narrow",
+        "width": 360,
+        "document_width": 360,
+        "body_width": 360,
+        "hero_height": 130.3,
+        "console_errors": 0
+      }
+    ],
+    "horizontal_overflow": false,
+    "console_errors": 0,
+    "type": "local component preview with production CSS; not live Flask/database"
+  },
+  "screenshots": [
+    "/mnt/data/home-redesign-v68.45-source/docs/design/preview-v68.45.1/interface-feedback-desktop.png",
+    "/mnt/data/home-redesign-v68.45-source/docs/design/preview-v68.45.1/interface-feedback-mobile.png",
+    "/mnt/data/home-redesign-v68.45-source/docs/design/preview-v68.45.1/interface-feedback-narrow.png"
+  ]
+}

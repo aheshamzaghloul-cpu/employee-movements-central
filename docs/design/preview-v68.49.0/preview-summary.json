@@ -1,0 +1,388 @@
+{
+  "release": "68.49.0",
+  "fixture_type": "synthetic content with actual project CSS",
+  "pages_rendered": 7,
+  "screenshots": 22,
+  "errors": 0,
+  "horizontal_overflow_cases": 0,
+  "checks": [
+    {
+      "page": "account",
+      "mode": "desktop",
+      "file": "account-desktop.png",
+      "viewport": 1440,
+      "body_scroll_width": 1440,
+      "document_scroll_width": 1440,
+      "horizontal_overflow": false,
+      "page_errors": 0,
+      "styles": [
+        "app.css",
+        "pages/workspace-pages.css",
+        "design-system-cyan.css",
+        "pages/assistant-dock.css",
+        "navigation-color-system.css",
+        "pages/secondary-workspaces.css"
+      ]
+    },
+    {
+      "page": "account",
+      "mode": "mobile",
+      "file": "account-mobile.png",
+      "viewport": 390,
+      "body_scroll_width": 390,
+      "document_scroll_width": 390,
+      "horizontal_overflow": false,
+      "page_errors": 0,
+      "styles": [
+        "app.css",
+        "pages/workspace-pages.css",
+        "design-system-cyan.css",
+        "pages/assistant-dock.css",
+        "navigation-color-system.css",
+        "pages/secondary-workspaces.css"
+      ]
+    },
+    {
+      "page": "account",
+      "mode": "narrow",
+      "file": "account-narrow.png",
+      "viewport": 360,
+      "body_scroll_width": 360,
+      "document_scroll_width": 360,
+      "horizontal_overflow": false,
+      "page_errors": 0,
+      "styles": [
+        "app.css",
+        "pages/workspace-pages.css",
+        "design-system-cyan.css",
+        "pages/assistant-dock.css",
+        "navigation-color-system.css",
+        "pages/secondary-workspaces.css"
+      ]
+    },
+    {
+      "page": "notifications",
+      "mode": "desktop",
+      "file": "notifications-desktop.png",
+      "viewport": 1440,
+      "body_scroll_width": 1440,
+      "document_scroll_width": 1440,
+      "horizontal_overflow": false,
+      "page_errors": 0,
+      "styles": [
+        "app.css",
+        "pages/workspace-pages.css",
+        "design-system-cyan.css",
+        "pages/assistant-dock.css",
+        "navigation-color-system.css",
+        "pages/secondary-workspaces.css"
+      ]
+    },
+    {
+      "page": "notifications",
+      "mode": "mobile",
+      "file": "notifications-mobile.png",
+      "viewport": 390,
+      "body_scroll_width": 390,
+      "document_scroll_width": 390,
+      "horizontal_overflow": false,
+      "page_errors": 0,
+      "styles": [
+        "app.css",
+        "pages/workspace-pages.css",
+        "design-system-cyan.css",
+        "pages/assistant-dock.css",
+        "navigation-color-system.css",
+        "pages/secondary-workspaces.css"
+      ]
+    },
+    {
+      "page": "notifications",
+      "mode": "narrow",
+      "file": "notifications-narrow.png",
+      "viewport": 360,
+      "body_scroll_width": 360,
+      "document_scroll_width": 360,
+      "horizontal_overflow": false,
+      "page_errors": 0,
+      "styles": [
+        "app.css",
+        "pages/workspace-pages.css",
+        "design-system-cyan.css",
+        "pages/assistant-dock.css",
+        "navigation-color-system.css",
+        "pages/secondary-workspaces.css"
+      ]
+    },
+    {
+      "page": "audit",
+      "mode": "desktop",
+      "file": "audit-desktop.png",
+      "viewport": 1440,
+      "body_scroll_width": 1440,
+      "document_scroll_width": 1440,
+      "horizontal_overflow": false,
+      "page_errors": 0,
+      "styles": [
+        "app.css",
+        "pages/workspace-pages.css",
+        "design-system-cyan.css",
+        "pages/admin-reports-assistant.css",
+        "pages/assistant-dock.css",
+        "navigation-color-system.css",
+        "pages/secondary-workspaces.css"
+      ]
+    },
+    {
+      "page": "audit",
+      "mode": "mobile",
+      "file": "audit-mobile.png",
+      "viewport": 390,
+      "body_scroll_width": 390,
+      "document_scroll_width": 390,
+      "horizontal_overflow": false,
+      "page_errors": 0,
+      "styles": [
+        "app.css",
+        "pages/workspace-pages.css",
+        "design-system-cyan.css",
+        "pages/admin-reports-assistant.css",
+        "pages/assistant-dock.css",
+        "navigation-color-system.css",
+        "pages/secondary-workspaces.css"
+      ]
+    },
+    {
+      "page": "audit",
+      "mode": "narrow",
+      "file": "audit-narrow.png",
+      "viewport": 360,
+      "body_scroll_width": 360,
+      "document_scroll_width": 360,
+      "horizontal_overflow": false,
+      "page_errors": 0,
+      "styles": [
+        "app.css",
+        "pages/workspace-pages.css",
+        "design-system-cyan.css",
+        "pages/admin-reports-assistant.css",
+        "pages/assistant-dock.css",
+        "navigation-color-system.css",
+        "pages/secondary-workspaces.css"
+      ]
+    },
+    {
+      "page": "lookups",
+      "mode": "desktop",
+      "file": "lookups-desktop.png",
+      "viewport": 1440,
+      "body_scroll_width": 1440,
+      "document_scroll_width": 1440,
+      "horizontal_overflow": false,
+      "page_errors": 0,
+      "styles": [
+        "app.css",
+        "pages/workspace-pages.css",
+        "design-system-cyan.css",
+        "pages/assistant-dock.css",
+        "navigation-color-system.css",
+        "pages/secondary-workspaces.css"
+      ]
+    },
+    {
+      "page": "lookups",
+      "mode": "mobile",
+      "file": "lookups-mobile.png",
+      "viewport": 390,
+      "body_scroll_width": 390,
+      "document_scroll_width": 390,
+      "horizontal_overflow": false,
+      "page_errors": 0,
+      "styles": [
+        "app.css",
+        "pages/workspace-pages.css",
+        "design-system-cyan.css",
+        "pages/assistant-dock.css",
+        "navigation-color-system.css",
+        "pages/secondary-workspaces.css"
+      ]
+    },
+    {
+      "page": "lookups",
+      "mode": "narrow",
+      "file": "lookups-narrow.png",
+      "viewport": 360,
+      "body_scroll_width": 360,
+      "document_scroll_width": 360,
+      "horizontal_overflow": false,
+      "page_errors": 0,
+      "styles": [
+        "app.css",
+        "pages/workspace-pages.css",
+        "design-system-cyan.css",
+        "pages/assistant-dock.css",
+        "navigation-color-system.css",
+        "pages/secondary-workspaces.css"
+      ]
+    },
+    {
+      "page": "replacement",
+      "mode": "desktop",
+      "file": "replacement-desktop.png",
+      "viewport": 1440,
+      "body_scroll_width": 1440,
+      "document_scroll_width": 1440,
+      "horizontal_overflow": false,
+      "page_errors": 0,
+      "styles": [
+        "app.css",
+        "pages/workspace-pages.css",
+        "design-system-cyan.css",
+        "pages/assistant-dock.css",
+        "navigation-color-system.css",
+        "pages/secondary-workspaces.css"
+      ]
+    },
+    {
+      "page": "replacement",
+      "mode": "mobile",
+      "file": "replacement-mobile.png",
+      "viewport": 390,
+      "body_scroll_width": 390,
+      "document_scroll_width": 390,
+      "horizontal_overflow": false,
+      "page_errors": 0,
+      "styles": [
+        "app.css",
+        "pages/workspace-pages.css",
+        "design-system-cyan.css",
+        "pages/assistant-dock.css",
+        "navigation-color-system.css",
+        "pages/secondary-workspaces.css"
+      ]
+    },
+    {
+      "page": "replacement",
+      "mode": "narrow",
+      "file": "replacement-narrow.png",
+      "viewport": 360,
+      "body_scroll_width": 360,
+      "document_scroll_width": 360,
+      "horizontal_overflow": false,
+      "page_errors": 0,
+      "styles": [
+        "app.css",
+        "pages/workspace-pages.css",
+        "design-system-cyan.css",
+        "pages/assistant-dock.css",
+        "navigation-color-system.css",
+        "pages/secondary-workspaces.css"
+      ]
+    },
+    {
+      "page": "user-edit",
+      "mode": "desktop",
+      "file": "user-edit-desktop.png",
+      "viewport": 1440,
+      "body_scroll_width": 1440,
+      "document_scroll_width": 1440,
+      "horizontal_overflow": false,
+      "page_errors": 0,
+      "styles": [
+        "app.css",
+        "pages/management.css",
+        "design-system-cyan.css",
+        "pages/admin-reports-assistant.css",
+        "pages/assistant-dock.css",
+        "navigation-color-system.css",
+        "pages/secondary-workspaces.css"
+      ]
+    },
+    {
+      "page": "user-edit",
+      "mode": "mobile",
+      "file": "user-edit-mobile.png",
+      "viewport": 390,
+      "body_scroll_width": 390,
+      "document_scroll_width": 390,
+      "horizontal_overflow": false,
+      "page_errors": 0,
+      "styles": [
+        "app.css",
+        "pages/management.css",
+        "design-system-cyan.css",
+        "pages/admin-reports-assistant.css",
+        "pages/assistant-dock.css",
+        "navigation-color-system.css",
+        "pages/secondary-workspaces.css"
+      ]
+    },
+    {
+      "page": "user-edit",
+      "mode": "narrow",
+      "file": "user-edit-narrow.png",
+      "viewport": 360,
+      "body_scroll_width": 360,
+      "document_scroll_width": 360,
+      "horizontal_overflow": false,
+      "page_errors": 0,
+      "styles": [
+        "app.css",
+        "pages/management.css",
+        "design-system-cyan.css",
+        "pages/admin-reports-assistant.css",
+        "pages/assistant-dock.css",
+        "navigation-color-system.css",
+        "pages/secondary-workspaces.css"
+      ]
+    },
+    {
+      "page": "error",
+      "mode": "desktop",
+      "file": "error-desktop.png",
+      "viewport": 1440,
+      "body_scroll_width": 1440,
+      "document_scroll_width": 1440,
+      "horizontal_overflow": false,
+      "page_errors": 0,
+      "styles": [
+        "app.css",
+        "design-system-cyan.css",
+        "pages/assistant-dock.css",
+        "navigation-color-system.css"
+      ]
+    },
+    {
+      "page": "error",
+      "mode": "mobile",
+      "file": "error-mobile.png",
+      "viewport": 390,
+      "body_scroll_width": 390,
+      "document_scroll_width": 390,
+      "horizontal_overflow": false,
+      "page_errors": 0,
+      "styles": [
+        "app.css",
+        "design-system-cyan.css",
+        "pages/assistant-dock.css",
+        "navigation-color-system.css"
+      ]
+    },
+    {
+      "page": "error",
+      "mode": "narrow",
+      "file": "error-narrow.png",
+      "viewport": 360,
+      "body_scroll_width": 360,
+      "document_scroll_width": 360,
+      "horizontal_overflow": false,
+      "page_errors": 0,
+      "styles": [
+        "app.css",
+        "design-system-cyan.css",
+        "pages/assistant-dock.css",
+        "navigation-color-system.css"
+      ]
+    }
+  ]
+}

@@ -36,7 +36,7 @@ def test_home_composition_styles_load_after_shared_design_system_only_on_home():
     assert "request.path == '/'" in BASE
     assert "css/pages/home-journey.css" in BASE
     assert BASE.index("css/design-system-cyan.css") < BASE.index("css/pages/home-journey.css")
-    assert "?v=68.45.0" in BASE
+    assert "?v=68.49.0" in BASE
     assert ".ds-home-page .ds-home-quick-actions {" in JOURNEY
     assert ".ds-home-page .ds-home-workbench-grid {" in JOURNEY
     assert "grid-template-columns: repeat(4, minmax(0, 1fr))" in JOURNEY

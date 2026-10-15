@@ -10,7 +10,7 @@ APP_CSS = (ROOT / "employee_movements/static/css/app.css").read_text(encoding="u
 def test_shared_theme_is_loaded_after_every_conditional_page_stylesheet():
     assert "css/design-system-cyan.css" in BASE
     assert BASE.index("css/design-system-cyan.css") > BASE.index("css/pages/workspace-pages.css")
-    assert BASE.count("v=68.45.0") == 18
+    assert BASE.count("v=68.49.0") == 21
 
 
 def test_mission_from_screenshot_loads_workspace_page_styling():

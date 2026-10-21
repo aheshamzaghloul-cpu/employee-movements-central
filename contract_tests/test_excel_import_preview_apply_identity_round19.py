@@ -1,5 +1,6 @@
 """Round 19 source guards for stale Excel identity evidence; not run in this review."""
 from pathlib import Path
+import json
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -38,7 +39,10 @@ def test_ambiguous_governorate_names_and_aliases_are_not_overwritten():
 
 
 def test_current_metadata_keeps_production_gate_closed():
-    manifest = (ROOT / "REVIEW_MANIFEST.json").read_text(encoding="utf-8")
-    assert '"review_round": 32' in manifest
-    assert 'employee-movements-v69.00.2-full-source-upload-round32.zip' in manifest
-    assert "NOT CLEARED FOR PRODUCTION" in manifest
+    import json
+    manifest = json.loads((ROOT / "REVIEW_MANIFEST.json").read_text(encoding="utf-8"))
+    version = (ROOT / "VERSION.md").read_text(encoding="utf-8").strip()
+    assert manifest["version"] == version
+    assert isinstance(manifest["review_round"], int) and manifest["review_round"] >= 1
+    assert manifest["archive"] == f"employee-movements-v{version}-full-source-upload-round{manifest['review_round']}.zip"
+    assert "NOT CLEARED FOR PRODUCTION" in manifest["artifact_status"]

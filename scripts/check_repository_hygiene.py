@@ -97,7 +97,12 @@ def find_release_metadata_drift() -> list[str]:
                     package_version = ast.literal_eval(node.value)
                     break
         generic_manifest = json.loads((ROOT / "REVIEW_MANIFEST.json").read_text(encoding="utf-8"))
-        versioned_manifest_path = ROOT / f"REVIEW_MANIFEST_v{version}.json"
+        versioned_candidates = sorted(ROOT.glob(f"REVIEW_MANIFEST_v{version}_round*.json"))
+        if len(versioned_candidates) != 1:
+            raise ValueError(
+                f"expected one round-qualified manifest for {version}, found {len(versioned_candidates)}"
+            )
+        versioned_manifest_path = versioned_candidates[0]
         versioned_manifest = json.loads(versioned_manifest_path.read_text(encoding="utf-8"))
     except (OSError, ValueError, SyntaxError, KeyError, TypeError, tomllib.TOMLDecodeError) as exc:
         return [f"release metadata could not be read: {exc}"]
@@ -111,7 +116,7 @@ def find_release_metadata_drift() -> list[str]:
     if generic_manifest.get("version") != version:
         findings.append("REVIEW_MANIFEST.json version differs from VERSION.md")
     if versioned_manifest.get("version") != version:
-        findings.append(f"REVIEW_MANIFEST_v{version}.json has a stale version field")
+        findings.append(f"{versioned_manifest_path.name} has a stale version field")
 
     for path in VERSIONED_CSS_HEADERS:
         try:

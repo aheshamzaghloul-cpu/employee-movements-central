@@ -3,6 +3,7 @@
 This file is intentionally not executed during the static-only review.
 """
 from pathlib import Path
+import json
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -47,7 +48,10 @@ def test_route_validates_whole_plan_before_mutations_and_commits_only_after_appl
 
 
 def test_current_release_manifest_remains_blocked_from_production():
-    manifest = (ROOT / "REVIEW_MANIFEST.json").read_text(encoding="utf-8")
-    assert '"review_round": 32' in manifest
-    assert "employee-movements-v69.00.2-full-source-upload-round32.zip" in manifest
-    assert "NOT CLEARED FOR PRODUCTION" in manifest
+    import json
+    manifest = json.loads((ROOT / "REVIEW_MANIFEST.json").read_text(encoding="utf-8"))
+    version = (ROOT / "VERSION.md").read_text(encoding="utf-8").strip()
+    assert manifest["version"] == version
+    assert isinstance(manifest["review_round"], int) and manifest["review_round"] >= 1
+    assert manifest["archive"] == f"employee-movements-v{version}-full-source-upload-round{manifest['review_round']}.zip"
+    assert "NOT CLEARED FOR PRODUCTION" in manifest["artifact_status"]

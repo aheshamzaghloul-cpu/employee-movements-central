@@ -11,14 +11,17 @@
 APP_ENV=production
 SECRET_KEY=<قيمة عشوائية طويلة>
 DATABASE_URL=<رابط PostgreSQL الخاص ببيئة الإنتاج>
-
-> **مهم:** في الإنتاج `DATABASE_URL` إلزامي ويجب أن تشير إلى PostgreSQL ثابتة. لا يستخدم التطبيق SQLite في الإنتاج حتى لا تضيع الحسابات والبيانات عند إعادة النشر.
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=<كلمة مرور أولية قوية>
+ADMIN_EMAIL=<البريد الإداري إن توفر>
 GEMINI_API_KEY=<مفتاح Google AI Studio>
 GEMINI_MODEL=gemini-3.8-flash
 COOKIE_SECURE=1
 ```
 
-`ADMIN_PASSWORD` مطلوب عند أول تشغيل فقط إذا لم يكن حساب المسؤول موجودًا بالفعل.
+> **مهم:** في الإنتاج `DATABASE_URL` إلزامي ويجب أن تشير إلى PostgreSQL ثابتة. لا يستخدم التطبيق SQLite في الإنتاج حتى لا تضيع الحسابات والبيانات عند إعادة النشر.
+
+في نشر Blitz المباشر، يلزم `ADMIN_PASSWORD` عند أول تشغيل فقط إذا لم يكن حساب المسؤول موجودًا بالفعل. أما باستخدام Docker Compose في هذه الحزمة، فإن متغير `ADMIN_PASSWORD` مطلوب في ملف `.env` لأن Compose يرفض تشغيل خدمة الويب بدونه.
 
 ## اختبار التشغيل
 بعد Restart يجب أن يعمل:

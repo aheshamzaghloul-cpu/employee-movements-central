@@ -65,7 +65,7 @@ def test_review_form_contains_only_the_seven_ticket_fields_and_requires_confirma
 def test_docker_installs_local_arabic_and_english_ocr_without_external_ocr_service():
     assert 'tesseract-ocr-ara' in DOCKER
     assert 'tesseract-ocr-eng' in DOCKER
-    assert 'Pillow==12.3.0' in REQUIREMENTS
+    assert 'Pillow==13.0.0' in REQUIREMENTS
 
 
 def test_screenshot_route_gets_its_own_bounded_multipart_limit():

@@ -12,7 +12,10 @@ def _manifest(name: str) -> dict:
 
 
 def test_generic_and_versioned_release_manifests_are_identical():
-    assert _manifest("REVIEW_MANIFEST.json") == _manifest("REVIEW_MANIFEST_v69.00.2.json") == _manifest("REVIEW_MANIFEST_v69.00.2_round32.json")
+    version = (ROOT / "VERSION.md").read_text(encoding="utf-8").strip()
+    candidates = sorted(ROOT.glob(f"REVIEW_MANIFEST_v{version}_round*.json"))
+    assert len(candidates) == 1, f"expected one versioned manifest, got {[p.name for p in candidates]}"
+    assert _manifest("REVIEW_MANIFEST.json") == json.loads(candidates[0].read_text(encoding="utf-8"))
 
 
 def test_release_manifest_version_matches_project_version_files():
@@ -20,10 +23,15 @@ def test_release_manifest_version_matches_project_version_files():
     version = (ROOT / "VERSION.md").read_text(encoding="utf-8").strip()
     project = __import__("tomllib").loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     assert manifest["version"] == version == project["project"]["version"]
+    assert isinstance(manifest["review_round"], int) and manifest["review_round"] >= 1
+    candidates = sorted(ROOT.glob(f"REVIEW_MANIFEST_v{version}_round*.json"))
+    assert len(candidates) == 1
+    assert candidates[0].stem.endswith(f"_round{manifest['review_round']}")
 
 
 def test_release_manifest_names_the_current_full_source_candidate_and_keeps_gate_closed():
     manifest = _manifest("REVIEW_MANIFEST.json")
-    assert manifest["archive"] == "employee-movements-v69.00.2-full-source-upload-round32.zip"
+    assert isinstance(manifest["review_round"], int) and manifest["review_round"] >= 1
+    assert manifest["archive"] == f"employee-movements-v{manifest['version']}-full-source-upload-round{manifest['review_round']}.zip"
     assert "NOT CLEARED FOR PRODUCTION" in manifest["validation"]["release_gate"]
     assert "NOT CLEARED FOR PRODUCTION" in manifest["artifact_status"]

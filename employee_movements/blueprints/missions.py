@@ -192,14 +192,14 @@ def mission_from_screenshot_scan():
         with warnings.catch_warnings():
             warnings.simplefilter('error', Image.DecompressionBombWarning)
             try:
-                probe = Image.open(BytesIO(image_bytes))
+                probe = Image.open(BytesIO(image_bytes), formats=tuple(SUPPORTED_FORMATS))
                 image_format = (probe.format or '').upper()
                 if image_format not in SUPPORTED_FORMATS:
                     return scan_error('الصيغ المدعومة هي PNG وJPG وWEBP فقط.')
                 if probe.width * probe.height > MAX_IMAGE_PIXELS:
                     return scan_error('أبعاد الصورة أكبر من الحد المسموح.')
                 probe.verify()
-                with Image.open(BytesIO(image_bytes)) as image:
+                with Image.open(BytesIO(image_bytes), formats=tuple(SUPPORTED_FORMATS)) as image:
                     fields = extract_ticket_fields(image)
                 from ..services.ticket_image_storage import normalize_ticket_image
                 stored_image_bytes, stored_image_mime, stored_image_sha256 = normalize_ticket_image(image_bytes)

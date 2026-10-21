@@ -49,7 +49,11 @@ def test_manual_excel_and_assistant_paths_share_integrity_guards():
     assert "تغيّر الفرع أو كوده أو محافظته منذ إعداد المعاينة" in assistant
 
 
-def test_current_round_manifest_contract_names_full_round_32_candidate():
-    source = _source("contract_tests/test_release_manifest_consistency.py")
-    assert "REVIEW_MANIFEST_v69.00.2_round32.json" in source
-    assert "employee-movements-v69.00.2-full-source-upload-round32.zip" in source
+def test_current_round_manifest_contract_names_the_active_candidate():
+    import json
+    manifest = json.loads(_source("REVIEW_MANIFEST.json"))
+    version = _source("VERSION.md").strip()
+    assert manifest["version"] == version
+    assert isinstance(manifest["review_round"], int) and manifest["review_round"] >= 1
+    assert manifest["archive"] == f"employee-movements-v{version}-full-source-upload-round{manifest['review_round']}.zip"
+    assert "NOT CLEARED FOR PRODUCTION" in manifest["artifact_status"]

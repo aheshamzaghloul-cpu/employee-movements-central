@@ -25,14 +25,14 @@ def normalize_ticket_image(data: bytes) -> tuple[bytes, str, str]:
         raise ValueError("حجم الصورة أكبر من 2 ميجابايت.")
 
     try:
-        with Image.open(BytesIO(data)) as probe:
+        with Image.open(BytesIO(data), formats=tuple(SUPPORTED_TICKET_IMAGE_FORMATS)) as probe:
             image_format = (probe.format or "").upper()
             if image_format not in SUPPORTED_TICKET_IMAGE_FORMATS:
                 raise ValueError("الصيغ المدعومة هي PNG وJPG وWEBP فقط.")
             if probe.width * probe.height > MAX_TICKET_IMAGE_PIXELS:
                 raise ValueError("أبعاد الصورة أكبر من الحد المسموح.")
             probe.verify()
-        with Image.open(BytesIO(data)) as source:
+        with Image.open(BytesIO(data), formats=tuple(SUPPORTED_TICKET_IMAGE_FORMATS)) as source:
             image = ImageOps.exif_transpose(source).convert("RGB")
     except (UnidentifiedImageError, OSError, Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
         raise ValueError("تعذر فتح الصورة. تأكد أنها لقطة شاشة سليمة بصيغة PNG أو JPG أو WEBP.") from exc

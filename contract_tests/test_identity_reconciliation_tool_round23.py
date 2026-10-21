@@ -5,6 +5,7 @@ static-only review rounds. It does not connect to or inspect a live database.
 """
 import ast
 from pathlib import Path
+import json
 
 ROOT = Path(__file__).resolve().parents[1]
 TOOL = ROOT / "scripts" / "reconcile_identity_data.py"
@@ -78,9 +79,10 @@ def test_identity_report_covers_code_alias_lifecycle_and_schema_findings():
     assert 'finding_count": len(self.findings) + self.suppressed_findings' in source
 
 
-def test_current_release_manifest_points_to_full_round_32_candidate_and_gate_remains_closed():
-    source = (ROOT / "contract_tests" / "test_release_manifest_consistency.py").read_text(encoding="utf-8")
-    manifest = (ROOT / "REVIEW_MANIFEST.json").read_text(encoding="utf-8")
-    assert "REVIEW_MANIFEST_v69.00.2_round32.json" in source
-    assert "employee-movements-v69.00.2-full-source-upload-round32.zip" in source
-    assert "NOT CLEARED FOR PRODUCTION" in manifest
+def test_current_release_manifest_names_the_active_candidate_and_gate_remains_closed():
+    manifest = json.loads((ROOT / "REVIEW_MANIFEST.json").read_text(encoding="utf-8"))
+    version = (ROOT / "VERSION.md").read_text(encoding="utf-8").strip()
+    assert manifest["version"] == version
+    assert isinstance(manifest["review_round"], int) and manifest["review_round"] >= 1
+    assert manifest["archive"] == f"employee-movements-v{version}-full-source-upload-round{manifest['review_round']}.zip"
+    assert "NOT CLEARED FOR PRODUCTION" in manifest["artifact_status"]

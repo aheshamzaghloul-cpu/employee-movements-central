@@ -1,5 +1,6 @@
 """Source-only regression guards for the Executive Workspace CSS cleanup."""
 from pathlib import Path
+import re
 import tinycss2
 
 from dedupe_css_selectors import decl_signature
@@ -27,5 +28,6 @@ def test_asset_cache_buster_uses_the_updated_patch_version():
     version = (ROOT / "VERSION.md").read_text(encoding="utf-8").strip()
     package = __import__("tomllib").loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     init = (ROOT / "employee_movements/__init__.py").read_text(encoding="utf-8")
-    assert version == package["project"]["version"] == "69.00.1"
-    assert "__version__ = '69.00.1'" in init
+    match = re.search(r"(?m)^__version__\s*=\s*['\"]([^'\"]+)['\"]", init)
+    assert match, "employee_movements.__version__ must be a literal version marker"
+    assert version == package["project"]["version"] == match.group(1)

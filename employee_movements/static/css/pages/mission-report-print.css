@@ -1,4 +1,4 @@
-/* v69.00.0 — Dedicated all-results mission report print layout. */
+/* v69.00.5 — Dedicated all-results mission report print layout. */
 .mission-report-print-page{min-width:0;max-width:100%;margin:0 auto;padding:clamp(12px,2vw,24px);color:#172f3b}
 .mission-report-print-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 18px;padding:16px 18px;border:1px solid #f7f9fa;border-radius:14px;background:#fff}
 .mission-report-print-toolbar h1{margin:4px 0;font-size:clamp(1.2rem,2vw,1.7rem)}

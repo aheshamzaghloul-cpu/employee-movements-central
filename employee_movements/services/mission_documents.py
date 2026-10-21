@@ -156,9 +156,9 @@ def mission_template_pdf(
 def _append_ticket_image_page(doc, ticket_image_data, mission, employee, root_path):
     """Append one A4 evidence page containing the saved ticket screenshot."""
     payload = bytes(ticket_image_data)
-    with Image.open(io.BytesIO(payload)) as source:
+    with Image.open(io.BytesIO(payload), formats=("PNG", "JPEG", "WEBP")) as source:
         source.verify()
-    with Image.open(io.BytesIO(payload)) as source:
+    with Image.open(io.BytesIO(payload), formats=("PNG", "JPEG", "WEBP")) as source:
         image_width, image_height = source.size
 
     page = doc.new_page(-1, width=595.32, height=841.92)

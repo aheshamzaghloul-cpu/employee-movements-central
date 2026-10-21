@@ -56,7 +56,7 @@ def test_gemini_http_error_logs_do_not_include_response_body():
 
 def test_unused_workspace_context_helper_is_safe_if_reintroduced():
     agent = (ROOT / "employee_movements/assistant/agent.py").read_text(encoding="utf-8")
-    helper = agent[agent.index("def _tool_context_text"):agent.index("def _employee_summary", agent.index("def _tool_context_text"))]
+    helper = agent[agent.index("def _tool_context_text"):agent.index("def tool_execute", agent.index("def _tool_context_text"))]
     assert '"current_page": page' in helper
     assert '"path": ctx.get("path")' not in helper
     assert '"heading": ctx.get("heading")' not in helper
@@ -73,15 +73,19 @@ def test_new_person_names_can_be_redacted_before_local_record_creation():
 
 def test_agent_cannot_receive_or_forward_model_supplied_passwords():
     agent = (ROOT / "employee_movements/assistant/agent.py").read_text(encoding="utf-8")
+    preparation = (ROOT / "employee_movements/assistant/action_preparation.py").read_text(encoding="utf-8")
     llm = (ROOT / "employee_movements/assistant/llm.py").read_text(encoding="utf-8")
     manager = (ROOT / "employee_movements/assistant/manager.py").read_text(encoding="utf-8")
-    prepare_schema = agent[agent.index('"name": "prepare_action"'):agent.index('"name": "navigate_to"')]
+    planning = (ROOT / "employee_movements/assistant/manager_plan_users.py").read_text(encoding="utf-8")
+    tool_schemas = (ROOT / "employee_movements/assistant/tool_schemas.py").read_text(encoding="utf-8")
+    prepare_schema = tool_schemas[tool_schemas.index('"name": "prepare_action"'):tool_schemas.index('"name": "navigate_to"')]
     assert '"password"' not in prepare_schema
-    assert 'normalized.pop("password", None)' in agent
+    assert 'normalized.pop("password", None)' in preparation
+    assert "return _prepare_action_impl(args, ctx)" in agent
     assert "'password': {'type': ['string', 'null']}" not in llm
     assert "'job_code', 'password', 'roles'" not in llm
     assert "password = a.get('password')" not in manager
-    assert 'سيُولّد النظام كلمة مرور مؤقتة' in manager
+    assert 'سيُولّد النظام كلمة مرور مؤقتة' in planning
 
 
 def test_reset_password_suffix_is_redacted_before_external_calls_and_storage():

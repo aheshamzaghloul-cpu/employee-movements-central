@@ -1,10 +1,13 @@
 """Domain constants: roles, permissions, movement types and import headers."""
 
 
-ROLES = ['مسؤول التطبيق', 'مشرف محافظة', 'المدخل الأول', 'Manager Application Support']
+ROLES = ['مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support']
 
 
 LOGIN_ROLES = ['مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support']
+
+# Bound password input before expensive hash verification and all password writes.
+MAX_PASSWORD_LENGTH = 4096
 
 
 MOVEMENT_TYPES = ['إجازة', 'انتداب', 'إذن']
@@ -42,32 +45,62 @@ ROLE_DEFAULT_PERMISSIONS = {
         'manage_employees',
         'manage_movements',
         'view_reports',
+        'delete_movements',
     },
-    'المدخل الأول': {'manage_employees', 'manage_movements', 'view_reports'},
     # نفس الصلاحيات التشغيلية للمشرف، لكن النطاق يُحدد باختيار محافظة العمل ولا يظهر كاسم مشرف.
     # يعمل كنطاق دعم تشغيلي: نفس تشغيل مشرف المحافظة داخل المحافظة المختارة،
     # ولا يفتح إدارة الحسابات/الهيكل الإداري لمسؤول التطبيق.
     'Manager Application Support': {
-        'manage_employees', 'manage_movements', 'view_reports',
+        'manage_employees', 'manage_movements', 'view_reports', 'delete_movements',
     },
 }
+
+
+# Read-only views that must remain available across all active governorates, even
+# before an operational work-governorate is selected. Mixed GET/POST endpoints
+# (currently the employee directory) are exempt only for safe HTTP methods; their
+# POST handlers remain inside the operational scope gate.
+GLOBAL_READ_SCOPE_ENDPOINTS = frozenset(
+    {
+        'missions.mission_print_list',
+        'employees.employee_card',
+        'employees.resigned_employees',
+        'employees.employees',
+        'movements.movements',
+        'movements.movement_history',
+        'reports.reports',
+        'reports.employee_type_report',
+        'reports.reports_missions',
+        'reports.employee_type_report_xlsx',
+        'reports.employee_type_report_csv',
+        'reports.report_csv',
+        'notifications.notifications',
+        'notifications.notifications_items',
+        'notifications.notifications_summary',
+    }
+)
 
 
 # Pages that operate inside a single governorate chosen by the active operational role.
 OPERATIONAL_SCOPE_ENDPOINTS = frozenset(
     {
         'dashboard.home',
+        'missions.mission_from_screenshot',
+        'missions.mission_from_screenshot_scan',
+        'missions.mission_from_screenshot_create',
+        'missions.mission_ticket_image_save',
+        'missions.mission_edit_request_create',
+        'missions.mission_edit_requests',
+        'missions.mission_edit_request_review',
+        'missions.mission_edit_request_save',
+        'structure.add_organizational_entry_role',
+        'structure.update_organizational_entry_branches',
+        'structure.replace_organizational_entry_from_home',
+        'structure.remove_organizational_entry_role',
+        'delegations.delegations',
+        'delegations.delegation_add',
+        'delegations.delegation_revoke',
         'employees.employees',
-        'movements.movements',
-        'reports.reports',
-        'reports.employee_type_report',
-        'reports.reports_missions',
-        # Mission search and print are global read workflows; they must not
-        # require selecting an operational work-governorate first. Their
-        # route-level authorization still checks can_print_mission().
-        'notifications.notifications',
-        'notifications.notifications_items',
-        'notifications.notifications_summary',
         # Direct operational actions must inherit the same selected-work-governorate
         # as their parent pages; a direct URL/POST must never bypass the scope gate.
         'employees.employee_edit_data',
@@ -75,9 +108,7 @@ OPERATIONAL_SCOPE_ENDPOINTS = frozenset(
         'employees.employee_convert_role',
         'employees.employee_resign',
         'employees.employee_delete',
-        'employees.resigned_employees',
         'employees.employee_reactivate',
-        'employees.employee_card',
         'movements.movement_employees_api',
         'movements.movement_preflight_api',
         'movements.movements_page_filters_api',
@@ -88,10 +119,6 @@ OPERATIONAL_SCOPE_ENDPOINTS = frozenset(
         'movements.reopen_assignment',
         'movements.assignment_form',
         'movements.movement_delete',
-        'movements.movement_history',
-        'reports.employee_type_report_xlsx',
-        'reports.employee_type_report_csv',
-        'reports.report_csv',
         'missions.mission_edit',
         'missions.mission_edit_save',
         'missions.mission_close',

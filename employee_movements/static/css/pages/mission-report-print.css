@@ -1,0 +1,50 @@
+/* v69.00.0 — Dedicated all-results mission report print layout. */
+.mission-report-print-page{min-width:0;max-width:100%;margin:0 auto;padding:clamp(12px,2vw,24px);color:#172f3b}
+.mission-report-print-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 18px;padding:16px 18px;border:1px solid #f7f9fa;border-radius:14px;background:#fff}
+.mission-report-print-toolbar h1{margin:4px 0;font-size:clamp(1.2rem,2vw,1.7rem)}
+.mission-report-print-toolbar p{margin:4px 0 0;color:#53677a;font-size:.9rem}
+.mission-report-print-heading{margin:0 0 16px;padding:14px 16px;border-bottom:2px solid #087f7b;text-align:center}
+.mission-report-print-heading h1{margin:0 0 5px;font-size:1.45rem;font-weight:800}
+.mission-report-print-heading div{margin:3px 0;font-size:.84rem;color:#20343e}
+.mission-report-print-filters{margin:0 0 14px;padding:10px 12px;border:1px solid #dce5ed;border-radius:10px;background:#f7fafc}
+.mission-report-print-filters>strong{display:block;margin-bottom:7px}
+.mission-report-print-filters dl{display:flex;flex-wrap:wrap;gap:6px;margin:0}
+.mission-report-print-filters dl>div{display:flex;gap:5px;align-items:baseline;padding:4px 8px;border:1px solid #f7f9fa;border-radius:7px;background:#fff}
+.mission-report-print-filters dt{font-weight:800;color:#20343e}
+.mission-report-print-filters dd{margin:0;overflow-wrap:anywhere}
+.mission-report-print-all{margin:0 0 12px;color:#53677a}
+.mission-report-print-table-wrap{width:100%;min-width:0;overflow-x:auto;border:1px solid #d9e2e9;border-radius:8px}
+.mission-report-print-table{width:100%;border-collapse:collapse;font-size:11px;line-height:1.45}
+.mission-report-print-table th,.mission-report-print-table td{padding:6px 7px;border:1px solid #d8e1e8;text-align:right;vertical-align:top;overflow-wrap:anywhere}
+.mission-report-print-table th{background:#eaf3f8;color:#20343e;font-weight:800;white-space:nowrap}
+.mission-report-print-table tbody tr:nth-child(even){background:#f8fafc}
+.mission-report-print-table td:nth-child(1),.mission-report-print-table td:nth-child(2),.mission-report-print-table td:nth-child(8),.mission-report-print-table td:nth-child(9),.mission-report-print-table td:nth-child(10){white-space:nowrap}
+.mission-print-state{display:inline-block;padding:2px 5px;border-radius:5px;font-weight:800;white-space:nowrap}
+.mission-print-state.is-closed{color:#166534;background:#dcfce7}
+.mission-print-state.is-open{color:#854d0e;background:#fef3c7}
+.mission-print-empty{text-align:center!important;padding:24px!important;color:#5c727c}
+.mission-report-print-footer{margin-top:10px;color:#5c727c;font-size:10px}
+@media(max-width:800px){.mission-report-print-toolbar{align-items:stretch;flex-direction:column}.mission-report-print-toolbar .ui-actions{flex-wrap:wrap}.mission-report-print-table{min-width:1050px}}
+@page{size:A4 landscape;margin:9mm}
+@media print{
+  .mission-report-print-page{max-width:none;padding:0;color:#111}
+  .mission-report-print-toolbar,.no-print{display:none!important}
+  .mission-report-print-heading{margin-bottom:7px;padding:5px 0;border-bottom:1.5pt solid #087f7b}
+  .mission-report-print-heading h1{font-size:14pt}
+  .mission-report-print-heading div{font-size:8pt;color:#222}
+  .mission-report-print-filters{padding:5px 7px;margin-bottom:7px;background:#fff;border-color:#bbb;break-inside:avoid}
+  .mission-report-print-filters dl>div{padding:2px 4px;border-color:#bbb}
+  .mission-report-print-table-wrap{overflow:visible;border:0;border-radius:0}
+  .mission-report-print-table{min-width:0!important;width:100%;table-layout:fixed;font-size:7.2pt;line-height:1.22}
+  .mission-report-print-table th,.mission-report-print-table td{padding:3px 4px;border:.5pt solid #aaa;color:#111;overflow-wrap:anywhere;white-space:normal}
+  .mission-report-print-table th{background:#e7eef3!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .mission-report-print-table tbody tr:nth-child(even){background:#f7f7f7!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .mission-print-state{padding:0;background:transparent!important;color:#111!important}
+  .mission-report-print-footer{font-size:7pt;color:#333}
+  .ui-sidebar,.premium-sidebar,.ui-topbar,.premium-topbar,.assistant-dock,.interactive-palette,.interactive-toast-region,.workspace-actions,.ui-page-intro,.premium-page-intro{display:none!important}
+  .ui-main,.premium-main,.premium-main.with-shell{width:100%!important;max-width:none!important;margin:0!important;padding:0!important;background:#fff!important}
+  .ui-shell,.premium-shell{display:block!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important}
+  .ui-card,.ui-module-card,.ui-work-card{box-shadow:none!important;border:0!important;border-radius:0!important;padding:0!important}
+  thead{display:table-header-group}
+  tr{break-inside:avoid;page-break-inside:avoid}
+}

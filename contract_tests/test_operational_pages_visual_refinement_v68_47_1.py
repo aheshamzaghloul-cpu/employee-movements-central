@@ -1,15 +1,16 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+CURRENT_VERSION = (ROOT / "VERSION.md").read_text(encoding="utf-8").strip()
 BASE = (ROOT / "employee_movements/templates/base.html").read_text(encoding="utf-8")
 OPS = (ROOT / "employee_movements/static/css/pages/operational-pages.css").read_text(encoding="utf-8")
 
 
 def test_operational_stylesheet_is_loaded_only_for_operational_workflows():
-    assert "filename='css/pages/operational-pages.css')+'?v=68.49.0'" in BASE
+    assert "filename='css/pages/operational-pages.css', v=app_version)" in BASE
     for path_fragment in ("request.path == '/employees'", "request.path.startswith('/employees/')", "request.path.startswith('/employee/')", "request.path.startswith('/branches')", "request.path.startswith('/movements')", "request.path.startswith('/missions/')", "request.path.startswith('/reports/assignments/mission-edit')", "request.path.startswith('/reports/assignments/edit-requests')"):
         assert path_fragment in BASE
-    assert BASE.count("v=68.49.0") == 21
+    assert BASE.count("v=app_version") == 24
 
 
 def test_operational_styles_are_scoped_by_page_and_do_not_change_workflows():
@@ -44,4 +45,8 @@ def test_employee_profile_uses_scoped_operational_visual_refinement():
     assert 'class="smart-employee-hero"' in profile
     assert 'class="smart-employee-status {{current_status.key}}"' in profile
     assert 'id="movement-history"' in profile
-    assert 'href="/movements?employee_id={{e.id}}"' in profile
+    assert 'data-employee-movement-menu' in profile
+    assert "movement_type='إجازة'" in profile
+    assert "movement_type='انتداب'" in profile
+    assert "movement_type='إذن'" in profile
+    assert 'href="/movements?employee_id={{e.id}}"' not in profile

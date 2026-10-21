@@ -1,6 +1,6 @@
 """Assistant chat endpoints."""
 
-from flask import abort, Blueprint, current_app, flash, redirect, render_template, request, session
+from flask import Blueprint, current_app, flash, redirect, render_template, request, session
 import re
 
 from ..access import (
@@ -16,6 +16,7 @@ from ..access import (
 from ..extensions import db
 from ..models import AssistantAlias, AssistantMessage, Branch, Employee, Governorate, Movement
 from ..validation import (
+    lock_employee_for_movement,
     movement_overlaps,
     parse_date,
     record_movement_history,
@@ -29,6 +30,14 @@ from ..ratelimit import RateLimiter
 from .menu import capability_groups
 from .manager import plan as manager_plan, execute as manager_execute
 from .pending import store_pending_plan, take_single_pending_plan
+from .session_state import (
+    clear_assistant_state,
+    clear_pending_state,
+    get_context_employee_id,
+    get_workspace_context,
+    set_context_employee_id,
+    set_workspace_context,
+)
 from .render import render_branch_entry, render_read, topic_options
 from .privacy import redact_secrets_for_storage
 from .text import normalize_for_search
@@ -39,23 +48,36 @@ bp = Blueprint('assistant', __name__)
 MAX_PROMPT_CHARS = 4000
 MAX_HISTORY = 60
 MAX_HISTORY_TEXT_CHARS = 1800
-_assistant_limiter = None
+
+
+def _assistant_history_role():
+    """Return the validated effective role used to isolate chat history.
+
+    ``roles()`` already rejects stale session roles and applies the application
+    role-priority fallback. Never persist or query history using an unvalidated
+    raw role value from the cookie.
+    """
+    effective_roles = roles()
+    active_role = session.get('active_role')
+    if active_role in effective_roles:
+        return active_role
+    return next(iter(effective_roles), None)
 
 
 def assistant_limiter():
-    """One shared limiter per process, sized from ``ASSISTANT_RATE_LIMIT`` requests/minute."""
-    global _assistant_limiter
-    if _assistant_limiter is None:
-        _assistant_limiter = RateLimiter(current_app.config['ASSISTANT_RATE_LIMIT'], 60)
-    return _assistant_limiter
+    """Get a per-app limiter; use Redis for shared limits when configured."""
+    registry = current_app.extensions.setdefault('employee_movements_rate_limiters', {})
+    key = ('assistant', int(current_app.config['ASSISTANT_RATE_LIMIT']), 60)
+    if key not in registry:
+        registry[key] = RateLimiter(
+            key[1], key[2], redis_url=current_app.config.get('REDIS_URL'),
+            key_prefix=f"employee-movements:{current_app.config.get('APP_ENV', 'production')}:assistant",
+        )
+    return registry[key]
 
 
 def history_text(result):
-    """Plain-text summary stored in the session.
-
-    The session lives in a size-limited cookie, so rich HTML cards are never stored;
-    only a short text is kept for conversational context.
-    """
+    """Build a bounded plain-text summary for server-side conversation history."""
     text = (
         result.get('answer')
         or result.get('error')
@@ -72,9 +94,10 @@ def _load_chat(limit=MAX_HISTORY):
     user = me()
     if not user:
         return []
+    history_role = _assistant_history_role()
     rows = (
         AssistantMessage.query
-        .filter_by(user_id=user.id)
+        .filter_by(user_id=user.id, active_role=history_role)
         .order_by(AssistantMessage.created_at.desc(), AssistantMessage.id.desc())
         .limit(limit)
         .all()
@@ -95,6 +118,7 @@ def _save_chat_message(role, text, title=None):
     safe_text = redact_secrets_for_storage(text)
     db.session.add(AssistantMessage(
         user_id=user.id,
+        active_role=_assistant_history_role(),
         role=role,
         text=safe_text[:MAX_HISTORY_TEXT_CHARS],
         title=(redact_secrets_for_storage(title)[:120] if title else None),
@@ -107,10 +131,11 @@ def _trim_chat():
     user = me()
     if not user:
         return
+    history_role = _assistant_history_role()
     ids = [
         x.id for x in (
             AssistantMessage.query
-            .filter_by(user_id=user.id)
+            .filter_by(user_id=user.id, active_role=history_role)
             .order_by(AssistantMessage.created_at.desc(), AssistantMessage.id.desc())
             .limit(MAX_HISTORY)
             .all()
@@ -119,6 +144,7 @@ def _trim_chat():
     if ids:
         AssistantMessage.query.filter(
             AssistantMessage.user_id == user.id,
+            AssistantMessage.active_role == history_role,
             ~AssistantMessage.id.in_(ids),
         ).delete(synchronize_session=False)
 
@@ -143,17 +169,15 @@ def _is_cancellation(text):
 def _execute_pending_naturally(prompt):
     """Consume a single pending assistant action, never a stale competing plan."""
     if _is_cancellation(prompt):
-        manager_pending = session.pop('assistant_manager_pending', None)
-        movement_pending = session.pop('assistant_pending', None)
-        had = manager_pending is not None or movement_pending is not None
-        return ({'title': 'المساعد الذكي', 'answer': 'تم إلغاء العملية المعلقة.'} if had else None)
+        had_pending = clear_pending_state()
+        return ({'title': 'المساعد الذكي', 'answer': 'تم إلغاء العملية المعلقة.'} if had_pending else None)
     if not _is_confirmation(prompt):
         return None
     pending_key, pending_plan, conflict = take_single_pending_plan()
     if conflict:
         return {
             'title': 'تأكيد العملية',
-            'error': 'وجدت أكثر من عملية معلقة قديمة. لم يتم تنفيذ أي منها؛ أعد إعداد عملية واحدة ثم راجع تفاصيلها وأكّدها.',
+            'error': 'تعذر التحقق من خطة التأكيد الحالية، أو أنها محفوظة من إصدار سابق. لم يتم تنفيذ أي تغيير؛ أعد إعداد العملية ثم راجع المعاينة وأكّدها.',
         }
     if pending_key == 'assistant_manager_pending' and pending_plan:
         ok, message = manager_execute(pending_plan)
@@ -425,8 +449,8 @@ def answer_prompt(prompt, prior_chat, workspace_context=None):
     field = detect_employee_field(prompt)
     if field:
         a['employee_field'] = field
-    if not a.get('employee_id') and session.get('assistant_context_employee_id') and field:
-        ce = db.session.get(Employee, session.get('assistant_context_employee_id'))
+    if not a.get('employee_id') and get_context_employee_id() and field:
+        ce = db.session.get(Employee, get_context_employee_id())
         if ce and ce.is_active and branch_ok(ce.branch_id):
             a['employee_id'] = ce.id
             if a.get('intent') in ('help', 'topic_options', 'employee_topic'):
@@ -437,12 +461,12 @@ def answer_prompt(prompt, prior_chat, workspace_context=None):
                 )
     # سياق الموظف الأخير: إذا ذكر المستخدم إجراءً جديدًا مباشرة بعد عرض موظف،
     # نستخدم الموظف الأخير تلقائيًا ما لم يحدد موظفًا آخر.
-    if not a.get('employee_id') and session.get('assistant_context_employee_id'):
+    if not a.get('employee_id') and get_context_employee_id():
         if (
             a.get('intent') == 'register_movement'
             or a.get('topic') in ('leave', 'assignment', 'permission')
         ):
-            ce = db.session.get(Employee, session.get('assistant_context_employee_id'))
+            ce = db.session.get(Employee, get_context_employee_id())
             if ce and ce.is_active and branch_ok(ce.branch_id):
                 a['employee_id'] = ce.id
     manager_intents = {
@@ -681,7 +705,7 @@ def answer_prompt(prompt, prior_chat, workspace_context=None):
         else:
             result = render_read(a)
         if a.get('employee_id') and db.session.get(Employee, a.get('employee_id')):
-            session['assistant_context_employee_id'] = a.get('employee_id')
+            set_context_employee_id(a.get('employee_id'))
     return result
 
 
@@ -693,6 +717,9 @@ def _execute_movement_plan(a):
     dest = db.session.get(Branch, a.get('destination_branch_id')) if a.get('destination_branch_id') else None
     if not can_manage_movement_employee(e, a.get('movement_type')):
         return False, 'الموظف خارج نطاق صلاحياتك أو لم يعد نشطًا.'
+    e = lock_employee_for_movement(e.id)
+    if not e or not e.is_active or not can_manage_movement_employee(e, a.get('movement_type')):
+        return False, 'تغيرت حالة الموظف أو نطاقه أثناء التنفيذ. أعد معاينة العملية.'
     err = validate_movement_fields(
         a.get('movement_type'),
         a.get('leave_type'),
@@ -743,8 +770,16 @@ def assistant():
     chat = _load_chat()
     if request.method == 'POST':
         prompt = (request.form.get('prompt') or '').strip()[:MAX_PROMPT_CHARS]
-        workspace_context = request.form.get('workspace_context') or ''
-        session['assistant_workspace_context'] = workspace_context[:4000]
+        # A present form field (including an empty value) updates server-side
+        # workspace state. Only an absent field reuses the prior context.
+        if 'workspace_context' in request.form:
+            workspace_context = (request.form.get('workspace_context') or '')[:4000]
+            set_workspace_context(workspace_context)
+            # Persist explicit context updates even when the prompt is empty;
+            # otherwise request teardown could roll back the user's clear action.
+            db.session.commit()
+        else:
+            workspace_context = get_workspace_context()
         if not prompt:
             result = {'title': 'المساعد الذكي', 'error': 'اكتب طلبك أولًا.'}
         elif not assistant_limiter().allow(f'{me().id}'):
@@ -760,14 +795,13 @@ def assistant():
                 result = answer_prompt(
                     prompt,
                     prior_chat,
-                    workspace_context or session.get("assistant_workspace_context"),
+                    workspace_context,
                 )
             except Exception as exc:
                 # Exception text/tracebacks may include SQL parameters or sensitive values.
                 # Keep only the actor ID and exception class in the application log.
                 db.session.rollback()
-                session.pop('assistant_pending', None)
-                session.pop('assistant_manager_pending', None)
+                clear_pending_state()
                 current_app.logger.error(
                     'Unhandled assistant turn failure (user_id=%s, error=%s)',
                     me().id if me() else None,
@@ -799,12 +833,12 @@ def assistant():
 @req
 def assistant_clear():
     if me():
-        AssistantMessage.query.filter_by(user_id=me().id).delete(synchronize_session=False)
+        AssistantMessage.query.filter_by(
+            user_id=me().id, active_role=_assistant_history_role()
+        ).delete(synchronize_session=False)
         db.session.commit()
-    session.pop('assistant_pending', None)
-    session.pop('assistant_manager_pending', None)
-    session.pop('assistant_context_employee_id', None)
-    session.pop('assistant_workspace_context', None)
+    clear_assistant_state()
+    db.session.commit()
     return redirect('/assistant?embed=1' if request.form.get('embed') == '1' else '/assistant')
 
 
@@ -814,13 +848,13 @@ def assistant_confirm():
     embed = request.form.get('embed') == '1'
     back = '/assistant?embed=1' if embed else '/assistant'
     if request.form.get('cancel'):
-        session.pop('assistant_pending', None)
-        session.pop('assistant_manager_pending', None)
+        clear_pending_state()
+        db.session.commit()
         flash('تم إلغاء العملية ولم يُنفذ أي تغيير.')
         return redirect(back)
     pending_key, pending_plan, conflict = take_single_pending_plan()
     if conflict:
-        flash('وجدت أكثر من عملية معلقة قديمة. لم يتم تنفيذ أي منها؛ أعد إعداد عملية واحدة ثم أكّدها.')
+        flash('تعذر التحقق من خطة التأكيد الحالية، أو أنها محفوظة من إصدار سابق. لم يتم تنفيذ أي تغيير؛ أعد إعداد العملية ثم راجع المعاينة وأكّدها.')
         return redirect(back)
     if not pending_plan:
         flash('لا توجد عملية معلقة للتأكيد.')

@@ -2,6 +2,25 @@
   const qs=(s,r=document)=>r.querySelector(s), qsa=(s,r=document)=>[...r.querySelectorAll(s)];
   const notify=(message,type='warning')=>{ if(typeof window.toast==='function') window.toast(message,type); else setTimeout(()=>{ if(typeof window.toast==='function') window.toast(message,type); },0); };
 
+  // Keep movement row menus compact and predictable: only one may be open,
+  // outside clicks dismiss it, and Escape restores focus to its trigger.
+  const movementActionMenus=qsa('details.movement-row-action-menu');
+  movementActionMenus.forEach(menu=>menu.addEventListener('toggle',()=>{
+    if(menu.open) movementActionMenus.forEach(other=>{if(other!==menu)other.open=false;});
+  }));
+  if(movementActionMenus.length){
+    document.addEventListener('click',event=>{
+      if(!(event.target instanceof Element)||event.target.closest('.movement-row-action-menu'))return;
+      movementActionMenus.forEach(menu=>{menu.open=false;});
+    });
+    document.addEventListener('keydown',event=>{
+      if(event.key!=='Escape')return;
+      const opened=movementActionMenus.find(menu=>menu.open);
+      if(!opened)return;
+      event.preventDefault();opened.open=false;opened.querySelector('summary')?.focus({preventScroll:true});
+    });
+  }
+
   // Accessible password visibility control shared by sign-in and account forms.
   qsa('[data-password-toggle]').forEach(toggle=>{
     const targetId=toggle.dataset.passwordToggle;
@@ -46,7 +65,6 @@
     function syncRoles(){
       const roles=roleBoxes.filter(x=>x.checked).map(x=>x.value);
       qsa('[data-role-scope="supervisor"]',form).forEach(x=>x.hidden=!roles.includes('مشرف محافظة'));
-      qsa('[data-role-scope="entry"]',form).forEach(x=>x.hidden=!roles.includes('المدخل الأول'));
       qsa('[data-required-role]',form).forEach(group=>{
         const required=roles.includes(group.dataset.requiredRole);
         group.dataset.required=required?'1':'0';
@@ -75,16 +93,38 @@
   function syncMovement(){
     const v=movementType?.value||'';
     qsa('[data-movement]').forEach(el=>{const types=[el.dataset.movement,el.dataset.movement2].filter(Boolean); el.hidden=!types.includes(v);});
-    const leave=qs('#leave_type'), dest=qs('#destination_branch_id'), fd=qs('#from_date'), td=qs('#to_date'), pd=qs('#permission_date');
-    const openAssignment=qs('#open_assignment'), isOpenAssignment=v==='انتداب'&&!!openAssignment?.checked;
+    const isLeave=v==='إجازة', isAssignment=v==='انتداب', isPermission=v==='إذن';
+    const hasDateRange=v==='إجازة'||v==='انتداب';
+    const leave=qs('#leave_type'), gov=qs('#destination_governorate_id'), dest=qs('#destination_branch_id');
+    const fd=qs('#from_date'), td=qs('#to_date'), pd=qs('#permission_date');
+    const openAssignment=qs('#open_assignment'), isOpenAssignment=isAssignment&&!!openAssignment?.checked;
     const endWrap=qs('#to_date_wrap');
-    if(endWrap&&v==='انتداب')endWrap.hidden=isOpenAssignment;
-    if(td){td.disabled=isOpenAssignment;td.required=(v==='إجازة')||(v==='انتداب'&&!isOpenAssignment);const hasDateRange=v==='إجازة'||v==='انتداب';td.min=hasDateRange?(fd?.value||''):'';if(isOpenAssignment)td.value='';td.setCustomValidity(hasDateRange&&fd?.value&&td.value&&td.value<fd.value?'تاريخ النهاية يجب ألا يسبق تاريخ البداية.':'');}
-    if(leave)leave.required=v==='إجازة'; if(dest)dest.required=v==='انتداب'; if(fd)fd.required=v==='إجازة'||v==='انتداب'; if(pd)pd.required=v==='إذن';
-    [leave,dest,fd,td,pd].forEach(el=>{if(!el)return; const wrap=el.closest('[data-movement]'); if(wrap&&wrap.hidden){el.required=false; if(el.tagName==='SELECT')el.value='';}});
+    if(endWrap)endWrap.hidden=!hasDateRange||(isAssignment&&isOpenAssignment);
+
+    // Hidden fields must not participate in native validation or be posted as
+    // stale values for a different movement type. Their values are retained so
+    // switching back to a type does not needlessly erase the user's draft.
+    if(leave){leave.required=isLeave;leave.disabled=!isLeave;}
+    if(gov){gov.required=isAssignment;gov.disabled=!isAssignment;}
+    if(dest){dest.required=isAssignment;dest.disabled=!isAssignment||!gov?.value;}
+    if(fd){fd.required=hasDateRange;fd.disabled=!hasDateRange;}
+    if(td){
+      td.required=(v==='إجازة')||(v==='انتداب'&&!isOpenAssignment);
+      td.disabled=!hasDateRange||isOpenAssignment;
+      td.min=hasDateRange?(fd?.value||''):'';
+      // Preserve the end-date draft when toggling an assignment open/closed.
+      // Disabled controls are not submitted, and the server explicitly stores
+      // no end date for an open assignment, so retaining this UI draft is safe.
+      const dateError=hasDateRange&&fd?.value&&td.value&&td.value<fd.value;
+      td.setCustomValidity(dateError?'تاريخ النهاية يجب ألا يسبق تاريخ البداية.':'');
+      if(dateError){td.setAttribute('aria-invalid','true');}
+      else td.removeAttribute('aria-invalid');
+    }
+    if(pd){pd.required=isPermission;pd.disabled=!isPermission;}
+    if(openAssignment)openAssignment.disabled=!isAssignment;
     const days=qs('#movement_days');
-    if(days){if(v==='إذن'){days.textContent='—';} else if(fd?.value&&td?.value&&!isOpenAssignment){const a=new Date(fd.value),b=new Date(td.value);days.textContent=b>=a?Math.floor((b-a)/86400000)+1:'—';} else days.textContent='—';}
-    const hint=qs('#movement_duration_hint'); if(hint)hint.textContent=v==='إذن'?'الإذن يُسجل بتاريخ واحد.':isOpenAssignment?'الانتداب المفتوح لا يحتاج تاريخ نهاية.':'تحسب تلقائيًا من تاريخ البداية حتى النهاية.';
+    if(days){if(isPermission){days.textContent='—';} else if(fd?.value&&td?.value&&!isOpenAssignment){const a=new Date(fd.value),b=new Date(td.value);days.textContent=b>=a?Math.floor((b-a)/86400000)+1:'—';} else days.textContent='—';}
+    const hint=qs('#movement_duration_hint'); if(hint)hint.textContent=isPermission?'الإذن يُسجل بتاريخ واحد.':isOpenAssignment?'الانتداب المفتوح لا يحتاج تاريخ نهاية.':'تحسب تلقائيًا من تاريخ البداية حتى النهاية.';
   }
   function syncAutoApprover(){
     const display=qs('#approver_display'); if(!display)return;
@@ -128,7 +168,7 @@
     if(!homeLiveResults)return;
     if(!items.length){homeLiveResults.innerHTML='<div class="smart-empty compact">لا توجد نتائج مطابقة. جرّب الاسم أو الكود أو غيّر مرشحات المحافظة والفرع.</div>';homeLiveResults.hidden=false;return;}
     const paramsFor=(id)=>{const p=new URLSearchParams();p.set('movement_name',query);if(homeSearchGov?.value)p.set('movement_governorate_id',homeSearchGov.value);if(homeSearchBranch?.value)p.set('movement_branch_id',homeSearchBranch.value);p.set('employee_id',String(id));return '/?'+p.toString()+'#employee-search';};
-    homeLiveResults.innerHTML=items.map(e=>`<a href="${esc(paramsFor(e.id))}"><i>${esc((e.name||'م').slice(0,1))}</i><span><b>${esc(e.name)}</b><small>${esc(e.job_title||'موظف')} · كود شئون العاملين: ${esc(e.code||'—')} ${e.match_kind==='approximate'?'<strong class="smart-match-caution">اقتراح قريب — تأكد من الهوية</strong>':''}</small></span><em>${esc(e.branch||'—')} · ${esc(e.governorate||'—')}</em></a>`).join('');
+    homeLiveResults.innerHTML=items.map(e=>`<a href="${esc(paramsFor(e.id))}"><i>${esc((e.name||'م').slice(0,1))}</i><span><b>${esc(e.name)}</b><small>${esc(e.job_title||'وظيفة غير مسجلة')} · كود شئون العاملين: ${esc(e.code||'—')}</small><small>${esc(e.employment_status||'حالة غير مسجلة')} · التعيين: ${esc(e.hire_date||'غير مسجل')} · العودة: ${esc(e.rehire_date||'غير مسجل')} · الاستقالة: ${esc(e.resignation_date||'غير مسجل')}</small><small>هاتف العمل: ${esc(e.company_phone||'غير مسجل')} · الشخصي: ${esc(e.personal_phone||'غير مسجل')}</small><small>البريد الإلكتروني: ${esc(e.email||'غير مسجل')}</small><small class="smart-entry-contact-inline${e.entry_responsible_status==='conflict'?' is-conflict':''}"><b>مسؤول إدخال الفرع:</b> ${esc(e.entry_responsible||'غير محدد')}</small><small><b>آخر انتداب:</b> ${esc(e.last_assignment||'لا يوجد انتداب مسجل')}</small>${e.match_kind==='approximate'?'<small class="smart-match-caution">اقتراح قريب — تأكد من الهوية</small>':''}</span><em>${esc(e.branch||'—')}${e.branch_code?' · '+esc(e.branch_code):''} · ${esc(e.governorate||'—')}</em></a>`).join('');
     homeLiveResults.hidden=false;
   }
   async function runHomeLiveSearch(){
@@ -159,38 +199,6 @@
   syncHomeSearchBranches();
   homeSearchInput?.addEventListener('keydown',e=>{if(e.key==='Escape')hideHomeLive();});
   homeSearchForm?.addEventListener('submit',()=>hideHomeLive());
-
-  // معالج التسجيل الذكي للحركة من الصفحة الرئيسية.
-  const hmForm=qs('#home-real-movement-form'), hmGov=qs('#home_move_gov'), hmBranch=qs('#home_move_branch'), hmEmp=qs('#home_move_employee'), hmType=qs('#home_move_type');
-  const hmNext=qs('#home-movement-next'), hmNextRow=qs('#home-movement-next-row'), hmStepEmp=qs('#home-movement-step-employee'), hmStepDetails=qs('#home-movement-step-details'), hmReview=qs('#home-movement-review');
-  const hmReviewGrid=qs('#home-movement-review-grid'), hmBack=qs('#home-movement-back'), hmState=qs('#home-selected-employee-state');
-  const hmDestGov=qs('#home_move_dest_gov'), hmDestBranch=qs('#home_move_dest_branch'), hmOpen=qs('#home_open_assignment');
-  const hmTypeButtons=qsa('.movement-type-choice');
-  function hmSyncDynamic(){
-    // The homepage movement wizard is not present on most routes. Do not pass
-    // a null root into qs() during the shared app.js initialization.
-    if(!hmForm) return;
-    const t=hmType?.value||'';
-    qsa('.home-movement-wizard .movement-dynamic').forEach(el=>{const types=(el.dataset.moveType||'').split(',');el.style.display=types.includes(t)?'flex':'none';});
-    const td=qs('[name="to_date"]',hmForm), fd=qs('[name="from_date"]',hmForm), leave=qs('[name="leave_type"]',hmForm), dest=qs('[name="destination_branch_id"]',hmForm), pd=qs('[name="permission_date"]',hmForm);
-    if(fd)fd.required=t==='إجازة'||t==='انتداب'; if(td)td.required=t==='إجازة'||t==='انتداب'; if(leave)leave.required=t==='إجازة'; if(dest)dest.required=t==='انتداب'; if(pd)pd.required=t==='إذن';
-    if(td&&hmOpen)td.required=t==='انتداب'&&!hmOpen.checked;
-    if(td&&hmOpen&&hmOpen.checked)td.value='';
-  }
-  function hmSelectType(t){hmType.value=t;hmTypeButtons.forEach(b=>b.classList.toggle('selected',b.dataset.type===t));if(hmEmp){hmEmp.value='';hmState.hidden=true;}hmStepDetails.hidden=true;hmReview.hidden=true;hmNextRow.hidden=false;hmNext.disabled=true;hmSyncDynamic();if(hmGov?.value&&hmBranch?.value)hmLoadEmployees();hmStepEmp.hidden=false;hmStepEmp.scrollIntoView({behavior:'smooth',block:'nearest'});}
-  hmTypeButtons.forEach(b=>b.addEventListener('click',()=>hmSelectType(b.dataset.type)));
-  async function hmLoadBranches(){if(!hmGov||!hmBranch)return;hmBranch.innerHTML='<option value="">جاري التحميل…</option>';hmBranch.disabled=true;hmEmp.innerHTML='<option value="">اختر الموظف</option>';hmEmp.disabled=true;hmState.hidden=true;if(!hmGov.value)return;try{const r=await fetch('/api/movement-employees?governorate_id='+encodeURIComponent(hmGov.value)+'&movement_type='+encodeURIComponent(hmType?.value||''));const d=await r.json();hmBranch.innerHTML='<option value="">اختر الفرع</option>'+(d.branches||[]).map(b=>`<option value="${esc(b.id)}">${esc(b.name)}</option>`).join('');hmBranch.disabled=!(d.branches||[]).length;}catch(_){hmBranch.innerHTML='<option value="">تعذر التحميل</option>';}}
-  async function hmLoadEmployees(){if(!hmGov?.value||!hmBranch?.value)return;hmEmp.innerHTML='<option value="">جاري التحميل…</option>';hmEmp.disabled=true;try{const r=await fetch('/api/movement-employees?governorate_id='+encodeURIComponent(hmGov.value)+'&branch_id='+encodeURIComponent(hmBranch.value)+'&movement_type='+encodeURIComponent(hmType?.value||''));const d=await r.json();hmEmp.innerHTML='<option value="">اختر الموظف</option>'+(d.results||[]).map(e=>`<option value="${esc(e.id)}">${esc(e.name)}${e.code?' — '+esc(e.code):''}</option>`).join('');hmEmp.disabled=!(d.results||[]).length;}catch(_){hmEmp.innerHTML='<option value="">تعذر التحميل</option>';}}
-  function hmEmployeeState(){const o=hmEmp?.selectedOptions?.[0];if(!o||!o.value){hmState.hidden=true;hmNext.disabled=true;return;}hmState.innerHTML=`<span class="ui-icon-tile"><svg class="ui-icon ui-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="3"/><path d="M5 21a7 7 0 0 1 14 0"/></svg></span><div><b>${esc(o.textContent)}</b><small>تم اختيار الموظف — يمكنك الانتقال لبيانات الحركة.</small></div>`;hmState.hidden=false;hmNext.disabled=false;}
-  function hmDestSync(){if(!hmDestGov||!hmDestBranch)return;const g=hmDestGov.value;[...hmDestBranch.options].forEach(o=>{if(!o.value)return;const ok=!g||o.dataset.governorate===g;o.hidden=!ok;o.disabled=!ok;});if(hmDestBranch.value&&hmDestBranch.selectedOptions[0]?.disabled)hmDestBranch.value='';}
-  function hmReviewBuild(){const get=n=>qs(`[name="${n}"]`,hmForm)?.selectedOptions?.[0]?.textContent||qs(`[name="${n}"]`,hmForm)?.value||'—';const type=hmType.value;const emp=hmEmp?.selectedOptions?.[0]?.textContent||'—';let rows=[['الموظف',emp],['نوع الحركة',type]];if(type==='إجازة')rows.push(['نوع الإجازة',get('leave_type')]);if(type==='انتداب'){rows.push(['جهة الانتداب',get('destination_branch_id')]);rows.push(['من تاريخ',qs('[name="from_date"]',hmForm)?.value||'—']);rows.push(['إلى تاريخ',hmOpen?.checked?'مفتوح':(qs('[name="to_date"]',hmForm)?.value||'—')]);}else if(type==='إذن')rows.push(['تاريخ الإذن',qs('[name="permission_date"]',hmForm)?.value||'—']);else rows.push(['من تاريخ',qs('[name="from_date"]',hmForm)?.value||'—'],['إلى تاريخ',qs('[name="to_date"]',hmForm)?.value||'—']);hmReviewGrid.innerHTML=rows.map(x=>`<div><small>${esc(x[0])}</small><b>${esc(x[1])}</b></div>`).join('');}
-  hmGov?.addEventListener('change',hmLoadBranches);hmBranch?.addEventListener('change',hmLoadEmployees);hmEmp?.addEventListener('change',hmEmployeeState);hmDestGov?.addEventListener('change',hmDestSync);hmOpen?.addEventListener('change',hmSyncDynamic);hmNext?.addEventListener('click',()=>{if(!hmEmp?.value){notify('اختر الموظف أولًا.','warning');return;}hmStepDetails.hidden=false;hmNextRow.hidden=true;hmSyncDynamic();});hmBack?.addEventListener('click',()=>{hmReview.hidden=true;hmStepDetails.hidden=false;});
-  hmForm?.addEventListener('input',()=>{if(hmStepDetails&&!hmStepDetails.hidden){hmReviewBuild();}});
-  hmForm?.addEventListener('change',()=>{if(hmStepDetails&&!hmStepDetails.hidden){hmReviewBuild();}});
-  hmStepDetails?.addEventListener('click',e=>{if(e.target.closest('#home-movement-review'))return;});
-  hmStepDetails?.insertAdjacentHTML('beforeend','<div class="wizard-details-next"><button type="button" class="btn" id="home-review-button">مراجعة الحركة ←</button></div>');
-  qs('#home-review-button')?.addEventListener('click',()=>{if(!hmType.value||!hmEmp.value){notify('اختر نوع الحركة والموظف.','warning');return;}if(!hmForm.reportValidity())return;hmReviewBuild();hmStepDetails.hidden=true;hmReview.hidden=false;});
-  hmSyncDynamic();hmDestSync();
 
   // Unified interaction layer: confirmations, search feedback, submit states and validation focus.
   function ensureConfirmDialog(){
@@ -434,10 +442,13 @@ document.addEventListener('DOMContentLoaded', function(){
     const surface=scrollSurface || table;
     const head=table.tHead;
     const title=(wrap.querySelector('.ui-section-title h3')||wrap.querySelector('h2,h3'))?.textContent?.trim() || 'البيانات';
+    const serverPaginated=table.dataset.smartServerPage === 'true';
     let bar=wrap.querySelector(':scope > .smart-data-toolbar');
     if(!bar){
       bar=document.createElement('div'); bar.className='smart-data-toolbar';
-      bar.innerHTML=`<div class="smart-data-summary"><strong>${title}</strong><span data-smart-count></span></div><label class="smart-data-search"><span class="sr-only">بحث داخل الجدول</span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg><input type="search" data-smart-table-search placeholder="بحث داخل البيانات…" title="تصفية محلية للصفوف المعروضة فقط" aria-label="بحث داخل البيانات المعروضة" autocomplete="off"></label>`;
+      const searchScopeLabel=serverPaginated?'الصفحة الحالية فقط':'البيانات المعروضة';
+      const searchTitle=serverPaginated?'البحث محلي داخل صفحة الخادم الحالية فقط':'تصفية محلية للبيانات المعروضة';
+      bar.innerHTML=`<div class="smart-data-summary"><strong>${title}</strong><span data-smart-count></span></div><label class="smart-data-search"><span class="sr-only">بحث داخل ${searchScopeLabel}</span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg><input type="search" data-smart-table-search placeholder="${table.dataset.smartSearchPlaceholder || 'بحث داخل البيانات…'}" title="${searchTitle}" aria-label="بحث داخل ${searchScopeLabel}" autocomplete="off"></label>`;
       wrap.insertBefore(bar,surface);
     }
     const input=bar.querySelector('[data-smart-table-search]');
@@ -467,7 +478,7 @@ document.addEventListener('DOMContentLoaded', function(){
       const visibleSet=new Set(matches.slice(0,visibleLimit));
       rows.forEach(row=>{row.hidden=!visibleSet.has(row)});
       const visible=Math.min(visibleLimit,matches.length);
-      if(count) count.textContent=`عرض ${visible} من ${matches.length}`;
+      if(count) count.textContent=serverPaginated ? `عرض ${visible} من ${matches.length} في الصفحة الحالية` : `عرض ${visible} من ${matches.length}`;
       more.hidden=matches.length<=pageSize;
       more.textContent=expanded?'عرض أقل':`عرض المزيد (${Math.max(0,matches.length-pageSize)})`;
       more.setAttribute('aria-controls',table.id);more.setAttribute('aria-expanded',String(expanded));
@@ -476,6 +487,22 @@ document.addEventListener('DOMContentLoaded', function(){
       table.classList.toggle('has-smart-filter',!!q);
     }
     input?.addEventListener('input',render);more.addEventListener('click',()=>{expanded=!expanded;render();});
+    // Print every row matching the current local search, not just the first
+    // progressive page. Remember and restore the user's expanded/collapsed UI
+    // state after the print dialog closes.
+    let expandedBeforePrint = null;
+    window.addEventListener('beforeprint',()=>{
+      if(expandedBeforePrint !== null)return;
+      expandedBeforePrint = expanded;
+      expanded = true;
+      render();
+    });
+    window.addEventListener('afterprint',()=>{
+      if(expandedBeforePrint === null)return;
+      expanded = expandedBeforePrint;
+      expandedBeforePrint = null;
+      render();
+    });
     render();
     if(head) head.classList.add('smart-table-head');
   });
@@ -551,5 +578,55 @@ document.addEventListener('DOMContentLoaded', function(){
     search?.addEventListener('input',render);
     more.addEventListener('click',()=>{expanded=!expanded;render();});
     render();
+  });
+})();
+
+
+// v68.78.0 — dismissible server feedback with predictable focus handling.
+(function () {
+  document.addEventListener('click', function (event) {
+    const trigger = event.target.closest('[data-dismiss-alert]');
+    if (!trigger) return;
+    const alert = trigger.closest('.enterprise-alert, .ui-alert, .alert');
+    if (!alert) return;
+    const remaining = Array.from(document.querySelectorAll('[data-dismiss-alert]'))
+      .filter((button) => button !== trigger && !button.closest('[hidden]'))
+      .find((button) => button.isConnected);
+    alert.remove();
+    if (remaining) {
+      remaining.focus({ preventScroll: true });
+      return;
+    }
+    const main = document.getElementById('main');
+    if (main) {
+      const addedTabIndex = !main.hasAttribute('tabindex');
+      if (addedTabIndex) main.setAttribute('tabindex', '-1');
+      main.focus({ preventScroll: true });
+      if (addedTabIndex) main.addEventListener('blur', () => main.removeAttribute('tabindex'), { once: true });
+    }
+  });
+})();
+
+// v68.78.0 — keep employee-profile movement menus keyboard and pointer friendly.
+(function () {
+  const selector = '[data-employee-movement-menu]';
+  const openSelector = '[data-employee-movement-menu][open]';
+  document.addEventListener('click', function (event) {
+    document.querySelectorAll(openSelector).forEach((menu) => {
+      if (!menu.contains(event.target)) menu.open = false;
+      else if (event.target.closest('.smart-employee-register-options a')) menu.open = false;
+    });
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key !== 'Escape') return;
+    const menus = Array.from(document.querySelectorAll(openSelector));
+    if (!menus.length) return;
+    const activeMenu = menus.find((menu) => menu.contains(document.activeElement)) || menus[0];
+    menus.forEach((menu) => { menu.open = false; });
+    const summary = activeMenu.querySelector(':scope > summary');
+    if (summary) {
+      event.preventDefault();
+      summary.focus({ preventScroll: true });
+    }
   });
 })();

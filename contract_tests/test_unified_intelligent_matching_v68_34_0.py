@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import shutil
 import subprocess
 from pathlib import Path
@@ -8,6 +7,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+CURRENT_VERSION = (ROOT / "VERSION.md").read_text(encoding="utf-8").strip()
 
 
 def read(relative: str) -> str:
@@ -52,7 +52,7 @@ def test_shared_matcher_is_wired_into_all_primary_server_search_surfaces():
         "home": read("employee_movements/blueprints/dashboard.py"),
         "employee directory": read("employee_movements/blueprints/employees.py"),
         "movement API": read("employee_movements/blueprints/movements.py"),
-        "assistant tool": read("employee_movements/assistant/agent.py"),
+        "assistant tool": read("employee_movements/assistant/tool_read_handlers.py"),
         "assistant directory": read("employee_movements/assistant/directory.py"),
         "Excel import": read("employee_movements/blueprints/excel_import.py"),
     }
@@ -60,28 +60,32 @@ def test_shared_matcher_is_wired_into_all_primary_server_search_surfaces():
         assert "employee_search_filter" in sources[label], f"shared employee matcher missing from {label}"
     assert "EmployeeNameAlias" in sources["Excel import"]
     assert "TicketEmployeeCodeAlias" in sources["Excel import"]
-    assert "job_code_lookup_variants" in sources["Excel import"]
+    assert "_excel_employee_code_variants" in sources["Excel import"]
     assert "branch_search_filter" in sources["assistant tool"]
     assert "governorate_search_filter" in sources["assistant tool"]
     assert "rank_governorate_suggestions" in sources["assistant tool"]
 
 
-def test_scope_is_applied_before_assistant_employee_result_limit():
-    agent = read("employee_movements/assistant/agent.py")
+def test_global_read_scope_is_applied_before_assistant_employee_result_limit():
+    agent = read("employee_movements/assistant/tool_read_handlers.py")
     block = agent[agent.index('if name == "search_employees":'):agent.index('if name == "get_employee_profile":')]
-    assert "allowed_branch_ids = set(bids())" in block
-    assert "candidate_scope.filter(Employee.branch_id.in_(allowed_branch_ids))" in block
+    assert "allowed_branch_ids = set(readable_branch_ids())" in block
+    assert "Employee.branch_id.in_(allowed_branch_ids) if allowed_branch_ids else False" in block
+    assert "Governorate.is_active == True" in block
     assert "rank_scoped_employee_suggestions(q, pool, limit=limit)" in block
-    assert "include_contacts=can(\"manage_employees\")" in block
+    assert "include_contacts=can(\"view_reports\")" in block
+    assert "set(bids())" not in block
 
 
 def test_movement_picker_and_movement_worklist_include_confirmed_aliases_without_expanding_scope():
     routes = read("employee_movements/blueprints/movements.py")
+    payloads = read("employee_movements/services/movement_search_payloads.py")
     template = read("employee_movements/templates/movements.html")
-    assert "def _branch_search_payload(branches):" in routes
-    assert "def _employee_search_aliases(employees):" in routes
-    assert "def _movement_search_text_map(movements):" in routes
-    assert "search_aliases" in routes
+    assert "from ..services.movement_search_payloads import" in routes
+    assert "def _branch_search_payload(branches):" in payloads
+    assert "def _employee_search_aliases(employees):" in payloads
+    assert "def _movement_search_text_map(movements):" in payloads
+    assert "search_aliases" in payloads
     assert "movement_search_text_by_id=movement_search_text_by_id" in routes
     assert "window.employeeSearchMatches(query,`${b.name||''} ${b.code||''} ${b.search_aliases||''}`)" in template
     assert "window.employeeSearchMatches(query,`${e.name||''} ${e.code||''} ${e.search_aliases||''}`)" in template
@@ -92,8 +96,8 @@ def test_movement_picker_and_movement_worklist_include_confirmed_aliases_without
 def test_excel_import_never_creates_a_duplicate_when_name_alias_points_to_an_existing_employee():
     importer = read("employee_movements/blueprints/excel_import.py")
     assert "employee_names_by_branch = {}" in importer
-    assert "for alias in EmployeeNameAlias.query.all():" in importer
-    assert "name_match_ids = employee_names_by_branch.get((b.id, _excel_key(vals.get('name'))), set())" in importer
+    assert "EmployeeNameAlias.query.with_entities(" in importer and ".yield_per(2000)" in importer
+    assert "name_match_ids = employee_names_by_branch.get(import_name_key, set())" in importer
     assert "الاسم يطابق موظفًا موجودًا في الفرع" in importer
     assert "الكود والبريد يحددان سجلًا، لكن الاسم يطابق موظفًا آخر" in importer
     assert "e.full_name if e.id in name_match_ids else vals['name']" in importer
@@ -148,19 +152,21 @@ assert.equal(window.employeeSearchMatches('20453', 'كود 20020353'), false);
 
 
 def test_version_metadata_and_asset_cache_busting_are_ready_for_current_release():
-    assert read("VERSION.md").strip() == "68.49.0"
-    assert 'version = "68.49.0"' in read("pyproject.toml")
-    assert "__version__ = '68.49.0'" in read("employee_movements/__init__.py")
+    assert read("VERSION.md").strip() == CURRENT_VERSION
+    assert f'version = "{CURRENT_VERSION}"' in read("pyproject.toml")
+    assert f"__version__ = '{CURRENT_VERSION}'" in read("employee_movements/__init__.py")
     base = read("employee_movements/templates/base.html")
-    assert "v=68.49.0" in base
+    assert "v=app_version" in base
     assert "v=68.35.0" not in base and "v=68.34.0" not in base and "v=68.33.0" not in base
 
 
 def test_admin_assistant_governorate_resolution_uses_shared_alias_matcher_and_never_auto_selects_fuzzy():
     manager = read("employee_movements/assistant/manager.py")
-    start = manager.index("def _match_gov(name):")
-    end = manager.index("\ndef plan(a):", start)
-    block = manager[start:end]
+    resolver = read("employee_movements/assistant/manager_resolvers.py")
+    assert "resolve_governorate as _match_gov" in manager
+    start = resolver.index("def resolve_governorate(name):")
+    end = resolver.index("\ndef is_active_supervisor(", start) if "\ndef is_active_supervisor(" in resolver[start:] else len(resolver)
+    block = resolver[start:end]
     assert "governorate_search_filter(q)" in block
     assert "rank_governorate_suggestions(q, pool, limit=8)" in block
     assert "return None, [item['governorate'] for item in ranked]" in block

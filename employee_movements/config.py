@@ -4,11 +4,14 @@ import logging
 import os
 import secrets
 
+from .constants import MAX_PASSWORD_LENGTH
+
 logger = logging.getLogger(__name__)
 
 PLACEHOLDER_PREFIXES = ('غيّر', 'change', 'replace', 'your_', 'todo')
 MIN_SECRET_KEY_LENGTH = 32
 DEV_DATABASE_URL = 'sqlite:///local.db'
+VALID_APP_ENVS = frozenset({'production', 'development', 'testing'})
 
 
 class ConfigError(RuntimeError):
@@ -69,6 +72,11 @@ def load_config(overrides=None):
         'GEMINI_MODEL': (os.getenv('GEMINI_MODEL', '').strip() or 'gemini-3.8-flash'),
         'GEMINI_TIMEOUT': int(os.getenv('GEMINI_TIMEOUT', '8')),
         'ASSISTANT_RATE_LIMIT': int(os.getenv('ASSISTANT_RATE_LIMIT', '30')),
+        # Optional shared rate-limit store across Gunicorn workers/instances.
+        'REDIS_URL': os.getenv('REDIS_URL', '').strip(),
+        # Report-only CSP migration observes inline scripts/styles without blocking the UI.
+        'CSP_REPORT_ONLY': os.getenv('CSP_REPORT_ONLY', '0') == '1',
+        'SLOW_REQUEST_LOG_MS': max(0, int(os.getenv('SLOW_REQUEST_LOG_MS', '1500'))),
         'ASSISTANT_TIMEOUT_SECONDS': int(os.getenv('ASSISTANT_TIMEOUT_SECONDS', '8')),
         'LOGIN_RATE_LIMIT': int(os.getenv('LOGIN_RATE_LIMIT', '10')),
         'INIT_DATABASE': os.getenv('INIT_DATABASE', '1') == '1',
@@ -78,6 +86,24 @@ def load_config(overrides=None):
     }
     if overrides:
         cfg.update(overrides)
+
+    # Never allow a typo such as APP_ENV=prod to silently disable the production
+    # safety checks below. Normalize supported values after overrides as well,
+    # because tests and embedding callers may pass APP_ENV through this mapping.
+    try:
+        cfg['APP_ENV'] = str(cfg.get('APP_ENV', '')).strip().lower()
+    except Exception as exc:
+        raise ConfigError('APP_ENV غير صالح. القيم المسموح بها: production أو development أو testing.') from exc
+    if cfg['APP_ENV'] not in VALID_APP_ENVS:
+        raise ConfigError('APP_ENV غير صالح. القيم المسموح بها: production أو development أو testing.')
+    if not overrides or 'TESTING' not in overrides:
+        cfg['TESTING'] = cfg['APP_ENV'] == 'testing'
+
+    # Normalize the final URI after overrides too; otherwise a caller-supplied
+    # postgresql+psycopg:// URL could bypass the installed psycopg2 driver pin.
+    cfg['SQLALCHEMY_DATABASE_URI'] = normalize_database_url(
+        str(cfg.get('SQLALCHEMY_DATABASE_URI') or DEV_DATABASE_URL)
+    )
 
     # Apply driver-specific connection settings only after caller overrides,
     # so a test/SQLite URI remains compatible even if DATABASE_URL in the host
@@ -107,6 +133,10 @@ def database_backend(uri):
 
 def validate_config(cfg):
     production = cfg['APP_ENV'] == 'production'
+    if len(str(cfg.get('ADMIN_PASSWORD') or '')) > MAX_PASSWORD_LENGTH:
+        raise ConfigError(
+            f'ADMIN_PASSWORD يتجاوز الحد الأقصى المسموح به وهو {MAX_PASSWORD_LENGTH} حرفًا.'
+        )
     if is_placeholder(cfg['SECRET_KEY']) or len(cfg['SECRET_KEY']) < MIN_SECRET_KEY_LENGTH:
         if production:
             raise ConfigError(

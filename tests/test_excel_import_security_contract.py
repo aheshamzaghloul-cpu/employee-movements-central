@@ -32,9 +32,16 @@ def test_all_excel_mutation_endpoints_recheck_permissions():
 def test_excel_apply_revalidates_references_and_rolls_back_failures():
     start = SOURCE.index("@bp.post('/excel-import/<kind>/apply')")
     route = SOURCE[start:]
-    assert 'Revalidate every database reference at apply time' in route
-    assert 'not branch.is_active' in route
-    assert 'not governorate.is_active' in route
-    assert 'Employee.query.filter(func.lower(func.trim(Employee.job_code)) == job_code).first()' in route
+    service = Path('employee_movements/services/excel_import_apply.py').read_text(encoding='utf-8')
+    assert 'Revalidate the selected review manifest against current database state' in route
+    assert 'validate_selected_excel_import_changes(' in route
+    assert route.index('validate_selected_excel_import_changes(') < route.index('apply_selected_excel_import_changes(')
+    assert 'not branch.is_active' in service
+    assert 'not governorate.is_active' in service
+    assert 'not employee or employee.deleted_at is not None' in service
+    assert '_excel_employee_code_variants' in SOURCE
+    assert 'target_variants' in service
+    assert 'populate_existing().with_for_update()' in service
+    assert '_assert_reviewed_old_value' in service
     assert 'db.session.commit()' in route
     assert 'db.session.rollback()' in route

@@ -3,49 +3,115 @@
 {% block content %}
 <div class="ui-page-head no-print">
   <div><span class="home-kicker">المأموريات</span><h1>المأموريات</h1><p class="ui-muted">عرض وطباعة المأموريات من جميع المحافظات. التعديل والإنهاء يظلان حسب صلاحية المستخدم.</p></div>
-  <div class="ui-actions">{% if can('manage_movements') %}<a class="ui-btn ui-tone-teal" href="/missions/from-screenshot">مأمورية من صورة</a>{% endif %}<a class="ui-btn ui-btn-secondary" href="/reports-missions">↩ تقارير ومأموريات</a>{% if 'Manager Application Support' in roles or 'مسؤول التطبيق' in roles %}<a class="ui-btn ui-tone-teal" href="/reports/assignments/edit-requests">طلبات التعديل{% if pending_edit_requests_count %} ({{pending_edit_requests_count}}){% endif %}</a>{% endif %}</div>
+  <div class="ui-actions">{% if can('manage_movements') %}<a class="ui-btn ui-tone-teal" href="/missions/from-screenshot">مأمورية من صورة</a>{% endif %}<a class="ui-btn ui-btn-secondary" href="/reports-missions">↩ تقارير ومأموريات</a>{% if 'Manager Application Support' in roles %}<a class="ui-btn ui-tone-teal" href="/reports/assignments/edit-requests">طلبات التعديل{% if pending_edit_requests_count %} ({{pending_edit_requests_count}}){% endif %}</a>{% endif %}</div>
 </div>
 
 <div class="ui-card ui-mission-filter-card no-print ui-pad-18">
-{% if filter_error %}<div class="ui-alert ui-alert-warning" role="status">تعذر تطبيق أحد المرشحات أو أن قيمته غير صالحة. تم منع توسيع النتائج؛ راجع المحافظة والفرع والموظف والتواريخ ثم أعد البحث.</div>{% endif %}
-<form method="get" class="ui-grid ui-report-filter-grid" id="missionFilterForm">
-  <fieldset class="smart-option-group smart-option-group-wide"><legend>الموظف والفرع الأساسي</legend><p class="smart-option-hint">التدرج هنا خاص بجهة عمل الموظف: المحافظة ثم الفرع ثم الموظف. وجهة المأمورية لها خيارات مستقلة أدناه.</p><div class="smart-option-fields smart-option-fields-3">
-    <label>محافظة الموظف<select name="governorate_id" onchange="this.form.branch_id.value='';this.form.employee_id.value='';this.form.submit()"><option value="">كل المحافظات</option>{% for g in report_governorates %}<option value="{{g.id}}" {% if selected_governorate==g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>
-    <label>فرع الموظف<select name="branch_id" onchange="this.form.employee_id.value='';this.form.submit()"><option value="">كل الفروع</option>{% for b in report_branches %}<option value="{{b.id}}" {% if selected_branch==b.id|string %}selected{% endif %}>{{b.name}} · {{b.governorate.name if b.governorate else '—'}}</option>{% endfor %}</select></label>
-    <label>الموظف<select name="employee_id" {% if not employees %}disabled{% endif %}><option value="">كل الموظفين</option>{% for e in employees %}<option value="{{e.id}}" {% if selected_employee==e.id|string %}selected{% endif %}>{{e.full_name}} — {{e.job_code or '—'}} · {{e.branch.governorate.name if e.branch and e.branch.governorate else '—'}}</option>{% endfor %}</select></label>
-  </div></fieldset>
-  <details class="workspace-advanced-filters" {% if selected_destination_governorate or selected_destination_branch or mission_state or duration or date_from or date_to %}open{% endif %}>
-    <summary><span>تصفية إضافية</span><small>جهة المأمورية، الحالة، والمدة والتاريخ</small></summary>
-    <div class="workspace-advanced-grid">
-      <div><label>محافظة جهة المأمورية</label><select name="destination_governorate_id" onchange="this.form.destination_branch_id.value='';this.form.submit()"><option value="">كل المحافظات</option>{% for g in destination_governorates %}<option value="{{g.id}}" {% if selected_destination_governorate==g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></div>
-      <div><label>فرع جهة المأمورية</label><select name="destination_branch_id" onchange="this.form.submit()"><option value="">كل الفروع</option>{% for b in destination_branches %}<option value="{{b.id}}" {% if selected_destination_branch==b.id|string %}selected{% endif %}>{{b.name}} · {{b.governorate.name if b.governorate else '—'}}</option>{% endfor %}</select></div>
-      <div><label>حالة المأمورية</label><select name="mission_state" onchange="this.form.submit()"><option value="">الكل</option><option value="تحت التحرير" {% if mission_state=='تحت التحرير' %}selected{% endif %}>تحت التحرير</option><option value="مغلقة" {% if mission_state=='مغلقة' %}selected{% endif %}>مغلقة</option></select></div>
-      <div><label>مدة الانتداب</label><select name="duration"><option value="" {% if not duration %}selected{% endif %}>كل المدد</option><option value="open" {% if duration=='open' %}selected{% endif %}>مفتوح بلا تاريخ نهاية</option><option value="dated" {% if duration=='dated' %}selected{% endif %}>محدد بتاريخ نهاية</option></select></div>
-      <div><label>من يوم</label><input type="date" name="date_from" value="{{date_from}}"></div>
-      <div><label>إلى يوم</label><input type="date" name="date_to" value="{{date_to}}"></div>
+{% if date_range_error %}<div class="ui-alert ui-alert-warning" id="missionDateRangeError" role="alert">تاريخ البداية يأتي بعد تاريخ النهاية. لم تُعرض نتائج لهذه الفترة؛ صحّح التاريخين ثم اضغط «عرض النتائج».</div>{% elif filter_error %}<div class="ui-alert ui-alert-warning" role="status">تعذر تطبيق أحد المرشحات أو أن قيمته غير صالحة. تم منع توسيع النتائج؛ راجع المحافظة والفرع والموظف والتواريخ ثم أعد البحث.</div>{% endif %}
+<form method="get" class="ui-grid ui-report-filter-grid mission-center-filter-form" id="missionFilterForm">
+  <section class="mission-period-bar" aria-label="تصفية المأموريات حسب الفترة">
+    <div class="mission-period-intro"><span class="ui-eyebrow">تصفية سريعة</span><strong>فترة المأمورية</strong><small>حدد تاريخ البداية والنهاية لعرض السجلات المتقاطعة مع الفترة.</small><small class="mission-date-range-client-error" id="missionDateRangeClientError" role="alert" hidden>تاريخ النهاية لا يجوز أن يسبق تاريخ البداية. صحّح التاريخين قبل عرض النتائج.</small></div>
+    <div class="mission-period-fields">
+      <label for="missionDateFrom">من تاريخ<input id="missionDateFrom" type="date" name="date_from" value="{{date_from}}" {% if date_range_error %}aria-invalid="true" aria-describedby="missionDateRangeError"{% endif %} autocomplete="off"></label>
+      <label for="missionDateTo">إلى تاريخ<input id="missionDateTo" type="date" name="date_to" value="{{date_to}}" {% if date_range_error %}aria-invalid="true" aria-describedby="missionDateRangeError"{% endif %} autocomplete="off"></label>
+    </div>
+    <div class="mission-filter-actions">
+      <button class="ui-btn ui-tone-teal" type="submit">عرض النتائج</button>
+      <a class="ui-btn ui-btn-secondary" href="{{ url_for('missions.mission_export_xlsx', **request.args.to_dict()) }}">سحب Excel</a>
+      <a class="ui-btn ui-btn-secondary" href="{{ url_for('missions.mission_print_all', **request.args.to_dict()) }}" target="_blank" rel="noopener">طباعة جميع النتائج</a>
+      <a class="ui-btn ui-btn-secondary" href="/reports/assignments/print-missions">مسح الفلاتر</a>
+    </div>
+  </section>
+  <details class="workspace-advanced-filters mission-detail-filters" {% if selected_governorate or selected_branch or selected_employee or selected_destination_governorate or selected_destination_branch or mission_state or duration or follow_up %}open{% endif %}>
+    <summary><span>تصفية إضافية</span><small>الموظف والفرع الأساسي، وجهة المأمورية والحالة والمدة</small></summary>
+    <div class="mission-filter-sections">
+      <fieldset class="smart-option-group smart-option-group-wide"><legend>الموظف والفرع الأساسي</legend><p class="smart-option-hint">التدرج هنا خاص بجهة عمل الموظف؛ وجهة المأمورية لها خيارات مستقلة أدناه.</p><div class="smart-option-fields smart-option-fields-3">
+        <label>محافظة الموظف<select name="governorate_id" onchange="this.form.branch_id.value='';this.form.employee_id.value='';this.form.querySelector('#missionEmployeeLookup').value='';this.form.querySelector('#missionEmployeeOptions').hidden=true;this.form.submit()"><option value="">كل المحافظات</option>{% for g in report_governorates %}<option value="{{g.id}}" {% if selected_governorate==g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>
+        <label>فرع الموظف<select name="branch_id" onchange="this.form.employee_id.value='';this.form.querySelector('#missionEmployeeLookup').value='';this.form.querySelector('#missionEmployeeOptions').hidden=true;this.form.submit()"><option value="">كل الفروع</option>{% for b in report_branches %}<option value="{{b.id}}" {% if selected_branch==b.id|string %}selected{% endif %}>{{b.name}} · {{b.governorate.name if b.governorate else '—'}}</option>{% endfor %}</select></label>
+        <label class="mission-employee-search">الموظف
+          <input id="missionEmployeeLookup" type="search" value="{% if selected_employee_object %}{{selected_employee_object.full_name}} — {{selected_employee_object.job_code or 'بدون كود'}} · {{selected_employee_object.branch.name if selected_employee_object.branch else '—'}} · {{selected_employee_object.branch.governorate.name if selected_employee_object.branch and selected_employee_object.branch.governorate else '—'}}{% endif %}" autocomplete="off" placeholder="ابحث بالاسم أو الكود ثم اختر الموظف" role="combobox" aria-autocomplete="list" aria-controls="missionEmployeeOptions" aria-expanded="false">
+          <input type="hidden" id="missionEmployeeId" name="employee_id" value="{{selected_employee_object.id if selected_employee_object else ''}}">
+          <div class="mission-employee-search-results" id="missionEmployeeOptions" role="listbox" aria-label="نتائج البحث عن الموظف" hidden></div>
+          <small>اكتب حرفين على الأقل، ثم اختر سجل الموظف من النتائج. لا يتم تطبيق المطابقة التقريبية تلقائيًا.</small>
+        </label>
+      </div></fieldset>
+      <div class="mission-destination-filters">
+        <label>محافظة جهة المأمورية<select name="destination_governorate_id" onchange="this.form.destination_branch_id.value='';this.form.submit()"><option value="">كل المحافظات</option>{% for g in destination_governorates %}<option value="{{g.id}}" {% if selected_destination_governorate==g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>
+        <label>فرع جهة المأمورية<select name="destination_branch_id" onchange="this.form.submit()"><option value="">كل الفروع</option>{% for b in destination_branches %}<option value="{{b.id}}" {% if selected_destination_branch==b.id|string %}selected{% endif %}>{{b.name}} · {{b.governorate.name if b.governorate else '—'}}</option>{% endfor %}</select></label>
+        <label>حالة المأمورية<select name="mission_state" onchange="this.form.submit()"><option value="">كل الحالات</option><option value="تحت التحرير" {% if mission_state=='تحت التحرير' %}selected{% endif %}>تحت التحرير</option><option value="مغلقة" {% if mission_state=='مغلقة' %}selected{% endif %}>مغلقة</option></select></label>
+        <label>مدة الانتداب<select name="duration"><option value="" {% if not duration %}selected{% endif %}>كل المدد</option><option value="open" {% if duration=='open' %}selected{% endif %}>مفتوح بلا تاريخ نهاية</option><option value="dated" {% if duration=='dated' %}selected{% endif %}>محدد بتاريخ نهاية</option></select></label>
+        <label>متابعة الانتهاء<select name="follow_up"><option value="" {% if not follow_up %}selected{% endif %}>كل الفترات</option><option value="7" {% if follow_up=='7' %}selected{% endif %}>ينتهي خلال 7 أيام</option></select></label>
+      </div>
+      <div class="mission-filter-apply"><span>تُطبّق كل المرشحات معًا؛ البحث السريع يفلتر سجلات الصفحة الحالية فقط؛ استخدم مرشحات التقرير والتنقل بين الصفحات للوصول إلى بقية النتائج.</span><button class="ui-btn ui-tone-teal" type="submit">تطبيق التصفية التفصيلية</button></div>
     </div>
   </details>
-  <div class="smart-option-actions smart-option-actions-filter"><span>الإجراء على التصفية الحالية</span><div><button class="ui-btn ui-tone-teal">عرض النتائج</button><a class="ui-btn ui-btn-secondary" href="{{ url_for('missions.mission_export_xlsx', **request.args.to_dict()) }}">سحب Excel</a><a class="ui-btn ui-btn-secondary" href="/reports/assignments/print-missions">مسح الفلاتر</a></div></div>
 </form>
 </div>
 
 <div class="ui-card ui-mission-results ui-table-wrap">
-  <div class="ui-section-title"><div><h3>نتائج المأموريات</h3><small>{{ rows|length }} مأمورية ضمن الفلاتر الحالية</small></div></div>
+  <div class="ui-section-title"><div><h3>إدارة المأموريات</h3><small>{{ total_rows if paginated else rows|length }} مأمورية ضمن المرشحات الحالية — اختر سجلًا واحدًا لتنفيذ الإجراء المناسب حسب الحالة والصلاحية.</small></div></div>
   {% if rows %}
-  <table data-smart-table data-page-size="10" class="ui-mission-table"><thead><tr><th>الموظف</th><th>المحافظة</th><th>الفرع الأساسي</th><th>جهة المأمورية</th><th>من</th><th>إلى</th><th>الحالة</th><th>المدة</th><th>الإجراءات</th></tr></thead><tbody>
+  <section class="mission-selected-workflow no-print" aria-label="إجراءات المأمورية المختارة" data-mission-selection>
+    <div class="mission-selected-context"><span class="ui-eyebrow">سير العمل</span><strong data-selected-mission-label>لم يتم اختيار مأمورية</strong><small data-selected-mission-hint>اختر صفًا واحدًا من الجدول لتفعيل أوامر الطباعة أو التعديل أو الإغلاق المتاحة لك.</small></div>
+    <div class="mission-selected-actions">
+      <a class="ui-btn ui-tone-teal is-disabled" data-selected-print href="#" aria-disabled="true" tabindex="-1" target="_blank" rel="noopener">طباعة المأمورية</a>
+      <a class="ui-btn ui-btn-secondary is-disabled" data-selected-edit href="#" aria-disabled="true" tabindex="-1">تعديل البيانات</a>
+      {% if can('manage_movements') %}
+      <form method="post" action="#" data-selected-close-form>
+        <input type="hidden" name="_csrf" value="{{csrf}}">
+        <input type="hidden" name="return_to" value="">
+        <button class="ui-btn ui-tone-teal" type="submit" data-selected-close disabled>إغلاق المأمورية</button>
+      </form>
+      {% endif %}
+      {% if can('manage_movements') and ('مشرف محافظة' in roles or 'مسؤول التطبيق' in roles) and 'Manager Application Support' not in roles %}
+      <form method="post" action="#" class="mission-request-edit-form" data-selected-request-form>
+        <input type="hidden" name="_csrf" value="{{csrf}}">
+        <input type="text" name="reason" minlength="5" maxlength="500" required placeholder="سبب طلب التعديل بعد الإغلاق" aria-label="سبب طلب تعديل المأمورية المغلقة" data-selected-request-reason disabled>
+        <button class="ui-btn ui-btn-secondary" type="submit" data-selected-request disabled>طلب تعديل</button>
+      </form>
+      {% endif %}
+    </div>
+  </section>
+  <div class="mission-table-selection-note"><span aria-hidden="true">ⓘ</span> الإجراءات مرتبطة بالسجل المختار فقط. إغلاق المأمورية يتطلب تاريخ بداية ونهاية صحيحين، وتبقى صلاحيات الخادم هي المرجع النهائي.</div>
+  <table data-smart-table data-smart-search-placeholder="بحث داخل الصفحة الحالية بالموظف أو الكود أو الفرع أو جهة المأمورية…" data-smart-server-page="true" data-page-size="10" class="ui-mission-table mission-center-table"><thead><tr><th class="mission-select-column">اختيار</th><th>الموظف</th><th>المحافظة</th><th>الفرع الأساسي</th><th>جهة المأمورية</th><th>من</th><th>إلى</th><th>الحالة</th><th>المدة</th></tr></thead><tbody>
   {% for m in rows %}
-  <tr>
-    <td><a href="/employees/{{m.employee_id}}"><strong>{{m.employee.full_name}}</strong></a><br><small>{{m.employee.job_code or '—'}}</small></td>
+  {% set mission_display_state = mission_state_label(m) %}
+  <tr data-mission-row data-mission-id="{{m.id}}" data-mission-state="{{mission_display_state}}" data-mission-label="{{m.employee.full_name}} — {{m.employee.job_code or 'بدون كود'}}" data-has-dates="{{'1' if m.from_date and m.to_date else '0'}}" data-can-print="{{'1' if can('view_reports') and can_view_movement(m) else '0'}}" data-can-manage="{{'1' if can('manage_movements') and can_manage_movement(m) and mission_display_state=='تحت التحرير' else '0'}}" data-has-pending-edit-request="{{'1' if m.id in pending_edit_request_movement_ids else '0'}}" data-can-request-edit="{{'1' if can('manage_movements') and ('مشرف محافظة' in roles or 'مسؤول التطبيق' in roles) and 'Manager Application Support' not in roles and mission_display_state=='مغلقة' and can_view_movement(m) and branch_ok(m.employee.branch_id) and m.id not in pending_edit_request_movement_ids else '0'}}" data-edit-url="{{url_for('missions.mission_edit', movement_id=m.id, return_to=request.full_path.rstrip('?'))}}" data-print-url="{{url_for('missions.mission_pdf', movement_id=m.id, return_to=request.full_path.rstrip('?'))}}">
+    <td class="mission-select-cell"><input type="radio" name="mission_selected" value="{{m.id}}" data-mission-select aria-label="اختيار مأمورية {{m.id}} للموظف {{m.employee.full_name}}"></td>
+    <td><a href="/employees/{{m.employee_id}}"><strong>{{m.employee.full_name}}</strong></a><br><small>{{m.employee.job_code or '—'}}</small><small class="mission-row-reference">رقم السجل <bdi dir="ltr">#{{m.id}}</bdi></small></td>
     <td>{{m.employee.branch.governorate.name if m.employee.branch and m.employee.branch.governorate else '—'}}</td>
     <td>{{m.employee.branch.name if m.employee.branch else '—'}}</td>
-    <td>{{m.destination.name if m.destination else '—'}}</td>
+    <td>{{m.destination.name if m.destination else '—'}}{% if m.destination and m.destination.governorate %}<small class="mission-destination-governorate">{{m.destination.governorate.name}}</small>{% endif %}</td>
     <td>{{m.from_date or '—'}}</td>
     <td>{% if m.to_date %}{{m.to_date}}{% else %}<span class="ui-tag">مفتوح</span>{% endif %}</td>
-    <td>{{m.mission_state or 'تحت التحرير'}}</td><td>{% if m.to_date %}محدد المدة{% else %}مفتوح المدة{% endif %}</td>
-    <td class="ui-mission-actions"><a class="ui-btn ui-tone-teal ui-btn-mini" href="/reports/assignments/mission-pdf/{{m.id}}" target="_blank"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="M18 12h.01"/></svg> طباعة</a>{% if can_manage_movement(m) %}<a class="ui-btn ui-btn-secondary ui-btn-mini" href="/reports/assignments/mission-edit/{{m.id}}">تعديل</a>{% elif m.mission_state=='مغلقة' and 'مشرف محافظة' in roles %}<form method="post" action="/reports/assignments/mission-edit-request/{{m.id}}" style="display:inline"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="text" name="reason" required minlength="5" placeholder="سبب طلب التعديل" aria-label="سبب طلب تعديل المأمورية"><button class="ui-btn ui-btn-secondary ui-btn-mini">طلب تعديل</button></form>{% endif %}</td>
+    <td><span class="mission-state-pill {{'is-closed' if mission_display_state=='مغلقة' else 'is-open'}}">{{mission_display_state}}</span>{% if m.id in pending_edit_request_movement_ids %}<small class="mission-row-pending-request">طلب تعديل قيد المراجعة</small>{% endif %}</td><td>{% if m.to_date %}محدد المدة{% else %}مفتوح المدة{% endif %}</td>
   </tr>
   {% endfor %}
   </tbody></table>
-  {% else %}<div class="ui-empty">لا توجد مأموريات مطابقة للفلاتر. جرّب إزالة أحد الفلاتر أو اختيار كل المحافظات.</div>{% endif %}
+  {% if paginated and page_count > 1 %}
+  <nav class="ui-pagination" aria-label="صفحات المأموريات">
+    <span class="ui-muted">صفحة {{page}} من {{page_count}} — {{total_rows}} سجلًا</span>
+    <div class="ui-actions">
+      {% if previous_page_url %}<a class="ui-btn ui-btn-secondary" href="{{previous_page_url}}">السابق</a>{% endif %}
+      {% for item in page_links %}<a class="ui-btn {{'ui-btn-primary' if item.number==page else 'ui-btn-secondary'}}" href="{{item.url}}" {% if item.number==page %}aria-current="page"{% endif %}>{{item.number}}</a>{% endfor %}
+      {% if next_page_url %}<a class="ui-btn ui-btn-secondary" href="{{next_page_url}}">التالي</a>{% endif %}
+    </div>
+  </nav>
+  {% endif %}
+  {% else %}
+    {% set has_mission_filters = selected_governorate or selected_branch or selected_employee or selected_destination_governorate or selected_destination_branch or date_from or date_to or mission_state or duration or follow_up %}
+    <div class="ui-empty mission-empty-state" role="status">
+      {% if filter_error %}
+        <strong>تعذر عرض نتائج هذه التصفية</strong><span>إحدى القيم غير صالحة أو لا تطابق السجلات؛ لم يتم توسيع نطاق النتائج تلقائيًا.</span>
+        <a class="ui-btn ui-btn-secondary ui-btn-mini" href="{{url_for('missions.mission_print_list')}}">مسح الفلاتر وعرض المأموريات المتاحة</a>
+      {% elif has_mission_filters %}
+        <strong>لا توجد مأموريات تطابق الفلاتر الحالية</strong><span>جرّب فترة أوسع أو عدّل المحافظة أو الفرع أو حالة المأمورية.</span>
+        <a class="ui-btn ui-btn-secondary ui-btn-mini" href="{{url_for('missions.mission_print_list')}}">مسح الفلاتر</a>
+      {% else %}
+        <strong>لا توجد مأموريات في نطاق العرض الحالي</strong><span>ستظهر المأموريات هنا عندما تتوفر سجلات مطابقة للنطاق المسموح.</span>
+      {% endif %}
+    </div>
+  {% endif %}
 </div>
+<script src="{{url_for('static', filename='js/mission_center.js', v=app_version)}}" defer></script>
 {% endblock %}

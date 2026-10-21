@@ -1,23 +1,69 @@
 {% extends 'base.html' %}
 {% block title %}تاريخ نهاية المأمورية للطباعة{% endblock %}
 {% block content %}
-<div class="ui-page-head">
-  <div>
-    <h1>طباعة المأمورية</h1>
-    <p class="ui-muted">هذه مأمورية <strong>انتداب مفتوح</strong> ولا يوجد لها تاريخ «إلى» مسجل. أدخل التاريخ المطلوب للـPDF فقط.</p>
-  </div>
-  <div class="ui-actions"><a class="ui-btn ui-btn-secondary" href="/reports/assignments/print-missions"><svg class="ui-icon ui-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6 3 12l6 6"/><path d="M4 12h11a5 5 0 0 1 5 5v1"/></svg> العودة للمأموريات</a></div>
+<div class="ui-page mission-print-date-page">
+  <header class="ui-page-head">
+    <div>
+      <span class="ui-eyebrow">مركز المأموريات</span>
+      <h1>طباعة المأمورية</h1>
+      <p class="ui-muted">هذه مأمورية <strong>انتداب مفتوح</strong> ولا يوجد لها تاريخ «إلى» مسجل. أدخل تاريخ النهاية المطلوب لهذه الطباعة فقط.</p>
+    </div>
+    <div class="ui-actions"><a class="ui-btn ui-btn-secondary" href="{{return_to}}"><svg class="ui-icon ui-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6 3 12l6 6"/><path d="M4 12h11a5 5 0 0 1 5 5v1"/></svg> العودة للمأموريات</a></div>
+  </header>
+
+  <section class="ui-card ui-max-720" aria-labelledby="missionPrintDateTitle">
+    <form method="post" id="missionPrintDateForm" class="ui-mission-print-date-form" aria-describedby="missionPrintDateDescription{% if validation_error %} missionPrintDateError{% endif %}">
+      <input type="hidden" name="_csrf" value="{{csrf}}">
+      <input type="hidden" name="return_to" value="{{return_to}}">
+      <fieldset class="smart-option-group smart-option-group-wide">
+        <legend id="missionPrintDateTitle">بيانات الطباعة المؤقتة</legend>
+        <p class="smart-option-hint" id="missionPrintDateDescription">تاريخ النهاية هنا مخصص لملف PDF فقط، ولا يغيّر سجل الانتداب المفتوح أو يغلقه.</p>
+        {% if validation_error %}<p class="ui-alert ui-alert-warning" id="missionPrintDateError" role="alert">{{validation_error}}</p>{% endif %}
+        <div class="smart-option-fields smart-option-fields-2">
+          <label for="missionPrintEmployee">الموظف<input id="missionPrintEmployee" value="{{m.employee.full_name}} — {{m.employee.job_code or '—'}}" disabled></label>
+          <label for="missionPrintFromDate">تاريخ البداية<input id="missionPrintFromDate" value="{{m.from_date.strftime('%Y-%m-%d') if m.from_date else '—'}}" disabled></label>
+          <label for="missionPrintToDate">تاريخ النهاية للطباعة <span class="ui-text-danger" aria-hidden="true">*</span>
+            <input type="date" id="missionPrintToDate" name="print_to_date" value="{{form_values.get('print_to_date','')}}" min="{{m.from_date.isoformat() if m.from_date else ''}}" required autofocus autocomplete="off" {% if validation_error %}aria-invalid="true" aria-describedby="missionPrintDateError missionPrintDateHint"{% else %}aria-describedby="missionPrintDateHint"{% endif %}>
+            <small class="ui-muted" id="missionPrintDateHint">سيُستخدم التاريخ داخل ملف PDF لهذه الطباعة فقط، ولن يُحفظ على الانتداب ولن يغلقه.</small>
+          </label>
+        </div>
+      </fieldset>
+      <div class="ui-actions ui-mt-18">
+        <button class="ui-btn ui-tone-teal" type="submit"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="M18 12h.01"/></svg> طباعة المأمورية</button>
+        <a class="ui-btn ui-btn-secondary" href="{{return_to}}">إلغاء</a>
+      </div>
+    </form>
+  </section>
 </div>
-<div class="ui-card ui-max-720">
-  <fieldset class="smart-option-group smart-option-group-wide"><legend>بيانات الطباعة المؤقتة</legend><p class="smart-option-hint">تاريخ النهاية هنا مخصص لملف PDF فقط، ولا يغيّر سجل الانتداب المفتوح.</p><div class="smart-option-fields smart-option-fields-2">
-    <label>الموظف<input value="{{m.employee.full_name}} — {{m.employee.job_code or '—'}}" disabled></label>
-    <label>تاريخ البداية<input value="{{m.from_date.strftime('%Y-%m-%d') if m.from_date else '—'}}" disabled></label>
-    <label>تاريخ النهاية للطباعة <span class="ui-text-danger">*</span><input type="date" name="print_to_date" form="missionPrintDateForm" min="{{m.from_date.isoformat() if m.from_date else ''}}" required autofocus><small class="ui-muted">سيُستخدم التاريخ داخل ملف PDF لهذه الطباعة فقط، ولن يُحفظ على الانتداب ولن يغلقه.</small></label>
-  </div></fieldset>
-  <form method="post" id="missionPrintDateForm" class="ui-actions ui-mt-18">
-    <input type="hidden" name="_csrf" value="{{csrf}}">
-    <button class="ui-btn ui-tone-teal" type="submit"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="M18 12h.01"/></svg>️ طباعة المأمورية</button>
-    <a class="ui-btn ui-btn-secondary" href="/reports/assignments/print-missions">إلغاء</a>
-  </form>
-</div>
+<script>
+(function(){
+  const form=document.getElementById('missionPrintDateForm');
+  const from=document.getElementById('missionPrintFromDate');
+  const to=document.getElementById('missionPrintToDate');
+  const error=document.getElementById('missionPrintDateError');
+  if(!form||!to)return;
+  function validate(preserveServerMessage=false){
+    const fromValue=/^\d{4}-\d{2}-\d{2}$/.test(from?.value||'')?from.value:'';
+    const invalid=!!(fromValue&&to.value&&to.value<fromValue);
+    const message='تاريخ «إلى» لا يجوز أن يسبق تاريخ «من».';
+    to.setCustomValidity(invalid?message:'');
+    if(invalid){
+      to.setAttribute('aria-invalid','true');
+      to.setAttribute('aria-describedby','missionPrintDateError missionPrintDateHint');
+      form.setAttribute('aria-describedby','missionPrintDateDescription missionPrintDateError');
+      if(error){error.textContent=message;error.hidden=false;}
+    }else if(!preserveServerMessage){
+      to.removeAttribute('aria-invalid');
+      to.setAttribute('aria-describedby','missionPrintDateHint');
+      form.setAttribute('aria-describedby','missionPrintDateDescription');
+      if(error)error.hidden=true;
+    }
+    return !invalid;
+  }
+  to.addEventListener('input',()=>validate());
+  to.addEventListener('change',()=>validate());
+  form.addEventListener('submit',event=>{if(!validate()){event.preventDefault();to.reportValidity();to.focus();}});
+  validate(true);
+})();
+</script>
 {% endblock %}

@@ -9,11 +9,12 @@ EXCEL = (ROOT / "employee_movements/templates/excel_import.html").read_text(enco
 STRUCTURE = (ROOT / "employee_movements/templates/structure.html").read_text(encoding="utf-8")
 
 
-def test_home_movement_wizard_does_not_throw_on_pages_without_home_form():
-    start = APP_JS.index("function hmSyncDynamic(){")
-    guard = APP_JS.index("if(!hmForm) return;", start)
-    dynamic_query = APP_JS.index("const td=qs('[name=\"to_date\"]',hmForm)", start)
-    assert guard < dynamic_query
+def test_retired_home_movement_wizard_script_is_removed_when_no_home_form_exists():
+    movements = (ROOT / "employee_movements/templates/movements.html").read_text(encoding="utf-8")
+    assert "home-real-movement-form" not in APP_JS
+    assert "home-movement-step-employee" not in APP_JS
+    assert "hmSyncDynamic" not in APP_JS
+    assert 'id="movementCreateForm"' in movements
 
 
 def test_shell_intro_is_suppressed_when_page_has_its_own_heading():

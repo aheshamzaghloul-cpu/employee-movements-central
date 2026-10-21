@@ -1,26 +1,26 @@
 {% extends 'base.html' %}
 {% block title %}تعديل الموظف{% endblock %}
 {% block content %}
-<div class="ui-toolbar"><div><h1>تعديل الموظف</h1><p class="ui-subtitle">نظّم التعديل حسب نوع البيانات: الهوية، العمل، التعيين، والاتصال.</p></div><div class="ui-actions"><a class="ui-btn ui-btn-secondary" href="/employees">رجوع</a>{% if has_role('مسؤول التطبيق') %}<a class="ui-btn" href="{{url_for('employees.employee_convert_role',i=e.id)}}">تغيير الصفة: موظف / مدخل أول</a>{% endif %}</div></div>
+<div class="ui-toolbar"><div><h1>تعديل الموظف</h1><p class="ui-subtitle">نظّم التعديل حسب نوع البيانات: الهوية، العمل، التعيين، والاتصال.</p></div><div class="ui-actions"><a class="ui-btn ui-btn-secondary" href="/employees">رجوع</a>{% if has_role('مسؤول التطبيق') %}<a class="ui-btn ui-btn-secondary" href="/#entry-directory">إدارة تكليف إدخال الفروع من الرئيسية</a>{% endif %}</div></div>
 <div class="ui-card"><form method="post" class="smart-option-form employee-edit-form">
 <input type="hidden" name="_csrf" value="{{csrf}}">
 <div class="smart-option-group-grid">
   <fieldset class="smart-option-group"><legend>هوية الموظف</legend><p class="smart-option-hint">الاسم وبيانات التعريف الأساسية.</p><div class="smart-option-fields">
-    <label>اسم الموظف<input name="full_name" value="{{e.full_name}}" required autocomplete="name"></label>
-    <label>البريد الإلكتروني<input name="email" type="email" value="{{e.email or ''}}" required autocomplete="email"></label>
+    <label>اسم الموظف<input name="full_name" value="{{form_values.get('full_name', e.full_name)}}" required autocomplete="name"></label>
+    <label>البريد الإلكتروني<input name="email" type="email" value="{{form_values.get('email', e.email or '')}}" required autocomplete="email"></label>
   </div></fieldset>
   <fieldset class="smart-option-group"><legend>البيانات الوظيفية</legend><p class="smart-option-hint">المسمى والكود وتاريخ بداية الخدمة.</p><div class="smart-option-fields">
-    <label>الوظيفة<input name="job_title" value="{{e.job_title or ''}}" required></label>
-    <label>كود شئون العاملين<input name="job_code" value="{{e.job_code or ''}}" required></label>
-    <label>تاريخ التعيين<input type="date" name="hire_date" value="{{e.hire_date or ''}}" required></label>
+    <label>الوظيفة<input name="job_title" value="{{form_values.get('job_title', e.job_title or '')}}" required></label>
+    <label>كود شئون العاملين<input name="job_code" value="{{form_values.get('job_code', e.job_code or '')}}" required></label>
+    <label>تاريخ التعيين<input type="date" name="hire_date" value="{{form_values.get('hire_date', e.hire_date.isoformat() if e.hire_date else '')}}" required></label>
   </div></fieldset>
   <fieldset class="smart-option-group smart-option-group-wide"><legend>جهة العمل</legend><p class="smart-option-hint">اختر المحافظة أولًا؛ ستظهر الفروع التابعة لها فقط.</p><div class="smart-option-fields smart-option-fields-2">
-    <label>المحافظة<select name="governorate_id" id="employee_governorate" required>{% for g in govs %}<option value="{{g.id}}" {% if g.id==e.branch.governorate_id %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>
-    <label>الفرع<select name="branch_id" id="employee_branch" required>{% for b in bs %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}" {% if b.id==e.branch_id %}selected{% endif %}>{{b.name}}</option>{% endfor %}</select></label>
+    <label>المحافظة<select name="governorate_id" id="employee_governorate" required>{% for g in govs %}<option value="{{g.id}}" {% if form_values.get('governorate_id', e.branch.governorate_id if e.branch else '')|string == g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>
+    <label>الفرع<select name="branch_id" id="employee_branch" required>{% for b in bs %}<option value="{{b.id}}" data-governorate="{{b.governorate_id}}" {% if form_values.get('branch_id', e.branch_id)|string == b.id|string %}selected{% endif %}>{{b.name}}</option>{% endfor %}</select></label>
   </div></fieldset>
   <fieldset class="smart-option-group smart-option-group-wide"><legend>بيانات الاتصال</legend><p class="smart-option-hint">الأرقام المرتبطة بالموظف؛ استخدم الرقم الذي يمكن الرجوع إليه أثناء العمل.</p><div class="smart-option-fields smart-option-fields-2">
-    <label>هاتف الشركة<input name="company_phone" value="{{e.company_phone or ''}}" autocomplete="tel"></label>
-    <label>الهاتف الشخصي<input name="personal_phone" value="{{e.personal_phone or ''}}" autocomplete="tel"></label>
+    <label>هاتف الشركة <small>اختياري</small><input name="company_phone" value="{{form_values.get('company_phone', e.company_phone or '')}}" autocomplete="tel"></label>
+    <label>الهاتف الشخصي <small>اختياري</small><input name="personal_phone" value="{{form_values.get('personal_phone', e.personal_phone or '')}}" autocomplete="tel"></label>
   </div></fieldset>
 </div>
 <div class="smart-option-actions"><span>راجع جهة العمل والكود قبل الحفظ.</span><button class="ui-btn ui-btn-primary" type="submit">حفظ التعديلات</button></div>

@@ -1,10 +1,16 @@
-<details class="ui-movement-action-menu movement-action-menu">
-  <summary title="إجراءات الحركة" aria-label="إجراءات الحركة"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></summary>
-  <div class="ui-movement-action-popover movement-action-popover">
-    {% if can_manage_movement(m) and can('manage_movements') %}<a href="/movements/{{m.id}}/edit">تعديل الحركة</a>{% endif %}
-    {% if m.movement_type=='انتداب' and m.is_active and m.assignment_state!='مغلق' and can_manage_movement(m) and can('manage_movements') %}<a href="/movements/{{m.id}}/edit">تعديل / تمديد الانتداب</a><form method="post" action="/movements/{{m.id}}/close-assignment" data-confirm="إنهاء الانتداب بتاريخ اليوم؟ سيتم حفظ الإنهاء ضمن سجل الحركة."><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="close_date" value="{{today}}"><button type="submit">إنهاء الانتداب</button></form>{% endif %}
-    {% if m.movement_type=='انتداب' and m.is_active and m.assignment_state=='مغلق' and can_manage_movement(m) and can('manage_movements') %}<form method="post" action="/movements/{{m.id}}/reopen-assignment" data-confirm="إعادة فتح الانتداب؟ ستعود الحركة للحالة السارية ويمكن تمديدها أو تعديلها."><input type="hidden" name="_csrf" value="{{csrf}}"><button type="submit">إعادة فتح الانتداب</button></form>{% endif %}
-    {% if can('view_audit') %}<a href="/movements/{{m.id}}/history">سجل التعديلات</a>{% endif %}
-    {% if can('delete_movements') and (can_manage_movement(m) or 'مسؤول التطبيق' in roles) and m.is_active %}<form method="post" action="/movements/{{m.id}}/delete" data-confirm="حذف هذه الحركة؟ ستختفي من العرض التشغيلي، مع الاحتفاظ بسجل العملية."><input type="hidden" name="_csrf" value="{{csrf}}"><button class="danger" type="submit">حذف الحركة</button></form>{% endif %}
+<details class="ui-movement-action-menu movement-action-menu movement-row-action-menu{% if action_menu_table_mode|default(false) %} movement-row-action-menu-table{% endif %}">
+  <summary title="إجراءات الحركة" aria-label="إجراءات الحركة رقم {{m.id}}"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg></summary>
+  <div class="ui-movement-action-popover movement-action-popover movement-row-action-list">
+    {% set mission_is_closed = m.assignment_state == 'مغلق' or m.mission_state == 'مغلقة' %}
+    {% if can('view_reports') and can_view_movement(m) %}<a href="/movements/{{m.id}}/history" aria-label="عرض سجل الحركة رقم {{m.id}}">سجل الحركة</a>{% endif %}
+    {% if can_manage_movement(m) and can('manage_movements') and not (m.movement_type=='انتداب' and mission_is_closed) %}
+      <a href="/movements/{{m.id}}/edit">{% if m.movement_type=='انتداب' %}تعديل / تمديد الانتداب{% else %}تعديل الحركة{% endif %}</a>
+    {% endif %}
+    {% if m.movement_type=='انتداب' and m.is_active and can('view_reports') and can_view_movement(m) %}<a href="/reports/assignments/print-mission/{{m.id}}" aria-label="عرض أو طباعة مأمورية رقم {{m.id}}">عرض / طباعة المأمورية</a>{% endif %}
+    {% if m.movement_type=='انتداب' and m.is_active and m.from_date and not mission_is_closed and can_manage_movement(m) and can('manage_movements') %}
+      <form method="post" action="/movements/{{m.id}}/close-assignment" data-confirm="إنهاء الانتداب بتاريخ اليوم؟ سيتم حفظ الإنهاء ضمن سجل الحركة."><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="close_date" value="{{today}}"><button type="submit">إنهاء الانتداب</button></form>
+    {% endif %}
+    {% if m.movement_type=='انتداب' and m.is_active and mission_is_closed and 'Manager Application Support' in roles %}<a href="/reports/assignments/edit-requests">مراجعة طلبات تعديل المأموريات</a>{% elif m.movement_type=='انتداب' and m.is_active and mission_is_closed and ('مشرف محافظة' in roles or 'مسؤول التطبيق' in roles) %}<a href="/reports/assignments/print-missions?employee_id={{m.employee_id}}&amp;mission_state=مغلقة">عرض المأمورية وطلب تعديلها</a>{% endif %}
+    {% if can('delete_movements') and can_manage_movement(m) and m.is_active %}<form method="post" action="/movements/{{m.id}}/delete" data-confirm="حذف هذه الحركة؟ ستختفي من العرض التشغيلي، مع الاحتفاظ بسجل العملية."><input type="hidden" name="_csrf" value="{{csrf}}"><button class="danger" type="submit">حذف الحركة</button></form>{% endif %}
   </div>
 </details>

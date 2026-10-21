@@ -288,7 +288,7 @@ def _local_sensitive_values(texts: list[str]) -> set[str]:
         # Confirmed alternate job codes are sensitive identifiers too. Normalize
         # observed tokens locally so a learned typo code is never forwarded as
         # apparently harmless text to an external language model.
-        from ..services.ticket_matching import job_code_lookup_variants, normalize_job_code
+        from ..services.ticket_matching import job_code_lookup_variants
         normalized_identifiers = {
             variant
             for value in identifier_values

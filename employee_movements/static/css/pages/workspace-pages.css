@@ -204,7 +204,7 @@ body[data-workspace-path^="/excel-import"] .ui-status {
 .smart-report-metric > small { color: var(--ui-muted); font-size: 11px; line-height: 1.7; }
 .smart-report-metric.total { border-top: 3px solid var(--ui-brand); }
 .smart-report-metric.leave { border-top: 3px solid var(--ui-amber); }
-.smart-report-metric.assignment { border-top: 3px solid #3386b4; }
+.smart-report-metric.assignment { border-top: 3px solid #087f7b; }
 .smart-report-metric.permission { border-top: 3px solid var(--ui-violet); }
 .smart-report-command-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(250px, .8fr); gap: 16px; align-items: stretch; }
 .smart-report-command-grid > * { min-width: 0; }
@@ -237,7 +237,7 @@ body[data-workspace-path^="/excel-import"] .ui-status {
 .smart-report-mini-actions a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .smart-report-print-card p { color: var(--ui-muted); font-size: 12px; line-height: 1.8; }
 .smart-report-print-card > .ui-btn { align-self: flex-start; white-space: normal; }
-.smart-report-note { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-color: #d5e8f6; background: #f0f7fd; }
+.smart-report-note { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-color: #dce5e8; background: #f0faf8; }
 .smart-report-note > b { flex: 0 0 auto; color: var(--ui-brand-strong); font-size: 12px; }
 .smart-report-note > span { color: var(--ui-ink-2); font-size: 12px; line-height: 1.8; }
 
@@ -368,8 +368,8 @@ body[data-workspace-path^="/audit"] .ui-toolbar { margin-bottom: 0; }
 .catalog-hero h1 { margin:0; color:var(--ui-ink); font-size:clamp(25px,2.2vw,32px); line-height:1.35; letter-spacing:-.03em; }
 .catalog-hero p,.catalog-list-heading p { margin:5px 0 0; color:var(--ui-muted); font-size:13px; line-height:1.8; }
 .catalog-hero-actions { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:8px; flex:0 0 auto; }
-.catalog-primary { border-color:var(--ui-brand)!important; background:linear-gradient(135deg,var(--ui-brand),var(--ui-brand-strong))!important; color:#fff!important; box-shadow:0 4px 12px rgba(20,124,173,.13); }
-.catalog-primary:hover { filter:brightness(.97); box-shadow:0 7px 18px rgba(20,124,173,.18); }
+.catalog-primary { border-color:var(--ui-brand)!important; background:linear-gradient(135deg,var(--ui-brand),var(--ui-brand-strong))!important; color:#fff!important; box-shadow:0 4px 12px rgba(22,166,161,.13); }
+.catalog-primary:hover { filter:brightness(.97); box-shadow:0 7px 18px rgba(22,166,161,.18); }
 .catalog-add-disclosure { position:relative; }
 .catalog-add-disclosure > summary { list-style:none; cursor:pointer; }
 .catalog-add-disclosure > summary::-webkit-details-marker { display:none; }
@@ -377,7 +377,7 @@ body[data-workspace-path^="/audit"] .ui-toolbar { margin-bottom: 0; }
 .catalog-add-form label,.catalog-inline-edit label { display:grid; gap:6px; color:var(--ui-ink-2); font-size:12px; font-weight:700; }
 .catalog-add-form input,.catalog-add-form select,.catalog-inline-edit input,.catalog-inline-edit select { width:100%; min-width:0; min-height:40px; padding:8px 10px; border:1px solid var(--ui-line); border-radius:10px; background:#fff; color:var(--ui-ink); }
 .catalog-kpis { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:11px; }
-.catalog-kpi { display:flex; align-items:center; gap:12px; min-width:0; padding:14px; border:1px solid var(--ui-line); border-radius:15px; background:linear-gradient(145deg,#fff,#f6faff); box-shadow:var(--ui-shadow-sm); }
+.catalog-kpi { display:flex; align-items:center; gap:12px; min-width:0; padding:14px; border:1px solid var(--ui-line); border-radius:15px; background:linear-gradient(145deg,#fff,#f2f5f7); box-shadow:var(--ui-shadow-sm); }
 .catalog-kpi-icon { display:grid; place-items:center; width:42px; height:42px; flex:0 0 42px; border-radius:13px; background:var(--ui-brand-soft); color:var(--ui-brand-strong); font-size:23px; font-weight:800; }
 .catalog-kpi-icon.is-active { background:#e9f8f1; color:#16815d; }
 .catalog-kpi-icon.is-inactive { background:#f4f5f7; color:#69717b; }
@@ -388,9 +388,9 @@ body[data-workspace-path^="/audit"] .ui-toolbar { margin-bottom: 0; }
 .catalog-list-panel { min-width:0; padding:clamp(13px,1.6vw,20px); border:1px solid var(--ui-line); border-radius:18px; background:#fff; box-shadow:var(--ui-shadow-sm); }
 .catalog-list-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:14px; padding:0 1px 14px; }
 .catalog-list-heading h2 { margin:0; color:var(--ui-ink); font-size:19px; }
-.catalog-result-count { flex:0 0 auto; display:inline-flex; align-items:center; gap:5px; padding:6px 10px; border:1px solid #d5e8f6; border-radius:999px; background:#f1f8ff; color:var(--ui-brand-strong); font-size:11px; font-weight:700; }
+.catalog-result-count { flex:0 0 auto; display:inline-flex; align-items:center; gap:5px; padding:6px 10px; border:1px solid #dce5e8; border-radius:999px; background:#f0faf8; color:var(--ui-brand-strong); font-size:11px; font-weight:700; }
 .catalog-result-count strong { font-size:15px; }
-.catalog-filter-bar { display:grid; grid-template-columns:minmax(220px,1fr) minmax(145px,220px) minmax(120px,auto) auto; align-items:end; gap:9px; padding:12px; margin-bottom:14px; border:1px solid var(--ui-line-soft); border-radius:13px; background:#f7fbff; }
+.catalog-filter-bar { display:grid; grid-template-columns:minmax(220px,1fr) minmax(145px,220px) minmax(120px,auto) auto; align-items:end; gap:9px; padding:12px; margin-bottom:14px; border:1px solid var(--ui-line-soft); border-radius:13px; background:#f7f9fa; }
 .catalog-search { display:flex; align-items:center; gap:8px; min-width:0; min-height:42px; padding:0 11px; border:1px solid var(--ui-line); border-radius:11px; background:#fff; color:var(--ui-brand-strong); font-size:22px; }
 .catalog-search input { flex:1; width:100%; min-width:0; border:0!important; outline:0; box-shadow:none!important; background:transparent!important; font-size:13px; color:var(--ui-ink); }
 .catalog-select-filter { display:grid; gap:4px; min-width:0; color:var(--ui-muted); font-size:11px; font-weight:700; }
@@ -398,7 +398,7 @@ body[data-workspace-path^="/audit"] .ui-toolbar { margin-bottom: 0; }
 .catalog-reset { min-height:42px; white-space:nowrap; }
 .catalog-card-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,285px),1fr)); gap:12px; align-items:stretch; }
 .catalog-record-card { min-width:0; display:flex; flex-direction:column; gap:10px; padding:15px; border:1px solid var(--ui-line); border-radius:15px; background:#fff; box-shadow:0 2px 5px rgba(23,54,79,.025); transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease; }
-.catalog-record-card:hover { border-color:#bddcf0; box-shadow:var(--ui-shadow-md); transform:translateY(-1px); }
+.catalog-record-card:hover { border-color:#f0faf8; box-shadow:var(--ui-shadow-md); transform:translateY(-1px); }
 .catalog-record-card[hidden] { display:none!important; }
 .catalog-record-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
 .catalog-record-symbol { display:grid; place-items:center; width:38px; height:38px; flex:0 0 38px; border-radius:12px; background:var(--ui-brand-soft); color:var(--ui-brand-strong); font-size:22px; font-weight:800; }
@@ -437,7 +437,7 @@ body[data-workspace-path^="/audit"] .ui-toolbar { margin-bottom: 0; }
 .catalog-advanced-filters { position:relative; min-width:0; }
 .catalog-advanced-filters > summary { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:42px; padding:0 13px; border:1px solid var(--ui-line); border-radius:11px; background:#fff; color:var(--ui-brand-strong); cursor:pointer; font-size:12px; font-weight:800; list-style:none; white-space:nowrap; }
 .catalog-advanced-filters > summary::-webkit-details-marker { display:none; }
-.catalog-advanced-filters[open] > summary { background:var(--ui-brand-soft); border-color:#b3d8f0; }
+.catalog-advanced-filters[open] > summary { background:var(--ui-brand-soft); border-color:#f0faf8; }
 .catalog-advanced-filter-fields { position:absolute; z-index:40; inset-inline-end:0; top:calc(100% + 8px); display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); align-items:end; gap:10px; width:min(510px,calc(100vw - 34px)); padding:14px; border:1px solid var(--ui-line); border-radius:14px; background:#fff; box-shadow:var(--ui-shadow-lg); }
 .catalog-advanced-filter-fields .catalog-reset { align-self:end; }
 .catalog-load-more-wrap { display:flex; justify-content:center; padding-top:15px; }
@@ -463,8 +463,8 @@ body[data-workspace-path^="/audit"] .ui-toolbar { margin-bottom: 0; }
 .catalog-record-symbol svg { width:19px; height:19px; }
 .catalog-search > svg { width:20px; height:20px; flex:0 0 19px; }
 .catalog-advanced-filters > summary svg { width:16px; height:16px; }
-.catalog-add-form input:focus-visible, .catalog-add-form select:focus-visible, .catalog-inline-edit input:focus-visible, .catalog-inline-edit select:focus-visible { outline:3px solid rgba(20,124,173,.14); outline-offset:1px; border-color:#268fca; }
-.catalog-record-card:focus-within { border-color:#bddcf0; box-shadow:0 7px 20px rgba(23,54,79,.06); }
+.catalog-add-form input:focus-visible, .catalog-add-form select:focus-visible, .catalog-inline-edit input:focus-visible, .catalog-inline-edit select:focus-visible { outline:3px solid rgba(22,166,161,.14); outline-offset:1px; border-color:#16a6a1; }
+.catalog-record-card:focus-within { border-color:#f0faf8; box-shadow:0 7px 20px rgba(23,54,79,.06); }
 @media(max-width:760px) {
   .catalog-add-disclosure[open] { flex:1 1 100%; }
   .catalog-add-disclosure[open] .catalog-add-form { position:static; width:100%; margin-top:9px; box-shadow:var(--ui-shadow-sm); }
@@ -481,68 +481,68 @@ body[data-page="governorates"] .catalog-hero,
 body[data-page="branches"] .catalog-hero {
   align-items: center;
   padding: clamp(16px,1.8vw,22px);
-  border: 1px solid #cfe3f4;
-  border-inline-start: 5px solid #174e78;
+  border: 1px solid #f7f9fa;
+  border-inline-start: 5px solid #20343e;
   border-radius: 18px;
-  background: linear-gradient(115deg,#e7f5ff 0%,#f7fbff 58%,#fff 100%);
+  background: linear-gradient(115deg,#e0f6f2 0%,#f7f9fa 58%,#fff 100%);
   box-shadow: 0 4px 16px rgba(15,64,102,.045), inset 0 1px 0 #fff;
 }
 body[data-page="governorates"] .catalog-hero h1,
-body[data-page="branches"] .catalog-hero h1 { color:#143c5a; font-weight:900; }
+body[data-page="branches"] .catalog-hero h1 { color:#20343e; font-weight:900; }
 body[data-page="governorates"] .catalog-eyebrow,
-body[data-page="branches"] .catalog-eyebrow { color:#086ea8; }
+body[data-page="branches"] .catalog-eyebrow { color:#087f7b; }
 body[data-page="governorates"] .catalog-kpi,
 body[data-page="branches"] .catalog-kpi {
   position: relative;
   overflow: hidden;
-  border-color:#d8e7f3;
+  border-color:#f7f9fa;
   border-radius:16px;
-  background:linear-gradient(150deg,#fff 0%,#fbfdff 72%,#f2f8ff 100%);
+  background:linear-gradient(150deg,#fff 0%,#ffffff 72%,#f7f9fa 100%);
   box-shadow:0 4px 13px rgba(15,64,102,.04),inset 0 1px 0 #fff;
   transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease;
 }
 body[data-page="governorates"] .catalog-kpi::after,
-body[data-page="branches"] .catalog-kpi::after { content:""; position:absolute; inset-inline:14px auto; inset-block-end:0; width:35px; height:3px; border-radius:3px 3px 0 0; background:#4ab7e7; }
+body[data-page="branches"] .catalog-kpi::after { content:""; position:absolute; inset-inline:14px auto; inset-block-end:0; width:35px; height:3px; border-radius:3px 3px 0 0; background:#087f7b; }
 body[data-page="governorates"] .catalog-kpi:nth-child(2)::after,
 body[data-page="branches"] .catalog-kpi:nth-child(2)::after { background:#21b68d; }
 body[data-page="governorates"] .catalog-kpi:nth-child(3)::after,
-body[data-page="branches"] .catalog-kpi:nth-child(3)::after { background:#7d68df; }
+body[data-page="branches"] .catalog-kpi:nth-child(3)::after { background:#087f7b; }
 body[data-page="governorates"] .catalog-kpi:nth-child(4)::after,
 body[data-page="branches"] .catalog-kpi:nth-child(4)::after { background:#e6a13a; }
 body[data-page="governorates"] .catalog-kpi:hover,
-body[data-page="branches"] .catalog-kpi:hover { border-color:#a4d3ef; box-shadow:0 9px 22px rgba(15,64,102,.075); transform:translateY(-1px); }
+body[data-page="branches"] .catalog-kpi:hover { border-color:#f0faf8; box-shadow:0 9px 22px rgba(15,64,102,.075); transform:translateY(-1px); }
 body[data-page="governorates"] .catalog-kpi:nth-child(1) .catalog-kpi-icon,
-body[data-page="branches"] .catalog-kpi:nth-child(1) .catalog-kpi-icon { background:linear-gradient(145deg,#bfe7ff,#edf9ff); border:1px solid #8dcdf1; color:#0867a6; }
+body[data-page="branches"] .catalog-kpi:nth-child(1) .catalog-kpi-icon { background:linear-gradient(145deg,#f0faf8,#f0faf8); border:1px solid #087f7b; color:#087f7b; }
 body[data-page="governorates"] .catalog-kpi:nth-child(2) .catalog-kpi-icon,
 body[data-page="branches"] .catalog-kpi:nth-child(2) .catalog-kpi-icon { background:linear-gradient(145deg,#baf2e3,#edfff8); border:1px solid #83ddc6; color:#08785f; }
 body[data-page="governorates"] .catalog-kpi:nth-child(3) .catalog-kpi-icon,
-body[data-page="branches"] .catalog-kpi:nth-child(3) .catalog-kpi-icon { background:linear-gradient(145deg,#dcd4ff,#f4f1ff); border:1px solid #bbaaf4; color:#6544bd; }
+body[data-page="branches"] .catalog-kpi:nth-child(3) .catalog-kpi-icon { background:linear-gradient(145deg,#f0faf8,#f4f1ff); border:1px solid #bbaaf4; color:#6544bd; }
 body[data-page="governorates"] .catalog-kpi:nth-child(4) .catalog-kpi-icon,
 body[data-page="branches"] .catalog-kpi:nth-child(4) .catalog-kpi-icon { background:linear-gradient(145deg,#ffe4b5,#fff7e5); border:1px solid #efcb83; color:#96560b; }
 body[data-page="governorates"] .catalog-kpi-icon svg,
 body[data-page="branches"] .catalog-kpi-icon svg { width:21px; height:21px; stroke-width:2; }
 body[data-page="governorates"] .catalog-list-panel,
-body[data-page="branches"] .catalog-list-panel { border-color:#d6e6f2; box-shadow:0 5px 18px rgba(15,64,102,.04); }
+body[data-page="branches"] .catalog-list-panel { border-color:#f7f9fa; box-shadow:0 5px 18px rgba(15,64,102,.04); }
 body[data-page="governorates"] .catalog-filter-bar,
-body[data-page="branches"] .catalog-filter-bar { border-color:#d8e8f4; background:linear-gradient(135deg,#eff8ff,#f8fbff); }
+body[data-page="branches"] .catalog-filter-bar { border-color:#dce5e8; background:linear-gradient(135deg,#f0faf8,#f7f9fa); }
 body[data-page="governorates"] .catalog-search:focus-within,
-body[data-page="branches"] .catalog-search:focus-within { border-color:#3da6d9; box-shadow:0 0 0 3px rgba(45,157,211,.13); }
+body[data-page="branches"] .catalog-search:focus-within { border-color:#087f7b; box-shadow:0 0 0 3px rgba(45,157,211,.13); }
 body[data-page="governorates"] .catalog-record-card,
-body[data-page="branches"] .catalog-record-card { border-color:#dae8f3; border-radius:16px; box-shadow:0 3px 11px rgba(16,59,96,.035); }
+body[data-page="branches"] .catalog-record-card { border-color:#f7f9fa; border-radius:16px; box-shadow:0 3px 11px rgba(16,59,96,.035); }
 body[data-page="governorates"] .catalog-record-symbol,
-body[data-page="branches"] .catalog-record-symbol { border:1px solid #8fcdf1; background:linear-gradient(145deg,#bfe8ff,#eef9ff); color:#075f9b; box-shadow:inset 0 1px 0 #fff,0 3px 8px rgba(20,89,139,.06); }
+body[data-page="branches"] .catalog-record-symbol { border:1px solid #087f7b; background:linear-gradient(145deg,#f0faf8,#eef9ff); color:#087f7b; box-shadow:inset 0 1px 0 #fff,0 3px 8px rgba(20,89,139,.06); }
 body[data-page="governorates"] .catalog-record-card h3,
-body[data-page="branches"] .catalog-record-card h3 { color:#173e5b; }
+body[data-page="branches"] .catalog-record-card h3 { color:#172f3b; }
 body[data-page="governorates"] .catalog-record-metrics,
 body[data-page="branches"] .catalog-record-metrics { border-color:#e2edf5; }
 body[data-page="governorates"] .catalog-record-metrics strong,
-body[data-page="branches"] .catalog-record-metrics strong { color:#17466a; }
+body[data-page="branches"] .catalog-record-metrics strong { color:#20343e; }
 body[data-page="governorates"] .catalog-record-card:focus-within,
-body[data-page="branches"] .catalog-record-card:focus-within { border-color:#76c0e8; box-shadow:0 0 0 3px rgba(45,157,211,.1),0 7px 20px rgba(15,64,102,.05); }
+body[data-page="branches"] .catalog-record-card:focus-within { border-color:#087f7b; box-shadow:0 0 0 3px rgba(45,157,211,.1),0 7px 20px rgba(15,64,102,.05); }
 body[data-page="governorates"] .catalog-state.is-active,
 body[data-page="branches"] .catalog-state.is-active { border-color:#8fddc2; background:#e4fbf2; color:#087454; }
 body[data-page="governorates"] .catalog-state.is-inactive,
-body[data-page="branches"] .catalog-state.is-inactive { border-color:#cbd5df; background:#f0f3f6; color:#526578; }
+body[data-page="branches"] .catalog-state.is-inactive { border-color:#dce5e8; background:#f0f3f6; color:#526578; }
 @media (prefers-reduced-motion: reduce) {
   body[data-page="governorates"] .catalog-kpi,
   body[data-page="branches"] .catalog-kpi { transition:none; transform:none; }

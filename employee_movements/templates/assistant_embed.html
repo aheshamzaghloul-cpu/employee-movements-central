@@ -28,7 +28,7 @@
   {% if can('manage_employees') %}<button type="button" data-prompt="أضف موظف جديد">إضافة موظف</button>{% endif %}
   {% if 'مسؤول التطبيق' in roles %}<button type="button" data-prompt="افتح إدارة المستخدمين">إدارة الحسابات</button>{% endif %}
 </div>
-<form method="post" action="/assistant?embed=1" class="assistant-chat-input"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="workspace_context" value=""><textarea name="prompt" rows="1" placeholder="اكتب طلبك هنا... مثال: أريد إدخال إجازة لأحمد">{{'' if result else prompt}}</textarea><button type="submit" title="إرسال" aria-label="إرسال"><svg class="ui-icon" viewBox="0 0 24 24"><path d="m4 4 16 8-16 8 3-8-3-8Z"/><path d="M7 12h13"/></svg></button></form>
+<form method="post" action="/assistant?embed=1" class="assistant-chat-input"><input type="hidden" name="_csrf" value="{{csrf}}"><input type="hidden" name="workspace_context" value=""><textarea name="prompt" rows="1" aria-label="رسالة للمساعد الذكي" placeholder="اكتب طلبك هنا... مثال: أريد إدخال إجازة لأحمد">{{'' if result else prompt}}</textarea><button type="submit" title="إرسال" aria-label="إرسال"><svg class="ui-icon" viewBox="0 0 24 24"><path d="m4 4 16 8-16 8 3-8-3-8Z"/><path d="M7 12h13"/></svg></button></form>
 </section>
 <script>
 function collectWorkspaceContext(){

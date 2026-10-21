@@ -2,8 +2,7 @@
 name = "employee-movements"
 description = "نظام إدارة حركات الموظفين — Employee Movements Central"
 requires-python = ">=3.12"
-version = "68.49.0"
-
+version = "69.00.2"
 [tool.ruff]
 line-length = 120
 target-version = "py312"
@@ -11,7 +10,7 @@ extend-exclude = ["employee_movements/static"]
 
 [tool.ruff.lint]
 select = ["E9", "F"]
-ignore = ["F401"]
+ignore = []
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["E402"]

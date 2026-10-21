@@ -14,9 +14,9 @@ def test_bootstrap_never_prints_or_generates_an_unrecoverable_admin_password():
 
 
 def test_local_password_reset_intent_does_not_capture_user_supplied_password():
-    source = (ROOT / "employee_movements/assistant/intents.py").read_text(encoding="utf-8")
+    source = (ROOT / "employee_movements/assistant/intent_management.py").read_text(encoding="utf-8")
     start = source.index("if has_any('غير كلمة مرور'")
-    end = source.index("if has_any('عين مدخل أول'", start)
+    end = source.index("if has_any(\n        'عين مدخل أول'", start)
     block = source[start:end]
     assert "'password':" not in block
     assert "'employee_name': target" in block

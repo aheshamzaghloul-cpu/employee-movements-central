@@ -13,6 +13,5 @@ def test_unhandled_assistant_errors_are_logged_safely_and_pending_actions_cleare
     assert "type(exc).__name__" in source
     assert "current_app.logger.exception(" not in source
     assert "str(exc)" not in source
-    assert "session.pop('assistant_pending', None)" in source
-    assert "session.pop('assistant_manager_pending', None)" in source
+    assert 'clear_pending_state()' in source
     assert "لم يتم اعتماد أي إجراء" in source

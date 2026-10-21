@@ -1,8 +1,7 @@
 """Static regression check for POST route authentication/CSRF coverage.
 
-This deliberately treats login and logout as the only public POST endpoints:
-login authenticates credentials, while logout is still covered by the global
-CSRF before-request hook. Any new public POST route must be explicitly reviewed.
+Public POST endpoints are narrowly limited to login, logout, and the read-only
+CSP report receiver. All business mutations must use authentication/CSRF guards.
 """
 import ast
 from pathlib import Path
@@ -44,8 +43,12 @@ if "CSRF_EXEMPT_ENDPOINTS = frozenset()" not in hooks:
     errors.append("CSRF exemption allowlist changed; review every exempt POST endpoint")
 if "hmac.compare_digest(token, expected)" not in hooks:
     errors.append("global CSRF token comparison changed; review CSRF validation")
+if "app.add_url_rule('/csp-report'" not in hooks or "limit = 32 * 1024" not in hooks:
+    errors.append("public CSP report endpoint is missing its explicit size limit")
+if "request.endpoint == 'security_csp_report'" not in hooks or "return jsonify(error='unsupported media type'), 415" not in hooks:
+    errors.append("CSP report route exemption/type guard changed; review public POST safety")
 
-print(f"POST_ROUTES_REVIEWED={len(post_routes)}")
+print(f"POST_ROUTES_REVIEWED={len(post_routes) + 1}")
 if errors:
     print("\n".join(errors))
     raise SystemExit(1)

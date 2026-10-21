@@ -9,7 +9,7 @@
       <p class="ui-subtitle">{{m.employee.full_name}} — راجع نوع الحركة وتفاصيلها قبل الحفظ. يتم فحص التواريخ والتعارضات والصلاحيات في الخادم أيضًا.</p>
     </div>
     <div class="ui-actions">
-      <a class="ui-btn ui-btn-secondary" href="/movements">العودة إلى الحركات</a>
+      <a class="ui-btn ui-btn-secondary" href="{{ movement_return_to }}">العودة</a>
       {% if m.movement_type=='انتداب' %}<a class="ui-btn ui-tone-teal" href="/reports/assignments/print-mission/{{m.id}}" target="_blank" rel="noopener">معاينة المأمورية</a>{% endif %}
     </div>
   </header>
@@ -18,14 +18,15 @@
     <form method="post" class="ui-movement-form" id="movementEditForm">
       <input type="hidden" name="_csrf" value="{{csrf}}">
       <input type="hidden" name="reason" value="">
+      <input type="hidden" name="return_to" value="{{ movement_return_to }}">
 
       <section class="workflow-form-section workflow-form-section-primary" aria-labelledby="movementEditTypeTitle">
         <div class="workflow-form-section-head"><span>01</span><strong id="movementEditTypeTitle">نوع الحركة</strong></div>
         <label class="ui-movement-type-field" for="movement_type">نوع الحركة
           <select name="movement_type" id="movement_type" required>
-            {% for x in movement_types %}<option value="{{x}}" {% if m.movement_type==x %}selected{% endif %}>{{x}}</option>{% endfor %}
+            {% for x in movement_types %}<option value="{{x}}" {% if form_values.get('movement_type', m.movement_type)==x %}selected{% endif %}>{{x}}</option>{% endfor %}
           </select>
-          <small>تتغير الحقول التالية تلقائيًا بحسب نوع الحركة المحدد.</small>
+          <small>تتغير الحقول المطلوبة تلقائيًا حسب النوع؛ لن تُرسل الحقول المخفية ضمن التحقق الإلزامي.</small>
         </label>
       </section>
 
@@ -40,14 +41,14 @@
           <label data-movement="إجازة" hidden for="leave_type">نوع الإجازة
             <select name="leave_type" id="leave_type">
               <option value="">اختر نوع الإجازة</option>
-              {% for x in leave_types %}<option value="{{x}}" {% if m.leave_type==x %}selected{% endif %}>{{x}}</option>{% endfor %}
+              {% for x in leave_types %}<option value="{{x}}" {% if form_values.get('leave_type', m.leave_type or '')==x %}selected{% endif %}>{{x}}</option>{% endfor %}
             </select>
           </label>
 
           <label data-movement="انتداب" hidden for="destination_governorate_id">محافظة جهة المأمورية
-            <select id="destination_governorate_id">
+            <select id="destination_governorate_id" name="destination_governorate_id">
               <option value="">اختر المحافظة</option>
-              {% for g in destination_governorates %}<option value="{{g.id}}" {% if m.destination and m.destination.governorate_id==g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}
+              {% for g in destination_governorates %}<option value="{{g.id}}" {% if form_values.get('destination_governorate_id', m.destination.governorate_id if m.destination else '')|string==g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}
             </select>
             <small>اختيار المحافظة يحدّث قائمة الفروع المتاحة.</small>
           </label>
@@ -55,26 +56,26 @@
           <label data-movement="انتداب" hidden for="destination_branch_id">الفرع المنتدب إليه
             <select name="destination_branch_id" id="destination_branch_id" required>
               <option value="">اختر الفرع</option>
-              {% for b in destination_branches %}<option value="{{b.id}}" data-governorate-id="{{b.governorate_id}}" {% if m.destination_branch_id==b.id %}selected{% endif %}>{{b.name}}</option>{% endfor %}
+              {% for b in destination_branches %}<option value="{{b.id}}" data-governorate-id="{{b.governorate_id}}" {% if form_values.get('destination_branch_id', m.destination_branch_id|string if m.destination_branch_id else '')|string==b.id|string %}selected{% endif %}>{{b.name}}</option>{% endfor %}
             </select>
           </label>
 
           <label data-movement="إجازة" data-movement2="انتداب" hidden for="from_date">من تاريخ البداية
-            <input type="date" name="from_date" id="from_date" value="{{m.from_date or ''}}" autocomplete="off">
+            <input type="date" name="from_date" id="from_date" value="{{form_values.get('from_date', m.from_date.isoformat() if m.from_date else '')}}" autocomplete="off">
           </label>
 
           <label data-movement="انتداب" hidden id="open_assignment_wrap" class="movement-open-assignment-edit">
-            <span><input type="checkbox" name="open_assignment" id="open_assignment" value="1" {% if m.movement_type=='انتداب' and m.to_date is none %}checked{% endif %}><b>انتداب مفتوح</b></span>
+            <span><input type="checkbox" name="open_assignment" id="open_assignment" value="1" {% if form_values.get('open_assignment')=='1' or (not form_values and m.movement_type=='انتداب' and m.to_date is none) %}checked{% endif %}><b>انتداب مفتوح</b></span>
             <small>لا يحتاج إلى تاريخ نهاية. يمكن إغلاق الانتداب لاحقًا من إجراء الإغلاق المخصص.</small>
           </label>
 
           <label data-movement="إجازة" data-movement2="انتداب" hidden id="to_date_wrap" for="to_date">إلى تاريخ النهاية
-            <input type="date" name="to_date" id="to_date" value="{{m.to_date or ''}}" autocomplete="off">
+            <input type="date" name="to_date" id="to_date" value="{{form_values.get('to_date', m.to_date.isoformat() if m.to_date else '')}}" autocomplete="off">
             <small id="movementEndDateHint">يجب ألا يسبق تاريخ النهاية تاريخ البداية.</small>
           </label>
 
           <label data-movement="إذن" hidden for="permission_date">تاريخ الإذن
-            <input type="date" name="permission_date" id="permission_date" value="{{m.permission_date or ''}}" autocomplete="off">
+            <input type="date" name="permission_date" id="permission_date" value="{{form_values.get('permission_date', m.permission_date.isoformat() if m.permission_date else '')}}" autocomplete="off">
             <small>الإذن يسجل في يوم محدد.</small>
           </label>
         </div>
@@ -84,11 +85,10 @@
         <b>ملخص المدة</b>
         <span class="ui-movement-duration duration-box"><span id="movement_days">—</span><span>يوم</span></span>
       </div>
-      <div class="ui-movement-duration duration-box" hidden><b>المدة:</b></div>
 
       <div class="ui-form-actions ui-movement-form-actions">
         <button class="ui-btn ui-btn-primary" type="submit">حفظ التعديل</button>
-        <a class="ui-btn ui-btn-secondary" href="/movements">إلغاء والعودة</a>
+        <a class="ui-btn ui-btn-secondary" href="{{ movement_return_to }}">إلغاء والعودة</a>
         <span>لن يُحفظ التعديل إذا خالف التواريخ أو تعارض مع حركة أخرى أو تجاوز صلاحياتك.</span>
       </div>
     </form>
@@ -108,11 +108,11 @@
     if(!branch||!governorate)return;
     const selected=branch.value,gid=governorate.value;
     branch.innerHTML='<option value="">'+(gid?'اختر الفرع':'اختر المحافظة أولًا')+'</option>';
-    allBranches.filter(x=>!gid||x.gov===gid).forEach(x=>{
+    allBranches.filter(x=>x.gov===gid).forEach(x=>{
       const option=document.createElement('option');option.value=x.value;option.textContent=x.text;
       if(x.value===selected)option.selected=true;branch.appendChild(option);
     });
-    if(selected&&!allBranches.some(x=>x.value===selected&&(!gid||x.gov===gid)))branch.value='';
+    if(selected&&!allBranches.some(x=>x.value===selected&&x.gov===gid))branch.value='';
     branch.disabled=!gid;
   }
   function syncDates(){
@@ -120,7 +120,8 @@
     const open=assignment&&!!checkbox?.checked;
     if(to){
       to.min=from?.value||'';to.disabled=open;to.required=type?.value==='إجازة'||(assignment&&!open);
-      if(open)to.value='';
+      // Keep a typed end date as a draft while the assignment is open.
+      // Disabled inputs are omitted from POST; the server stores to_date=None.
       to.setCustomValidity(from?.value&&to.value&&to.value<from.value?'تاريخ النهاية يجب ألا يسبق تاريخ البداية.':'');
     }
     if(toWrap&&assignment)toWrap.hidden=open;

@@ -50,6 +50,11 @@ def reopen_mission(movement):
     """Reopen a validated mission and clear the current closure attribution."""
     actor = me()
     movement.mission_state = 'تحت التحرير'
+    # Some historical records stored closure only in the legacy assignment field.
+    # Clear that legacy flag too, or the shared closed-state rule would immediately
+    # classify the reopened mission as closed again.
+    if getattr(movement, 'assignment_state', None) == 'مغلق':
+        movement.assignment_state = 'ساري'
     movement.closed_by = None
     movement.closed_at = None
     movement.modified_by = actor.id if actor else None
@@ -88,6 +93,8 @@ def execute_edit_request(request_row, movement, destination, from_date, to_date,
     actor = me()
     now = datetime.utcnow()
     movement.mission_state = final_state
+    if final_state == 'تحت التحرير' and getattr(movement, 'assignment_state', None) == 'مغلق':
+        movement.assignment_state = 'ساري'
     if final_state == 'مغلقة':
         movement.closed_by = actor.id if actor else None
         movement.closed_at = now

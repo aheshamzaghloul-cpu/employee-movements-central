@@ -1,4 +1,3 @@
-from datetime import date, datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -10,7 +9,7 @@ NOTIFICATIONS = ROOT / 'employee_movements' / 'blueprints' / 'notifications.py'
 def test_canonical_resolver_excludes_closed_assignments():
     text = ASSIGNMENTS.read_text()
     assert "m.is_active" in text
-    assert "m.assignment_state != 'مغلق'" in text
+    assert "not movement_is_closed(m)" in text
     assert "return leave or assignment or open_assignment or permission" in text
 
 
@@ -29,9 +28,10 @@ def test_movement_page_uses_canonical_resolver_for_employee_status():
 
 def test_movement_followup_excludes_closed_assignments():
     text = MOVEMENTS.read_text()
-    assert "m.assignment_state == 'مغلق'" in text
+    assert 'assignment_open_filter(Movement)' in text
+    assert 'from ..movement_state import assignment_open_filter' in text
 
 
 def test_notifications_exclude_closed_assignments():
     text = NOTIFICATIONS.read_text()
-    assert "Movement.assignment_state != 'مغلق'" in text
+    assert "assignment_open_filter(Movement)" in text

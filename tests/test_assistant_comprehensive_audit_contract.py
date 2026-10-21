@@ -34,10 +34,12 @@ def test_model_visible_workspace_context_redacts_selected_record_ids():
     assert 'key: True for key, value in (ctx.get("selected", {}) or {}).items()' in text
 
 
-def test_branch_info_uses_operational_scope_not_global_supervisor_bypass():
-    text = (ROOT / "render.py").read_text(encoding="utf-8")
+def test_branch_info_is_read_only_global_but_requires_active_branch_and_report_permission():
+    text = (ROOT / "read_helpers.py").read_text(encoding="utf-8")
     start = text.index("def _visible_branch")
-    end = text.index("\n\ndef topic_options", start)
+    end = text.index("\ndef render_branch_entry", start)
     section = text[start:end]
-    assert "branch_ok(b.id)" in section
+    assert "b.is_active" in section
+    assert "governorate.is_active" in section
+    assert "can('view_reports')" in section
     assert "global_movement_actor()" not in section

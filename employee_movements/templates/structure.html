@@ -15,7 +15,7 @@
       <div class="admin-ai-hero-copy">
         <span class="admin-ai-kicker">مسؤول التطبيق · نطاق شامل</span>
         <h2>مركز قيادة النظام</h2>
-        <p>هنا إدارة الهيكل والحسابات والبيانات والصلاحيات والحوكمة. أما التشغيل اليومي للحركات والموظفين والمدخل الأول والتقارير فيبقى في صفحاته الأصلية؛ روابط الإدارة هنا للتوجيه والمراجعة فقط.</p>
+        <p>هنا إدارة الهيكل والحسابات والبيانات والصلاحيات والحوكمة. أما التشغيل اليومي للحركات والموظفين وتكليفات إدخال الفروع والتقارير فيبقى في صفحاته الأصلية؛ روابط الإدارة هنا للتوجيه والمراجعة فقط.</p>
       </div>
       <div class="admin-ai-hero-actions">
         <button type="button" class="ui-btn ui-btn-primary admin-basyouni-open" data-basyouni-prompt="اعطني ملخصًا إداريًا لحالة النظام الآن">اسأل بسيوني</button>
@@ -25,7 +25,7 @@
 
     <section class="admin-ai-overview">
       <a href="/governorates" class="admin-ai-kpi"><span class="admin-ai-kpi-top"><span class="admin-ai-kpi-icon is-governorates" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></svg></span><span class="admin-ai-kpi-label">المحافظات</span></span><strong>{{admin_stats.governorates}}</strong><small>إدارة الهيكل</small></a>
-      <a href="/branches" class="admin-ai-kpi"><span class="admin-ai-kpi-top"><span class="admin-ai-kpi-icon is-branches" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 21V5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5V21M8 8h2m4 0h2M8 12h2m4 0h2M8 16h2m4 0h2M3 21h18"/></svg></span><span class="admin-ai-kpi-label">الفروع</span></span><strong>{{admin_stats.branches}}</strong><small>{{admin_stats.unassigned_branches}} بلا مدخل أول</small></a>
+      <a href="/branches" class="admin-ai-kpi"><span class="admin-ai-kpi-top"><span class="admin-ai-kpi-icon is-branches" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 21V5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5V21M8 8h2m4 0h2M8 12h2m4 0h2M8 16h2m4 0h2M3 21h18"/></svg></span><span class="admin-ai-kpi-label">الفروع</span></span><strong>{{admin_stats.branches}}</strong><small>{{admin_stats.unassigned_branches}} بلا مسؤول إدخال</small></a>
       <a href="/users" class="admin-ai-kpi"><span class="admin-ai-kpi-top"><span class="admin-ai-kpi-icon is-users" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1.2a6 6 0 0 1 12 0V20M16 5.5a3 3 0 0 1 0 6M17 15a4.5 4.5 0 0 1 4 4.5V20"/></svg></span><span class="admin-ai-kpi-label">الحسابات</span></span><strong>{{admin_stats.users}}</strong><small>{{admin_stats.inactive_users}} معطلة</small></a>
       <a href="/employees" class="admin-ai-kpi"><span class="admin-ai-kpi-top"><span class="admin-ai-kpi-icon is-employees" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="3.5" width="16" height="17" rx="2"/><path d="M8 8h8M8 12h5M8 16h8"/></svg></span><span class="admin-ai-kpi-label">بيانات الموظفين</span></span><strong>{{admin_stats.employees}}</strong><small>للمراجعة والاستيراد</small></a>
       <a href="/delegations" class="admin-ai-kpi"><span class="admin-ai-kpi-top"><span class="admin-ai-kpi-icon is-delegations" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 7h12m-3-3 3 3-3 3M17 17H5m3-3-3 3 3 3"/></svg></span><span class="admin-ai-kpi-label">التفويضات</span></span><strong>{{admin_stats.delegations}}</strong><small>إدارة إدارية مركزية</small></a>
@@ -56,7 +56,7 @@
         <div class="admin-ai-prompts">
           <button type="button" class="admin-ai-prompt admin-basyouni-link" data-basyouni-prompt="ما أهم المشاكل الإدارية التي تحتاج تدخلي الآن؟">ما الذي يحتاج تدخلي؟</button>
           <button type="button" class="admin-ai-prompt admin-basyouni-link" data-basyouni-prompt="هل يوجد خلل في الهيكل أو الحسابات أو الصلاحيات؟">فحص الحوكمة</button>
-          <button type="button" class="admin-ai-prompt admin-basyouni-link" data-basyouni-prompt="اعطني ملخصًا عن المحافظات والفروع والحسابات والمدخلين الأوائل والتفويضات">ملخص النظام الإداري</button>
+          <button type="button" class="admin-ai-prompt admin-basyouni-link" data-basyouni-prompt="اعطني ملخصًا عن المحافظات والفروع والحسابات ومسؤولي إدخال الفروع والتفويضات">ملخص النظام الإداري</button>
         </div>
       </aside>
     </div>
@@ -77,10 +77,10 @@
     </section>
 
     <section class="admin-ai-workspace" id="entry-governance">
-      <div class="admin-ai-workspace-head"><div><span class="admin-ai-label">حوكمة مدخل أول</span><h3>المراقبة دون تكرار التنفيذ</h3></div><span>التنفيذ من الرئيسية</span></div>
+      <div class="admin-ai-workspace-head"><div><span class="admin-ai-label">متابعة تكليفات الإدخال</span><h3>المراقبة دون تكرار التنفيذ</h3></div><span>التنفيذ من الرئيسية</span></div>
       <div class="admin-ai-tools">
-        <a href="/"><span class="admin-ai-tool-icon is-entry" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 10 12 4l8 6v10h-6v-6h-4v6H4z"/></svg></span><b>تعيين / تغيير / إزالة</b><small>تنفيذ إدارة المدخل الأول من الرئيسية</small><strong>انتقل للرئيسية</strong></a>
-        <a href="/branches"><span class="admin-ai-tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 21V5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5V21M8 8h2m4 0h2M8 12h2m4 0h2M3 21h18"/></svg></span><b>الفروع بلا مدخل أول</b><small>{{admin_stats.unassigned_branches}} فرعًا يحتاج مراجعة</small><strong>مراجعة الفروع</strong></a>
+        <a href="/"><span class="admin-ai-tool-icon is-entry" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 10 12 4l8 6v10h-6v-6h-4v6H4z"/></svg></span><b>تكليف / تغيير / إزالة</b><small>تنفيذ تكليف مسؤول إدخال الفروع من الرئيسية</small><strong>انتقل للرئيسية</strong></a>
+        <a href="/branches"><span class="admin-ai-tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 21V5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5V21M8 8h2m4 0h2M8 12h2m4 0h2M3 21h18"/></svg></span><b>الفروع بلا مسؤول إدخال</b><small>{{admin_stats.unassigned_branches}} فرعًا يحتاج إسناد مسؤول إدخال</small><strong>مراجعة الفروع</strong></a>
       </div>
     </section>
 

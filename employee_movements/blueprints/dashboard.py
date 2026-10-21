@@ -3,20 +3,25 @@
 from datetime import date, timedelta
 
 from flask import abort, Blueprint, redirect, render_template, request, url_for
+from sqlalchemy import and_, case, func, or_
+from sqlalchemy.orm import joinedload
 
-from ..access import actual_roles, bids, branch_ok, can, can_view_movement, delegated_gov_ids, gids, has_role, me, req, roles, scope_governorate_id, user_gov_ids
+from ..access import actual_roles, bids, branch_ok, can, can_view_movement, delegated_gov_ids, gids, has_role, me, readable_branch_ids, req, roles, scope_governorate_id, user_gov_ids
 from ..assignments import (
     employees_effectively_in_branches,
     organizational_entries_for_supervisor,
     organizational_entry_for_employee,
-    resolve_current_movement,
+    entry_responsible_names_by_branch,
+    entry_responsible_label,
+    latest_assignment_summaries,
     supervisor_for_entry,
 )
 from ..constants import LEAVE_TYPES, MOVEMENT_TYPES
 from ..extensions import db
-from ..search import normalize_search_text, search_contains
+from ..movement_state import assignment_open_filter
+from ..search import normalize_search_text
 from ..services.entity_matching import (
-    employee_search_filter, rank_employee_suggestions, rank_scoped_employee_suggestions,
+    employee_search_filter, rank_scoped_employee_suggestions,
     resolve_scoped_employee_identity,
 )
 from ..models import (
@@ -39,10 +44,13 @@ bp = Blueprint('dashboard', __name__)
 
 
 def current_employee_status_rows(branch_ids, today):
-    """Build the live status board with one employee query and one movement query.
+    """Build the live status board without loading every employee's history.
 
-    Priority is: leave -> dated assignment -> open assignment -> today's permission.
-    Employees without a current movement are intentionally omitted from this board.
+    The database returns one current movement per employee. Ranking matches the
+    canonical business priority used by ``resolve_current_movement``: leave,
+    dated assignment, open assignment, then today's permission; newest wins only
+    within the same priority. This keeps dashboard memory use proportional to
+    current rows, not the employee's full historical movement count.
     """
     if not branch_ids:
         return []
@@ -52,80 +60,112 @@ def current_employee_status_rows(branch_ids, today):
         return []
 
     employee_ids = [e.id for e in employees]
-    moves = (
-        Movement.query.filter(Movement.employee_id.in_(employee_ids), Movement.is_active == True)
-        .order_by(Movement.created_at.desc(), Movement.id.desc())
+    current_candidate = or_(
+        and_(
+            Movement.movement_type == 'إجازة',
+            Movement.from_date.is_not(None),
+            Movement.to_date.is_not(None),
+            Movement.from_date <= today,
+            Movement.to_date >= today,
+        ),
+        and_(
+            Movement.movement_type == 'انتداب',
+            assignment_open_filter(Movement),
+            Movement.from_date.is_not(None),
+            Movement.from_date <= today,
+            or_(Movement.to_date.is_(None), Movement.to_date >= today),
+        ),
+        and_(Movement.movement_type == 'إذن', Movement.permission_date == today),
+    )
+    current_priority = case(
+        (Movement.movement_type == 'إجازة', 1),
+        (and_(Movement.movement_type == 'انتداب', Movement.to_date.is_not(None)), 2),
+        (Movement.movement_type == 'انتداب', 3),
+        else_=4,
+    )
+    ranked_movements = (
+        db.session.query(
+            Movement.id.label('movement_id'),
+            Movement.employee_id.label('employee_id'),
+            func.row_number().over(
+                partition_by=Movement.employee_id,
+                order_by=(current_priority.asc(), Movement.created_at.desc(), Movement.id.desc()),
+            ).label('current_rank'),
+        )
+        .filter(
+            Movement.employee_id.in_(employee_ids),
+            Movement.is_active == True,
+            current_candidate,
+        )
+        .subquery()
+    )
+    current_movements = (
+        Movement.query
+        .join(ranked_movements, Movement.id == ranked_movements.c.movement_id)
+        .filter(ranked_movements.c.current_rank == 1)
+        .options(joinedload(Movement.destination).joinedload(Branch.governorate))
         .all()
     )
-    by_employee = {}
-    for movement in moves:
-        by_employee.setdefault(movement.employee_id, []).append(movement)
+    current_by_employee = {movement.employee_id: movement for movement in current_movements}
 
     rows = []
     for e in employees:
-        employee_moves = by_employee.get(e.id, [])
-        current = resolve_current_movement(employee_moves, today)
+        current = current_by_employee.get(e.id)
+        if current is None:
+            continue
+
         state = None
         place = e.branch.name if e.branch else '—'
         until = None
         detail = ''
         display_branch = e.branch
 
-        if current and current.movement_type == 'إجازة':
+        if current.movement_type == 'إجازة':
             state = 'إجازة'
             place = current.leave_type or 'إجازة'
             until = current.to_date
             detail = 'من {} إلى {}'.format(current.from_date.strftime('%d/%m/%Y'), current.to_date.strftime('%d/%m/%Y'))
-        elif current and current.movement_type == 'انتداب' and current.to_date is not None:
+        elif current.movement_type == 'انتداب' and current.to_date is not None:
             state = 'انتداب'
             place = current.destination.name if current.destination else 'جهة الانتداب غير محددة'
             until = current.to_date
             detail = 'من {} إلى {}'.format(current.from_date.strftime('%d/%m/%Y'), current.to_date.strftime('%d/%m/%Y'))
             display_branch = current.destination or e.branch
-        elif current and current.movement_type == 'انتداب':
+        elif current.movement_type == 'انتداب':
             state = 'انتداب مفتوح'
             place = current.destination.name if current.destination else 'جهة الانتداب غير محددة'
             detail = 'من {} — مفتوح'.format(current.from_date.strftime('%d/%m/%Y'))
             display_branch = current.destination or e.branch
-        elif current and current.movement_type == 'إذن':
+        elif current.movement_type == 'إذن':
             state = 'إذن'
             place = e.branch.name if e.branch else '—'
             until = current.permission_date
             detail = 'بتاريخ {}'.format(current.permission_date.strftime('%d/%m/%Y'))
 
-        if current is None:
-            continue
-
         remaining = (until - today).days if until else None
-        rows.append(
-            {
-                'employee': e,
-                'state': state,
-                'place': place,
-                'until': until,
-                'detail': detail,
-                'remaining': remaining,
-                'movement': current,
-                'ending_notice': bool(until and until <= today + timedelta(days=1)),
-                'from_date': (
-                    current.from_date
-                    if current and current.movement_type in ('إجازة', 'انتداب')
-                    else current.permission_date if current else None
-                ),
-                'to_date': (
-                    current.to_date
-                    if current and current.movement_type in ('إجازة', 'انتداب')
-                    else None
-                ),
-                'display_branch': display_branch,
-            },
-        )
+        rows.append({
+            'employee': e,
+            'state': state,
+            'place': place,
+            'until': until,
+            'detail': detail,
+            'remaining': remaining,
+            'movement': current,
+            'ending_notice': bool(until and until <= today + timedelta(days=1)),
+            'from_date': (
+                current.from_date
+                if current.movement_type in ('إجازة', 'انتداب')
+                else current.permission_date
+            ),
+            'to_date': current.to_date if current.movement_type in ('إجازة', 'انتداب') else None,
+            'display_branch': display_branch,
+        })
 
-    def status_rank(r):
+    def status_rank(row):
         order = {'إجازة': 1, 'انتداب': 2, 'انتداب مفتوح': 3, 'إذن': 4}
-        return order.get(r['state'], 9)
+        return order.get(row['state'], 9)
 
-    rows.sort(key=lambda r: (status_rank(r), r['until'] or date.max, r['employee'].full_name))
+    rows.sort(key=lambda row: (status_rank(row), row['until'] or date.max, row['employee'].full_name))
     return rows
 
 
@@ -141,7 +181,11 @@ def home():
         or is_manager_support
     )
     selected_manager_gov = scope_governorate_id() if is_scope_user else None
+    # `bs` is the selected operational work-scope for assignments and writes.
+    # Read-only employee/movement summaries use all active branches, regardless
+    # of whether an Admin/Manager has picked a work governorate yet.
     bs = set(bids())
+    read_branch_ids = set(readable_branch_ids())
     today = date.today()
     tomorrow = today + timedelta(days=1)
     # بحث الموظف من الصفحة الرئيسية مستقل عن نطاق العمل: البحث متاح في كل المحافظات.
@@ -215,7 +259,7 @@ def home():
             q = q.filter(False)
         scoped_employee_query = q
         if movement_name_query:
-            q = q.filter(employee_search_filter(movement_name_query, include_branch=True))
+            q = q.filter(employee_search_filter(movement_name_query, include_contacts=True, include_branch=True))
         candidates = q.order_by(Employee.full_name.asc()).limit(50).all()
         if movement_name_query and not candidates and len(normalized_movement_query) >= 3:
             fallback_query = scoped_employee_query.order_by(Employee.full_name.asc()).limit(2500).all()
@@ -267,9 +311,30 @@ def home():
             movement_employee = identity.get('employee')
     movement_employee_in_scope = bool(movement_employee and branch_ok(movement_employee.branch_id)) if movement_employee else False
 
-    # The homepage selection card is a search/registration affordance. It does
-    # not render the selected employee's history, so do not load unrelated
-    # movement rows here (especially for users without report permission).
+    # Show the branch's assigned first-entry contact in every homepage search state.
+    # The assignment is branch-based, not employee-id based, and comes from the
+    # active organizational assignment records without creating login roles.
+    visible_search_employees = list(movement_employee_matches or [])
+    if movement_employee and all(e.id != movement_employee.id for e in visible_search_employees):
+        visible_search_employees.append(movement_employee)
+    visible_search_branch_ids = {e.branch_id for e in visible_search_employees if e.branch_id}
+    entry_names_by_branch = entry_responsible_names_by_branch(visible_search_branch_ids)
+    movement_entry_responsible_map = {
+        employee.id: entry_responsible_label(entry_names_by_branch.get(employee.branch_id, []))
+        for employee in visible_search_employees
+    }
+    movement_entry_responsible_status_map = {
+        employee.id: (
+            'conflict' if len(entry_names_by_branch.get(employee.branch_id, [])) > 1
+            else 'assigned' if entry_names_by_branch.get(employee.branch_id, [])
+            else 'unassigned'
+        )
+        for employee in visible_search_employees
+    }
+    movement_employee_last = latest_assignment_summaries({employee.id for employee in visible_search_employees})
+
+    # Only a compact latest-assignment summary is loaded into search results. Full
+    # movement history is displayed on the employee profile and read-only reports.
     pending = []
     ending = []
     approved_count = 0
@@ -283,16 +348,9 @@ def home():
         'follow_up': 0,
     }
 
-    # Governorates visible to the current effective role.
-    visible_govs = (
-        (
-            Governorate.query.filter(Governorate.id.in_(gids()), Governorate.is_active == True)
-            .order_by(Governorate.name.asc())
-            .all()
-        )
-        if gids()
-        else []
-    )
+    # Employee/movement reading is global for every official login role.
+    # The work governorate remains a separate write/assignment context.
+    visible_govs = Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all()
 
     # المدخل الأول هنا بند تنظيمي فقط: لا يحتاج حساب دخول.
     entry_rows = []
@@ -561,25 +619,63 @@ def home():
                 if b.id not in occupied_entry_branch_ids
             ]
         if 'مسؤول التطبيق' in effective:
+            # The admin performs the supervisor's operational task only inside
+            # the selected work governorate; never offer supervisors from other
+            # governorates in the same assignment form.
             entry_supervisors = [
                 u
                 for u in User.query.filter_by(is_active=True).order_by(User.full_name.asc()).all()
-                if 'مشرف محافظة' in actual_roles(u)
+                if selected_manager_gov
+                and 'مشرف محافظة' in actual_roles(u)
+                and int(selected_manager_gov) in user_gov_ids(u)
             ]
         elif is_manager_support:
             entry_supervisors = supervisors
         else:
             entry_supervisors = [me()]
+
+        # A governorate supervisor may also act as the operational entry contact.
+        # Include the employee record linked to that supervisor even where their
+        # personal HR branch differs from the branches they are assigned to cover.
+        eligible_supervisor_ids = {u.id for u in entry_supervisors if u and u.is_active}
+        if eligible_supervisor_ids:
+            active_assignment_employee_ids = {
+                row.employee_id for row in EntryAssignment.query.filter_by(is_active=True).all()
+            }
+            existing_candidate_ids = {e.id for e in available_entry_employees}
+            linked_supervisor_employees = (
+                Employee.query.filter(
+                    Employee.is_active == True,
+                    Employee.user_id.in_(eligible_supervisor_ids),
+                ).order_by(Employee.full_name.asc()).all()
+            )
+            for employee in linked_supervisor_employees:
+                if employee.id in active_assignment_employee_ids or employee.id in existing_candidate_ids:
+                    continue
+                if not employee.branch or not employee.branch.is_active or not employee.branch.governorate or not employee.branch.governorate.is_active:
+                    continue
+                available_entry_employees.append(employee)
+                existing_candidate_ids.add(employee.id)
+
+        available_entry_employee_is_supervisor = {
+            employee.id: bool(
+                employee.user_id
+                and (linked := db.session.get(User, employee.user_id))
+                and 'مشرف محافظة' in actual_roles(linked)
+            )
+            for employee in available_entry_employees
+        }
         # لا نعرض إنشاء تكليف جديد في محافظة مفوضة فقط؛ التفويض لا ينقل
         # الملكية التنظيمية للمشرف البديل.
         if 'مشرف محافظة' in effective and delegated_only:
             available_entry_employees = []
             available_entry_branches = []
 
-    if bs and can('view_reports'):
-        # الحركات معلومات تشغيلية لكنها تظل خاضعة لصلاحية التقارير ونطاق كل حركة.
-        if has_role('مشرف محافظة', 'مسؤول التطبيق', 'المدخل الأول', 'Manager Application Support'):
-            all_status_rows = current_employee_status_rows(bs, today)
+    if read_branch_ids and can('view_reports'):
+        # This is a read-only status board: show all active governorates. Any
+        # edit/close route opened from a record still rechecks the work scope.
+        if has_role('مشرف محافظة', 'مسؤول التطبيق', 'Manager Application Support'):
+            all_status_rows = current_employee_status_rows(read_branch_ids, today)
             # لا تعرض حالة حالية إذا لم يكن للمستخدم حق رؤية الحركة التي تحددها.
             all_status_rows = [r for r in all_status_rows if can_view_movement(r['movement'])]
             current_status_rows = [
@@ -665,10 +761,10 @@ def home():
     return render_template(
         'home.html',
         g=len(visible_govs),
-        b=len(bs),
+        b=len(read_branch_ids),
         e=(
-            Employee.query.filter(Employee.branch_id.in_(bs), Employee.is_active == True).count()
-            if bs
+            Employee.query.filter(Employee.branch_id.in_(read_branch_ids), Employee.is_active == True).count()
+            if read_branch_ids
             else 0
         ),
         visible_govs=visible_govs,
@@ -727,11 +823,6 @@ def home():
             Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all()
         ),
         home_movement_branches=home_movement_branches,
-        movement_search_employees=(
-            Employee.query.filter_by(is_active=True)
-            .order_by(Employee.full_name.asc())
-            .all()
-        ),
         movement_employee=movement_employee,
         movement_employee_in_scope=movement_employee_in_scope,
         movement_employee_moves=movement_employee_moves,
@@ -739,6 +830,9 @@ def home():
         movement_search_invalid=movement_search_invalid,
         movement_search_error=movement_search_error,
         movement_employee_matches=movement_employee_matches,
+        movement_employee_match_reasons=movement_employee_match_reasons,
+        movement_entry_responsible_map=movement_entry_responsible_map,
+        movement_entry_responsible_status_map=movement_entry_responsible_status_map,
         movement_governorate_id=movement_governorate_id,
         movement_branch_id=movement_branch_id,
         movement_name_query=movement_name_query,

@@ -19,6 +19,39 @@ def test_sqlite_url_untouched():
     assert normalize_database_url('sqlite:///x.db') == 'sqlite:///x.db'
 
 
+def test_postgres_uri_override_is_normalized_after_overrides(monkeypatch):
+    monkeypatch.setenv('APP_ENV', 'development')
+    cfg = load_config({
+        'APP_ENV': 'testing',
+        'SECRET_KEY': 'k' * 48,
+        'SQLALCHEMY_DATABASE_URI': 'postgresql+psycopg://u:p@h:5432/db',
+        'INIT_DATABASE': False,
+    })
+    assert cfg['SQLALCHEMY_DATABASE_URI'] == 'postgresql+psycopg2://u:p@h:5432/db'
+    assert cfg['TESTING'] is True
+
+
+@pytest.mark.parametrize('app_env', ['prod', 'Production-like', '', 'staging', 'prod '])
+def test_unknown_app_env_is_rejected_instead_of_bypassing_production_checks(monkeypatch, app_env):
+    monkeypatch.setenv('APP_ENV', app_env)
+    monkeypatch.delenv('SECRET_KEY', raising=False)
+    monkeypatch.delenv('DATABASE_URL', raising=False)
+    with pytest.raises(ConfigError, match='APP_ENV غير صالح'):
+        load_config()
+
+
+def test_testing_override_keeps_flask_testing_flag_consistent(monkeypatch):
+    monkeypatch.setenv('APP_ENV', 'production')
+    cfg = load_config({
+        'APP_ENV': 'testing',
+        'SECRET_KEY': 'k' * 48,
+        'SQLALCHEMY_DATABASE_URI': 'sqlite://',
+        'INIT_DATABASE': False,
+    })
+    assert cfg['APP_ENV'] == 'testing'
+    assert cfg['TESTING'] is True
+
+
 def test_production_rejects_missing_secret(monkeypatch):
     monkeypatch.setenv('APP_ENV', 'production')
     monkeypatch.delenv('SECRET_KEY', raising=False)
@@ -36,14 +69,16 @@ def test_production_rejects_placeholder_secret(monkeypatch):
 def test_production_requires_persistent_database(monkeypatch):
     monkeypatch.setenv('APP_ENV', 'production')
     monkeypatch.setenv('SECRET_KEY', 'a' * 48)
+    monkeypatch.setenv('COOKIE_SECURE', '1')
     monkeypatch.delenv('DATABASE_URL', raising=False)
-    with pytest.raises(ConfigError):
+    with pytest.raises(ConfigError, match='DATABASE_URL مطلوب'):
         load_config()
 
 
 def test_production_accepts_strong_secret_and_postgres(monkeypatch):
     monkeypatch.setenv('APP_ENV', 'production')
     monkeypatch.setenv('SECRET_KEY', 'a' * 48)
+    monkeypatch.setenv('COOKIE_SECURE', '1')
     monkeypatch.setenv('DATABASE_URL', 'postgresql://u:p@h:5432/db')
     assert load_config()['SECRET_KEY'] == 'a' * 48
     assert load_config()['SQLALCHEMY_DATABASE_URI'].startswith('postgresql+psycopg2://')
@@ -104,3 +139,15 @@ def test_postgres_driver_retains_connection_timeout(monkeypatch):
         'SECRET_KEY': 'k' * 48,
     })
     assert cfg['SQLALCHEMY_ENGINE_OPTIONS']['connect_args']['connect_timeout'] == 10
+
+
+def test_optional_redis_and_csp_report_only_config(monkeypatch):
+    monkeypatch.setenv('APP_ENV', 'testing')
+    monkeypatch.setenv('SECRET_KEY', 'k' * 48)
+    monkeypatch.setenv('REDIS_URL', 'rediss://user:pass@example.invalid:6380/2')
+    monkeypatch.setenv('CSP_REPORT_ONLY', '1')
+    monkeypatch.setenv('SLOW_REQUEST_LOG_MS', '900')
+    cfg = load_config({'INIT_DATABASE': False})
+    assert cfg['REDIS_URL'].startswith('rediss://')
+    assert cfg['CSP_REPORT_ONLY'] is True
+    assert cfg['SLOW_REQUEST_LOG_MS'] == 900

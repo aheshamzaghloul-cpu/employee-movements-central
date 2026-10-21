@@ -1,5 +1,8 @@
 name: CI
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
@@ -8,24 +11,167 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: movements_test
+          POSTGRES_USER: movements_test
+          POSTGRES_PASSWORD: movements_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U movements_test -d movements_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      POSTGRES_TEST_URL: postgresql+psycopg2://movements_test:movements_test_password@127.0.0.1:5432/movements_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: pip
-          cache-dependency-path: requirements-dev.txt
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
       - run: pip install -r requirements-dev.txt
+      - name: Dependency compatibility and vulnerability audit
+        run: |
+          python -m pip check
+          pip-audit -r requirements.txt
       - name: Lint
         run: ruff check .
-      - name: Runtime and integration tests
+      - name: Runtime, SQLite, and PostgreSQL integration tests
         run: python -m pytest -q tests
       - name: Contract and static regression tests
         run: python -m pytest -q contract_tests
+      - name: Source workflow, security, and UI integrity checks
+        run: |
+          python scripts/check_home_workflow_contracts.py
+          python scripts/check_ui_integrity.py
+          python scripts/check_post_route_security.py
+          python scripts/check_accessibility_contracts.py
+          python scripts/check_repository_hygiene.py
+      - name: Verify PostgreSQL custom backup and transactional restore
+        env:
+          PGPASSWORD: movements_test_password
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          psql -h 127.0.0.1 -U movements_test -d movements_test -v ON_ERROR_STOP=1 \
+            -c "DROP TABLE IF EXISTS ci_backup_probe; CREATE TABLE ci_backup_probe (value integer NOT NULL); INSERT INTO ci_backup_probe VALUES (42);"
+          pg_dump --host=127.0.0.1 --username=movements_test --dbname=movements_test \
+            --format=custom --compress=6 --no-owner --no-acl > /tmp/ci-movements.dump
+          pg_restore --list /tmp/ci-movements.dump > /tmp/ci-movements.dump.list
+          sha256sum /tmp/ci-movements.dump > /tmp/ci-movements.dump.sha256
+          sha256sum --check /tmp/ci-movements.dump.sha256
+          createdb --host=127.0.0.1 --username=movements_test restore_verification
+          pg_restore --host=127.0.0.1 --username=movements_test --dbname=restore_verification \
+            --clean --if-exists --single-transaction --no-owner --no-acl /tmp/ci-movements.dump
+          test "$(psql -h 127.0.0.1 -U movements_test -d restore_verification -Atc 'SELECT sum(value) FROM ci_backup_probe')" = "42"
 
   docker:
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     needs: test
     steps:
       - uses: actions/checkout@v4
-      - run: docker build -t employee-movements .
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build production image
+        run: docker build --pull -t employee-movements:${{ github.sha }} .
+      - name: Smoke-test production image with PostgreSQL and local OCR
+        shell: bash
+        run: |
+          set -euo pipefail
+          NETWORK="emc-smoke-${GITHUB_RUN_ID}"
+          IMAGE="employee-movements:${GITHUB_SHA}"
+          docker network create "$NETWORK" >/dev/null
+          cleanup() {
+            docker rm -f emc-smoke-app emc-smoke-db >/dev/null 2>&1 || true
+            docker network rm "$NETWORK" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          docker run --detach --name emc-smoke-db --network "$NETWORK" \
+            --health-cmd='pg_isready -U movements_smoke -d movements_smoke' \
+            --health-interval=2s --health-timeout=3s --health-retries=30 \
+            -e POSTGRES_DB=movements_smoke \
+            -e POSTGRES_USER=movements_smoke \
+            -e POSTGRES_PASSWORD=SmokePass12345 postgres:17 >/dev/null
+
+          DB_READY=0
+          for attempt in $(seq 1 45); do
+            if docker exec emc-smoke-db pg_isready -U movements_smoke -d movements_smoke >/dev/null 2>&1; then
+              DB_READY=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$DB_READY" -ne 1 ]; then
+            docker logs emc-smoke-db
+            echo "PostgreSQL smoke dependency did not become ready." >&2
+            exit 1
+          fi
+
+          docker run --detach --name emc-smoke-app --network "$NETWORK" \
+            -p 127.0.0.1:8000:8000 \
+            -e APP_ENV=production \
+            -e DATABASE_URL='postgresql+psycopg2://movements_smoke:SmokePass12345@emc-smoke-db:5432/movements_smoke' \
+            -e SECRET_KEY='ci-runtime-smoke-secret-key-0123456789-abcdefghijkl' \
+            -e ADMIN_USERNAME=ci-admin \
+            -e ADMIN_PASSWORD=IntegrationPass12345 \
+            -e ADMIN_EMAIL=ci-admin@example.invalid \
+            -e COOKIE_SECURE=1 \
+            -e DB_INIT_RETRIES=8 \
+            -e DB_INIT_RETRY_DELAY=1 \
+            -e SLOW_REQUEST_LOG_MS=0 \
+            "$IMAGE" >/dev/null
+
+          APP_READY=0
+          for attempt in $(seq 1 60); do
+            if curl --silent --show-error --fail http://127.0.0.1:8000/healthz -o /tmp/emc-health.json 2>/dev/null; then
+              APP_READY=1
+              break
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' emc-smoke-app 2>/dev/null || true)" != "true" ]; then
+              docker logs emc-smoke-app
+              echo "Production application container exited during startup." >&2
+              exit 1
+            fi
+            sleep 2
+          done
+          if [ "$APP_READY" -ne 1 ]; then
+            docker logs emc-smoke-app
+            echo "Production application did not answer /healthz." >&2
+            exit 1
+          fi
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          health = json.loads(Path('/tmp/emc-health.json').read_text())
+          assert health.get('status') == 'ok', health
+          assert health.get('database_backend') == 'postgresql', health
+          assert health.get('database_url_configured') is True, health
+          expected_version = Path('VERSION.md').read_text(encoding='utf-8').strip()
+          assert health.get('version') == expected_version, health
+          print('DOCKER_POSTGRES_HEALTH=OK', health)
+          PY
+
+          curl --silent --show-error --fail http://127.0.0.1:8000/login -o /tmp/emc-login.html
+          grep -qi '<html' /tmp/emc-login.html
+          echo "DOCKER_LOGIN_PAGE=OK"
+
+          # Exercise the actual authenticated mission-center route, filtered XLSX
+          # export and official PDF endpoint against this isolated PostgreSQL DB.
+          docker exec \
+            -e CI_MISSION_CENTER_SMOKE=1 \
+            -e CI_MISSION_CENTER_SUFFIX="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            emc-smoke-app python scripts/check_mission_center_runtime.py
+
+          docker exec emc-smoke-app python scripts/check_ticket_ocr_runtime.py

@@ -4,265 +4,67 @@ import io
 import json
 import logging
 import os
-import re
-import secrets
-import zipfile
-from datetime import date, datetime
 
-from flask import abort, Blueprint, flash, redirect, render_template, request, session, url_for
-from openpyxl import load_workbook, Workbook
-from sqlalchemy import func
+from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
+from openpyxl import Workbook, load_workbook
 
-from ..access import bids, can, gids, has_role, log, req, roles
+from ..access import gids, has_role, log, req, roles
 from ..extensions import db
-from ..models import Branch, BranchNameAlias, Employee, EmployeeNameAlias, Governorate, GovernorateNameAlias, TicketEmployeeCodeAlias
-from ..services.entity_matching import normalize_alias_key
-from ..services.ticket_matching import job_code_lookup_variants, normalize_job_code
+from ..models import (
+    Branch,
+    BranchNameAlias,
+    Employee,
+    EmployeeNameAlias,
+    Governorate,
+    GovernorateNameAlias,
+    TicketEmployeeCodeAlias,
+)
+from ..services.excel_import_matching import resolve_employee_import_branch
+from ..services.entity_integrity import normalize_branch_code_key
+from ..services.excel_import_apply import (
+    apply_selected_excel_import_changes,
+    validate_selected_excel_import_changes,
+)
+from ..services.excel_import_workflow import (
+    build_excel_import_selection_plan,
+    parse_excel_column_mapping,
+    validate_excel_column_mapping,
+)
+from ..services.excel_import_schema import (
+    _auto_map_headers,
+    _cell_by_index,
+    _excel_date,
+    _excel_display_text,
+    _excel_employee_code_key,
+    _excel_employee_code_variants,
+    _excel_mapped_cell_text,
+    _excel_headers,
+    _excel_issue_category,
+    _excel_key,
+    _excel_text,
+    _field_labels,
+    _import_spec,
+    _validate_excel_dimensions,
+)
+from ..services.excel_import_storage import (
+    _EXCEL_PENDING_TTL_SECONDS,
+    _pending_excel_path,
+    _pending_excel_review_path,
+    _claim_pending_excel_apply,
+    _release_pending_excel_apply,
+    _remove_pending_excel,
+    _save_pending_excel,
+)
+from ..services.private_work_files import (
+    is_private_work_token,
+    pending_files_expired,
+    touch_private_files,
+    write_private_bytes,
+)
 from ..validation import valid_email
 
 bp = Blueprint('excel_import', __name__)
 logger = logging.getLogger(__name__)
-
-
-# ---------- Excel import helpers ----------
-def _excel_key(value):
-    s = '' if value is None else str(value).strip()
-    s = s.replace('\u200f', '').replace('\u200e', '')
-    s = s.replace('أ', 'ا').replace('إ', 'ا').replace('آ', 'ا')
-    s = s.replace('ة', 'ه').replace('ى', 'ي')
-    # Excel may provide branch codes using Arabic-Indic digits while the
-    # database stores Western digits (or vice versa). Normalize both forms.
-    digit_map = str.maketrans('٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹', '01234567890123456789')
-    s = s.translate(digit_map)
-    # Numeric Excel cells can arrive as a float-like string in some templates.
-    if re.fullmatch(r'\d+\.0+', s):
-        s = s.split('.', 1)[0]
-    s = re.sub(r'\s+', ' ', s)
-    return s.lower()
-
-
-def _excel_text(value):
-    if value is None:
-        return ''
-    if isinstance(value, float) and value.is_integer():
-        return str(int(value))
-    return str(value).strip()
-
-
-def _excel_date(value):
-    if value is None or value == '':
-        return None
-    if isinstance(value, datetime):
-        return value.date()
-    if isinstance(value, date):
-        return value
-    txt = _excel_text(value)
-    for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y', '%Y/%m/%d', '%d.%m.%Y', '%m/%d/%Y', '%m-%d-%Y'):
-        try:
-            return datetime.strptime(txt, fmt).date()
-        except ValueError:
-            pass
-    return None
-
-
-def _header_map(ws):
-    headers = {}
-    for (idx, cell) in enumerate(ws[1], 1):
-        k = _excel_key(cell.value)
-        if k and k not in headers:
-            headers[k] = idx
-    return headers
-
-
-def _excel_headers(ws):
-    return [_excel_text(c.value) for c in ws[1]]
-
-
-# Bound spreadsheet dimensions as well as ZIP expansion and upload bytes.
-# Read-only mode limits memory use, but a workbook with millions of declared
-# rows can still consume excessive CPU during preview/confirmation.
-MAX_EXCEL_ROWS = 50001  # header + at most 50,000 data rows
-MAX_EXCEL_COLUMNS = 64
-
-
-def _validate_excel_dimensions(ws):
-    rows = getattr(ws, 'max_row', None)
-    columns = getattr(ws, 'max_column', None)
-    if rows is not None and rows > MAX_EXCEL_ROWS:
-        raise ValueError('Excel workbook exceeds the permitted row limit')
-    if columns is not None and columns > MAX_EXCEL_COLUMNS:
-        raise ValueError('Excel workbook exceeds the permitted column limit')
-
-
-def _cell_by_index(row, index):
-    try:
-        idx = int(index)
-        if idx < 1 or idx > len(row):
-            return None
-        return row[idx - 1].value
-    except (TypeError, ValueError):
-        return None
-
-
-GOV_IMPORT_HEADERS = {
-    'name': (
-        'المحافظة',
-        'اسم المحافظة',
-        'المحافظه',
-        'governorate',
-        'governorate name',
-        'governorate_name',
-        'name',
-    ),
-}
-
-
-BRANCH_IMPORT_HEADERS = {
-    'governorate': (
-        'المحافظة',
-        'اسم المحافظة',
-        'المحافظه',
-        'governorate',
-        'governorate name',
-        'governorate_name',
-    ),
-    'name': ('اسم الفرع', 'الفرع', 'branch', 'branch name', 'branch_name'),
-    'code': ('كود الفرع', 'كود الفرع/الفرع', 'كود', 'branch code', 'branch_code', 'code'),
-}
-
-
-EMP_IMPORT_HEADERS = {
-    'governorate': (
-        'المحافظة',
-        'اسم المحافظة',
-        'المحافظه',
-        'governorate',
-        'governorate name',
-        'governorate_name',
-    ),
-    'branch': ('الفرع', 'اسم الفرع', 'branch', 'branch name', 'branch_name'),
-    'branch_code': ('كود الفرع', 'كود الفرع/الفرع', 'كود الفرع للموظف', 'branch code', 'branch_code'),
-    'name': (
-        'اسم الموظف',
-        'الموظف',
-        'اسم الموظف بالكامل',
-        'اسم الموظف كامل',
-        'full name',
-        'employee name',
-        'name',
-    ),
-    'email': ('البريد الإلكتروني', 'البريد الالكتروني', 'البريد', 'email', 'e-mail'),
-    'job_title': (
-        'الوظيفة',
-        'المسمى الوظيفي',
-        'المسمى الوظيفى',
-        'الوظيفه',
-        'job title',
-        'job_title',
-        'title',
-    ),
-    'job_code': (
-        'الكود الوظيفي',
-        'كود الوظيفة',
-        'كود شئون العاملين',
-        'كود شؤون العاملين',
-        'كود شئون العاملين للموظف',
-        'كود العامل',
-        'employee code',
-        'employee_code',
-        'job code',
-        'job_code',
-        'code',
-    ),
-    'hire_date': (
-        'تاريخ التعيين',
-        'تاريخ التعيين بالعمل',
-        'تاريخ المباشرة',
-        'hire date',
-        'date of hire',
-        'hire_date',
-    ),
-    'company_phone': (
-        'هاتف الشركة',
-        'تليفون الشركة',
-        'هاتف العمل',
-        'تليفون العمل',
-        'company phone',
-        'company_phone',
-        'work phone',
-    ),
-    'personal_phone': (
-        'الهاتف الشخصي',
-        'تليفون شخصي',
-        'الموبايل',
-        'رقم الموبايل',
-        'رقم الهاتف',
-        'personal phone',
-        'personal_phone',
-        'mobile',
-    ),
-}
-
-
-def _import_spec(kind):
-    if kind == 'governorates':
-        return GOV_IMPORT_HEADERS
-    return BRANCH_IMPORT_HEADERS if kind == 'branches' else EMP_IMPORT_HEADERS
-
-
-def _field_labels(kind):
-    if kind == 'governorates':
-        return {'name': 'اسم المحافظة'}
-    if kind == 'branches':
-        return {'governorate': 'المحافظة', 'name': 'اسم الفرع', 'code': 'كود الفرع'}
-    return {
-        'governorate': 'المحافظة',
-        'branch': 'الفرع',
-        'branch_code': 'كود الفرع',
-        'name': 'اسم الموظف',
-        'email': 'البريد الإلكتروني',
-        'job_title': 'الوظيفة',
-        'job_code': 'الكود الوظيفي',
-        'hire_date': 'تاريخ التعيين',
-        'company_phone': 'هاتف الشركة',
-        'personal_phone': 'الهاتف الشخصي',
-    }
-
-
-def _auto_map_headers(headers, spec):
-    """Return target field -> source column index, preferring all exact aliases before fuzzy matches."""
-    mapping = {}
-    used = set()
-    normalized = [_excel_key(h) for h in headers]
-    aliases_by_field = {field: [_excel_key(name) for name in names] for field, names in spec.items()}
-
-    # Resolve every exact alias first. Otherwise an early field's fuzzy match
-    # can steal a header (e.g. "Code") that exactly names a later field.
-    for field, aliases in aliases_by_field.items():
-        for i, header in enumerate(normalized, 1):
-            if i in used or not header:
-                continue
-            if header in aliases:
-                mapping[field] = i
-                used.add(i)
-                break
-
-    # Only then use relaxed matching for longer descriptive labels. Short
-    # generic headers such as "كود" need explicit user mapping to avoid guessing.
-    for field, aliases in aliases_by_field.items():
-        if field in mapping:
-            continue
-        for i, header in enumerate(normalized, 1):
-            if i in used or not header or len(header) < 4:
-                continue
-            for alias in aliases:
-                if len(alias) >= 4 and (alias in header or header in alias):
-                    mapping[field] = i
-                    used.add(i)
-                    break
-            if field in mapping:
-                break
-    return mapping
 
 
 def _excel_import_permissions(kind):
@@ -344,81 +146,46 @@ def excel_import_template(kind):
     )
 
 
-def _pending_excel_dir():
-    d = os.path.join(os.getenv('TMPDIR', '/tmp'), 'employee_movements_excel_imports')
-    os.makedirs(d, exist_ok=True)
-    return d
+_EXCEL_IMPORT_KINDS = frozenset({'governorates', 'branches', 'employees'})
 
 
-def _pending_excel_path(token):
-    return os.path.join(_pending_excel_dir(), f'{token}.xlsx')
+def _clear_excel_import_session():
+    """Clear every session marker associated with the single active import wizard."""
+    for key in ('excel_import_token', 'excel_review_token', 'excel_import_kind'):
+        session.pop(key, None)
 
 
-def _pending_excel_review_path(token):
-    return os.path.join(_pending_excel_dir(), f'{token}.json')
+def _get_pending_excel(expected_kind=None):
+    """Return the staged upload only for the import kind that created it.
 
-
-def _validate_excel_archive(path):
-    """Reject malformed or suspiciously expansive XLSX ZIP containers before parsing.
-
-    Upload size is capped at the HTTP layer; these limits also bound decompressed
-    workbook contents so a tiny ZIP bomb cannot consume excessive resources.
+    Import tokens are session-scoped, but the URL's ``kind`` is supplied by the
+    client. Binding the token to the kind selected during preview prevents an
+    old tab or edited request URL from reinterpreting one workbook as another
+    entity type.
     """
-    try:
-        with zipfile.ZipFile(path) as archive:
-            infos = archive.infolist()
-            if not infos or len(infos) > 256:
-                raise ValueError('Excel archive has an invalid number of entries')
-            total_uncompressed = 0
-            for info in infos:
-                if info.flag_bits & 0x1:
-                    raise ValueError('Encrypted Excel archives are not supported')
-                if info.file_size < 0 or info.compress_size < 0:
-                    raise ValueError('Excel archive contains invalid size metadata')
-                total_uncompressed += info.file_size
-                if total_uncompressed > 64 * 1024 * 1024:
-                    raise ValueError('Excel archive expands beyond the permitted limit')
-                if info.file_size > 1024 * 1024 and info.compress_size == 0:
-                    raise ValueError('Excel archive contains suspicious compression metadata')
-                if info.compress_size and info.file_size / info.compress_size > 1000:
-                    raise ValueError('Excel archive compression ratio is excessive')
-            required = {'[Content_Types].xml', 'xl/workbook.xml'}
-            if not required.issubset({info.filename for info in infos}):
-                raise ValueError('File is not a valid Excel workbook')
-    except (OSError, zipfile.BadZipFile, zipfile.LargeZipFile) as exc:
-        raise ValueError('File is not a valid Excel ZIP archive') from exc
-
-
-def _save_pending_excel(f):
-    token = secrets.token_urlsafe(24)
-    path = _pending_excel_path(token)
-    f.save(path)
-    try:
-        _validate_excel_archive(path)
-    except Exception:
-        _remove_pending_excel(token)
-        raise
-    return token, path
-
-
-def _remove_pending_excel(token):
-    if not token:
-        return
-    for path in (_pending_excel_path(token), _pending_excel_review_path(token)):
-        try:
-            os.remove(path)
-        except OSError:
-            pass
-
-
-def _get_pending_excel():
     token = session.get('excel_import_token')
-    if not token:
+    stored_kind = session.get('excel_import_kind')
+    if (
+        not is_private_work_token(token)
+        or stored_kind not in _EXCEL_IMPORT_KINDS
+        or (expected_kind is not None and expected_kind != stored_kind)
+    ):
+        _remove_pending_excel(token)
+        _remove_pending_excel(session.get('excel_review_token'))
+        _clear_excel_import_session()
         return None, None
     path = _pending_excel_path(token)
-    if not os.path.isfile(path):
-        session.pop('excel_import_token', None)
+    review_path = _pending_excel_review_path(token)
+    if (
+        not path
+        or not os.path.isfile(path)
+        or pending_files_expired((path, review_path), _EXCEL_PENDING_TTL_SECONDS)
+    ):
+        _remove_pending_excel(token)
+        _remove_pending_excel(session.get('excel_review_token'))
+        _clear_excel_import_session()
         return None, None
+    touch_private_files((path, review_path))
     return token, path
 
 
@@ -427,8 +194,8 @@ def _render_mapping(kind, token, path, warning=None):
     ws = wb.active
     headers = _excel_headers(ws)
     preview = []
-    for row in ws.iter_rows(min_row=2, max_row=6, values_only=True):
-        vals = [_excel_text(v) for v in row]
+    for row in ws.iter_rows(min_row=2, max_row=6, values_only=False):
+        vals = [_excel_display_text(cell) for cell in row]
         if any(vals):
             preview.append(vals[:len(headers)])
     wb.close()
@@ -452,13 +219,17 @@ def _render_mapping(kind, token, path, warning=None):
 def excel_import_preview(kind):
     _excel_import_permissions(kind)
     f = request.files.get('file')
-    if not f or not f.filename.lower().endswith(('.xlsx', '.xlsm', '.xltx')):
+    raw_filename = getattr(f, 'filename', '') if f else ''
+    filename = raw_filename.strip() if isinstance(raw_filename, str) else ''
+    if not filename or not filename.lower().endswith(('.xlsx', '.xlsm', '.xltx')):
         flash('اختر ملف Excel بصيغة .xlsx أو .xlsm أو .xltx.')
         return redirect(url_for('excel_import.excel_import_page', kind=kind))
     token = None
     try:
-        old = session.pop('excel_import_token', None)
-        _remove_pending_excel(old)
+        old_tokens = (session.get('excel_import_token'), session.get('excel_review_token'))
+        for old_token in old_tokens:
+            _remove_pending_excel(old_token)
+        _clear_excel_import_session()
         (token, path) = _save_pending_excel(f)
         wb = load_workbook(path, read_only=True, data_only=True)
         ws = wb.active
@@ -470,100 +241,114 @@ def excel_import_preview(kind):
             flash('ملف Excel لا يحتوي على صف عناوين صالح.')
             return redirect(url_for('excel_import.excel_import_page', kind=kind))
         session['excel_import_token'] = token
+        session['excel_import_kind'] = kind
         return _render_mapping(kind, token, path)
     except Exception as exc:
         logger.error('Excel import preview failed (kind=%s, error=%s)', kind, type(exc).__name__)
         # If the upload was persisted but parsing/mapping failed, remove both
         # temporary artifacts so repeated invalid uploads cannot accumulate.
         _remove_pending_excel(token)
-        session.pop('excel_import_token', None)
-        session.pop('excel_review_token', None)
+        _clear_excel_import_session()
         flash('تعذر قراءة ملف Excel. تحقق من سلامة الملف وحجمه ثم حاول مرة أخرى.')
         return redirect(url_for('excel_import.excel_import_page', kind=kind))
 
 
 def _mapped_value(row, mapping, field):
-    return _excel_text(_cell_by_index(row, mapping.get(field)))
+    return _excel_mapped_cell_text(row, mapping.get(field), field)
+
+
+def _append_unique_catalog_candidate(catalog, key, record):
+    """Keep every distinct candidate for a normalized catalogue label."""
+    bucket = catalog.setdefault(key, [])
+    record_id = getattr(record, 'id', id(record))
+    if all(getattr(existing, 'id', id(existing)) != record_id for existing in bucket):
+        bucket.append(record)
 
 
 @bp.post('/excel-import/<kind>/confirm')
 @req
 def excel_import_confirm(kind):
     _excel_import_permissions(kind)
-    (token, path) = _get_pending_excel()
+    (token, path) = _get_pending_excel(expected_kind=kind)
     if not token or not path:
         flash('انتهت جلسة مطابقة ملف Excel. ارفع الملف مرة أخرى.')
         return redirect(url_for('excel_import.excel_import_page', kind=kind))
     spec = _import_spec(kind)
     fields = _field_labels(kind)
-    mapping = {}
-    for field in fields:
-        raw = request.form.get(f'map_{field}', '').strip()
-        if raw:
-            try:
-                mapping[field] = int(raw)
-            except ValueError:
-                pass
-    # Contact fields are optional in employee imports; many HR spreadsheets
-    # legitimately omit personal/company phones and email addresses.
-    optional_employee_fields = {'email', 'company_phone', 'personal_phone', 'branch_code'} if kind == 'employees' else set()
-    missing = [fields[k] for k in spec if k not in mapping and k not in optional_employee_fields]
-    if missing:
-        return _render_mapping(
-            kind,
-            token,
-            path,
-            warning='يجب مطابقة الأعمدة التالية: ' + '، '.join(missing),
-        )
-    if len(set(mapping.values())) != len(mapping):
-        return _render_mapping(
-            kind,
-            token,
-            path,
-            warning='لا يمكن استخدام نفس عمود Excel لأكثر من حقل. راجع المطابقة.',
-        )
+    mapping = parse_excel_column_mapping(request.form, fields)
+    mapping_warning = validate_excel_column_mapping(kind, spec, fields, mapping)
+    if mapping_warning:
+        return _render_mapping(kind, token, path, warning=mapping_warning)
     try:
         wb = load_workbook(path, read_only=True, data_only=True)
         ws = wb.active
         _validate_excel_dimensions(ws)
         headers = _excel_headers(ws)
-        if any((i < 1 or i > len(headers) for i in mapping.values())):
+        mapping_warning = validate_excel_column_mapping(
+            kind, spec, fields, mapping, header_count=len(headers)
+        )
+        if mapping_warning:
             wb.close()
-            return _render_mapping(
-                kind,
-                token,
-                path,
-                warning='اختيار أحد الأعمدة غير صالح. أعد المطابقة.',
-            )
+            return _render_mapping(kind, token, path, warning=mapping_warning)
         allowed_gids = _excel_scope_governorates()
         errors = []
         scoped_governorates = Governorate.query.filter(Governorate.is_active == True, Governorate.id.in_(allowed_gids)).all()
-        govs = {_excel_key(g.name): g for g in scoped_governorates}
+        # Keep every normalized canonical/alias candidate. A single-value dict
+        # can silently bind an Excel row to whichever same-named governorate was
+        # inserted last, which is unsafe for employee and branch imports.
+        govs = {}
+        for governorate in scoped_governorates:
+            _append_unique_catalog_candidate(govs, _excel_key(governorate.name), governorate)
+        scoped_governorates_by_id = {governorate.id: governorate for governorate in scoped_governorates}
+        governorate_alias_keys_by_id = {governorate.id: set() for governorate in scoped_governorates}
         for alias in GovernorateNameAlias.query.filter(GovernorateNameAlias.governorate_id.in_(allowed_gids)).all():
-            owner = next((g for g in scoped_governorates if g.id == alias.governorate_id), None)
+            owner = scoped_governorates_by_id.get(alias.governorate_id)
             if owner:
-                govs.setdefault(_excel_key(alias.alias_text), owner)
+                alias_key = _excel_key(alias.alias_text)
+                _append_unique_catalog_candidate(govs, alias_key, owner)
+                governorate_alias_keys_by_id.setdefault(owner.id, set()).add(alias_key)
         branches_by_gov = {}
-        active_import_branches = (
-            Branch.query.filter(Branch.is_active == True, Branch.governorate_id.in_(allowed_gids)).all()
-        )
+        branch_codes_by_gov = {}
         branch_alias_keys_by_id = {}
-        for b in active_import_branches:
-            branches_by_gov.setdefault(b.governorate_id, {})[_excel_key(b.name)] = b
-            branch_alias_keys_by_id.setdefault(b.id, set())
-        active_branch_ids_for_import = [b.id for b in active_import_branches]
+        # Load the authorized branch catalog once. Name matching uses active
+        # branches only, while code collision detection also sees inactive
+        # records so an archived code cannot be silently reused.
+        scoped_import_branches = (
+            Branch.query.filter(Branch.governorate_id.in_(allowed_gids)).all()
+            if allowed_gids else []
+        )
+        active_import_branches = [
+            branch for branch in scoped_import_branches
+            if branch.is_active and branch.governorate and branch.governorate.is_active
+        ]
+        for branch in scoped_import_branches:
+            code_key = normalize_branch_code_key(branch.code)
+            if code_key:
+                branch_codes_by_gov.setdefault(branch.governorate_id, {}).setdefault(code_key, []).append(branch)
+        for branch in active_import_branches:
+            _append_unique_catalog_candidate(
+                branches_by_gov.setdefault(branch.governorate_id, {}),
+                _excel_key(branch.name), branch,
+            )
+            branch_alias_keys_by_id.setdefault(branch.id, set())
+        active_branch_ids_for_import = [branch.id for branch in active_import_branches]
         if active_branch_ids_for_import:
+            branch_by_id = {branch.id: branch for branch in active_import_branches}
             for alias in BranchNameAlias.query.filter(BranchNameAlias.branch_id.in_(active_branch_ids_for_import)).all():
-                b = next((row for row in active_import_branches if row.id == alias.branch_id), None)
-                if b:
-                    branches_by_gov.setdefault(b.governorate_id, {}).setdefault(_excel_key(alias.alias_text), b)
-                    branch_alias_keys_by_id.setdefault(b.id, set()).add(_excel_key(alias.alias_text))
+                branch = branch_by_id.get(alias.branch_id)
+                if branch:
+                    _append_unique_catalog_candidate(
+                        branches_by_gov.setdefault(branch.governorate_id, {}),
+                        _excel_key(alias.alias_text), branch,
+                    )
+                    branch_alias_keys_by_id.setdefault(branch.id, set()).add(_excel_key(alias.alias_text))
         actions = []
         if kind == 'governorates':
             active_existing_governorates = Governorate.query.filter_by(is_active=True).all()
             existing = {_excel_key(g.name): g for g in active_existing_governorates}
+            active_governorates_by_id = {governorate.id: governorate for governorate in active_existing_governorates}
             for alias in GovernorateNameAlias.query.all():
-                owner = next((g for g in active_existing_governorates if g.id == alias.governorate_id), None)
+                owner = active_governorates_by_id.get(alias.governorate_id)
                 if owner:
                     existing.setdefault(_excel_key(alias.alias_text), owner)
             pending = set(existing)
@@ -583,78 +368,132 @@ def excel_import_confirm(kind):
                 })
                 pending.add(key)
         elif kind == 'branches':
+            # Track targets/codes/names as we scan rows to prevent duplicate
+            # actions within one workbook without an O(rows × actions) search.
+            seen_branch_targets = set()
+            pending_branch_codes = set()
+            pending_branch_names = set()
             for (rno, row) in enumerate(ws.iter_rows(min_row=2, values_only=False), 2):
                 vals = {k: _mapped_value(row, mapping, k) for k in spec}
                 if not any(vals.values()):
                     continue
-                g = govs.get(_excel_key(vals['governorate']))
-                if not g:
+                governorate_candidates = govs.get(_excel_key(vals['governorate']), [])
+                if len(governorate_candidates) > 1:
                     errors.append(
-                        f'صف {rno}: المحافظة غير موجودة أو خارج نطاقك: {vals['governorate']}',
+                        f"صف {rno}: اسم المحافظة أو اسمها البديل يطابق أكثر من محافظة؛ لا يمكن تحديد الهدف بالاسم وحده. صحح دليل المحافظات أو استخدم اسمًا فريدًا.",
+                    )
+                    continue
+                governorate = governorate_candidates[0] if governorate_candidates else None
+                if not governorate:
+                    errors.append(
+                        f"صف {rno}: المحافظة غير موجودة أو خارج نطاقك: {vals['governorate']}",
                     )
                     continue
                 if not vals['name'] or not vals['code']:
                     errors.append(f'صف {rno}: اسم الفرع وكوده مطلوبان.')
                     continue
-                existing = branches_by_gov.setdefault(g.id, {})
-                b = (
-                    existing.get(_excel_key(vals['name']))
-                    or Branch.query.filter_by(governorate_id=g.id, code=vals['code']).first()
-                )
-                if b:
-                    changes = {}
-                    is_known_alias = _excel_key(vals['name']) in branch_alias_keys_by_id.get(b.id, set())
-                    if vals['name'] and vals['name'] != b.name and not is_known_alias:
-                        changes['name'] = {'old': b.name, 'new': vals['name']}
-                    if vals['code'] and vals['code'] != b.code:
-                        dup = (
-                            Branch.query.filter(
-                                Branch.governorate_id == g.id,
-                                Branch.code == vals['code'],
-                                Branch.id != b.id,
-                            )
-                            .first()
-                        )
-                        if dup:
-                            errors.append(
-                                f'صف {rno}: كود الفرع {vals['code']} مستخدم بالفعل في فرع آخر.',
-                            )
-                            continue
-                        changes['code'] = {'old': b.code or '—', 'new': vals['code']}
-                    if changes:
-                        actions.append(
-                            {
-                                'type': 'branch',
-                                'id': b.id,
-                                'row': rno,
-                                'name': b.name,
-                                'governorate': g.name,
-                                'changes': changes,
-                            },
-                        )
-                else:
-                    dup = Branch.query.filter_by(governorate_id=g.id, code=vals['code']).first()
-                    if dup:
-                        errors.append(f'صف {rno}: كود الفرع {vals['code']} مستخدم بالفعل.')
-                        continue
-                    if (
-                        _excel_key(vals['name']) in existing
-                        or any(
-                            a.get('type') == 'new_branch' and a.get('governorate_id') == g.id and (_excel_key(a.get('values', {}).get('name')) == _excel_key(vals['name']))
-                            for a in actions
-                        )
-                    ):
-                        errors.append(f'صف {rno}: الفرع مكرر داخل ملف Excel.')
-                        continue
-                    actions.append(
-                        {
-                            'type': 'new_branch',
-                            'row': rno,
-                            'values': vals,
-                            'governorate_id': g.id,
-                            'governorate': g.name,
-                        },
+
+                code_key = normalize_branch_code_key(vals['code'])
+                name_key = _excel_key(vals['name'])
+                existing_codes = branch_codes_by_gov.get(governorate.id, {}).get(code_key, [])
+                if len(existing_codes) > 1:
+                    errors.append(
+                        f"صف {rno}: كود الفرع {vals['code']} غير فريد داخل المحافظة؛ صحح الكود قبل الاستيراد.",
                     )
+                    continue
+
+                # The normalized branch code is authoritative. A changed or
+                # misspelled branch name cannot cause the same code to create a
+                # second branch or redirect the update to another record.
+                branch = existing_codes[0] if existing_codes else None
+                name_candidates = branches_by_gov.get(governorate.id, {}).get(name_key, [])
+                if not branch and len(name_candidates) > 1:
+                    errors.append(
+                        f"صف {rno}: اسم الفرع «{vals['name']}» يطابق أكثر من سجل أو اسم بديل داخل المحافظة؛ لا يمكن تحديد الفرع بالاسم وحده. صحح الكود أو عالج التعارض في دليل الفروع."
+                    )
+                    continue
+                if branch and (not branch.is_active or not branch.governorate or not branch.governorate.is_active):
+                    errors.append(
+                        f"صف {rno}: كود الفرع يخص سجلًا غير نشط؛ راجع حالة الفرع بدل إنشاء سجل مكرر.",
+                    )
+                    continue
+                if not branch and len(name_candidates) == 1:
+                    branch = name_candidates[0]
+
+                if branch:
+                    if branch.id in seen_branch_targets:
+                        errors.append(f"صف {rno}: الفرع نفسه مذكور أكثر من مرة داخل الملف؛ احتفظ بصف واحد فقط.")
+                        continue
+                    # If a branch was found by name instead of code, only allow
+                    # the proposed code update when that normalized code does
+                    # not belong to any other active or archived branch.
+                    conflicts = branch_codes_by_gov.get(governorate.id, {}).get(code_key, [])
+                    if any(candidate.id != branch.id for candidate in conflicts):
+                        errors.append(f"صف {rno}: كود الفرع {vals['code']} مستخدم بالفعل في فرع آخر.")
+                        continue
+                    changes = {}
+                    is_known_alias = name_key in branch_alias_keys_by_id.get(branch.id, set())
+                    name_owners = branches_by_gov.get(governorate.id, {}).get(name_key, [])
+                    # Even if the label is an alias for this branch, it is not
+                    # safe when the same normalized text identifies another
+                    # branch's canonical name or alias in this governorate.
+                    if any(owner.id != branch.id for owner in name_owners):
+                        errors.append(f"صف {rno}: اسم الفرع أو اسمه البديل يطابق سجلًا آخر داخل المحافظة، بينما الكود يحدد فرعًا مختلفًا؛ عالج التعارض يدويًا.")
+                        continue
+                    pending_code_key = (governorate.id, code_key)
+                    pending_name_key = (governorate.id, name_key)
+                    if pending_code_key in pending_branch_codes and normalize_branch_code_key(branch.code) != code_key:
+                        errors.append(f"صف {rno}: كود الفرع المقترح مستخدم في صف آخر من ملف Excel؛ راجع التعارض.")
+                        continue
+                    if vals['name'] and vals['name'] != branch.name and not is_known_alias:
+                        if pending_name_key in pending_branch_names:
+                            errors.append(f"صف {rno}: اسم الفرع المقترح مكرر في صف آخر من ملف Excel؛ راجع التعارض.")
+                            continue
+                        changes['name'] = {'old': branch.name, 'new': vals['name']}
+                    if normalize_branch_code_key(vals['code']) != normalize_branch_code_key(branch.code):
+                        changes['code'] = {'old': branch.code or '—', 'new': vals['code']}
+                        pending_branch_codes.add(pending_code_key)
+                    if 'name' in changes:
+                        pending_branch_names.add(pending_name_key)
+                    seen_branch_targets.add(branch.id)
+                    if changes:
+                        actions.append({
+                            'type': 'branch',
+                            'id': branch.id,
+                            'row': rno,
+                            'name': branch.name,
+                            'governorate': governorate.name,
+                            'changes': changes,
+                        })
+                    else:
+                        actions.append({
+                            'type': 'branch_match', 'id': branch.id, 'row': rno,
+                            'name': branch.name, 'governorate': governorate.name,
+                        })
+                    continue
+
+                pending_code_key = (governorate.id, code_key)
+                pending_name_key = (governorate.id, name_key)
+                if pending_code_key in pending_branch_codes:
+                    errors.append(f"صف {rno}: كود الفرع مكرر داخل ملف Excel في المحافظة نفسها.")
+                    continue
+                if pending_name_key in pending_branch_names:
+                    errors.append(f"صف {rno}: اسم الفرع مكرر داخل ملف Excel في المحافظة نفسها.")
+                    continue
+                # A code already present in any branch record is never reused,
+                # including a record currently inactive or with a different name.
+                if existing_codes:
+                    errors.append(f"صف {rno}: كود الفرع {vals['code']} مستخدم بالفعل.")
+                    continue
+                actions.append({
+                    'type': 'new_branch',
+                    'row': rno,
+                    'values': vals,
+                    'governorate_id': governorate.id,
+                    'governorate': governorate.name,
+                })
+                pending_branch_codes.add(pending_code_key)
+                pending_branch_names.add(pending_name_key)
         else:
             # This importer is restricted to the application administrator.
             # Do not use bids() here: that helper represents the active
@@ -666,112 +505,120 @@ def excel_import_confirm(kind):
             branch_cache = {}
             branches_by_code = {}
             branches_by_name = {}
-            active_import_branches = (
-                Branch.query.filter(
-                    Branch.is_active == True,
-                    Branch.governorate_id.in_(allowed_gids),
-                )
-                .all()
-            )
+            # Build code candidates from every branch record in the authorized
+            # active-governorate catalogue, including archived branches. An
+            # archived or duplicate code must not disappear from identity checks.
+            for b in scoped_import_branches:
+                if b.code not in (None, ''):
+                    code_key = normalize_branch_code_key(b.code)
+                    branches_by_code.setdefault(code_key, []).append(b)
             for b in active_import_branches:
                 governorate_key = _excel_key(b.governorate.name)
-                # Canonical names remain authoritative; aliases locate the same record
-                # but must never rename it just because the workbook used a variant.
+                # Name-only matching accepts official names and confirmed aliases,
+                # never a branch code silently masquerading as a branch name.
                 canonical_key = _excel_key(b.name)
-                branch_cache[(governorate_key, canonical_key)] = b
-                branches_by_name.setdefault(canonical_key, []).append(b)
+                _append_unique_catalog_candidate(branch_cache, (governorate_key, canonical_key), b)
+                _append_unique_catalog_candidate(branches_by_name, canonical_key, b)
                 for alias_key in branch_alias_keys_by_id.get(b.id, set()):
-                    branch_cache[(governorate_key, alias_key)] = b
-                    branches_by_name.setdefault(alias_key, []).append(b)
-                if b.code not in (None, ''):
-                    code_key = _excel_key(b.code)
-                    branches_by_code.setdefault(code_key, []).append(b)
-                    branch_cache[(governorate_key, code_key)] = b
+                    _append_unique_catalog_candidate(branch_cache, (governorate_key, alias_key), b)
+                    _append_unique_catalog_candidate(branches_by_name, alias_key, b)
 
-            def _resolve_employee_import_branch(branch_code, governorate_value, branch_name):
-                code_key = _excel_key(branch_code)
-                gov_key = _excel_key(governorate_value)
-                name_key = _excel_key(branch_name)
-                # A unique active branch code is authoritative: differences in
-                # spelling, hamza, spacing, or an outdated branch/governorate
-                # label in Excel cannot redirect or reject the employee.
-                if code_key:
-                    code_matches = branches_by_code.get(code_key, [])
-                    if len(code_matches) == 1:
-                        return code_matches[0], 'code'
-                    if len(code_matches) > 1:
-                        scoped = [b for b in code_matches if _excel_key(b.governorate.name) == gov_key]
-                        if len(scoped) == 1:
-                            return scoped[0], 'code+governorate'
-                        named = [b for b in code_matches if _excel_key(b.name) == name_key]
-                        if len(named) == 1:
-                            return named[0], 'code+name'
-                        return None, 'ambiguous_code'
-                # Backward compatibility for files without a recognized code,
-                # or codes not found in the active authorized branch catalog.
-                g = govs.get(gov_key)
-                if not g:
-                    # If the sheet's governorate label is missing/outdated, permit
-                    # a name-only fallback only when that branch name is unique
-                    # across all active branches the administrator may import into.
-                    # Never guess when two governorates share a branch name.
-                    name_matches = branches_by_name.get(name_key, []) if name_key else []
-                    if len(name_matches) == 1:
-                        return name_matches[0], 'unique_name_without_governorate'
-                    if len(name_matches) > 1:
-                        return None, 'ambiguous_name'
-                    return None, 'governorate_not_found'
-                # A known governorate is part of the user's intended target. If the
-                # branch is not inside it, reject rather than silently cross-linking.
-                named = branch_cache.get((_excel_key(g.name), name_key))
-                if named:
-                    return named, 'name'
-                return None, 'branch_not_found'
-            emails = {
-                _excel_key(e.email): e
-                for e in Employee.query.filter(Employee.email.isnot(None)).all()
-            }
+            # Build a lightweight identity index in one streaming database pass.
+            # Retain only scalar identity fields, not every Employee ORM instance;
+            # this keeps large Excel previews from filling memory with model graphs.
             code_buckets = {}
-            for employee in Employee.query.filter(Employee.job_code.isnot(None)).all():
-                code_key = normalize_job_code(employee.job_code)
-                for variant in job_code_lookup_variants(code_key):
-                    code_buckets.setdefault(variant, set()).add(employee.id)
-            for alias in TicketEmployeeCodeAlias.query.all():
-                for variant in job_code_lookup_variants(alias.normalized_alias):
-                    code_buckets.setdefault(variant, set()).add(alias.employee_id)
-            all_code_employees = {e.id: e for e in Employee.query.all()}
-            job_codes = {key: all_code_employees[next(iter(ids))] for key, ids in code_buckets.items() if len(ids) == 1}
-            ambiguous_job_codes = {key for key, ids in code_buckets.items() if len(ids) > 1}
-            # Exact official names and confirmed aliases help detect a likely
-            # existing person when a spreadsheet code was mistyped. This is a
-            # duplicate-prevention hint only; it never silently assigns a row.
+            email_buckets = {}
+            employee_identity_by_id = {}
             employee_names_by_branch = {}
-            for existing_employee in all_code_employees.values():
-                name_key = _excel_key(existing_employee.full_name)
-                if existing_employee.branch_id and name_key:
-                    employee_names_by_branch.setdefault((existing_employee.branch_id, name_key), set()).add(existing_employee.id)
-            for alias in EmployeeNameAlias.query.all():
-                owner = all_code_employees.get(alias.employee_id)
-                alias_key = _excel_key(alias.alias_text)
-                if owner and owner.branch_id and alias_key:
-                    employee_names_by_branch.setdefault((owner.branch_id, alias_key), set()).add(owner.id)
+            identity_query = Employee.query.with_entities(
+                Employee.id, Employee.branch_id, Employee.full_name,
+                Employee.job_code, Employee.email, Employee.deleted_at,
+            ).yield_per(2000)
+            for employee_id, branch_id, full_name, job_code, email, deleted_at in identity_query:
+                employee_identity_by_id[employee_id] = {
+                    'branch_id': branch_id,
+                    'full_name': full_name or '',
+                    # Soft-deleted employees remain in the identity indexes so
+                    # their codes/emails cannot be recycled as new people.
+                    'is_deleted': deleted_at is not None,
+                }
+                code_key = _excel_employee_code_key(job_code)
+                for variant in _excel_employee_code_variants(code_key):
+                    code_buckets.setdefault(variant, set()).add(employee_id)
+                email_key = _excel_key(email) if email else ''
+                if email_key:
+                    email_buckets.setdefault(email_key, set()).add(employee_id)
+                name_key = _excel_key(full_name)
+                if branch_id and name_key:
+                    employee_names_by_branch.setdefault((branch_id, name_key), set()).add(employee_id)
+            # Compare the confirmed alias text using the strict import normalizer.
+            # The stored normalized_alias is optimized for OCR and may collapse O/0
+            # or I/1; it must not become an unreviewed canonical-code match here.
+            for alias_employee_id, alias_text in TicketEmployeeCodeAlias.query.with_entities(
+                TicketEmployeeCodeAlias.employee_id, TicketEmployeeCodeAlias.alias_text
+            ).yield_per(2000):
+                for variant in _excel_employee_code_variants(alias_text):
+                    code_buckets.setdefault(variant, set()).add(alias_employee_id)
+            for alias_employee_id, alias_text in EmployeeNameAlias.query.with_entities(
+                EmployeeNameAlias.employee_id, EmployeeNameAlias.alias_text
+            ).yield_per(2000):
+                owner = employee_identity_by_id.get(alias_employee_id)
+                alias_key = _excel_key(alias_text)
+                if owner and owner['branch_id'] and alias_key:
+                    employee_names_by_branch.setdefault((owner['branch_id'], alias_key), set()).add(alias_employee_id)
+            job_codes = {
+                key: next(iter(ids)) for key, ids in code_buckets.items() if len(ids) == 1
+            }
+            ambiguous_job_codes = {key for key, ids in code_buckets.items() if len(ids) > 1}
+            emails = {key: next(iter(ids)) for key, ids in email_buckets.items() if len(ids) == 1}
+            ambiguous_emails = {key for key, ids in email_buckets.items() if len(ids) > 1}
             seen_job_codes = set()
             seen_emails = set()
+            matched_employee_rows = {}
+            pending_employee_names = set()
             for (rno, row) in enumerate(ws.iter_rows(min_row=2, values_only=False), 2):
                 vals = {k: _mapped_value(row, mapping, k) for k in spec}
                 if not any(vals.values()):
                     continue
-                b, branch_match_method = _resolve_employee_import_branch(
-                    vals.get('branch_code', ''), vals.get('governorate', ''), vals.get('branch', '')
+                b, branch_match_method = resolve_employee_import_branch(
+                    vals.get('branch_code', ''),
+                    vals.get('governorate', ''),
+                    vals.get('branch', ''),
+                    branches_by_code=branches_by_code,
+                    branches_by_name=branches_by_name,
+                    govs=govs,
+                    branch_cache=branch_cache,
+                    governorate_alias_keys_by_id=governorate_alias_keys_by_id,
+                    branch_alias_keys_by_id=branch_alias_keys_by_id,
+                    normalize_key=_excel_key,
+                    normalize_code_key=normalize_branch_code_key,
                 )
+                if b and branch_match_method == 'inactive_code':
+                    errors.append(
+                        f"صف {rno}: كود الفرع {vals.get('branch_code', '')} يعود إلى فرع غير نشط أو محافظة غير نشطة؛ لا يمكن ربط الموظف به. راجع سجل الفرع بدل استخدام الكود تلقائيًا."
+                    )
+                    continue
+                if b and branch_match_method == 'code_label_mismatch':
+                    errors.append(
+                        f"صف {rno}: تعارض يحتاج مراجعة: كود الفرع {vals.get('branch_code', '')} يحدد «{b.name}» بمحافظة «{b.governorate.name if b.governorate else '—'}»، بينما الملف يذكر «{vals.get('branch', '')}» بمحافظة «{vals.get('governorate', '')}». صحح الكود أو الأسماء قبل الاستيراد."
+                    )
+                    continue
                 if not b:
-                    if branch_match_method == 'ambiguous_code':
+                    if branch_match_method == 'unknown_code':
+                        errors.append(
+                            f"صف {rno}: تعارض يحتاج مراجعة: كود الفرع {vals.get('branch_code', '')} غير موجود ضمن الفروع النشطة؛ صحح الكود. لم تتم المطابقة بالاسم لتجنب ربط الموظف بفرع غير مقصود."
+                        )
+                    elif branch_match_method == 'ambiguous_code':
                         errors.append(
                             f"صف {rno}: كود الفرع {vals.get('branch_code', '')} غير فريد؛ أضف اسم المحافظة الصحيح أو صحح كود الفرع."
                         )
                     elif branch_match_method == 'ambiguous_name':
                         errors.append(
-                            f"صف {rno}: اسم الفرع «{vals.get('branch', '')}» موجود في أكثر من محافظة؛ أدخل المحافظة الصحيحة أو كود الفرع."
+                            f"صف {rno}: اسم الفرع «{vals.get('branch', '')}» يطابق أكثر من سجل أو اسم بديل؛ لا يمكن تحديد الفرع بالاسم وحده. أدخل كودًا صحيحًا أو عالج تعارض الأسماء أولًا."
+                        )
+                    elif branch_match_method == 'ambiguous_governorate':
+                        errors.append(
+                            f"صف {rno}: اسم المحافظة أو اسمها البديل يطابق أكثر من محافظة؛ صحح الاسم أو دليل المحافظات قبل الاستيراد."
                         )
                     elif branch_match_method == 'governorate_not_found':
                         errors.append(
@@ -802,47 +649,77 @@ def excel_import_confirm(kind):
                 if not hd:
                     errors.append(f'صف {rno}: تاريخ التعيين غير صحيح.')
                     continue
-                ck = _excel_key(vals['job_code'])
-                normalized_code = normalize_job_code(vals['job_code'])
-                code_variants = job_code_lookup_variants(normalized_code)
+                normalized_code = _excel_employee_code_key(vals['job_code'])
+                code_variants = _excel_employee_code_variants(normalized_code)
                 ek = _excel_key(vals['email']) if vals['email'] else ''
                 if code_variants & ambiguous_job_codes:
                     errors.append(f"صف {rno}: الكود الوظيفي يطابق أكثر من موظف بعد مراعاة بادئة 200 أو الأكواد البديلة؛ راجع الكود يدويًا.")
                     continue
-                if code_variants & {normalize_job_code(seen) for seen in seen_job_codes}:
+                if code_variants & seen_job_codes:
                     errors.append(f"صف {rno}: الكود الوظيفي مكرر داخل ملف Excel: {vals.get('job_code', '')}.")
                     continue
                 if ek and ek in seen_emails:
                     errors.append(f"صف {rno}: البريد الإلكتروني مكرر داخل ملف Excel: {vals.get('email', '')}.")
                     continue
+                if ek and ek in ambiguous_emails:
+                    errors.append(f"صف {rno}: البريد الإلكتروني مرتبط بأكثر من سجل في قاعدة البيانات؛ راجع البيانات يدويًا.")
+                    continue
                 seen_job_codes.update(code_variants)
                 if ek:
                     seen_emails.add(ek)
-                e = job_codes.get(ck) or (emails.get(ek) if ek else None)
-                name_match_ids = employee_names_by_branch.get((b.id, _excel_key(vals.get('name'))), set())
+                code_employee_ids = {
+                    job_codes[variant] for variant in code_variants
+                    if variant in job_codes and job_codes[variant] is not None
+                }
+                email_employee_id = emails.get(ek) if ek else None
+                if len(code_employee_ids) > 1:
+                    errors.append(f"صف {rno}: صيغ الكود الوظيفي تشير إلى أكثر من موظف؛ راجع الكود قبل الاستيراد.")
+                    continue
+                code_employee_id = next(iter(code_employee_ids), None)
+                if code_employee_id is not None and email_employee_id is not None and code_employee_id != email_employee_id:
+                    errors.append(f'صف {rno}: الكود الوظيفي والبريد الإلكتروني يعودان لموظفين مختلفين.')
+                    continue
+                matched_employee_id = code_employee_id if code_employee_id is not None else email_employee_id
+                matched_identity = employee_identity_by_id.get(matched_employee_id) if matched_employee_id is not None else None
+                if matched_identity and matched_identity.get('is_deleted'):
+                    errors.append(
+                        f"صف {rno}: تعارض يحتاج مراجعة: الكود الوظيفي أو البريد الإلكتروني يرتبط بموظف محذوف منطقيًا («{matched_identity.get('full_name') or 'موظف مسجل'}»). لم يُحدّث السجل ولم يُنشأ بديل تلقائيًا؛ راجع السجل قبل المتابعة."
+                    )
+                    continue
+                # Email alone must not authorize changing an existing person's
+                # personnel code. A code change is accepted as a match only
+                # when the submitted code resolves to the same existing employee
+                # through the canonical code or a confirmed alias/legacy variant.
+                # Otherwise the row is a review conflict, not a routine update.
+                if code_employee_id is None and email_employee_id is not None:
+                    errors.append(
+                        f"صف {rno}: تعارض يحتاج مراجعة: البريد الإلكتروني يطابق موظفًا قائمًا، لكن الكود الوظيفي في الملف لا يطابق كوده أو أي كود بديل مؤكد. لم يُربط الصف بالموظف ولم يُقترح تغيير الكود؛ صحح الكود أو راجع الهوية أولًا."
+                    )
+                    continue
+                e = db.session.get(Employee, matched_employee_id) if matched_employee_id is not None else None
+                import_name_key = (b.id, _excel_key(vals.get('name')))
+                if not e and import_name_key in pending_employee_names:
+                    errors.append(f"صف {rno}: الاسم نفسه تكرر لموظف جديد داخل الفرع في هذا الملف؛ راجع الكود والهوية قبل الإضافة.")
+                    continue
+                name_match_ids = employee_names_by_branch.get(import_name_key, set())
                 if e and name_match_ids and e.id not in name_match_ids:
                     errors.append(f"صف {rno}: الكود والبريد يحددان سجلًا، لكن الاسم يطابق موظفًا آخر داخل الفرع؛ راجع الهوية قبل الاستيراد.")
                     continue
                 if not e and name_match_ids:
                     if len(name_match_ids) == 1:
-                        possible = all_code_employees.get(next(iter(name_match_ids)))
-                        errors.append(f"صف {rno}: الاسم يطابق موظفًا موجودًا في الفرع ({possible.full_name if possible else 'موظف مسجل'}) لكن الكود الوظيفي أو البريد لا يطابقه؛ صحح المعرف لتجنب إنشاء سجل مكرر.")
+                        possible = employee_identity_by_id.get(next(iter(name_match_ids)))
+                        errors.append(f"صف {rno}: الاسم يطابق موظفًا موجودًا في الفرع ({possible['full_name'] if possible else 'موظف مسجل'}) لكن الكود الوظيفي أو البريد لا يطابقه؛ صحح المعرف لتجنب إنشاء سجل مكرر.")
                     else:
                         errors.append(f"صف {rno}: الاسم يطابق أكثر من موظف داخل الفرع، والكود لا يحسم الهوية؛ راجع الكود والبريد يدويًا.")
                     continue
                 if e:
-                    # If email points to another employee while the job code points to this one, flag it.
-                    if (
-                        ck
-                        and ck in job_codes
-                        and ek
-                        and ek in emails
-                        and job_codes[ck].id != emails[ek].id
-                    ):
+                    previous_row = matched_employee_rows.get(e.id)
+                    if previous_row is not None:
                         errors.append(
-                            f'صف {rno}: الكود الوظيفي والبريد الإلكتروني يعودان لموظفين مختلفين.',
+                            f"صف {rno}: تعارض في الهوية: هذا الموظف نفسه حُدد بالفعل في الصف {previous_row} من الملف؛ لا يمكن اعتماد صفين لتعديل السجل نفسه. راجع الكود الوظيفي والكود البديل."
                         )
                         continue
+                    matched_employee_rows[e.id] = rno
                     changes = {}
                     candidate = {
                         'branch_id': b.id,
@@ -881,8 +758,16 @@ def excel_import_confirm(kind):
                                 'label': label,
                                 'old': current.get(f, '—'),
                                 'new': candidate.get(f, '—'),
+                                # Keep IDs for validation/persistence, but show
+                                # meaningful branch names during user approval.
+                                'display_old': current.get('branch', '—') if f == 'branch_id' else current.get(f, '—'),
+                                'display_new': candidate.get('branch', '—') if f == 'branch_id' else candidate.get(f, '—'),
                             }
                     if changes:
+                        # Keep the identity evidence used by preview so approval
+                        # can revalidate it. Selected fields alone are not enough:
+                        # a code, confirmed alias, branch code, or corroborating
+                        # email/name may have changed since the workbook was reviewed.
                         actions.append(
                             {
                                 'type': 'employee',
@@ -890,10 +775,40 @@ def excel_import_confirm(kind):
                                 'row': rno,
                                 'name': e.full_name,
                                 'changes': changes,
+                                'branch_identity': {
+                                    'branch_id': int(b.id),
+                                    'governorate_id': int(b.governorate_id),
+                                    'branch_code': vals.get('branch_code', ''),
+                                    'branch_name': vals.get('branch', ''),
+                                    'governorate': vals.get('governorate', ''),
+                                    'match_method': branch_match_method,
+                                },
+                                'employee_identity': {
+                                    'employee_id': int(e.id),
+                                    # Source identity from Excel.
+                                    'job_code': normalized_code,
+                                    'email_key': ek,
+                                    'email_matched': bool(ek and email_employee_id == e.id),
+                                    'name_key': _excel_key(vals.get('name')),
+                                    'name_matched': bool(name_match_ids == {e.id}),
+                                    # Current identity values shown at preview time.
+                                    # These are checked even when their fields are
+                                    # not selected for mutation, so a changed target
+                                    # cannot silently receive an unrelated update.
+                                    'reviewed_branch_id': int(e.branch_id),
+                                    'reviewed_full_name': e.full_name or '',
+                                    'reviewed_email': e.email or '',
+                                    'reviewed_job_code': e.job_code or '',
+                                },
                             },
                         )
+                    else:
+                        actions.append({
+                            'type': 'employee_match', 'id': e.id, 'row': rno,
+                            'name': e.full_name, 'branch': b.name, 'governorate': g.name,
+                        })
                 else:
-                    if ck in job_codes or (ek and ek in emails):
+                    if any(variant in job_codes for variant in code_variants) or (ek and ek in emails):
                         errors.append(
                             f'صف {rno}: يوجد موظف مسجل مسبقًا بالكود الوظيفي أو البريد الإلكتروني.',
                         )
@@ -907,25 +822,50 @@ def excel_import_confirm(kind):
                             'branch_id': b.id,
                             'branch': b.name,
                             'governorate': g.name,
+                            'branch_identity': {
+                                'branch_id': int(b.id),
+                                'governorate_id': int(b.governorate_id),
+                                'branch_code': vals.get('branch_code', ''),
+                                'branch_name': vals.get('branch', ''),
+                                'governorate': vals.get('governorate', ''),
+                                'match_method': branch_match_method,
+                            },
                         },
                     )
-                    job_codes[ck] = None
-                    emails[ek] = None
+                    for variant in code_variants:
+                        job_codes[variant] = None
+                    if ek:
+                        emails[ek] = None
+                    pending_employee_names.add(import_name_key)
         wb.close()
         review_path = _pending_excel_review_path(token)
-        with open(review_path, 'w', encoding='utf-8') as fh:
-            json.dump(
-                {'kind': kind, 'mapping': mapping, 'actions': actions, 'errors': errors},
-                fh,
-                ensure_ascii=False,
-            )
+        review_payload = json.dumps(
+            {'kind': kind, 'mapping': mapping, 'actions': actions, 'errors': errors},
+            ensure_ascii=False,
+        ).encode('utf-8')
+        write_private_bytes(review_path, review_payload)
         session['excel_review_token'] = token
+        issue_labels = {
+            'duplicate': 'مكرر / موجود مسبقًا',
+            'conflict': 'تعارض يحتاج مراجعة',
+            'unresolved': 'تعذر الربط الموثوق',
+            'invalid': 'بيانات ناقصة أو غير صحيحة',
+        }
+        categorized_errors = [
+            {'text': message, 'category': _excel_issue_category(message),
+             'label': issue_labels[_excel_issue_category(message)]}
+            for message in errors
+        ]
+        issue_counts = {category: sum(1 for item in categorized_errors if item['category'] == category)
+                        for category in issue_labels}
         return render_template(
             'excel_import.html',
             kind=kind,
             review_step=True,
             actions=actions,
             errors=errors,
+            categorized_errors=categorized_errors,
+            issue_counts=issue_counts,
             fields=fields,
         )
     except Exception as exc:
@@ -935,8 +875,7 @@ def excel_import_confirm(kind):
         except Exception:
             pass
         _remove_pending_excel(token)
-        session.pop('excel_import_token', None)
-        session.pop('excel_review_token', None)
+        _clear_excel_import_session()
         flash('تعذر تحليل ملف Excel. لم يتم حفظ أي تغييرات؛ راجع الملف وحاول مرة أخرى.')
         return redirect(url_for('excel_import.excel_import_page', kind=kind))
 
@@ -949,171 +888,102 @@ def excel_import_apply(kind):
     path = _pending_excel_path(token) if token else None
     review_path = _pending_excel_review_path(token) if token else None
     if (
-        not token
+        not is_private_work_token(token)
         or session.get('excel_import_token') != token
+        or session.get('excel_import_kind') != kind
         or not path
         or not os.path.isfile(path)
         or not review_path
         or not os.path.isfile(review_path)
+        or pending_files_expired((path, review_path), _EXCEL_PENDING_TTL_SECONDS)
     ):
         _remove_pending_excel(token)
-        session.pop('excel_import_token', None)
-        session.pop('excel_review_token', None)
+        _remove_pending_excel(session.get('excel_import_token'))
+        _clear_excel_import_session()
         flash('انتهت جلسة مراجعة ملف Excel أو لم تعد متطابقة. ارفع الملف وراجعه مرة أخرى.')
         return redirect(url_for('excel_import.excel_import_page', kind=kind))
-    try:
-        with open(review_path, 'r', encoding='utf-8') as fh:
-            review = json.load(fh)
-        if not isinstance(review, dict) or review.get('kind') != kind:
-            _remove_pending_excel(token)
-            session.pop('excel_import_token', None)
-            session.pop('excel_review_token', None)
-            flash('نوع ملف المراجعة لا يطابق العملية المطلوبة. ارفع الملف وراجعه مرة أخرى.')
-            return redirect(url_for('excel_import.excel_import_page', kind=kind))
-        actions = review.get('actions', [])
-        if not isinstance(actions, list):
-            raise ValueError('Invalid review actions structure')
-        selected = set(request.form.getlist('change'))
-        added = updated = skipped = 0
-        errors = list(review.get('errors', []))
-
-        # Revalidate every database reference at apply time. The preview may be
-        # several minutes old, and a branch/employee can be disabled or removed
-        # between preview and confirmation. Never trust preview-time IDs alone.
-        for action in actions:
-            if not isinstance(action, dict) or not isinstance(action.get('type'), str):
-                raise ValueError('Invalid Excel review action')
-            action_type = action['type']
-            if kind == 'branches' and action_type == 'new_branch':
-                governorate_id = action.get('governorate_id')
-                governorate = db.session.get(Governorate, governorate_id) if isinstance(governorate_id, int) else None
-                if not governorate or not governorate.is_active:
-                    raise ValueError('Excel branch import references a missing or inactive governorate')
-            elif kind == 'branches' and action_type == 'branch':
-                branch = db.session.get(Branch, action.get('id'))
-                if not branch or not branch.is_active or not branch.governorate or not branch.governorate.is_active:
-                    raise ValueError('Excel branch update references a missing or inactive branch')
-            elif kind == 'employees' and action_type == 'new_employee':
-                branch_id = action.get('branch_id')
-                branch = db.session.get(Branch, branch_id) if isinstance(branch_id, int) else None
-                if not branch or not branch.is_active or not branch.governorate or not branch.governorate.is_active:
-                    raise ValueError('Excel employee import references a missing or inactive branch')
-                values = action.get('values') or {}
-                job_code = str(values.get('job_code') or '').strip().casefold()
-                email = str(values.get('email') or '').strip().casefold()
-                if not job_code:
-                    raise ValueError('Excel employee import is missing a personnel code')
-                if Employee.query.filter(func.lower(func.trim(Employee.job_code)) == job_code).first():
-                    raise ValueError('Excel employee import conflicts with an existing personnel code')
-                if email and Employee.query.filter(func.lower(Employee.email) == email).first():
-                    raise ValueError('Excel employee import conflicts with an existing email')
-            elif kind == 'employees' and action_type == 'employee':
-                employee = db.session.get(Employee, action.get('id'))
-                if not employee or employee.deleted_at is not None:
-                    raise ValueError('Excel employee update references a missing or deleted employee')
-                branch_key = f"employee:{action.get('id')}:branch_id"
-                if branch_key in selected and 'branch_id' in (action.get('changes') or {}):
-                    try:
-                        branch_id = int(action['changes']['branch_id']['new'])
-                    except (TypeError, ValueError, KeyError):
-                        raise ValueError('Excel employee update contains an invalid branch reference')
-                    branch = db.session.get(Branch, branch_id)
-                    if not branch or not branch.is_active or not branch.governorate or not branch.governorate.is_active:
-                        raise ValueError('Excel employee update references a missing or inactive branch')
-        if kind == 'governorates':
-            for a in actions:
-                if a['type'] != 'new_governorate':
-                    continue
-                name = a['values']['name'].strip()
-                if not name:
-                    continue
-                if Governorate.query.filter_by(name=name).first() or any(_excel_key(g.name) == _excel_key(name) for g in Governorate.query.filter_by(is_active=True).all()):
-                    skipped += 1
-                    continue
-                db.session.add(Governorate(name=name, is_active=True))
-                added += 1
-        elif kind == 'branches':
-            for a in actions:
-                if a['type'] == 'new_branch':
-                    v = a['values']
-                    b = Branch(governorate_id=a['governorate_id'], name=v['name'], code=v['code'])
-                    db.session.add(b)
-                    db.session.flush()
-                    added += 1
-                elif a['type'] == 'branch':
-                    b = db.session.get(Branch, a['id'])
-                    if not b:
-                        continue
-                    changed = False
-                    for f in ('name', 'code'):
-                        key = f'{a['type']}:{a['id']}:{f}'
-                        if key in selected:
-                            setattr(b, f, a['changes'][f]['new'])
-                            changed = True
-                    if changed:
-                        updated += 1
-        else:
-            for a in actions:
-                if a['type'] == 'new_employee':
-                    v = a['values']
-                    e = Employee(
-                        employee_code=None,
-                        email=(v.get('email') or '').strip() or None,
-                        full_name=v['name'],
-                        branch_id=a['branch_id'],
-                        job_title=v['job_title'],
-                        job_code=v['job_code'],
-                        hire_date=datetime.fromisoformat(a['hire_date']).date(),
-                        company_phone=v['company_phone'],
-                        personal_phone=v['personal_phone'],
-                    )
-                    db.session.add(e)
-                    db.session.flush()
-                    added += 1
-                elif a['type'] == 'employee':
-                    e = db.session.get(Employee, a['id'])
-                    if not e:
-                        continue
-                    changed = False
-                    for f in a['changes']:
-                        key = f'employee:{a['id']}:{f}'
-                        if key not in selected:
-                            continue
-                        new = a['changes'][f]['new']
-                        if f == 'branch_id':
-                            setattr(e, f, int(new))
-                        elif f == 'hire_date':
-                            setattr(e, f, datetime.fromisoformat(new).date())
-                        else:
-                            setattr(e, f, new)
-                        changed = True
-                    if changed:
-                        updated += 1
-        # Keep imported records and their audit entry in one transaction.
-        log(
-            'IMPORT',
-            'Governorate' if kind == 'governorates' else ('Branch' if kind == 'branches' else 'Employee'),
-            0,
-            f'Excel: إضافة {added}، تحديث {updated}، تخطي دون تغييرات {skipped}',
-        )
-        db.session.commit()
-        _remove_pending_excel(token)
-        session.pop('excel_import_token', None)
-        session.pop('excel_review_token', None)
-        return render_template(
-            'excel_import.html',
-            kind=kind,
-            import_done=True,
-            added=added,
-            updated=updated,
-            skipped=skipped,
-            errors=errors,
-        )
-    except Exception as exc:
-        db.session.rollback()
-        logger.error('Excel import apply failed (kind=%s, error=%s)', kind, type(exc).__name__)
-        _remove_pending_excel(token)
-        session.pop('excel_import_token', None)
-        session.pop('excel_review_token', None)
-        flash('تعذر تطبيق تغييرات Excel. تم التراجع عن العملية؛ راجع سجل التشغيل للتفاصيل.')
+    if not _claim_pending_excel_apply(token):
+        flash('عملية استيراد ملف Excel قيد التنفيذ أو سبق استهلاك رمزها؛ لم يتم تكرار التغييرات.')
         return redirect(url_for('excel_import.excel_import_page', kind=kind))
+    try:
+        touch_private_files((path, review_path))
+        try:
+            with open(review_path, 'r', encoding='utf-8') as fh:
+                review = json.load(fh)
+            if not isinstance(review, dict) or review.get('kind') != kind:
+                _remove_pending_excel(token)
+                _clear_excel_import_session()
+                flash('نوع ملف المراجعة لا يطابق العملية المطلوبة. ارفع الملف وراجعه مرة أخرى.')
+                return redirect(url_for('excel_import.excel_import_page', kind=kind))
+            actions = review.get('actions', [])
+            selection_plan = build_excel_import_selection_plan(
+                kind, actions, request.form.getlist('change')
+            )
+            actions = list(selection_plan.actions)
+            selected_adds = selection_plan.selected_adds
+            selected_updates = selection_plan.selected_updates
+            added = updated = 0
+            skipped = selection_plan.skipped_adds
+            errors = list(review.get('errors', []))
+
+            # Revalidate the selected review manifest against current database state
+            # before any writes. The service has no request/session-token ownership;
+            # that remains in this blueprint.
+            validate_selected_excel_import_changes(
+                kind,
+                selected_adds,
+                selected_updates,
+                selection_plan,
+                session=db.session,
+                Branch=Branch,
+                Employee=Employee,
+                Governorate=Governorate,
+                TicketEmployeeCodeAlias=TicketEmployeeCodeAlias,
+                EmployeeNameAlias=EmployeeNameAlias,
+                excel_key=_excel_key,
+                normalize_job_code=_excel_employee_code_key,
+                job_code_lookup_variants=_excel_employee_code_variants,
+                BranchNameAlias=BranchNameAlias,
+                GovernorateNameAlias=GovernorateNameAlias,
+            )
+            counts = apply_selected_excel_import_changes(
+                kind,
+                actions,
+                selection_plan,
+                skipped,
+                session=db.session,
+                Governorate=Governorate,
+                GovernorateNameAlias=GovernorateNameAlias,
+                Branch=Branch,
+                Employee=Employee,
+                excel_key=_excel_key,
+            )
+            added, updated, skipped = counts.added, counts.updated, counts.skipped
+            # Keep imported records and their audit entry in one transaction.
+            log(
+                'IMPORT',
+                'Governorate' if kind == 'governorates' else ('Branch' if kind == 'branches' else 'Employee'),
+                0,
+                f'Excel: إضافة {added}، تحديث {updated}، تخطي دون تغييرات {skipped}',
+            )
+            db.session.commit()
+            _remove_pending_excel(token)
+            _clear_excel_import_session()
+            return render_template(
+                'excel_import.html',
+                kind=kind,
+                import_done=True,
+                added=added,
+                updated=updated,
+                skipped=skipped,
+                errors=errors,
+            )
+        except Exception as exc:
+            db.session.rollback()
+            logger.error('Excel import apply failed (kind=%s, error=%s)', kind, type(exc).__name__)
+            _remove_pending_excel(token)
+            _clear_excel_import_session()
+            flash('تعذر اعتماد مراجعة Excel، أو تغيّرت البيانات منذ المعاينة. تم التراجع عن العملية ولم تُحفظ تغييرات؛ ارفع الملف وراجعه من جديد.')
+            return redirect(url_for('excel_import.excel_import_page', kind=kind))
+    finally:
+        _release_pending_excel_apply(token)

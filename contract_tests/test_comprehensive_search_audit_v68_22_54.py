@@ -44,11 +44,12 @@ def test_home_search_api_is_global_identity_only_and_supports_branch_only_lookup
     start = source.index("def employee_search():")
     end = source.index("@bp.route('/employees'", start)
     block = source[start:end]
-    assert "if not (can('manage_employees') or can('view_reports'))" in block
+    assert "if not (can('manage_employees') or can('view_reports'))" not in block
     assert "len(normalized_q) < 2 and not branch_raw" in block
-    assert "employee_search_filter(q, include_branch=True)" in block
+    assert "employee_search_filter(q, include_contacts=True, include_branch=True)" in block
     assert "rank_scoped_employee_suggestions(q, pool, limit=8)" in block
     assert "Movement.query" not in block
+    assert "'company_phone':" in block and "'personal_phone':" in block and "'email':" in block
     assert "'governorate':" in block and "'branch':" in block
 
 

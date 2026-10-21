@@ -11,7 +11,8 @@ Safety constraints:
 - Leave nested CSS, parse-error rules and keyframes untouched.
 """
 from pathlib import Path
-import collections, re, tinycss2
+import collections
+import tinycss2
 from dedupe_css_selectors import find_open_brace, find_close_brace, offset_for, split_selectors, norm
 
 ROOT = Path(__file__).resolve().parent / "employee_movements/static/css"

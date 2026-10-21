@@ -7,32 +7,34 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import date
 import urllib.error
-import urllib.parse
-import urllib.request
 
 from flask import current_app, request, session
 
-from ..access import actual_roles, bids, branch_ok, can, effective_user_gov_ids, me, roles, user_gov_ids
-from ..extensions import db
-from ..models import Branch, Employee, Governorate, Movement
-from ..services.entity_matching import (
-    branch_search_filter, employee_search_filter, governorate_search_filter,
-    rank_governorate_suggestions, rank_scoped_branch_suggestions, rank_scoped_employee_suggestions,
-)
-from .directory import find_branch, find_employee
+from ..access import roles
 from .pending import store_pending_plan
-from .visibility import visible_employee, visible_movement
 from .llm import DEFAULT_MODEL
+from .conversation_context import (
+    MAX_CONVERSATION_CHARS as _MAX_CONVERSATION_CHARS,
+    MAX_CONVERSATION_TURNS as _MAX_CONVERSATION_TURNS,
+    build_agent_contents,
+)
+from .gemini_client import GEMINI_URL as _GEMINI_URL, generate_content as _generate_content
 from .privacy import restore_local_tokens, sanitize_conversation_for_model
+from .tool_schemas import ACTION_NAMES as ACTION_NAMES, tool_schemas
+from .tool_responses import render_tool_result_response
+from .tool_helpers import _employee_summary as _employee_summary, _safe_int as _safe_int
+from .action_preparation import prepare_action as _prepare_action_impl
+from .tool_dispatch import dispatch_tool as _dispatch_tool
+
+# Legacy module-level constants remain available to existing imports.
+MAX_CONVERSATION_CHARS = _MAX_CONVERSATION_CHARS
+MAX_CONVERSATION_TURNS = _MAX_CONVERSATION_TURNS
+GEMINI_INTERACTION_URL = _GEMINI_URL
 
 logger = logging.getLogger(__name__)
 
-GEMINI_INTERACTION_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 MAX_AGENT_ROUNDS = 2
-MAX_CONVERSATION_TURNS = 20
-MAX_CONVERSATION_CHARS = 16000
 
 PAGE_NAMES = {
     "/": "الرئيسية",
@@ -49,18 +51,6 @@ PAGE_NAMES = {
     "/audit": "سجل التدقيق",
 }
 
-ACTION_NAMES = [
-    "register_movement",
-    "employee_create", "employee_edit", "employee_delete", "employee_restore",
-    "governorate_create", "governorate_edit", "governorate_toggle",
-    "branch_create", "branch_edit", "branch_toggle",
-    "user_create", "user_edit", "user_toggle", "user_delete", "user_password_reset",
-    "user_set_governorates", "user_set_branches", "role_grant", "role_revoke",
-    "entry_assign", "entry_remove", "entry_replace",
-    "delegation_create", "delegation_revoke",
-    "lookup_create", "lookup_edit", "lookup_toggle", "lookup_delete",
-    "movement_edit", "movement_delete", "movement_close", "movement_reopen",
-]
 
 SYSTEM = """
 أنت «بسيوني»، المساعد الذكي والشخصية الرسمية داخل «نظام إدارة حركات الموظفين». تعامل مع المستخدم كمحادثة مستمرة،
@@ -123,125 +113,8 @@ def _workspace_context(raw: str | None = None) -> dict:
     }
 
 
-def _safe_int(value):
-    try:
-        return int(value) if value not in (None, "") else None
-    except (TypeError, ValueError):
-        return None
 
 
-def tool_schemas():
-    """Function declarations exposed to Gemini."""
-    common_limit = {
-        "type": "integer", "minimum": 1, "maximum": 10,
-    }
-    return [
-        {
-            "name": "get_workspace_context",
-            "description": "يقرأ سياق مساحة العمل الحالية: الصفحة والسجل المحدد ونطاق المحافظة.",
-            "parameters": {"type": "object", "properties": {}},
-        },
-        {
-            "name": "search_employees",
-            "description": "ابحث محليًا عن موظفين بالاسم أو كود شؤون العاملين؛ البحث برقم الهاتف متاح فقط عند امتلاك صلاحية إدارة بيانات الموظفين.",
-            "parameters": {"type": "object", "properties": {
-                "query": {"type": "string"},
-                "limit": common_limit,
-            }, "required": ["query"]},
-        },
-        {
-            "name": "get_employee_profile",
-            "description": "يعرض بيانات موظف محدد وحالته وآخر حركاته.",
-            "parameters": {"type": "object", "properties": {
-                "employee_id": {"type": "integer"},
-            }, "required": ["employee_id"]},
-        },
-        {
-            "name": "search_branches",
-            "description": "ابحث محليًا عن الفروع.",
-            "parameters": {"type": "object", "properties": {
-                "query": {"type": "string"},
-                "governorate_id": {"type": "integer"},
-                "limit": common_limit,
-            }, "required": ["query"]},
-        },
-        {
-            "name": "search_governorates",
-            "description": "ابحث محليًا عن المحافظات.",
-            "parameters": {"type": "object", "properties": {
-                "query": {"type": "string"},
-                "limit": common_limit,
-            }, "required": ["query"]},
-        },
-        {
-            "name": "search_movements",
-            "description": "يعرض الحركات المطابقة لموظف أو نوع حركة أو محافظة أو فرع أو تاريخ.",
-            "parameters": {"type": "object", "properties": {
-                "employee_id": {"type": "integer"},
-                "movement_type": {"type": "string", "enum": ["إجازة", "انتداب", "إذن"]},
-                "governorate_id": {"type": "integer"},
-                "branch_id": {"type": "integer"},
-                "date": {"type": "string"},
-                "limit": common_limit,
-            }},
-        },
-        {
-            "name": "prepare_action",
-            "description": "يجهز عملية كتابة/تعديل داخل النظام. لا ينفذها؛ يعيد معاينة أو يطلب معلومة ناقصة.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "action": {"type": "string", "enum": ACTION_NAMES},
-                    "employee_id": {"type": "integer"},
-                    "employee_name": {"type": "string"},
-                    "full_name": {"type": "string"},
-                    "employee_code": {"type": "string"},
-                    "branch_id": {"type": "integer"},
-                    "branch_name": {"type": "string"},
-                    "branch_code": {"type": "string"},
-                    "governorate_id": {"type": "integer"},
-                    "governorate_name": {"type": "string"},
-                    "new_name": {"type": "string"},
-                    "movement_id": {"type": "integer"},
-                    "movement_type": {"type": "string", "enum": ["إجازة", "انتداب", "إذن"]},
-                    "leave_type": {"type": "string"},
-                    "destination_name": {"type": "string"},
-                    "from_date": {"type": "string"},
-                    "to_date": {"type": "string"},
-                    "permission_date": {"type": "string"},
-                    "open_assignment": {"type": "boolean"},
-                    "username": {"type": "string"},
-                    "email": {"type": "string"},
-                    "job_title": {"type": "string"},
-                    "job_code": {"type": "string"},
-                    "roles": {"type": "array", "items": {"type": "string"}},
-                    "role": {"type": "string"},
-                    "supervisor_name": {"type": "string"},
-                    "delegate_name": {"type": "string"},
-                    "starts_at": {"type": "string"},
-                    "ends_at": {"type": "string"},
-                    "new_employee_id": {"type": "integer"},
-                    "new_employee_name": {"type": "string"},
-                    "lookup_name": {"type": "string"},
-                    "lookup_kind": {"type": "string", "enum": ["movement", "leave"]},
-                    "reason": {"type": "string"},
-                    "user_id": {"type": "integer"},
-                    "delegation_id": {"type": "integer"},
-                },
-                "required": ["action"],
-            },
-        },
-        {
-            "name": "navigate_to",
-            "description": "يفتح صفحة أو مركز عمل داخل التطبيق عندما يطلب المستخدم ذلك صراحة.",
-            "parameters": {"type": "object", "properties": {
-                "target": {"type": "string", "enum": [
-                    "home", "employees", "employee", "movements", "reports", "missions",
-                    "delegations", "administration", "users", "branches", "governorates", "lookups", "audit"
-                ]},
-            }, "required": ["target"]},
-        },
-    ]
 
 
 def _tool_context_text(ctx):
@@ -258,281 +131,16 @@ def _tool_context_text(ctx):
     }, ensure_ascii=False)
 
 
-def _employee_summary(e, *, include_contacts=False):
-    """Build the minimum local employee summary permitted for this user."""
-    branch = getattr(e, "branch", None)
-    gov = getattr(branch, "governorate", None) if branch else None
-    summary = {
-        "id": e.id,
-        "name": e.full_name,
-        "employee_code": e.employee_code or e.job_code,
-        "job_title": e.job_title,
-        "job_code": e.job_code,
-        "branch": branch.name if branch else None,
-        "branch_id": branch.id if branch else None,
-        "governorate": gov.name if gov else None,
-        "governorate_id": gov.id if gov else None,
-    }
-    # Contact details are employee-management data, not a default consequence
-    # of merely having report-reading permission.
-    if include_contacts:
-        summary.update({
-            "company_phone": e.company_phone,
-            "personal_phone": e.personal_phone,
-        })
-    return summary
 
 
 def tool_execute(name, args, ctx):
-    args = args or {}
-    if name == "get_workspace_context":
-        return {"ok": True, "context": ctx}
-    if name == "search_employees":
-        if not (can("manage_employees") or can("view_reports")):
-            return {"ok": False, "error": "لا تملك صلاحية دليل الموظفين أو التقارير."}
-        q = str(args.get("query") or "").strip().lower()
-        limit = max(1, min(10, _safe_int(args.get("limit")) or 8))
-        if not q:
-            return {"ok": False, "error": "أدخل اسم الموظف أو الكود."}
-        # Use the same local matching engine as directory, movements and imports.
-        # Phone matching remains restricted to employee managers.
-        candidate_scope = Employee.query.filter(Employee.is_active == True)
-        # Apply work-scope authorization before both limiting and ranking. Filtering
-        # after the limit can hide valid results and needlessly load other scopes.
-        if 'مسؤول التطبيق' not in roles():
-            allowed_branch_ids = set(bids())
-            candidate_scope = candidate_scope.filter(Employee.branch_id.in_(allowed_branch_ids)) if allowed_branch_ids else candidate_scope.filter(False)
-        scoped_candidates = candidate_scope.filter(
-            employee_search_filter(
-                q,
-                include_job_title=True,
-                include_contacts=can("manage_employees"),
-                include_branch=True,
-            ),
-        ).order_by(Employee.full_name).limit(max(limit * 5, 20))
-        matched_rows = scoped_candidates.all()
-        fuzzy_ids = set()
-        fuzzy_reasons = {}
-        if not matched_rows:
-            pool = candidate_scope.order_by(Employee.full_name).limit(2500).all()
-            ranked = rank_scoped_employee_suggestions(q, pool, limit=limit)
-            matched_rows = [item["employee"] for item in ranked]
-            fuzzy_ids = {item["employee"].id for item in ranked}
-            fuzzy_reasons = {
-                item["employee"].id: item.get("match_reasons") or []
-                for item in ranked
-            }
-        rows = []
-        for employee in matched_rows:
-            if not visible_employee(employee):
-                continue
-            summary = _employee_summary(employee, include_contacts=can("manage_employees"))
-            if employee.id in fuzzy_ids:
-                summary["match_type"] = "approximate_suggestion"
-                summary["confirmation_required"] = True
-                summary["match_reasons"] = fuzzy_reasons.get(employee.id, [])
-            rows.append(summary)
-            if len(rows) >= limit:
-                break
-        return {"ok": True, "count": len(rows), "employees": rows}
-    if name == "get_employee_profile":
-        if not (can("manage_employees") or can("view_reports")):
-            return {"ok": False, "error": "لا تملك صلاحية دليل الموظفين أو التقارير."}
-        eid = _safe_int(args.get("employee_id"))
-        e = db.session.get(Employee, eid) if eid else None
-        if not visible_employee(e):
-            return {"ok": False, "error": "الموظف غير موجود أو خارج نطاق الصلاحية."}
-        session["assistant_context_employee_id"] = e.id
-        movements = []
-        if can("view_reports"):
-            candidates = (
-                Movement.query.filter_by(employee_id=e.id, is_active=True)
-                .order_by(Movement.id.desc()).limit(30).all()
-            )
-            movements = [m for m in candidates if visible_movement(m)][:8]
-        return {
-            "ok": True,
-            "employee": _employee_summary(e, include_contacts=can("manage_employees")),
-            "movements": [{
-                "id": m.id, "type": m.movement_type, "leave_type": m.leave_type,
-                "from_date": str(m.from_date) if m.from_date else None,
-                "to_date": str(m.to_date) if m.to_date else None,
-                "permission_date": str(m.permission_date) if m.permission_date else None,
-                "destination_branch": m.destination.name if m.destination else None,
-                "status": m.status,
-                "assignment_state": m.assignment_state,
-            } for m in movements],
-        }
-    if name == "search_branches":
-        if not (can("manage_structure") or can("manage_movements") or can("view_reports")):
-            return {"ok": False, "error": "لا تملك صلاحية استعراض الفروع."}
-        q = str(args.get("query") or "").strip().lower()
-        limit = max(1, min(10, _safe_int(args.get("limit")) or 8))
-        gid = _safe_int(args.get("governorate_id"))
-        query = Branch.query.filter(Branch.is_active == True)
-        if gid:
-            query = query.filter(Branch.governorate_id == gid)
-        if not ('مسؤول التطبيق' in roles() or 'مشرف محافظة' in roles() or 'Manager Application Support' in roles()):
-            allowed = set(bids())
-            if not allowed:
-                return {"ok": True, "count": 0, "branches": []}
-            query = query.filter(Branch.id.in_(allowed))
-        scoped_query = query
-        if q:
-            query = query.filter(branch_search_filter(q, include_governorate=True))
-        rows = query.order_by(Branch.name).limit(limit).all()
-        fuzzy_ids = set()
-        if q and not rows and len(q) >= 3:
-            pool = scoped_query.order_by(Branch.name).limit(2500).all()
-            ranked = rank_scoped_branch_suggestions(q, pool, limit=limit)
-            rows = [item['branch'] for item in ranked]
-            fuzzy_ids = {item['branch'].id for item in ranked}
-        return {"ok": True, "count": len(rows), "branches": [{
-            "id": b.id, "name": b.name, "code": b.code,
-            "governorate": b.governorate.name if b.governorate else None,
-            "governorate_id": b.governorate_id,
-            "match_type": "approximate_suggestion" if b.id in fuzzy_ids else "normal",
-            "confirmation_required": b.id in fuzzy_ids,
-        } for b in rows]}
-    if name == "search_governorates":
-        if not (can("manage_structure") or can("manage_movements") or can("view_reports")):
-            return {"ok": False, "error": "لا تملك صلاحية استعراض المحافظات."}
-        q = str(args.get("query") or "").strip().lower()
-        limit = max(1, min(10, _safe_int(args.get("limit")) or 8))
-        query = Governorate.query.filter(Governorate.is_active == True)
-        if not (set(roles()) & {'مسؤول التطبيق', 'Manager Application Support'}):
-            allowed = set(effective_user_gov_ids(me()))
-            if not allowed:
-                return {"ok": True, "count": 0, "governorates": []}
-            query = query.filter(Governorate.id.in_(allowed))
-        scoped_query = query
-        if q:
-            query = query.filter(governorate_search_filter(q))
-        rows = query.order_by(Governorate.name).limit(limit).all()
-        fuzzy_ids = set()
-        if q and not rows and len(q) >= 3:
-            pool = scoped_query.order_by(Governorate.name).limit(2500).all()
-            ranked = rank_governorate_suggestions(q, pool, limit=limit)
-            rows = [item['governorate'] for item in ranked]
-            fuzzy_ids = {item['governorate'].id for item in ranked}
-        return {"ok": True, "count": len(rows), "governorates": [{
-            "id": g.id, "name": g.name,
-            "match_type": "approximate_suggestion" if g.id in fuzzy_ids else "normal",
-            "confirmation_required": g.id in fuzzy_ids,
-        } for g in rows]}
-    if name == "search_movements":
-        if not can("view_reports"):
-            return {"ok": False, "error": "لا تملك صلاحية عرض التقارير والحركات."}
-        query = Movement.query.join(Employee).filter(
-            Employee.is_active == True,
-            Movement.is_active == True,
-        )
-        eid = _safe_int(args.get("employee_id"))
-        gid = _safe_int(args.get("governorate_id"))
-        bid = _safe_int(args.get("branch_id"))
-        mt = args.get("movement_type")
-        if eid: query = query.filter(Movement.employee_id == eid)
-        if mt: query = query.filter(Movement.movement_type == mt)
-        if gid: query = query.filter(Employee.branch.has(governorate_id=gid))
-        if bid: query = query.filter(Employee.branch_id == bid)
-        date_filter = str(args.get("date") or "").strip()
-        if date_filter:
-            try:
-                target_date = date.fromisoformat(date_filter)
-            except ValueError:
-                return {"ok": False, "error": "اكتب التاريخ بصيغة سنة-شهر-يوم."}
-            query = query.filter(db.or_(
-                Movement.from_date == target_date,
-                Movement.to_date == target_date,
-                Movement.permission_date == target_date,
-            ))
-        current_roles = set(roles())
-        if 'مسؤول التطبيق' not in current_roles:
-            allowed_branches = bids()
-            if current_roles & {'مشرف محافظة', 'Manager Application Support'}:
-                # Assignments have intentional cross-governorate read scope;
-                # leave/permission rows must remain inside the selected work scope.
-                if allowed_branches:
-                    query = query.filter(db.or_(
-                        Movement.movement_type == 'انتداب',
-                        Employee.branch_id.in_(allowed_branches),
-                    ))
-                else:
-                    query = query.filter(Movement.movement_type == 'انتداب')
-            else:
-                if not allowed_branches:
-                    return {"ok": True, "count": 0, "movements": []}
-                query = query.filter(Employee.branch_id.in_(allowed_branches))
-        result_limit = max(1, min(10, _safe_int(args.get("limit")) or 8))
-        rows = []
-        for m in query.order_by(Movement.id.desc()).limit(result_limit).all():
-            if not visible_movement(m):
-                continue
-            rows.append({
-                "id": m.id, "employee_id": m.employee_id, "employee": m.employee.full_name,
-                "type": m.movement_type, "leave_type": m.leave_type,
-                "from_date": str(m.from_date) if m.from_date else None,
-                "to_date": str(m.to_date) if m.to_date else None,
-                "permission_date": str(m.permission_date) if m.permission_date else None,
-                "destination_branch": m.destination.name if m.destination else None,
-                "status": m.status, "assignment_state": m.assignment_state,
-            })
-        return {"ok": True, "count": len(rows), "movements": rows}
-    if name == "navigate_to":
-        mapping = {
-            "home": "/", "employees": "/employees", "employee": "/employees", "movements": "/movements",
-            "reports": "/reports", "missions": "/reports-missions", "delegations": "/delegations",
-            "administration": "/structure", "users": "/users", "branches": "/branches", "governorates": "/governorates", "lookups": "/lookups", "audit": "/audit",
-        }
-        target = args.get("target")
-        if target not in mapping:
-            return {"ok": False, "error": "صفحة غير معروفة."}
-        # التنقل عبر بسيوني لا يتجاوز حدود الدور النشط.
-        current_roles = roles()
-        if target == "delegations" and "مشرف محافظة" not in current_roles and "مسؤول التطبيق" not in current_roles:
-            return {"ok": False, "error": "صفحة التفويض متاحة لمشرف المحافظة ومسؤول التطبيق فقط."}
-        if target in {"administration", "users", "branches", "governorates", "lookups"} and "مسؤول التطبيق" not in current_roles:
-            return {"ok": False, "error": "هذه الصفحة إدارية ومخصصة لمسؤول التطبيق."}
-        if target == "audit" and not can("view_audit"):
-            return {"ok": False, "error": "لا تملك صلاحية سجل التدقيق."}
-        if target in {"employees", "employee"} and not can("manage_employees") and not can("view_reports"):
-            return {"ok": False, "error": "لا تملك صلاحية دليل الموظفين."}
-        if target in {"movements", "reports", "missions"} and not (can("manage_movements") or can("view_reports")):
-            return {"ok": False, "error": "لا تملك صلاحية هذه المساحة التشغيلية."}
-        return {"ok": True, "navigate": mapping[target]}
-    if name == "prepare_action":
-        return _prepare_action(args, ctx)
-    return {"ok": False, "error": f"أداة غير معروفة: {name}"}
+    """Backward-compatible alias for the separated local tool dispatcher."""
+    return _dispatch_tool(name, args, ctx)
 
 
 def _prepare_action(args, ctx):
-    """Use the existing local safety/plan layer for mutations."""
-    from .manager import plan as manager_plan
-    from .routes import build_movement_plan
-
-    action = str(args.get("action") or "").strip()
-    normalized = dict(args)
-    # Credentials must never be supplied by the language model. The manager
-    # generates temporary passwords locally at execution time.
-    normalized.pop("password", None)
-    normalized["intent"] = action
-    # Prefer explicit IDs, then current workspace selection, then names locally.
-    selected = ctx.get("selected", {})
-    if not normalized.get("employee_id"):
-        normalized["employee_id"] = selected.get("employee_id") or _safe_int(session.get("assistant_context_employee_id"))
-    if not normalized.get("movement_id"):
-        normalized["movement_id"] = selected.get("movement_id")
-    if not normalized.get("branch_id"):
-        normalized["branch_id"] = selected.get("branch_id")
-    if action == "register_movement":
-        result = build_movement_plan(normalized)
-    else:
-        result = manager_plan(normalized)
-    if result is None:
-        return {"ok": False, "error": "لم أستطع تجهيز هذه العملية من المعطيات الحالية."}
-    if result.get("plan"):
-        return {"ok": True, "needs_confirmation": True, "plan_kind": "movement" if action == "register_movement" else "manager", "plan": result["plan"], "title": result.get("title"), "preview": result.get("preview"), "error": result.get("error")}
-    return {"ok": True, "needs_confirmation": False, "title": result.get("title"), "answer": result.get("answer"), "error": result.get("error"), "choices": result.get("choices", [])}
+    """Backward-compatible alias for confirmation-only action preparation."""
+    return _prepare_action_impl(args, ctx)
 
 
 def _extract_function_calls(response):
@@ -561,7 +169,6 @@ def _call_gemini(contents, context):
     if not api_key:
         return None
     model = (current_app.config.get("GEMINI_MODEL") or DEFAULT_MODEL).removeprefix("models/")
-    endpoint = GEMINI_INTERACTION_URL.format(model=urllib.parse.quote(model, safe=""))
     role_text = ", ".join(roles())
     # Only page-level metadata is sent to the external model. Selected record IDs
     # are replaced with presence flags; the actual IDs remain local for tool use.
@@ -583,13 +190,14 @@ def _call_gemini(contents, context):
         "tools": [{"functionDeclarations": tool_schemas()}],
         "generationConfig": {"maxOutputTokens": 700, "thinkingConfig": {"thinkingLevel": "low"}},
     }
-    req = urllib.request.Request(endpoint, data=json.dumps(payload).encode("utf-8"), headers={
-        "Content-Type": "application/json",
-        "x-goog-api-key": api_key,
-    }, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=int(current_app.config.get("ASSISTANT_TIMEOUT_SECONDS", 25))) as response:
-            return json.loads(response.read().decode("utf-8"))
+        return _generate_content(
+            model=model,
+            payload=payload,
+            api_key=api_key,
+            timeout=int(current_app.config.get("ASSISTANT_TIMEOUT_SECONDS", 25)),
+            ensure_ascii=True,
+        )
     except urllib.error.HTTPError as exc:
         # Provider error bodies can echo submitted prompt fragments; never log them.
         logger.warning("Gemini agent request failed with HTTP status %s", exc.code)
@@ -601,98 +209,8 @@ def _call_gemini(contents, context):
 
 
 def _tool_result_response(name, result, args, context):
-    """Render tool results locally; live database rows must never be sent back to Gemini."""
-    if not result.get("ok"):
-        return {"title": "المساعد الذكي", "error": result.get("error") or "تعذر تنفيذ الطلب محليًا."}
-
-    if name == "get_workspace_context":
-        return {"title": "سياق الصفحة", "answer": f"أنت تعمل الآن في صفحة {context.get('page') or 'التطبيق'}."}
-
-    if name == "search_employees":
-        rows = result.get("employees") or []
-        if not rows:
-            return {"title": "بحث الموظفين", "answer": "لم أعثر على موظف مطابق ضمن نطاق الصلاحيات."}
-        lines = []
-        for e in rows:
-            parts = [e.get("name") or "موظف"]
-            code = e.get("employee_code") or e.get("job_code")
-            if code:
-                parts.append(f"كود شئون العاملين: {code}")
-            if e.get("job_title"):
-                parts.append(e["job_title"])
-            location = " — ".join(x for x in (e.get("branch"), e.get("governorate")) if x)
-            if location:
-                parts.append(location)
-            lines.append(" • " + " — ".join(parts))
-        return {"title": "نتائج بحث الموظفين", "answer": f"وجدت {len(rows)} نتيجة:\n" + "\n".join(lines)}
-
-    if name == "get_employee_profile":
-        e = result.get("employee") or {}
-        if not e:
-            return {"title": "ملف الموظف", "error": "تعذر قراءة ملف الموظف."}
-        lines = [f"الموظف: {e.get('name') or '—'}"]
-        if e.get("employee_code") or e.get("job_code"):
-            lines.append(f"كود شئون العاملين: {e.get('employee_code') or e.get('job_code')}")
-        if e.get("job_title"):
-            lines.append(f"الوظيفة: {e['job_title']}")
-        if e.get("branch") or e.get("governorate"):
-            lines.append("الموقع: " + " — ".join(x for x in (e.get("branch"), e.get("governorate")) if x))
-        if e.get("company_phone"):
-            lines.append(f"هاتف العمل: {e['company_phone']}")
-        if e.get("personal_phone"):
-            lines.append(f"الهاتف الشخصي: {e['personal_phone']}")
-        movements = result.get("movements") or []
-        if movements:
-            lines.append("آخر الحركات المسموح بعرضها:")
-            for m in movements:
-                period = m.get("permission_date") or " — ".join(x for x in (m.get("from_date"), m.get("to_date") or ("مفتوح" if m.get("type") == "انتداب" else None)) if x)
-                detail = m.get("leave_type") or m.get("destination_branch") or ""
-                lines.append(" • " + " — ".join(x for x in (m.get("type"), detail, period, m.get("status")) if x))
-        elif not can("view_reports"):
-            lines.append("تفاصيل الحركات غير متاحة دون صلاحية التقارير.")
-        return {"title": f"ملف الموظف — {e.get('name') or ''}", "answer": "\n".join(lines)}
-
-    if name == "search_branches":
-        rows = result.get("branches") or []
-        lines = [" • " + ("اقتراح يحتاج تأكيدًا: " if b.get("confirmation_required") else "") + " — ".join(x for x in (b.get("name"), b.get("code"), b.get("governorate")) if x) for b in rows]
-        return {"title": "بحث الفروع", "answer": (f"وجدت {len(rows)} فرعًا:\n" + "\n".join(lines)) if rows else "لم أعثر على فرع مطابق ضمن الصلاحيات."}
-
-    if name == "search_governorates":
-        rows = result.get("governorates") or []
-        lines = [" • " + ("اقتراح يحتاج تأكيدًا: " if g.get("confirmation_required") else "") + str(g.get("name") or "") for g in rows]
-        return {"title": "بحث المحافظات", "answer": (f"وجدت {len(rows)} محافظة:\n" + "\n".join(lines)) if rows else "لم أعثر على محافظة مطابقة ضمن الصلاحيات."}
-
-    if name == "search_movements":
-        rows = result.get("movements") or []
-        if not rows:
-            return {"title": "بحث الحركات", "answer": "لم أعثر على حركات مطابقة ضمن نطاق التقارير المسموح."}
-        lines = []
-        for m in rows:
-            period = m.get("permission_date") or " — ".join(x for x in (m.get("from_date"), m.get("to_date") or ("مفتوح" if m.get("type") == "انتداب" else None)) if x)
-            detail = m.get("leave_type") or m.get("destination_branch") or ""
-            lines.append(" • " + " — ".join(x for x in (m.get("employee"), m.get("type"), detail, period, m.get("status")) if x))
-        return {"title": "نتائج الحركات", "answer": f"وجدت {len(rows)} حركة مطابقة:\n" + "\n".join(lines)}
-
-    if name == "navigate_to":
-        if result.get("navigate"):
-            return {"title": "الانتقال", "answer": "تم التحقق من الصلاحية. افتح الصفحة المطلوبة.", "navigate_url": result["navigate"]}
-        return {"title": "الانتقال", "error": result.get("error") or "تعذر فتح الصفحة."}
-
-    if name == "prepare_action":
-        if result.get("needs_confirmation") and result.get("plan"):
-            return {
-                "title": result.get("title") or "تأكيد العملية",
-                "answer": "راجع تفاصيل العملية التالية وأكّد التنفيذ من داخل المحادثة. لم يتم تنفيذ أي تغيير بعد.",
-                "preview": result.get("preview") or "يرجى مراجعة تفاصيل العملية.",
-            }
-        return {
-            "title": result.get("title") or "المساعد الذكي",
-            "answer": result.get("answer") or result.get("error") or "لم يتم إجراء أي تغيير.",
-            "error": result.get("error"),
-            "choices": result.get("choices", []),
-        }
-
-    return {"title": "المساعد الذكي", "answer": result.get("answer") or "تمت معالجة الطلب محليًا."}
+    """Backward-compatible alias for local tool-result formatting."""
+    return render_tool_result_response(name, result, args, context)
 
 
 def run_agent(prompt, prior_chat, workspace_context):
@@ -703,40 +221,7 @@ def run_agent(prompt, prior_chat, workspace_context):
     # Replace locally-known personal identifiers in prior context and the current prompt.
     # Only sanitized user-authored turns are actually packed for external transfer.
     prior_chat, prompt, local_token_map = sanitize_conversation_for_model(prior_chat, prompt)
-    # Keep conversational continuity without forwarding assistant replies that may
-    # contain live employee/movement data. Pack recent user turns into one clear
-    # context message so follow-ups are interpreted against the whole request.
-    prior = []
-    for item in (prior_chat or [])[-30:]:
-        if item.get("role") != "user":
-            continue
-        text = str(item.get("text") or "").strip()
-        if text:
-            prior.append(text[:1200])
-    prior = prior[-MAX_CONVERSATION_TURNS:]
-    current_section = "رسالة المستخدم الحالية:\n" + str(prompt or "").strip()[:4000]
-    # Reserve space for the current request and fill remaining space from the
-    # newest prior turns backwards. Never let older context cut off the prompt.
-    budget = MAX_CONVERSATION_CHARS - len(current_section) - 2
-    selected = []
-    used = 0
-    for value in reversed(prior):
-        entry = f"{len(prior) - len(selected)}. {value}"
-        cost = len(entry) + (1 if selected else 0)
-        if cost > budget - used:
-            remaining = budget - used
-            if remaining > 8:
-                selected.append(entry[:remaining])
-            break
-        selected.append(entry)
-        used += cost
-    selected.reverse()
-    sections = []
-    if selected:
-        sections.append("رسائل المستخدم السابقة بالترتيب (الأحدث أقرب للرسالة الحالية):\n" + "\n".join(selected))
-    sections.append(current_section)
-    packed = "\n\n".join(sections)
-    contents = [{"role": "user", "parts": [{"text": packed[-MAX_CONVERSATION_CHARS:]}]}]
+    contents = build_agent_contents(prior_chat, prompt)
 
     response = _call_gemini(contents, context)
     if not response:

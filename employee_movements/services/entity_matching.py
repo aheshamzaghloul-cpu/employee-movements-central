@@ -6,7 +6,6 @@ caller’s authorization scope and never auto-selects fuzzy matches.
 """
 from __future__ import annotations
 
-import re
 from difflib import SequenceMatcher
 from typing import Any, Iterable
 
@@ -65,16 +64,49 @@ def alias_owner_conflict(kind: str, value: object, target_id: int | None = None)
     alias_model, owner_field, canonical_model, canonical_field = mapping[kind]
 
     if canonical_model is not None:
-        for canonical in canonical_model.query.all():
+        for canonical in canonical_model.query.populate_existing().all():
             if target_id is not None and getattr(canonical, "id", None) == target_id:
                 continue
             if normalize_alias_key(getattr(canonical, canonical_field, "")) == normalized:
                 return canonical
 
-    row = alias_model.query.filter_by(normalized_alias=normalized).first()
+    row = alias_model.query.populate_existing().filter_by(normalized_alias=normalized).first()
     if row and target_id is not None and getattr(row, owner_field) == target_id:
         return None
     return row
+
+def employee_write_snapshot(employee: Any) -> dict[str, Any]:
+    """JSON-safe snapshot for fail-closed confirmation of assistant mutations.
+
+    Include every editable employee field plus lifecycle state so a pending
+    assistant confirmation cannot apply to a record that changed after preview.
+    Values are intentionally compared exactly (email case/whitespace changes
+    included) because this snapshot protects the user's reviewed view.
+    """
+    def _iso(value: Any) -> str | None:
+        if value is None:
+            return None
+        return value.isoformat() if hasattr(value, "isoformat") else str(value)
+
+    def _text(value: Any) -> str | None:
+        return None if value is None else str(value)
+
+    branch_id = getattr(employee, "branch_id", None)
+    return {
+        "full_name": _text(getattr(employee, "full_name", None)),
+        "email": _text(getattr(employee, "email", None)),
+        "employee_code": _text(getattr(employee, "employee_code", None)),
+        "job_title": _text(getattr(employee, "job_title", None)),
+        "job_code": _text(getattr(employee, "job_code", None)),
+        "company_phone": _text(getattr(employee, "company_phone", None)),
+        "personal_phone": _text(getattr(employee, "personal_phone", None)),
+        "hire_date": _iso(getattr(employee, "hire_date", None)),
+        "branch_id": int(branch_id) if branch_id is not None else None,
+        "is_active": bool(getattr(employee, "is_active", False)),
+        "deleted_at": _iso(getattr(employee, "deleted_at", None)),
+        "resignation_date": _iso(getattr(employee, "resignation_date", None)),
+    }
+
 
 def conflicting_employee_code(value: object, exclude_employee_id: int | None = None):
     """Find another employee/confirmed code alias colliding with this code's variants."""
@@ -83,12 +115,12 @@ def conflicting_employee_code(value: object, exclude_employee_id: int | None = N
         return None
     from ..models import Employee, TicketEmployeeCodeAlias
 
-    rows = Employee.query.filter(Employee.id != (exclude_employee_id or -1)).all()
+    rows = Employee.query.populate_existing().filter(Employee.id != (exclude_employee_id or -1)).all()
     for employee in rows:
         for official_code in (getattr(employee, "job_code", None), getattr(employee, "employee_code", None)):
             if official_code and variants & job_code_lookup_variants(official_code):
                 return employee
-    aliases = TicketEmployeeCodeAlias.query.filter(TicketEmployeeCodeAlias.normalized_alias.in_(variants)).all()
+    aliases = TicketEmployeeCodeAlias.query.populate_existing().filter(TicketEmployeeCodeAlias.normalized_alias.in_(variants)).all()
     for alias in aliases:
         if alias.employee_id != exclude_employee_id:
             return getattr(alias, "employee", None) or alias

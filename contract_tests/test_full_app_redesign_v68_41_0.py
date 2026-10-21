@@ -1,15 +1,16 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+CURRENT_VERSION = (ROOT / "VERSION.md").read_text(encoding="utf-8").strip()
 BASE = (ROOT / "employee_movements/templates/base.html").read_text(encoding="utf-8")
 DESIGN = (ROOT / "employee_movements/static/css/design-system-cyan.css").read_text(encoding="utf-8")
 APP_CSS = (ROOT / "employee_movements/static/css/app.css").read_text(encoding="utf-8")
 
 def test_current_release_is_bumped_atomically():
-    assert (ROOT / "VERSION.md").read_text(encoding="utf-8").strip() == "68.49.0"
-    assert 'version = "68.49.0"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert "__version__ = '68.49.0'" in (ROOT / "employee_movements/__init__.py").read_text(encoding="utf-8")
-    assert BASE.count("v=68.49.0") == 21
+    assert (ROOT / "VERSION.md").read_text(encoding="utf-8").strip() == CURRENT_VERSION
+    assert f'version = "{CURRENT_VERSION}"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert f"__version__ = '{CURRENT_VERSION}'" in (ROOT / "employee_movements/__init__.py").read_text(encoding="utf-8")
+    assert BASE.count("v=app_version") == 24
 
 def test_shared_design_layer_is_loaded_after_all_page_styles():
     assert BASE.index("css/design-system-cyan.css") > BASE.index("css/app.css")
@@ -19,7 +20,7 @@ def test_shared_design_layer_is_loaded_after_all_page_styles():
 
 def test_movements_has_own_permission_gated_navigation_item():
     assert 'href="/movements"' in BASE
-    assert "can('manage_movements') and can_manage_movement()" in BASE
+    assert "can('manage_movements') or can('view_reports')" in BASE
     assert 'aria-current="page"' in BASE
 
 def test_layout_system_covers_key_page_families_and_small_screens():

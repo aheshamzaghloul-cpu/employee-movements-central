@@ -25,10 +25,13 @@ def test_monthly_aggregation_has_no_incentive_formula():
     text = MISSIONS.read_text()
     assert "does not invent or apply an incentive formula" in text
 
-def test_manager_employee_filter_is_scope_limited():
-    text = MISSIONS.read_text()
-    assert "employee_scope_ids" in text
-    assert "Employee.branch_id.in_(employee_scope_ids)" in text
+def test_manager_employee_filter_uses_resolved_scope_without_materializing_global_branch_ids():
+    text = (ROOT / "employee_movements" / "services" / "mission_query.py").read_text(encoding="utf-8")
+    assert "employee_branch_scope = list(allowed_bids)" in text
+    assert "Employee.branch_id.in_(employee_branch_scope)" in text
+    assert "employee_branch_scope = (" in text
+    assert "has_employee_scope = True" in text
+    assert ".filter(Branch.is_active == True, Governorate.is_active == True)" in text
 
 
 def test_central_manager_global_assignment_employee_and_destination_access():

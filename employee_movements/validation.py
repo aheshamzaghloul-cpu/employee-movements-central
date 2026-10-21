@@ -3,9 +3,10 @@
 from datetime import datetime
 
 from .access import branch_ok, me
-from .constants import LEAVE_TYPES, MOVEMENT_TYPES
+from .constants import LEAVE_TYPES, MAX_PASSWORD_LENGTH, MOVEMENT_TYPES
 from .extensions import db
-from .models import Lookup, Movement, MovementHistory
+from .models import Employee, Lookup, Movement, MovementHistory
+from .movement_state import assignment_open_filter
 
 
 OVERLAP_CONFLICT_MESSAGE = 'تتعارض بيانات الحركة مع حركة نشطة مسجلة للموظف؛ لا يمكن الحفظ.'
@@ -34,7 +35,13 @@ def valid_email(v):
 
 
 def valid_password(p):
-    return len(p) >= 8 and any((c.isalpha() for c in p)) and any((c.isdigit() for c in p))
+    """Accept bounded passwords with at least one letter and one digit."""
+    return (
+        isinstance(p, str)
+        and 8 <= len(p) <= MAX_PASSWORD_LENGTH
+        and any(c.isalpha() for c in p)
+        and any(c.isdigit() for c in p)
+    )
 
 
 def record_movement_history(m, old_status, new_status, action, reason=''):
@@ -54,6 +61,52 @@ def parse_date_value(v):
     return parse_date(v) if v else None
 
 
+def lock_employee_for_movement(employee_id):
+    """Serialize concurrent movement writes for one employee where supported.
+
+    PostgreSQL uses SELECT ... FOR UPDATE, so competing movement create/edit/close
+    operations for the same employee cannot all pass the overlap check against the
+    same stale view. Other database engines may ignore the row-lock clause; the
+    normal validation still applies there.
+    """
+    try:
+        normalized_id = int(employee_id)
+    except (TypeError, ValueError):
+        return None
+    if normalized_id <= 0:
+        return None
+    return (
+        Employee.query.filter(Employee.id == normalized_id)
+        .populate_existing()
+        .with_for_update()
+        .first()
+    )
+
+
+def lock_movement_for_employee(movement_id, employee_id):
+    """Lock and refresh a movement after its employee row has been locked.
+
+    Callers consistently lock the employee first, then the movement, to reduce
+    deadlock risk and to revalidate the current state after waiting.
+    """
+    try:
+        normalized_movement_id = int(movement_id)
+        normalized_employee_id = int(employee_id)
+    except (TypeError, ValueError):
+        return None
+    if normalized_movement_id <= 0 or normalized_employee_id <= 0:
+        return None
+    return (
+        Movement.query.filter(
+            Movement.id == normalized_movement_id,
+            Movement.employee_id == normalized_employee_id,
+        )
+        .populate_existing()
+        .with_for_update()
+        .first()
+    )
+
+
 def movement_overlaps(employee_id, mt, fd, td, pd, exclude_id=None):
     """Return the first movement-overlap validation message without loading all rows."""
     # This helper is called by both HTML forms and assistant/API flows. Some
@@ -67,7 +120,11 @@ def movement_overlaps(employee_id, mt, fd, td, pd, exclude_id=None):
         return 'التاريخ غير صحيح.'
 
     def active(q):
-        q = q.filter(Movement.employee_id == employee_id, Movement.is_active == True)
+        q = q.filter(
+            Movement.employee_id == employee_id,
+            Movement.is_active == True,
+            assignment_open_filter(Movement),
+        )
         if exclude_id:
             q = q.filter(Movement.id != exclude_id)
         return q
@@ -93,7 +150,6 @@ def movement_overlaps(employee_id, mt, fd, td, pd, exclude_id=None):
             # date onward when validating a one-day permission.
             if active(Movement.query.filter(
                 Movement.movement_type == 'انتداب',
-                Movement.assignment_state != 'مغلق',
                 Movement.from_date.isnot(None),
                 Movement.from_date <= day,
                 Movement.to_date.is_(None),
@@ -106,7 +162,6 @@ def movement_overlaps(employee_id, mt, fd, td, pd, exclude_id=None):
 
     open_assignment = active(Movement.query.filter(
         Movement.movement_type == 'انتداب',
-        Movement.assignment_state != 'مغلق',
         Movement.from_date.isnot(None),
         Movement.to_date.is_(None),
     ))

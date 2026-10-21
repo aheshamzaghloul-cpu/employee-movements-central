@@ -54,7 +54,7 @@ def test_custom_marker_keeps_only_explicitly_selected_permissions(app):
 
 def test_access_module_imports_permission_catalog_for_admin_role():
     source = (Path(__file__).resolve().parents[1] / 'employee_movements' / 'access.py').read_text(encoding='utf-8')
-    assert 'from .constants import LOGIN_ROLES, OPERATIONAL_SCOPE_ENDPOINTS, PERMISSIONS, ROLE_DEFAULT_PERMISSIONS, ROLES' in source
+    assert 'from .constants import ' in source and 'GLOBAL_READ_SCOPE_ENDPOINTS' in source and 'OPERATIONAL_SCOPE_ENDPOINTS' in source and 'ROLE_DEFAULT_PERMISSIONS' in source
     assert 'return set(PERMISSIONS)' in source
 
 

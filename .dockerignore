@@ -2,10 +2,16 @@
 .github
 .env
 .env.*
-!.env.example
 __pycache__
 *.pyc
 *.db
 backups
 tests
 docs
+
+# Keep test suites and review-only documentation out of the production image.
+contract_tests/
+*.md
+!VERSION.md
+REVIEW_MANIFEST*.json
+.env.example

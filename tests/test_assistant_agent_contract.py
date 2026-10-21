@@ -4,7 +4,8 @@ import ast
 
 def test_agent_declares_application_tools():
     source = Path("employee_movements/assistant/agent.py").read_text(encoding="utf-8")
-    tree = ast.parse(source)
+    schema_source = Path("employee_movements/assistant/tool_schemas.py").read_text(encoding="utf-8")
+    tree = ast.parse(source + "\n" + schema_source)
     names = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Constant) and isinstance(node.value, str):

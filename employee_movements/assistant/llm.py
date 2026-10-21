@@ -8,22 +8,29 @@ Gemini is used only as a language/intent parser.  The application database remai
 import json
 import logging
 import urllib.error
-import urllib.parse
-import urllib.request
 
 from flask import current_app
 
 from ..access import me, roles
 from .privacy import restore_local_tokens, sanitize_conversation_for_model
+from .conversation_context import (
+    MAX_HISTORY_MESSAGES as _MAX_HISTORY_MESSAGES,
+    MAX_CONTEXT_TURNS as _MAX_CONTEXT_TURNS,
+    MAX_HISTORY_TEXT_CHARS as _MAX_HISTORY_TEXT_CHARS,
+    history_for_language as _pack_history_for_language,
+)
+from .gemini_client import GEMINI_URL as _GEMINI_URL, generate_content
+
+# Preserve historically importable module-level names.
+MAX_HISTORY_MESSAGES = _MAX_HISTORY_MESSAGES
+MAX_CONTEXT_TURNS = _MAX_CONTEXT_TURNS
+MAX_HISTORY_TEXT_CHARS = _MAX_HISTORY_TEXT_CHARS
+GEMINI_URL = _GEMINI_URL
 
 logger = logging.getLogger(__name__)
 
-GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent'
 DEFAULT_MODEL = 'gemini-3.8-flash'
 REQUEST_TIMEOUT_SECONDS = 8
-MAX_HISTORY_MESSAGES = 60
-MAX_CONTEXT_TURNS = 20
-MAX_HISTORY_TEXT_CHARS = 1800
 
 
 INTENT_SCHEMA = {
@@ -139,44 +146,8 @@ SYSTEM_INSTRUCTION = """
 
 
 def _history_for_language(chat, current_text=''):
-    """Pack recent user-authored turns into one explicit, compact conversation context.
-
-    Do not forward assistant replies: they can contain live employee or movement data.
-    A single user message also avoids a run of consecutive user roles and makes
-    elliptical follow-ups ("عدّلها", "نفس الموظف", "كمّل") easier to resolve.
-    """
-    prior = []
-    for item in (chat or [])[-MAX_HISTORY_MESSAGES:]:
-        if item.get('role') != 'user':
-            continue
-        text = str(item.get('text') or '').strip()
-        if text:
-            prior.append(text[:MAX_HISTORY_TEXT_CHARS])
-    prior = prior[-MAX_CONTEXT_TURNS:]
-    current_section = 'رسالة المستخدم الحالية:\n' + str(current_text or '').strip()[:4000]
-    # Reserve space for the current request first. Add the newest prior turns
-    # backwards so a long history can never truncate the current request or the
-    # most recent context at the front of the packed prompt.
-    budget = 16000 - len(current_section) - 2
-    selected = []
-    used = 0
-    for value in reversed(prior):
-        entry = f'{len(prior) - len(selected)}. {value}'
-        cost = len(entry) + (1 if selected else 0)
-        if cost > budget - used:
-            remaining = budget - used
-            if remaining > 8:
-                selected.append(entry[:remaining])
-            break
-        selected.append(entry)
-        used += cost
-    selected.reverse()
-    sections = []
-    if selected:
-        sections.append('رسائل المستخدم السابقة بالترتيب (الأحدث أقرب للرسالة الحالية):\n' + '\n'.join(selected))
-    sections.append(current_section)
-    packed = '\n\n'.join(sections)
-    return [{'role': 'user', 'parts': [{'text': packed[-16000:]}]}]
+    """Compatibility wrapper for the centralized intent-history packer."""
+    return _pack_history_for_language(chat, current_text)
 
 
 def build_live_context(text, local_a=None):
@@ -219,19 +190,14 @@ def llm_parse(text, chat=None, live_context=''):
             'thinkingConfig': {'thinkingLevel': 'low'},
         },
     }
-    endpoint = GEMINI_URL.format(model=urllib.parse.quote(model, safe=''))
-    request_obj = urllib.request.Request(
-        endpoint,
-        data=json.dumps(payload, ensure_ascii=False).encode('utf-8'),
-        headers={
-            'Content-Type': 'application/json',
-            'x-goog-api-key': api_key,
-        },
-        method='POST',
-    )
     try:
-        with urllib.request.urlopen(request_obj, timeout=int(current_app.config.get('GEMINI_TIMEOUT', REQUEST_TIMEOUT_SECONDS))) as response:
-            data = json.loads(response.read().decode('utf-8'))
+        data = generate_content(
+            model=model,
+            payload=payload,
+            api_key=api_key,
+            timeout=int(current_app.config.get('GEMINI_TIMEOUT', REQUEST_TIMEOUT_SECONDS)),
+            ensure_ascii=False,
+        )
         candidates = data.get('candidates') or []
         if not candidates:
             return None

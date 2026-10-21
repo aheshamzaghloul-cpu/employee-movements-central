@@ -1,6 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+CURRENT_VERSION = (ROOT / "VERSION.md").read_text(encoding="utf-8").strip()
 BASE = (ROOT / "employee_movements/templates/base.html").read_text(encoding="utf-8")
 STRUCTURE = (ROOT / "employee_movements/templates/structure.html").read_text(encoding="utf-8")
 USERS = (ROOT / "employee_movements/templates/users.html").read_text(encoding="utf-8")
@@ -17,13 +18,13 @@ ASSISTANT_CSS = (ROOT / "employee_movements/static/css/pages/assistant-dock.css"
 
 
 def test_release_metadata_and_global_stylesheet_cache_buster_are_synchronized():
-    assert (ROOT / "VERSION.md").read_text(encoding="utf-8").strip() == "68.49.0"
-    assert 'version = "68.49.0"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert "__version__ = '68.49.0'" in (ROOT / "employee_movements/__init__.py").read_text(encoding="utf-8")
-    assert 'data-app-version="68.49.0"' in BASE
-    assert BASE.count("v=68.49.0") == 21
+    assert (ROOT / "VERSION.md").read_text(encoding="utf-8").strip() == CURRENT_VERSION
+    assert f'version = "{CURRENT_VERSION}"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert f"__version__ = '{CURRENT_VERSION}'" in (ROOT / "employee_movements/__init__.py").read_text(encoding="utf-8")
+    assert 'data-app-version="{{app_version}}"' in BASE
+    assert BASE.count("v=app_version") == 24
     assert BASE.index("css/design-system-cyan.css") < BASE.index("css/pages/admin-reports-assistant.css")
-    assert "{% if me %}<link rel=\"stylesheet\" href=\"{{url_for('static',filename='css/pages/assistant-dock.css')" in BASE
+    assert "filename='css/pages/assistant-dock.css', v=app_version)" in BASE
     assert "startswith('/structure')" in BASE[:BASE.index("css/pages/admin-reports-assistant.css")]
 
 
@@ -41,7 +42,9 @@ def test_admin_and_user_permission_markup_keeps_role_gates_and_form_contracts():
 def test_reports_preserve_report_actions_scope_hints_and_filters():
     for href in ('/reports/leaves', '/reports/assignments', '/reports/permissions', '/reports/assignments/print-missions'):
         assert href in REPORTS
-    assert "اختر المحافظة أولًا" in REPORTS_MISSIONS
+    assert "اختر المحافظة أولًا" not in REPORTS_MISSIONS
+    assert "جميع المحافظات" in REPORTS_MISSIONS
+    assert "محافظة العمل تحدد صلاحية تنفيذ التغييرات ولا تمنع الاطلاع على التقارير" in REPORTS_MISSIONS
     assert 'name="governorate_id"' in MISSION_REPORTS
     assert 'name="destination_governorate_id"' in MISSION_REPORTS
     assert 'name="mission_state"' in MISSION_REPORTS

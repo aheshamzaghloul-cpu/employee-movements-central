@@ -34,10 +34,14 @@ _SQL_REPLACEMENTS = (
 
 def normalize_search_text(value: object) -> str:
     """Normalize common Arabic spelling variants and Arabic/Persian digits."""
-    text = unicodedata.normalize("NFKC", str(value or "")).translate(_CHAR_MAP)
+    # Bound CPU and SQL parameter size for user-controlled search strings while
+    # leaving ample room for long names and aliases. Truncate before Unicode
+    # normalization so a very long query cannot trigger unbounded normalization.
+    raw = str(value or "")[:1024]
+    text = unicodedata.normalize("NFKC", raw).translate(_CHAR_MAP)
     text = "".join(char for char in text if char not in _DIACRITICS)
     text = re.sub(r"\s+", " ", text).strip()
-    return text.casefold()
+    return text.casefold()[:256]
 
 
 def normalized_sql_text(column):

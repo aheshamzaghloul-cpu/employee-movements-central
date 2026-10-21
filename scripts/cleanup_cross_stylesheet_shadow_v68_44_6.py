@@ -17,7 +17,7 @@ import json, sys
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-from scripts.cleanup_shadowed_declarations_v68_44_5 import collect_rules, property_key
+from scripts.cleanup_shadowed_declarations_v68_44_5 import collect_rules
 
 CSS_ROOT = ROOT / "employee_movements" / "static" / "css"
 CANONICAL = CSS_ROOT / "design-system-cyan.css"

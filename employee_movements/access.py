@@ -6,8 +6,9 @@ from functools import wraps
 
 from flask import abort, has_request_context, redirect, request, session, url_for
 
-from .constants import LOGIN_ROLES, OPERATIONAL_SCOPE_ENDPOINTS, PERMISSIONS, ROLE_DEFAULT_PERMISSIONS, ROLES
+from .constants import GLOBAL_READ_SCOPE_ENDPOINTS, LOGIN_ROLES, OPERATIONAL_SCOPE_ENDPOINTS, PERMISSIONS, ROLE_DEFAULT_PERMISSIONS
 from .extensions import db
+from .navigation import safe_local_return_to
 from .models import (
     ApprovalDelegation,
     Audit,
@@ -72,6 +73,23 @@ def req(f):
         if not u or not u.is_active:
             session.clear()
             return redirect(url_for('auth.login'))
+        # Password resets and security-sensitive account changes revoke older signed-cookie sessions.
+        # Sessions created before this field existed fail closed and must sign in again.
+        try:
+            session_auth_version = int(session.get('auth_version', -1))
+            current_auth_version = int(u.auth_version or 0)
+        except (TypeError, ValueError):
+            session_auth_version = -1
+            current_auth_version = int(u.auth_version or 0)
+        if session_auth_version != current_auth_version:
+            session.clear()
+            return redirect(url_for('auth.login'))
+        # Only the three official login roles can enter the application. Legacy
+        # first-entry accounts are migrated away; this guard also fails closed if
+        # an orphan/no-role account remains in an older database.
+        if not (actual_roles(u) & set(LOGIN_ROLES)):
+            session.clear()
+            return redirect(url_for('auth.login'))
         if u.must_change_password and request.endpoint != 'auth.change_password':
             return redirect(url_for('auth.change_password'))
         return f(*a, **k)
@@ -99,11 +117,8 @@ def log(a, e='', i=None, d=''):
 
 
 def safe_next_url(target, fallback='/'):
-    """Return ``target`` only when it is a same-site relative path (prevents open redirects)."""
-    target = (target or '').strip()
-    if target.startswith('/') and not target.startswith(('//', '/\\')) and '\n' not in target and '\r' not in target:
-        return target
-    return fallback
+    """Return only a safe same-origin path for post-login/role-switch navigation."""
+    return safe_local_return_to(target, fallback)
 
 
 def csrf_token():
@@ -159,6 +174,12 @@ def user_permissions(u):
         if selected == 'مسؤول التطبيق':
             return set(PERMISSIONS)
         allowed = set(ROLE_DEFAULT_PERMISSIONS.get(selected, set()))
+        # Operational access is intentionally consistent across the three
+        # formal roles. The permission editor cannot silently remove shared
+        # daily-work capabilities; admin-only capabilities remain outside the
+        # allowed set for Supervisor and Manager regardless of stored rows.
+        if selected in {'مشرف محافظة', 'Manager Application Support'}:
+            return allowed
         return (explicit & allowed) if (custom_mode or explicit) else allowed
 
     if u and has_request_context() and u.id == session.get('uid'):
@@ -179,7 +200,14 @@ def user_permissions(u):
 
 def can(permission):
     u = me()
-    return bool(u and ('مسؤول التطبيق' in roles(u) or permission in user_permissions(u)))
+    if not u or not getattr(u, 'is_active', False):
+        return False
+    active_roles = roles(u)
+    # Shared read access is a product rule for every official login role, not a
+    # per-role toggle. This never grants write, account-admin, or audit rights.
+    if permission == 'view_reports' and active_roles & set(LOGIN_ROLES):
+        return True
+    return bool('مسؤول التطبيق' in active_roles or permission in user_permissions(u))
 
 
 def user_gov_ids(u):
@@ -228,7 +256,18 @@ def user_branch_ids(u):
 
 
 def is_scope_required_endpoint():
-    return bool(has_request_context() and request.endpoint in OPERATIONAL_SCOPE_ENDPOINTS)
+    """Return whether this request must use the selected work-governorate.
+
+    Global read screens deliberately ignore the active operational selector. For
+    mixed GET/POST endpoints, only safe HTTP methods are exempt; writes continue
+    to use the selected scope and are checked again by their route-level guards.
+    """
+    if not has_request_context():
+        return False
+    endpoint = request.endpoint
+    if endpoint in GLOBAL_READ_SCOPE_ENDPOINTS and request.method in {'GET', 'HEAD', 'OPTIONS'}:
+        return False
+    return endpoint in OPERATIONAL_SCOPE_ENDPOINTS
 
 
 def scope_governorate_id():
@@ -249,7 +288,11 @@ def scope_governorate_id():
     current_scope_role = next(iter(rs & scoped_roles), None)
     allowed_ids = {g.id for g in scope_governorates_for_user(u)}
 
-    raw = request.args.get('governorate_id') or request.args.get('manager_governorate_id') or ''
+    # The shell selector uses a dedicated query key so choosing a work scope
+    # never overwrites a page's own governorate filter (especially the global
+    # mission directory). Keep manager_governorate_id as a backwards-compatible
+    # legacy key; governorate_id now belongs to the page's filter controls.
+    raw = request.args.get('work_governorate_id') or request.args.get('manager_governorate_id') or ''
     if raw.isdigit():
         gid = int(raw)
         if gid in allowed_ids and Governorate.query.filter_by(id=gid, is_active=True).first():
@@ -397,6 +440,23 @@ def bids():
     ]
 
 
+def readable_branch_ids():
+    """Return every active branch for shared read-only employee/movement views.
+
+    This deliberately does not consult the selected work-governorate. Callers
+    must still use `can_manage_employee` / `can_manage_movement` for writes.
+    """
+    if not can('view_reports'):
+        return []
+    return [
+        branch.id
+        for branch in Branch.query.join(Governorate, Governorate.id == Branch.governorate_id)
+        .filter(Branch.is_active == True, Governorate.is_active == True)
+        .order_by(Branch.id.asc())
+        .all()
+    ]
+
+
 def governorate_ok(i):
     """Return whether a governorate is inside the user's effective operational scope."""
     try:
@@ -413,30 +473,30 @@ def branch_ok(i):
 
 
 def allowed_create_user(role):
-    rs = roles()
-    if 'مسؤول التطبيق' in rs:
-        return role in ROLES
-    return role == 'المدخل الأول' and 'مشرف محافظة' in rs
+    """Only formal login roles can be assigned to user accounts."""
+    return 'مسؤول التطبيق' in roles() and role in LOGIN_ROLES
 
 
 def allowed_target_user(target):
-    current = me()
-    rs = roles(current)
-    if not target or not target.is_active:
-        return False
-    if 'مسؤول التطبيق' in rs:
-        return True
-    if 'مشرف محافظة' not in rs or 'المدخل الأول' not in roles(target):
-        return False
-    target_govs = {
-        b.governorate_id
-        for b in Branch.query.join(UserBranch, UserBranch.branch_id == Branch.id).filter(UserBranch.user_id == target.id)
-    }
-    return bool(set(gids()) & target_govs)
+    """User-account administration is reserved for the application administrator."""
+    return bool(target and target.is_active and 'مسؤول التطبيق' in roles())
 
 
 def can_manage_employee(e):
-    return bool(e and branch_ok(e.branch_id) and can('manage_employees'))
+    """Mutations require the selected work governorate, even from global read pages."""
+    if not e or not can('manage_employees'):
+        return False
+    branch = db.session.get(Branch, e.branch_id) if getattr(e, 'branch_id', None) else None
+    if not branch or not getattr(branch, 'is_active', False):
+        return False
+    governorate = getattr(branch, 'governorate', None)
+    if not governorate or not getattr(governorate, 'is_active', False):
+        return False
+    selected = scope_governorate_id()
+    # No mutations from cross-governorate search/profile pages without an
+    # explicitly selected and authorized work governorate. Supervisors with a
+    # single unambiguous assigned governorate are resolved by scope_governorate_id.
+    return bool(selected and governorate.id == int(selected) and branch_ok(branch.id))
 
 
 def can_manage_movement_employee(e, movement_type=None):
@@ -461,6 +521,13 @@ def can_manage_movement_employee(e, movement_type=None):
     ):
         return False
     rs = roles()
+    # Transactional selection is not a global directory read. It must always be
+    # inside the selected work-governorate, even if called from a global page.
+    if movement_type:
+        employee_governorate_id = employee_branch.governorate_id
+        selected = scope_governorate_id()
+        if not selected or employee_governorate_id != int(selected) or not branch_ok(e.branch_id):
+            return False
     if 'مسؤول التطبيق' in rs:
         return True
     if rs & {'مشرف محافظة', 'Manager Application Support'} and movement_type == 'انتداب':
@@ -490,55 +557,26 @@ def can_manage_movement_destination(branch, movement_type=None):
 
 
 def movement_is_closed(m):
-    """Return whether the movement/mission is in a closed state.
+    """Return whether a movement/mission is closed, including legacy records."""
+    from .movement_state import assignment_is_closed
 
-    Closing a mission is a lifecycle boundary: supervisors may create and
-    maintain an open movement, but reopening or editing a closed mission is
-    reserved for Manager Application Support and the application administrator.
-    """
-    return bool(
-        m
-        and (
-            getattr(m, 'assignment_state', None) == 'مغلق'
-            or getattr(m, 'mission_state', None) == 'مغلقة'
-        )
-    )
+    return assignment_is_closed(m)
 
 
 def can_view_movement(m=None):
-    """Return whether the user may view/print a movement regardless of edit rights.
+    """Allow read-only movement visibility across active governorates.
 
-    The central Manager and application administrator can view all governorates.
-    Supervisors can view and print assignments globally, while leave/permission
-    records remain within their operational scope. First-level entry stays branch-scoped.
-    Closed-state restrictions apply to mutation, not printing.
+    All official roles may inspect operational records and their history across
+    governorates. The selected work governorate is deliberately enforced by
+    `can_manage_employee`, `can_manage_movement` and mutation endpoints, not by
+    a read-only permission check. This prevents a global report from linking to
+    a record that cannot be inspected, while never granting edit rights.
     """
-    rs = roles()
-    if 'مسؤول التطبيق' in rs:
-        return bool(m is None or getattr(m, 'is_active', True))
-    if 'مشرف محافظة' in rs and can('view_reports'):
-        if m is None:
-            return True
-        if not getattr(m, 'is_active', True):
-            return False
-        # الانتداب/المأمورية وحده ذو نطاق عالمي للمشرف؛ الإجازات والأذونات
-        # تظل ضمن نطاقه التشغيلي المعتاد.
-        if getattr(m, 'movement_type', None) == 'انتداب':
-            return True
-        return branch_ok(m.employee.branch_id) if getattr(m, 'employee', None) else False
-    if 'Manager Application Support' in rs and can('view_reports'):
-        # Central Manager can review/print assignments across all governorates.
-        # Leave and permission records remain in the selected operational scope.
-        if m is None:
-            return True
-        if not getattr(m, 'is_active', False) or not getattr(m, 'employee', None):
-            return False
-        if getattr(m, 'movement_type', None) == 'انتداب':
-            return True
-        return branch_ok(m.employee.branch_id)
-    if 'المدخل الأول' in rs and can('view_reports'):
-        return bool(m and branch_ok(m.employee.branch_id))
-    return False
+    if not can('view_reports'):
+        return False
+    if m is None:
+        return True
+    return bool(getattr(m, 'is_active', False))
 
 
 def can_print_mission(m=None):
@@ -559,11 +597,34 @@ def can_print_mission(m=None):
 
 def can_manage_movement(m=None):
     rs = roles()
+    if not can('manage_movements'):
+        return False
+    # Mutation authorization always requires an explicit authorized work scope,
+    # independent of the current page. Global reports remain read-only across all
+    # governorates. The source employee (not the destination) must be in scope.
+    selected = scope_governorate_id()
+    if not selected:
+        return False
+    if m is not None:
+        employee = getattr(m, 'employee', None)
+        branch = getattr(employee, 'branch', None) if employee else None
+        if (
+            not branch
+            or not getattr(branch, 'is_active', False)
+            or not getattr(branch, 'governorate', None)
+            or branch.governorate_id != int(selected)
+            or not branch_ok(branch.id)
+        ):
+            return False
+        # Closed assignments can only be changed through a request decided by
+        # Manager Application Support; never show a generic edit affordance.
+        if getattr(m, 'movement_type', None) == 'انتداب' and movement_is_closed(m):
+            return False
     if 'مسؤول التطبيق' in rs:
         return True
     if 'Manager Application Support' in rs and can('manage_movements'):
-        # Central Manager may manage assignments across all governorates, including
-        # closed missions. Leave and permission editing remains work-scope-bound.
+        # The Manager can execute privileged lifecycle actions, but when using an
+        # operational page the source employee must be inside the chosen work scope.
         if m is None:
             return True
         if not getattr(m, 'is_active', False) or not getattr(m, 'employee', None):
@@ -572,16 +633,13 @@ def can_manage_movement(m=None):
             return True
         return branch_ok(m.employee.branch_id)
     if 'مشرف محافظة' in rs and can('manage_movements'):
-        # Only assignments/missions have global employee reach for supervisors.
-        # Leave and permission remain restricted to the supervisor's operational scope.
+        # The supervisor may view missions globally, but mutation buttons/actions
+        # on a scoped operational page are restricted to the selected governorate.
         if m is not None and getattr(m, 'movement_type', None) != 'انتداب':
             return bool(branch_ok(m.employee.branch_id))
-        # A closed assignment may only be modified/reopened by Manager/Admin.
+        # Direct mutation of a closed assignment is prohibited for every role;
+        # a Manager-approved request is handled through its dedicated service.
         return not movement_is_closed(m)
-    if 'المدخل الأول' not in rs:
-        return False
-    # First-level users remain restricted to their assigned branches and cannot
-    # edit a closed mission.
-    if movement_is_closed(m):
-        return False
-    return bool(m and branch_ok(m.employee.branch_id)) if m else True
+    # No legacy first-entry login role is accepted; organizational entry
+    # assignments do not grant movement mutation permissions.
+    return False

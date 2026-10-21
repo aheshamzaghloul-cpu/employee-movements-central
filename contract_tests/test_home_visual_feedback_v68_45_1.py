@@ -1,6 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+CURRENT_VERSION = (ROOT / "VERSION.md").read_text(encoding="utf-8").strip()
 BASE = (ROOT / "employee_movements/templates/base.html").read_text(encoding="utf-8")
 DOCK = (ROOT / "employee_movements/templates/assistant_dock.html").read_text(encoding="utf-8")
 ASSISTANT_CSS = (ROOT / "employee_movements/static/css/pages/assistant-dock.css").read_text(encoding="utf-8")
@@ -44,7 +45,7 @@ def test_assistant_name_is_visible_and_accessible():
 
 
 def test_static_asset_cache_version_is_bumped_consistently():
-    assert "68.49.0" in BASE
+    assert 'data-app-version="{{app_version}}"' in BASE
     assert "68.45.0" not in BASE
 
 

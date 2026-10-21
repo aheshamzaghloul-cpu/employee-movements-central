@@ -4,6 +4,8 @@ import ast
 
 ROOT = Path("employee_movements/assistant")
 AGENT = (ROOT / "agent.py").read_text(encoding="utf-8")
+DISPATCH = (ROOT / "tool_dispatch.py").read_text(encoding="utf-8")
+PREPARATION = (ROOT / "action_preparation.py").read_text(encoding="utf-8")
 ROUTES = (ROOT / "routes.py").read_text(encoding="utf-8")
 
 
@@ -19,20 +21,21 @@ def _calls(source, name):
 
 def test_agent_tool_boundary_only_prepares_mutations():
     assert "def tool_execute(name, args, ctx):" in AGENT
-    assert "if name == \"prepare_action\":" in AGENT
-    assert "manager_execute(" not in AGENT
-    assert "_execute_movement_plan(" not in AGENT
+    assert "return _dispatch_tool(name, args, ctx)" in AGENT
+    assert "if name == \"prepare_action\":" in DISPATCH
+    assert "manager_execute(" not in AGENT + DISPATCH + PREPARATION
+    assert "_execute_movement_plan(" not in AGENT + DISPATCH + PREPARATION
 
 
 def test_prepare_action_routes_writes_through_plan_layer():
-    assert "manager_plan(normalized)" in AGENT
-    assert "build_movement_plan(normalized)" in AGENT
+    assert "manager_plan(normalized)" in PREPARATION
+    assert "build_movement_plan(normalized)" in PREPARATION
     assert "manager_execute(" in ROUTES
     assert "_execute_movement_plan(" in ROUTES
 
 
 def test_no_direct_execute_calls_inside_agent_tool_dispatch():
-    dispatch = AGENT[AGENT.index("def tool_execute"):AGENT.index("def _prepare_action")]
+    dispatch = DISPATCH[DISPATCH.index("def dispatch_tool"):]
     assert not _calls(dispatch, "execute")
 
 

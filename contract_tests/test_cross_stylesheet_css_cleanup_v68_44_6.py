@@ -10,6 +10,7 @@ from scripts.cleanup_cross_stylesheet_shadow_v68_44_6 import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
+CURRENT_VERSION = (ROOT / "VERSION.md").read_text(encoding="utf-8").strip()
 BASE = (ROOT / "employee_movements/templates/base.html").read_text(encoding="utf-8")
 
 
@@ -58,11 +59,11 @@ def test_version_and_asset_cache_busters_are_synchronized():
     version = (ROOT / "VERSION.md").read_text(encoding="utf-8").strip()
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     init_py = (ROOT / "employee_movements/__init__.py").read_text(encoding="utf-8")
-    assert version == "68.49.0"
-    assert 'version = "68.49.0"' in pyproject
-    assert "__version__ = '68.49.0'" in init_py
-    assert BASE.count("v=68.49.0") == 21
-    assert 'data-app-version="68.49.0"' in BASE
+    assert version == CURRENT_VERSION
+    assert f'version = "{CURRENT_VERSION}"' in pyproject
+    assert f"__version__ = '{CURRENT_VERSION}'" in init_py
+    assert BASE.count("v=app_version") == 24
+    assert 'data-app-version="{{app_version}}"' in BASE
 
 
 def test_cross_stylesheet_tool_protects_context_priority_comments_and_fallbacks():

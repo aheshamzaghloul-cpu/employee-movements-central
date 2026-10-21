@@ -1,12 +1,19 @@
 """Governorates, branches and lookup lists."""
 
-from flask import abort, Blueprint, flash, redirect, render_template, request, session
+from flask import abort, Blueprint, flash, redirect, render_template, request
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 
-from ..access import actual_roles, can, gids, governorate_ok, has_role, log, only, req, roles, user_branch_ids
+from ..access import can, gids, governorate_ok, has_role, log, me, only, req, roles
 from ..extensions import db
-from ..services.entity_matching import alias_owner_conflict, normalize_alias_key
+from ..services.entity_matching import normalize_alias_key
+from ..services.entity_integrity import (
+    branch_code_conflict,
+    branch_name_conflict,
+    confirmed_alias_conflict,
+    governorate_name_conflict,
+)
+from ..services.identity_locks import lock_entity_identity_writes
 from ..models import (
     ApprovalDelegation,
     Branch,
@@ -17,7 +24,6 @@ from ..models import (
     GovernorateNameAlias,
     Lookup,
     Movement,
-    User,
     UserBranch,
     UserGovernorate,
 )
@@ -30,14 +36,12 @@ bp = Blueprint('catalog', __name__)
 @only('مسؤول التطبيق')
 def governorates():
     if request.method == 'POST':
+        lock_entity_identity_writes(db.session)
         name = request.form.get('name', '').strip()
-        alias_conflict = alias_owner_conflict('governorate', name)
         if not name:
             flash('اكتب اسم المحافظة.')
-        elif Governorate.query.filter_by(name=name).first():
-            flash('المحافظة موجودة بالفعل.')
-        elif alias_conflict:
-            flash('اسم المحافظة يطابق صيغة بديلة مرتبطة بمحافظة أخرى؛ راجع الأسماء البديلة أولًا.')
+        elif governorate_name_conflict(name):
+            flash('اسم المحافظة موجود بالفعل أو يتعارض مع اسم رسمي/بديل مؤكد؛ راجع سجل المحافظات.')
         else:
             x = Governorate(name=name)
             db.session.add(x)
@@ -88,7 +92,8 @@ def governorates():
 @req
 @only('مسؤول التطبيق')
 def governorate_alias_add(i):
-    governorate = db.session.get(Governorate, i)
+    lock_entity_identity_writes(db.session)
+    governorate = Governorate.query.populate_existing().filter_by(id=i).with_for_update().one_or_none()
     if not governorate:
         abort(404)
     alias_text = (request.form.get('alias_text') or '').strip()[:200]
@@ -96,16 +101,15 @@ def governorate_alias_add(i):
     if len(normalized) < 2 or normalized == normalize_alias_key(governorate.name):
         flash('اكتب اسمًا بديلًا واضحًا يختلف عن الاسم الرسمي.')
         return redirect('/governorates')
-    for other in Governorate.query.filter(Governorate.id != governorate.id).all():
-        if normalize_alias_key(other.name) == normalized:
-            flash('لا يمكن حفظ الاسم؛ فهو يطابق الاسم الرسمي لمحافظة أخرى.')
-            return redirect('/governorates')
+    if confirmed_alias_conflict('governorate', alias_text, target_id=governorate.id):
+        flash('لا يمكن حفظ الاسم؛ فهو يطابق اسمًا رسميًا أو بديلًا مرتبطًا بمحافظة أخرى.')
+        return redirect('/governorates')
     existing = GovernorateNameAlias.query.filter_by(normalized_alias=normalized).first()
     if existing:
         flash('الاسم البديل مرتبط بالفعل بالمحافظة نفسها.' if existing.governorate_id == i else 'الاسم البديل مرتبط بمحافظة أخرى؛ لم يتم تغيير الربط.')
         return redirect('/governorates')
     try:
-        row = GovernorateNameAlias(governorate_id=i, alias_text=alias_text, normalized_alias=normalized, created_by=session.get('user_id'))
+        row = GovernorateNameAlias(governorate_id=i, alias_text=alias_text, normalized_alias=normalized, created_by=me().id)
         db.session.add(row)
         db.session.flush()
         log('ADD', 'GovernorateNameAlias', row.id, 'حفظ اسم محافظة بديل مؤكد')
@@ -121,16 +125,16 @@ def governorate_alias_add(i):
 @req
 @only('مسؤول التطبيق')
 def governorate_edit(i):
-    x = db.session.get(Governorate, i)
+    lock_entity_identity_writes(db.session)
+    x = Governorate.query.populate_existing().filter_by(id=i).with_for_update().one_or_none()
     if not x:
         abort(404)
     n = request.form.get('name', '').strip()
-    dup = Governorate.query.filter(Governorate.name == n, Governorate.id != i).first()
-    alias_conflict = alias_owner_conflict('governorate', n, target_id=i)
-    if not n or dup:
-        flash('الاسم غير صالح أو مكرر.')
-    elif alias_conflict:
-        flash('الاسم يطابق صيغة بديلة لمحافظة أخرى؛ لم يتم التعديل.')
+    name_conflict = governorate_name_conflict(n, exclude_id=i)
+    if not n:
+        flash('الاسم غير صالح أو فارغ.')
+    elif name_conflict:
+        flash('الاسم يتعارض مع اسم رسمي أو بديل مؤكد لمحافظة أخرى؛ لم يتم التعديل.')
     else:
         x.name = n
         log('EDIT', 'Governorate', i, n)
@@ -143,7 +147,8 @@ def governorate_edit(i):
 @req
 @only('مسؤول التطبيق')
 def governorate_toggle(i):
-    x = db.session.get(Governorate, i)
+    lock_entity_identity_writes(db.session)
+    x = Governorate.query.populate_existing().filter_by(id=i).with_for_update().one_or_none()
     if not x:
         abort(404)
     x.is_active = not x.is_active
@@ -156,7 +161,8 @@ def governorate_toggle(i):
 @req
 @only('مسؤول التطبيق')
 def governorate_delete(i):
-    x = db.session.get(Governorate, i)
+    lock_entity_identity_writes(db.session)
+    x = Governorate.query.populate_existing().filter_by(id=i).with_for_update().one_or_none()
     if not x:
         abort(404)
     if (
@@ -222,43 +228,26 @@ def branches():
         )
         return _render_branches_page(rows, gs)
     if request.method == 'POST':
+        lock_entity_identity_writes(db.session)
         gid = request.form.get('governorate_id')
         name = request.form.get('name', '').strip()
         code = request.form.get('code', '').strip()
-        entry_user_id = request.form.get('entry_user_id', '').strip()
         g = db.session.get(Governorate, int(gid)) if gid and gid.isdigit() else None
         if not g or not g.is_active or (not name) or (not code):
             flash('جميع بيانات الفرع مطلوبة: المحافظة والاسم والكود.')
         elif 'مسؤول التطبيق' not in roles() and not governorate_ok(g.id):
             abort(403)
-        elif Branch.query.filter_by(governorate_id=g.id, name=name).first():
-            flash('الفرع موجود بالفعل في هذه المحافظة.')
-        elif alias_owner_conflict('branch', name):
-            flash('اسم الفرع يطابق صيغة بديلة مرتبطة بفرع آخر؛ راجع الأسماء البديلة أولًا.')
-        elif Branch.query.filter(
-            Branch.governorate_id == g.id,
-            func.lower(func.trim(Branch.code)) == code.lower(),
-        ).first():
+        elif branch_name_conflict(name, g.id):
+            flash('اسم الفرع موجود بالفعل داخل المحافظة أو يتعارض مع اسم بديل مؤكد.')
+        elif branch_code_conflict(code, g.id):
             flash('كود الفرع مستخدم بالفعل في هذه المحافظة.')
         else:
             x = Branch(governorate_id=g.id, name=name, code=code)
             db.session.add(x)
             db.session.flush()
-            if entry_user_id.isdigit():
-                eu = db.session.get(User, int(entry_user_id))
-                valid_entry = bool(eu and eu.is_active and ('المدخل الأول' in actual_roles(eu)))
-                if valid_entry:
-                    # الربط هنا خاص بفروع المسؤولية فقط، ولا يغيّر فرع التعيين الوظيفي للمدخل.
-                    if 'مسؤول التطبيق' not in roles() and (not set(gids()) & {g.id}):
-                        abort(403)
-                    if (
-                        'مسؤول التطبيق' in roles()
-                        or g.id in {b.governorate_id for b in Branch.query.filter(Branch.id.in_(user_branch_ids(eu))).all()}
-                    ):
-                        db.session.add(UserBranch(user_id=eu.id, branch_id=x.id))
             log('ADD', 'Branch', x.id, name)
             db.session.commit()
-            flash('تمت إضافة الفرع وربطه بالمدخل الأول تلقائيًا.')
+            flash('تمت إضافة الفرع. يمكنك إسناد مسؤول إدخال الفروع من مركز التكليفات في الرئيسية.')
     gs = (
         Governorate.query.filter(Governorate.id.in_(gids()), Governorate.is_active == True)
         .order_by(Governorate.name)
@@ -276,7 +265,8 @@ def branches():
 @req
 @only('مسؤول التطبيق')
 def branch_alias_add(i):
-    branch = db.session.get(Branch, i)
+    lock_entity_identity_writes(db.session)
+    branch = Branch.query.populate_existing().filter_by(id=i).with_for_update().one_or_none()
     if not branch:
         abort(404)
     alias_text = (request.form.get('alias_text') or '').strip()[:200]
@@ -284,16 +274,15 @@ def branch_alias_add(i):
     if len(normalized) < 2 or normalized == normalize_alias_key(branch.name):
         flash('اكتب اسمًا بديلًا واضحًا يختلف عن الاسم الرسمي.')
         return redirect('/branches')
-    for other in Branch.query.filter(Branch.id != branch.id).all():
-        if normalize_alias_key(other.name) == normalized:
-            flash('لا يمكن حفظ الاسم؛ فهو يطابق الاسم الرسمي لفرع آخر.')
-            return redirect('/branches')
+    if confirmed_alias_conflict('branch', alias_text, target_id=branch.id):
+        flash('لا يمكن حفظ الاسم؛ فهو يطابق اسمًا رسميًا أو بديلًا مرتبطًا بفرع آخر.')
+        return redirect('/branches')
     existing = BranchNameAlias.query.filter_by(normalized_alias=normalized).first()
     if existing:
         flash('الاسم البديل مرتبط بالفعل بالفرع نفسه.' if existing.branch_id == i else 'الاسم البديل مرتبط بفرع آخر؛ لم يتم تغيير الربط.')
         return redirect('/branches')
     try:
-        row = BranchNameAlias(branch_id=i, alias_text=alias_text, normalized_alias=normalized, created_by=session.get('user_id'))
+        row = BranchNameAlias(branch_id=i, alias_text=alias_text, normalized_alias=normalized, created_by=me().id)
         db.session.add(row)
         db.session.flush()
         log('ADD', 'BranchNameAlias', row.id, 'حفظ اسم فرع بديل مؤكد')
@@ -309,10 +298,15 @@ def branch_alias_add(i):
 @req
 @only('مسؤول التطبيق', 'مشرف محافظة')
 def branch_edit(i):
+    lock_entity_identity_writes(db.session)
     if not can('manage_structure') or not has_role('مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'):
         abort(403)
-    x = db.session.get(Branch, i)
-    g = db.session.get(Governorate, int(request.form.get('governorate_id', '0')))
+    x = Branch.query.populate_existing().filter_by(id=i).with_for_update().one_or_none()
+    try:
+        requested_governorate_id = int(request.form.get('governorate_id', '0'))
+    except (TypeError, ValueError):
+        requested_governorate_id = 0
+    g = Governorate.query.populate_existing().filter_by(id=requested_governorate_id).with_for_update().one_or_none()
     n = request.form.get('name', '').strip()
     code = request.form.get('code', '').strip()
     if not x or not g or (not g.is_active) or (not n) or (not code):
@@ -335,20 +329,10 @@ def branch_edit(i):
     ):
         flash('لا يمكن نقل فرع مرتبط بموظفين أو مستخدمين أو حركات إلى محافظة أخرى؛ عالج الارتباطات أولًا.')
         return redirect('/branches')
-    dup = (
-        Branch.query.filter(Branch.governorate_id == g.id, Branch.name == n, Branch.id != i)
-        .first()
-    )
-    duplicate_code = Branch.query.filter(
-        Branch.governorate_id == g.id,
-        func.lower(func.trim(Branch.code)) == code.lower(),
-        Branch.id != i,
-    ).first()
-    alias_conflict = alias_owner_conflict('branch', n, target_id=i)
-    if dup:
-        flash('الفرع موجود بالفعل في هذه المحافظة.')
-    elif alias_conflict:
-        flash('اسم الفرع يطابق صيغة بديلة لفرع آخر؛ لم يتم التعديل.')
+    name_conflict = branch_name_conflict(n, g.id, exclude_id=i)
+    duplicate_code = branch_code_conflict(code, g.id, exclude_id=i)
+    if name_conflict:
+        flash('اسم الفرع موجود بالفعل داخل المحافظة أو يتعارض مع اسم بديل مؤكد.')
     elif duplicate_code:
         flash('كود الفرع مستخدم بالفعل في هذه المحافظة.')
     else:
@@ -365,9 +349,10 @@ def branch_edit(i):
 @req
 @only('مسؤول التطبيق', 'مشرف محافظة')
 def branch_toggle(i):
+    lock_entity_identity_writes(db.session)
     if not can('manage_structure') or not has_role('مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'):
         abort(403)
-    x = db.session.get(Branch, i)
+    x = Branch.query.populate_existing().filter_by(id=i).with_for_update().one_or_none()
     if not x:
         abort(404)
     if 'مسؤول التطبيق' not in roles() and not governorate_ok(x.governorate_id):
@@ -388,9 +373,10 @@ def branch_toggle(i):
 @req
 @only('مسؤول التطبيق', 'مشرف محافظة')
 def branch_delete(i):
+    lock_entity_identity_writes(db.session)
     if not can('manage_structure') or not has_role('مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'):
         abort(403)
-    x = db.session.get(Branch, i)
+    x = Branch.query.populate_existing().filter_by(id=i).with_for_update().one_or_none()
     if not x:
         abort(404)
     if 'مسؤول التطبيق' not in roles() and not governorate_ok(x.governorate_id):

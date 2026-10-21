@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% block title %}طباعة تقرير المأموريات{% endblock %}
+{% block content %}
+<section class="mission-report-print-page" aria-labelledby="missionPrintTitle">
+  <div class="mission-report-print-toolbar no-print">
+    <div>
+      <span class="ui-eyebrow">تقرير شامل</span>
+      <h1 id="missionPrintTitle">تقرير المأموريات</h1>
+      <p>تتضمن هذه النسخة جميع السجلات المطابقة للفلاتر، وليس الصفحة الحالية فقط.</p>
+    </div>
+    <div class="ui-actions">
+      <button type="button" class="ui-btn ui-tone-teal" onclick="window.print()">طباعة التقرير</button>
+      <a class="ui-btn ui-btn-secondary" href="{{ url_for('missions.mission_print_list', **request.args.to_dict()) }}">العودة إلى النتائج</a>
+    </div>
+  </div>
+
+  <header class="mission-report-print-heading">
+    <h1>تقرير المأموريات</h1>
+    <div>نظام إدارة حركات الموظفين المركزي</div>
+    <div>تاريخ إعداد التقرير: {{ report_generated_at.strftime('%Y-%m-%d %H:%M') }}</div>
+    <div>النطاق: جميع السجلات المسموح بها والمطابقة للفلاتر</div>
+    <div>إجمالي السجلات المطابقة: {{ total_rows if total_rows is not none else 0 }}</div>
+  </header>
+
+  {% if date_range_error %}
+  <div class="ui-alert ui-alert-warning" role="alert">تاريخ البداية يأتي بعد تاريخ النهاية. لم تُعرض نتائج لهذه الفترة؛ ارجع إلى التقرير وصحّح التاريخين.</div>
+  {% elif filter_error %}
+  <div class="ui-alert ui-alert-warning" role="alert">تعذر تطبيق فلتر واحد أو أكثر. عُرضت النتائج وفق التصفية الآمنة؛ راجع الفلاتر في صفحة التقرير.</div>
+  {% endif %}
+  {% if print_filters %}
+  <section class="mission-report-print-filters" aria-label="الفلاتر المستخدمة">
+    <strong>الفلاتر المطبقة</strong>
+    <dl>{% for label, value in print_filters %}<div><dt>{{ label }}</dt><dd>{{ value }}</dd></div>{% endfor %}</dl>
+  </section>
+  {% else %}
+  <p class="mission-report-print-all">لم تُطبّق فلاتر إضافية؛ يعرض التقرير جميع المأموريات ضمن نطاق الصلاحية.</p>
+  {% endif %}
+
+  <div class="mission-report-print-table-wrap">
+    <table class="ui-table mission-report-print-table">
+      <thead>
+        <tr>
+          <th>رقم</th><th>الكود</th><th>اسم الموظف</th><th>المحافظة الأصلية</th><th>الفرع الأصلي</th>
+          <th>محافظة جهة المأمورية</th><th>فرع جهة المأمورية</th><th>من</th><th>إلى</th><th>الأيام</th>
+          <th>الحالة</th><th>منشئ المأمورية</th><th>سبب الإغلاق</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in rows %}
+        {% set origin = m.employee.branch if m.employee else none %}
+        {% set destination = m.destination %}
+        {% set state = mission_state_label(m) %}
+        <tr data-mission-id="{{ m.id }}">
+          <td>{{ m.id }}</td>
+          <td>{{ m.employee.job_code if m.employee and m.employee.job_code else '—' }}</td>
+          <td>{{ m.employee.full_name if m.employee else '—' }}</td>
+          <td>{{ origin.governorate.name if origin and origin.governorate else '—' }}</td>
+          <td>{{ origin.name if origin else '—' }}</td>
+          <td>{{ destination.governorate.name if destination and destination.governorate else '—' }}</td>
+          <td>{{ destination.name if destination else '—' }}</td>
+          <td>{{ m.from_date or '—' }}</td>
+          <td>{{ m.to_date or 'مفتوح' }}</td>
+          <td>{% if m.from_date and m.to_date %}{{ (m.to_date - m.from_date).days + 1 }}{% else %}—{% endif %}</td>
+          <td><span class="mission-print-state {{ 'is-closed' if state == 'مغلقة' else 'is-open' }}">{{ state }}</span></td>
+          <td>{{ m.creator_user.full_name if m.creator_user else '—' }}</td>
+          <td>{{ m.closure_reason or '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td class="mission-print-empty" colspan="13">لا توجد مأموريات تطابق الفلاتر الحالية.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <footer class="mission-report-print-footer">تم إعداد التقرير من السجلات المطابقة للفلاتر وقت إنشائه. السجلات المحذوفة أو غير النشطة لا تظهر ضمن التقرير.</footer>
+</section>
+{% endblock %}

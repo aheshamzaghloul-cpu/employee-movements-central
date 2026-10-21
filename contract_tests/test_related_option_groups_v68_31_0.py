@@ -48,7 +48,7 @@ def test_shared_option_group_design_is_loaded_from_base_stylesheet():
     base = read("base.html")
     for selector in [".smart-option-group-grid", ".smart-option-group", ".smart-option-fields", ".smart-option-actions"]:
         assert selector in css
-    assert f"v={ (ROOT / 'VERSION.md').read_text(encoding='utf-8').strip() }" in base
+    assert "v=app_version" in base
 
 
 def test_project_version_is_consistent():
@@ -76,7 +76,9 @@ def test_mission_review_groups_decision_and_notes():
 def test_temporary_print_end_date_is_explicitly_separate_from_saved_mission():
     source = read("mission_print_date.html")
     assert "بيانات الطباعة المؤقتة" in source
-    assert 'form="missionPrintDateForm"' in source and "لن يُحفظ على الانتداب ولن يغلقه" in source
+    assert 'id="missionPrintDateForm"' in source and 'name="print_to_date"' in source
+    assert source.index('id="missionPrintDateForm"') < source.index('name="print_to_date"')
+    assert "لن يُحفظ على الانتداب ولن يغلقه" in source
 
 
 def test_entry_role_conversion_groups_supervisor_and_branch_scope():
@@ -85,10 +87,13 @@ def test_entry_role_conversion_groups_supervisor_and_branch_scope():
     assert 'name="supervisor_id"' in source and 'name="branch_id"' in source
 
 
-def test_replacement_flows_pair_source_and_destination_and_confirm_action():
+def test_supervisor_replacement_keeps_confirmation_and_entry_replacement_is_centralized():
     source = read("replacement.html")
-    assert source.count("<legend>من → إلى</legend>") == 2
+    assert source.count("<legend>من → إلى</legend>") == 1
     assert "تنفيذ الاستبدال" in source and "data-confirm=" in source
+    assert "تكليف مسؤول إدخال للفروع" in source
+    assert 'href="/#entry-directory"' in source
+    assert "إدارة التكليفات والاستبدال تتم من مركز العمل في الرئيسية فقط" in source
 
 
 def test_lookups_group_list_kind_with_item_name():

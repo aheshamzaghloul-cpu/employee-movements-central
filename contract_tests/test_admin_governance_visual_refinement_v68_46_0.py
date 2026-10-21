@@ -1,16 +1,17 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+CURRENT_VERSION = (ROOT / "VERSION.md").read_text(encoding="utf-8").strip()
 TEMPLATES = ROOT / "employee_movements" / "templates"
 CSS = ROOT / "employee_movements" / "static" / "css"
 
 
 def test_application_shell_cache_version_is_current():
     base = (TEMPLATES / "base.html").read_text(encoding="utf-8")
-    assert 'data-app-version="68.49.0"' in base
+    assert 'data-app-version="{{app_version}}"' in base
     assert "68.45.2" not in base
-    assert "filename='css/pages/management.css')+'?v=68.49.0'" in base
-    assert "filename='css/pages/workspace-pages.css')+'?v=68.49.0'" in base
+    assert "filename='css/pages/management.css', v=app_version)" in base
+    assert "filename='css/pages/workspace-pages.css', v=app_version)" in base
 
 
 def test_admin_dashboard_kpis_keep_destinations_and_have_accessible_svg_icons():

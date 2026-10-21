@@ -1,6 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+CURRENT_VERSION = (ROOT / "VERSION.md").read_text(encoding="utf-8").strip()
 CSS = ROOT / "employee_movements/static/css"
 HOME = (CSS / "pages/home.css").read_text(encoding="utf-8")
 DIRECTORY = (CSS / "pages/employee-directory.css").read_text(encoding="utf-8")
@@ -48,9 +49,9 @@ def test_mission_textarea_is_not_overridden_by_the_fixed_height_input_rule():
 
 def test_stylesheet_cache_busters_are_synchronized_for_the_release():
     version = (ROOT / "VERSION.md").read_text(encoding="utf-8").strip()
-    assert version == "68.49.0"
-    assert BASE.count(f"v={version}") == 21
-    assert f'data-app-version="{version}"' in BASE
+    assert version == CURRENT_VERSION
+    assert BASE.count("v=app_version") == 24
+    assert 'data-app-version="{{app_version}}"' in BASE
 
 
 def test_mobile_overflow_fallback_is_preserved_before_clip():

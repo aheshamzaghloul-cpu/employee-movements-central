@@ -2,14 +2,26 @@
 
 import io
 import os
+import tempfile
 from datetime import datetime
+from html import escape
 
-import fitz
+from PIL import Image
+
+from ..access import movement_is_closed
+from .export_safety import append_safe_xlsx_row, safe_xlsx_cell
+
+import pymupdf as fitz
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font
+from openpyxl.utils import get_column_letter
 
 
 def mission_state_label(mission):
+    # Keep display and lifecycle controls aligned with the shared legacy/current
+    # closure rule; older records may have assignment_state='مغلق' only.
+    if movement_is_closed(mission):
+        return 'مغلقة'
     return getattr(mission, 'mission_state', None) or 'تحت التحرير'
 
 
@@ -22,6 +34,7 @@ def mission_template_pdf(
     creator=None,
     print_to_date=None,
     closer=None,
+    ticket_image_data=None,
 ):
     """Render the supplied mission PDF template without changing its geometry."""
     template = os.path.join(root_path, 'static', 'mission', 'mission_template.pdf')
@@ -127,6 +140,12 @@ def mission_template_pdf(
     put(fitz.Rect(116.8, 284.6, 172.2, 296.0), 'اعتماد مدير فرع', 9.9603748, 'center', 'rtl')
     put(fitz.Rect(107.9, 303.0, 170.1, 314.5), mission_dest, 9.9603748, 'center', 'rtl')
 
+    # The original mission form remains page one with unchanged geometry. If a
+    # ServiceDesk screenshot is linked to this mission, append it as a separate
+    # evidence page so it is included in every official print/PDF path.
+    if ticket_image_data:
+        _append_ticket_image_page(doc, ticket_image_data, mission, employee, root_path)
+
     out = io.BytesIO()
     doc.save(out, garbage=4, deflate=True)
     doc.close()
@@ -134,35 +153,70 @@ def mission_template_pdf(
     return out.getvalue()
 
 
+def _append_ticket_image_page(doc, ticket_image_data, mission, employee, root_path):
+    """Append one A4 evidence page containing the saved ticket screenshot."""
+    payload = bytes(ticket_image_data)
+    with Image.open(io.BytesIO(payload)) as source:
+        source.verify()
+    with Image.open(io.BytesIO(payload)) as source:
+        image_width, image_height = source.size
+
+    page = doc.new_page(-1, width=595.32, height=841.92)
+    font = os.path.join(root_path, 'static', 'mission', 'mission-original.ttf')
+    if not os.path.exists(font):
+        font = os.path.join(root_path, 'static', 'mission', 'NotoNaskhArabic-Regular.ttf')
+    if os.path.exists(font):
+        page.insert_font(fontfile=font, fontname='missionorig')
+
+    employee_name = escape(employee.full_name if employee else '')
+    title = escape(f'صورة تيكيت ServiceDesk — المأمورية رقم {mission.id}')
+    details = f'<div style="font-family:missionorig;font-size:13pt;font-weight:bold;text-align:right;direction:rtl">{title}</div>'
+    if employee_name:
+        details += f'<div style="font-family:missionorig;font-size:9pt;text-align:right;direction:rtl">الموظف: {employee_name}</div>'
+    page.insert_htmlbox(fitz.Rect(28, 15, 567, 58), details)
+
+    box = fitz.Rect(28, 66, 567, 809)
+    scale = min(box.width / max(1, image_width), box.height / max(1, image_height))
+    width = image_width * scale
+    height = image_height * scale
+    image_rect = fitz.Rect(
+        box.x0 + (box.width - width) / 2,
+        box.y0 + (box.height - height) / 2,
+        box.x0 + (box.width + width) / 2,
+        box.y0 + (box.height + height) / 2,
+    )
+    page.insert_image(image_rect, stream=payload, keep_proportion=True)
+    footer = '<div style="font-family:missionorig;font-size:8pt;text-align:center;direction:rtl;color:#526579">مرفق أصلي محفوظ مع سجل المأمورية</div>'
+    page.insert_htmlbox(fitz.Rect(28, 814, 567, 837), footer)
+
+
 def mission_export_xlsx(rows):
-    """Build the detailed raw mission export used for external incentive calculation."""
-    wb = Workbook()
-    ws = wb.active
-    ws.title = 'المأموريات'
+    """Build an XLSX export with a bounded sample and a streamed write-only workbook."""
+    from itertools import islice
+
+    wb = Workbook(write_only=True)
+    ws = wb.create_sheet('المأموريات')
+    # Keep one column for each distinct fact and align source/destination labels
+    # with the all-results print report. The old workbook duplicated the source
+    # governorate and branch under both “الأصلية” and “من” headings.
     headers = [
-        'رقم المأمورية', 'كود شئون العاملين', 'اسم الموظف', 'المحافظة الأصلية',
-        'الفرع الأصلي', 'من محافظة', 'من فرع', 'إلى محافظة', 'إلى فرع',
+        'رقم المأمورية', 'كود شئون العاملين', 'اسم الموظف', 'محافظة الموظف',
+        'فرع الموظف', 'محافظة جهة المأمورية', 'فرع جهة المأمورية',
         'من تاريخ', 'إلى تاريخ', 'عدد الأيام', 'حالة المأمورية', 'تاريخ الإنشاء',
         'تاريخ الإغلاق', 'منشئ المأمورية', 'سبب الإغلاق', 'ملاحظات',
     ]
-    ws.append(headers)
-    for cell in ws[1]:
-        cell.font = Font(bold=True)
-        cell.alignment = Alignment(horizontal='center')
 
-    for mission in rows:
+    def _values(mission):
         employee = mission.employee
         origin = employee.branch if employee else None
         destination = mission.destination
         start = mission.from_date
         end = mission.to_date
         days = (end - start).days + 1 if start and end else None
-        ws.append([
+        return [
             mission.id,
             employee.job_code if employee else '',
             employee.full_name if employee else '',
-            origin.governorate.name if origin and origin.governorate else '',
-            origin.name if origin else '',
             origin.governorate.name if origin and origin.governorate else '',
             origin.name if origin else '',
             destination.governorate.name if destination and destination.governorate else '',
@@ -170,22 +224,50 @@ def mission_export_xlsx(rows):
             start,
             end,
             days,
-            mission.mission_state or 'تحت التحرير',
+            mission_state_label(mission),
             mission.created_at,
             mission.closed_at,
-            employee.full_name if employee else '',
+            mission.creator_user.full_name if getattr(mission, 'creator_user', None) else '',
             mission.closure_reason or '',
             mission.notes or '',
-        ])
+        ]
+
+    # Sample no more than 200 missions to keep practical column widths. This is
+    # bounded memory and happens before the write-only worksheet starts writing.
+    iterator = iter(rows)
+    sample_missions = list(islice(iterator, 200))
+    sample_values = [_values(mission) for mission in sample_missions]
+    widths = [min(max(len(header) + 2, 12), 32) for header in headers]
+    for values in sample_values:
+        for index, value in enumerate(values):
+            widths[index] = max(widths[index], min(max(len(str(value or '')) + 2, 12), 40))
 
     ws.freeze_panes = 'A2'
-    ws.auto_filter.ref = ws.dimensions
-    for column in ws.columns:
-        letter = column[0].column_letter
-        max_length = max(len(str(cell.value or '')) for cell in column[:200])
-        ws.column_dimensions[letter].width = min(max(max_length + 2, 12), 32)
+    for index, width in enumerate(widths, start=1):
+        # In write-only mode, configure column dimensions before appending rows.
+        ws.column_dimensions[get_column_letter(index)].width = width
 
-    out = io.BytesIO()
+    header_cells = []
+    for header in headers:
+        cell = safe_xlsx_cell(ws, header, write_only=True)
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal='center')
+        header_cells.append(cell)
+    ws.append(header_cells)
+
+    exported_rows = 0
+    for values in sample_values:
+        append_safe_xlsx_row(ws, values, write_only=True)
+        exported_rows += 1
+    for mission in iterator:
+        append_safe_xlsx_row(ws, _values(mission), write_only=True)
+        exported_rows += 1
+
+    ws.auto_filter.ref = f'A1:{get_column_letter(len(headers))}{exported_rows + 1}'
+    # Keep small exports in memory, but let large workbooks spill to a temporary
+    # file rather than duplicating the entire generated XLSX in process RAM.
+    out = tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024, mode='w+b')
     wb.save(out)
     out.seek(0)
     return out
+

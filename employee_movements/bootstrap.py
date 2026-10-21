@@ -9,6 +9,7 @@ it runs only once. Nothing here ever deletes business data.
 """
 
 import logging
+from datetime import datetime, timedelta
 
 from sqlalchemy import inspect, text
 from werkzeug.security import generate_password_hash
@@ -16,8 +17,25 @@ from werkzeug.security import generate_password_hash
 from .access import actual_roles, user_branch_ids
 from .assignments import supervisor_for_governorate, sync_role_accounts
 from .config import ConfigError
+from .constants import LOGIN_ROLES
 from .extensions import db
-from .models import AssistantAlias, AssistantMessage, Branch, Employee, TicketEmployeeCodeAlias, Lookup, RoleAccount, SupervisorEntry, User, UserBranch, UserGovernorate, UserRole
+from .models import (
+    AssistantAlias,  # noqa: F401 - register mapped legacy alias table
+    AssistantMessage,
+    AssistantSessionState,  # noqa: F401 - register server-side assistant state table
+    Branch,
+    Employee,
+    Lookup,
+    MissionEditRequest,
+    MissionTicketImageDraft,
+    RoleAccount,
+    SupervisorEntry,
+    TicketEmployeeCodeAlias,  # noqa: F401 - register mapped legacy alias table
+    User,
+    UserBranch,
+    UserGovernorate,
+    UserRole,
+)
 from .validation import valid_email
 
 logger = logging.getLogger(__name__)
@@ -55,6 +73,7 @@ ADDED_COLUMNS = {
         'job_title': 'VARCHAR(200)',
         'job_code': 'VARCHAR(100)',
         'email': 'VARCHAR(254)',
+        'auth_version': 'INTEGER NOT NULL DEFAULT 0',
     },
     'employee': {
         'user_id': 'INTEGER',
@@ -64,6 +83,11 @@ ADDED_COLUMNS = {
         'resignation_date': 'DATE',
         'rehire_date': 'DATE',
         'resignation_by': 'INTEGER',
+    },
+    # Nullable for backward compatibility. Historical conversations remain
+    # unclassified and therefore are not injected into any active-role context.
+    'assistant_message': {
+        'active_role': 'VARCHAR(80)',
     },
 }
 
@@ -150,6 +174,137 @@ def _add_missing_columns():
         db.session.execute(text('ALTER TABLE employee ALTER COLUMN employee_code DROP NOT NULL'))
 
 
+
+def _ensure_pending_mission_edit_request_index():
+    """Enforce one pending edit request per mission, without limiting resolved history.
+
+    Older schema versions used a full UNIQUE(movement_id, status) constraint. That
+    also prohibited a second completed/rejected request for the same mission. The
+    partial unique index is the intended invariant: one row in the pending state.
+    """
+    table_name = MissionEditRequest.__tablename__
+    backup_table = 'mission_edit_request_legacy_status_unique_v6851'
+    inspector = inspect(db.engine)
+    table_names = set(inspector.get_table_names())
+    if backup_table in table_names:
+        raise RuntimeError(
+            'وجد جدول ترحيل قديم لطلبات تعديل المأموريات. أوقف التشغيل وراجع '
+            'mission_edit_request_legacy_status_unique_v6851 قبل إعادة المحاولة.'
+        )
+    if table_name not in table_names:
+        return
+
+    dialect = db.engine.dialect.name
+    unique_constraints = inspector.get_unique_constraints(table_name)
+    legacy_constraint = next((
+        constraint for constraint in unique_constraints
+        if set(constraint.get('column_names') or ()) == {'movement_id', 'status'}
+    ), None)
+    index_names = {index.get('name') for index in inspector.get_indexes(table_name)}
+
+    create_pending_index = (
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_mission_edit_request_pending "
+        "ON mission_edit_request (movement_id) WHERE status = 'قيد المراجعة'"
+    )
+
+    if dialect == 'postgresql':
+        with db.engine.begin() as connection:
+            if legacy_constraint:
+                constraint_name = legacy_constraint.get('name') or 'uq_mission_edit_request_status'
+                quoted_name = connection.dialect.identifier_preparer.quote(constraint_name)
+                connection.execute(text(
+                    f'ALTER TABLE mission_edit_request DROP CONSTRAINT IF EXISTS {quoted_name}'
+                ))
+            if 'uq_mission_edit_request_pending' not in index_names:
+                connection.execute(text(create_pending_index))
+        return
+
+    if dialect == 'sqlite':
+        if legacy_constraint:
+            # SQLite cannot drop a table-level UNIQUE constraint in place. Rebuild
+            # only this request-history table, copying every column and primary key.
+            columns = [column.name for column in MissionEditRequest.__table__.columns]
+            quoted_columns = ', '.join(
+                db.engine.dialect.identifier_preparer.quote(column) for column in columns
+            )
+            with db.engine.connect() as connection:
+                connection.exec_driver_sql('BEGIN IMMEDIATE')
+                try:
+                    # If an earlier partial migration had already created the new
+                    # index, remove it before the rebuild because SQLite index names
+                    # are database-global and would collide with the replacement table.
+                    if 'uq_mission_edit_request_pending' in index_names:
+                        connection.exec_driver_sql(
+                            'DROP INDEX IF EXISTS uq_mission_edit_request_pending'
+                        )
+                    connection.exec_driver_sql(
+                        f'ALTER TABLE {table_name} RENAME TO {backup_table}'
+                    )
+                    MissionEditRequest.__table__.create(bind=connection, checkfirst=False)
+                    connection.exec_driver_sql(
+                        f'INSERT INTO {table_name} ({quoted_columns}) '
+                        f'SELECT {quoted_columns} FROM {backup_table}'
+                    )
+                    connection.exec_driver_sql(f'DROP TABLE {backup_table}')
+                    connection.exec_driver_sql(create_pending_index)
+                    connection.commit()
+                except Exception:
+                    connection.rollback()
+                    raise
+            return
+
+        if 'uq_mission_edit_request_pending' not in index_names:
+            with db.engine.begin() as connection:
+                connection.execute(text(create_pending_index))
+        return
+
+    raise RuntimeError(
+        f'قاعدة البيانات {dialect!r} غير مدعومة لترحيل قيد طلبات تعديل المأموريات؛ '
+        'المطلوب SQLite أو PostgreSQL.'
+    )
+
+def _ensure_performance_indexes():
+    """Add read-path indexes to existing databases without blocking PostgreSQL writes."""
+    index_specs = {
+        'branch': {
+            'ix_branch_governorate_active_code': 'CREATE INDEX IF NOT EXISTS ix_branch_governorate_active_code ON branch (governorate_id, is_active, code)',
+        },
+        'employee': {
+            'ix_employee_branch_active_name': 'CREATE INDEX IF NOT EXISTS ix_employee_branch_active_name ON employee (branch_id, is_active, full_name)',
+            'ix_employee_job_code': 'CREATE INDEX IF NOT EXISTS ix_employee_job_code ON employee (job_code)',
+        },
+        'movement': {
+            'ix_movement_employee_active_from': 'CREATE INDEX IF NOT EXISTS ix_movement_employee_active_from ON movement (employee_id, is_active, from_date)',
+            'ix_movement_active_created': 'CREATE INDEX IF NOT EXISTS ix_movement_active_created ON movement (is_active, created_at)',
+            'ix_movement_type_active_from': 'CREATE INDEX IF NOT EXISTS ix_movement_type_active_from ON movement (movement_type, is_active, from_date)',
+        },
+        'assistant_message': {
+            'ix_assistant_message_user_role_created': 'CREATE INDEX IF NOT EXISTS ix_assistant_message_user_role_created ON assistant_message (user_id, active_role, created_at)',
+        },
+    }
+    dialect = db.engine.dialect.name
+    if dialect not in {'postgresql', 'sqlite'}:
+        raise RuntimeError(f'Performance index migration does not support database dialect {dialect!r}')
+
+    inspector = inspect(db.engine)
+    existing_tables = set(inspector.get_table_names())
+    for table_name, indexes in index_specs.items():
+        if table_name not in existing_tables:
+            continue
+        existing_names = {item.get('name') for item in inspector.get_indexes(table_name)}
+        for index_name, create_sql in indexes.items():
+            if index_name in existing_names:
+                continue
+            if dialect == 'postgresql':
+                # CREATE INDEX CONCURRENTLY cannot run inside a transaction block.
+                with db.engine.connect().execution_options(isolation_level='AUTOCOMMIT') as connection:
+                    connection.execute(text(create_sql.replace('CREATE INDEX IF NOT EXISTS', 'CREATE INDEX CONCURRENTLY IF NOT EXISTS', 1)))
+            else:
+                with db.engine.begin() as connection:
+                    connection.execute(text(create_sql))
+            logger.info('Created performance index %s on %s.', index_name, table_name)
+
+
 def _backfill_supervisor_links():
     """Link entry accounts to their supervisor when exactly one supervisor owns the governorate."""
     for entry_user in User.query.filter_by(is_active=True).all():
@@ -168,6 +323,11 @@ def _backfill_supervisor_links():
 
 
 def _normalize_legacy_movements():
+    # This is a one-time, versioned data migration. Re-running table-wide UPDATEs
+    # on every Gunicorn master boot adds avoidable scans/locks as movement history grows.
+    migration_key = 'migration:normalize-legacy-movement-states-v68.56.0'
+    if _migration_done(migration_key):
+        return
     # Legacy approved missions are considered closed; the rest start as drafts.
     db.session.execute(
         text(
@@ -182,6 +342,7 @@ def _normalize_legacy_movements():
             "OR status IN ('مسودة','مدخلة','تحت المراجعة','معتمدة','مرفوضة')"
         )
     )
+    _mark_migration(migration_key)
 
 
 def _link_entry_accounts_to_employees():
@@ -204,14 +365,62 @@ def _link_entry_accounts_to_employees():
 
 
 def _remove_legacy_entry_login_roles():
-    """Remove the historical first-level login role without deleting organizational data."""
+    """Retire the obsolete entry login role once; keep branch assignments intact.
+
+    Employee-linked EntryAssignment/EntryAssignmentBranch rows are intentionally
+    preserved: they identify the branch's responsible data-entry contact, not a
+    login role. Accounts that only had the retired role must no longer log in and
+    read the shared directory as a roleless account.
+    """
+    migration_key = 'migration:retire-first-entry-login-role-v68.56.0'
+    if _migration_done(migration_key):
+        return
     db.session.execute(text("DELETE FROM user_role WHERE role = 'المدخل الأول'"))
     db.session.execute(text("DELETE FROM role_account WHERE role = 'المدخل الأول'"))
+    db.session.expire_all()
+
+    # Fail closed for any active account without one of the three official roles.
+    # Do not touch the employee record or any organizational branch assignment.
+    role_rows = UserRole.query.with_entities(UserRole.user_id, UserRole.role).all()
+    roles_by_user = {}
+    for user_id, role in role_rows:
+        roles_by_user.setdefault(user_id, set()).add(role)
+    active_users = User.query.filter_by(is_active=True).all()
+    orphan_ids = [
+        user.id for user in active_users
+        if not (roles_by_user.get(user.id, set()) & set(LOGIN_ROLES))
+    ]
+    if orphan_ids:
+        User.query.filter(User.id.in_(orphan_ids)).update({User.is_active: False}, synchronize_session=False)
+        RoleAccount.query.filter(RoleAccount.user_id.in_(orphan_ids)).delete(synchronize_session=False)
+        logger.warning(
+            'Disabled %s account(s) without an official login role after retiring the first-entry role.',
+            len(orphan_ids),
+        )
+    _mark_migration(migration_key)
+    db.session.flush()
+
+
+def _cleanup_expired_mission_ticket_image_drafts():
+    """Delete abandoned ticket images after their short review window."""
+    cutoff = datetime.utcnow() - timedelta(minutes=30)
+    MissionTicketImageDraft.query.filter(MissionTicketImageDraft.created_at < cutoff).delete(
+        synchronize_session=False,
+    )
+    db.session.commit()
+
 
 def ensure_schema():
     db.create_all()
+    _ensure_pending_mission_edit_request_index()
     _seed_default_lookups()
     _add_missing_columns()
+    # End the additive-schema transaction before creating indexes on a second
+    # connection; PostgreSQL CONCURRENTLY cannot run inside a transaction and
+    # SQLite can otherwise hold a write lock while the index migration starts.
+    db.session.commit()
+    _ensure_performance_indexes()
+    _cleanup_expired_mission_ticket_image_drafts()
     _backfill_supervisor_links()
     _normalize_legacy_movements()
     _remove_legacy_entry_login_roles()

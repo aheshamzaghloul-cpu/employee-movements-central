@@ -2,6 +2,7 @@ from pathlib import Path
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
+CURRENT_VERSION = (ROOT / "VERSION.md").read_text(encoding="utf-8").strip()
 CSS_ROOT = ROOT / "employee_movements/static/css"
 APP = (CSS_ROOT / "app.css").read_text(encoding="utf-8")
 THEME = (CSS_ROOT / "design-system-cyan.css").read_text(encoding="utf-8")
@@ -30,6 +31,6 @@ def test_assistant_launcher_uses_the_scoped_visible_label_stylesheet():
 
 def test_cache_busters_and_application_version_match():
     version = (ROOT / "VERSION.md").read_text(encoding="utf-8").strip()
-    assert version == "68.49.0"
-    assert BASE.count(f"v={version}") == 21
-    assert f'data-app-version="{version}"' in BASE
+    assert version == CURRENT_VERSION
+    assert BASE.count("v=app_version") == 24
+    assert 'data-app-version="{{app_version}}"' in BASE

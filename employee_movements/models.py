@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import Index, UniqueConstraint, text
 
 from .extensions import db
 
@@ -17,6 +17,9 @@ class User(db.Model):
     password_hash = db.Column(db.Text, nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     must_change_password = db.Column(db.Boolean, default=False, nullable=False)
+    # Incremented after password, role, permission, account-status or scope changes.
+    # Signed-cookie sessions carry this value so sensitive account changes revoke older sessions.
+    auth_version = db.Column(db.Integer, nullable=False, default=0, server_default=text('0'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime)
 
@@ -90,6 +93,9 @@ class Governorate(db.Model):
 
 
 class Branch(db.Model):
+    __table_args__ = (
+        Index('ix_branch_governorate_active_code', 'governorate_id', 'is_active', 'code'),
+    )
     id = db.Column(db.Integer, primary_key=True)
     governorate_id = db.Column(
         db.Integer,
@@ -182,6 +188,10 @@ class ApprovalDelegation(db.Model):
 
 
 class Employee(db.Model):
+    __table_args__ = (
+        Index('ix_employee_branch_active_name', 'branch_id', 'is_active', 'full_name'),
+        Index('ix_employee_job_code', 'job_code'),
+    )
     id = db.Column(db.Integer, primary_key=True)
     employee_code = db.Column(db.String(100), unique=True, nullable=True)
     user_id = db.Column(
@@ -212,6 +222,11 @@ class Employee(db.Model):
 
 
 class Movement(db.Model):
+    __table_args__ = (
+        Index('ix_movement_employee_active_from', 'employee_id', 'is_active', 'from_date'),
+        Index('ix_movement_active_created', 'is_active', 'created_at'),
+        Index('ix_movement_type_active_from', 'movement_type', 'is_active', 'from_date'),
+    )
     id = db.Column(db.Integer, primary_key=True)
     employee_id = db.Column(
         db.Integer,
@@ -244,6 +259,7 @@ class Movement(db.Model):
     approved_at = db.Column(db.DateTime)
     approver_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'))
     employee = db.relationship('Employee')
+    creator_user = db.relationship('User', foreign_keys=[created_by])
     approver = db.relationship('User', foreign_keys=[approver_id])
     destination = db.relationship('Branch', foreign_keys=[destination_branch_id])
     assignment_state = db.Column(db.String(30), default='ساري', nullable=False)
@@ -255,8 +271,55 @@ class Movement(db.Model):
     last_assignment_notice_at = db.Column(db.DateTime)
 
 
+class MissionTicketImage(db.Model):
+    """Private ticket image attached to one mission, loaded only when needed."""
+    __tablename__ = 'mission_ticket_image'
+    __table_args__ = (UniqueConstraint('movement_id', name='uq_mission_ticket_image_movement'),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    movement_id = db.Column(
+        db.Integer,
+        db.ForeignKey('movement.id', ondelete='CASCADE'),
+        nullable=False,
+    )
+    image_data = db.Column(db.LargeBinary, nullable=False)
+    mime_type = db.Column(db.String(40), nullable=False)
+    sha256 = db.Column(db.String(64), nullable=False)
+    uploaded_by = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'))
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    movement = db.relationship('Movement', foreign_keys=[movement_id])
+    uploader = db.relationship('User', foreign_keys=[uploaded_by])
+
+
+class MissionTicketImageDraft(db.Model):
+    """Short-lived, per-user staging record bridging OCR review and mission creation."""
+    __tablename__ = 'mission_ticket_image_draft'
+
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    uploaded_by = db.Column(
+        db.Integer,
+        db.ForeignKey('user.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+    image_data = db.Column(db.LargeBinary, nullable=False)
+    mime_type = db.Column(db.String(40), nullable=False)
+    sha256 = db.Column(db.String(64), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    uploader = db.relationship('User', foreign_keys=[uploaded_by])
+
+
 class MissionEditRequest(db.Model):
-    __table_args__ = (UniqueConstraint('movement_id', 'status', name='uq_mission_edit_request_status'),)
+    # Only one request may be pending per mission. Historical requests must remain
+    # repeatable after resolution, so resolved status values cannot be unique per mission.
+    __table_args__ = (Index(
+        'uq_mission_edit_request_pending',
+        'movement_id',
+        unique=True,
+        sqlite_where=text("status = 'قيد المراجعة'"),
+        postgresql_where=text("status = 'قيد المراجعة'"),
+    ),)
     id = db.Column(db.Integer, primary_key=True)
     movement_id = db.Column(db.Integer, db.ForeignKey('movement.id', ondelete='CASCADE'), nullable=False)
     requested_by = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='RESTRICT'), nullable=False)
@@ -300,17 +363,47 @@ class Audit(db.Model):
 
 
 class AssistantMessage(db.Model):
-    """Server-side assistant conversation history.
+    """Server-side assistant conversation history isolated by user and active role.
 
     Keeping chat text here instead of Flask's signed cookie allows a long,
-    continuous conversation without making the session cookie oversized.
+    continuous conversation without making the session cookie oversized. The
+    active role is part of the security boundary: an administrator's previous
+    assistant responses must never become context for the same person's
+    supervisor/manager session.
     """
+    __table_args__ = (
+        Index('ix_assistant_message_user_role_created', 'user_id', 'active_role', 'created_at'),
+    )
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    active_role = db.Column(db.String(80), nullable=True)
     role = db.Column(db.String(20), nullable=False)
     text = db.Column(db.Text, nullable=False)
     title = db.Column(db.String(120))
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class AssistantSessionState(db.Model):
+    """Sensitive, short-lived assistant context stored server-side per browser session.
+
+    Only a random session token (never this state or a write plan) lives in the
+    signed Flask cookie. The token itself is hashed before it is persisted here.
+    """
+    __table_args__ = (
+        UniqueConstraint('session_key_hash', name='uq_assistant_session_state_key_hash'),
+        Index('ix_assistant_session_state_user_updated', 'user_id', 'updated_at'),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    session_key_hash = db.Column(db.String(64), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    active_role = db.Column(db.String(80))
+    pending_key = db.Column(db.String(40))
+    pending_plan_json = db.Column(db.Text)
+    pending_created_at = db.Column(db.DateTime)
+    workspace_context = db.Column(db.Text)
+    context_employee_id = db.Column(db.Integer, db.ForeignKey('employee.id', ondelete='SET NULL'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False, index=True)
 
 
 class AssistantAlias(db.Model):

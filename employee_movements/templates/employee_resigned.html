@@ -19,11 +19,13 @@
         <td>{{e.rehire_date.strftime('%Y-%m-%d') if e.rehire_date else '—'}}</td>
         <td><span class="employee-deleted-badge">مستقيل</span></td>
         <td>
+          {% if can('manage_employees') and can_manage_employee(e) %}
           <form class="ui-inline resignation-inline" method="post" action="/employees/{{e.id}}/reactivate">
             <input type="hidden" name="_csrf" value="{{csrf}}">
-            <input class="mini-date" type="date" name="rehire_date" required title="تاريخ إعادة التعيين">
+            <input class="mini-date" type="date" name="rehire_date" aria-label="تاريخ إعادة التعيين" required title="تاريخ إعادة التعيين">
             <button class="ui-tone-green ui-btn-mini" data-confirm="هل تريد إعادة تعيين الموظف بهذا التاريخ؟">إعادة التعيين</button>
           </form>
+          {% else %}<span class="ui-muted">عرض فقط؛ اختر محافظة العمل المطابقة لإعادة التعيين</span>{% endif %}
         </td>
       </tr>
     {% else %}

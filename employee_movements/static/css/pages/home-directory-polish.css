@@ -1,0 +1,461 @@
+/* v68.82.0 — Home and employee directory visual pass.
+   Loaded only for the two workspaces. Presentation-only rules: no permission or workflow changes. */
+
+/* HOME — maintain a compact welcome panel and clear, repeatable spacing. */
+body[data-workspace-path="/"] .ds-home-page {
+  gap: 15px;
+  align-content: start;
+}
+body[data-workspace-path="/"] .ds-home-page .ds-home-hero {
+  min-height: 88px;
+  padding: clamp(12px, 1.1vw, 17px) !important;
+  gap: 18px;
+  border-color: #f7f9fa !important;
+  border-radius: 17px !important;
+  box-shadow: 0 5px 18px rgba(17, 65, 101, .045) !important;
+}
+body[data-workspace-path="/"] .ds-home-page .ds-home-hero h1 {
+  margin-block: 3px 4px;
+  font-size: clamp(22px, 1.8vw, 28px);
+  line-height: 1.24;
+}
+body[data-workspace-path="/"] .ds-home-page .ds-home-hero p {
+  max-width: 68ch;
+  font-size: 12px;
+  line-height: 1.65;
+}
+body[data-workspace-path="/"] .ds-home-page .ds-home-date {
+  border-color: #f0faf8;
+  background: #fff;
+  color: #20343e;
+  font-variant-numeric: tabular-nums;
+}
+body[data-workspace-path="/"] .ds-home-page .ds-home-flow {
+  gap: 12px;
+}
+body[data-workspace-path="/"] .ds-home-page .ds-home-flow-heading {
+  align-items: center;
+  padding: 13px 16px;
+  border-color: #f0faf8;
+  border-radius: 15px;
+  box-shadow: 0 3px 11px rgba(17, 65, 101, .025);
+}
+body[data-workspace-path="/"] .ds-home-page .ds-home-flow-heading h2 {
+  font-size: clamp(18px, 1.5vw, 21px);
+}
+body[data-workspace-path="/"] .ds-home-page .ds-home-flow-heading p {
+  max-width: 76ch;
+  line-height: 1.75;
+}
+body[data-workspace-path="/"] .ds-home-page .ds-home-flow-search {
+  gap: 10px;
+  padding: clamp(12px, 1.2vw, 16px);
+  border-color: #f7f9fa;
+  border-radius: 16px;
+  box-shadow: 0 4px 15px rgba(17, 65, 101, .03);
+}
+body[data-workspace-path="/"] .ds-home-page .ds-home-flow-search .smart-action-head {
+  gap: 10px;
+  margin-bottom: 7px;
+}
+body[data-workspace-path="/"] .ds-home-page .ds-home-flow-search .smart-action-icon {
+  flex-basis: 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border-color: #f0faf8;
+  background: linear-gradient(145deg, #f7f9fa, #f3faff);
+  color: #096965;
+}
+body[data-workspace-path="/"] .ds-home-page .ds-home-flow-search .smart-action-head h2 {
+  color: #172f3b;
+  font-size: 16px;
+}
+body[data-workspace-path="/"] .ds-home-page .ds-home-flow-search .smart-action-card > p {
+  max-width: 78ch;
+  margin-block: 0 8px;
+  font-size: 12px;
+  line-height: 1.75;
+}
+body[data-workspace-path="/"] .ds-home-page .smart-search-form {
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+body[data-workspace-path="/"] .ds-home-page .smart-search-form > label,
+body[data-workspace-path="/"] .ds-home-page .smart-search-filters > label {
+  gap: 6px;
+  color: #20343e;
+  font-size: 11.5px;
+}
+body[data-workspace-path="/"] .ds-home-page .smart-search-form input,
+body[data-workspace-path="/"] .ds-home-page .smart-search-form select {
+  min-height: 43px;
+  border-color: #dce5e8;
+  border-radius: 10px;
+  background: #fff;
+  color: #20343e;
+}
+body[data-workspace-path="/"] .ds-home-page .smart-search-form input:focus-visible,
+body[data-workspace-path="/"] .ds-home-page .smart-search-form select:focus-visible {
+  outline: 3px solid rgba(22,166,161, .18);
+  outline-offset: 1px;
+  border-color: #087f7b;
+}
+body[data-workspace-path="/"] .ds-home-page .smart-search-filters {
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #f7f9fa;
+  border-radius: 12px;
+  background: #f7f9fa;
+}
+body[data-workspace-path="/"] .ds-home-page .smart-search-submit {
+  min-width: 88px;
+  min-height: 43px;
+  padding-inline: 14px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+body[data-workspace-path="/"] .ds-home-page .smart-search-results {
+  gap: 8px;
+  max-height: min(340px, 42vh);
+  overscroll-behavior-y: contain;
+}
+body[data-workspace-path="/"] .ds-home-page .smart-search-results > a {
+  min-width: 0;
+  border-color: #dce5e8;
+  border-radius: 12px;
+  overflow-wrap: anywhere;
+}
+body[data-workspace-path="/"] .ds-home-page .smart-search-results > a:focus-visible,
+body[data-workspace-path="/"] .ds-home-page .ds-home-quick-action:focus-visible {
+  outline: 3px solid rgba(22,166,161, .24);
+  outline-offset: 2px;
+}
+body[data-workspace-path="/"] .ds-home-page .ds-home-flow-card {
+  gap: 11px;
+  padding: clamp(13px, 1.2vw, 17px);
+  border-radius: 16px;
+  box-shadow: 0 4px 14px rgba(17, 65, 101, .03);
+}
+body[data-workspace-path="/"] .ds-home-page .ds-home-step-head h3 {
+  line-height: 1.5;
+}
+body[data-workspace-path="/"] .ds-home-page .ds-home-quick-actions {
+  gap: 10px;
+}
+body[data-workspace-path="/"] .ds-home-page .ds-home-quick-action {
+  min-height: 108px;
+  padding: 14px 13px;
+  border-radius: 16px;
+}
+body[data-workspace-path="/"] .ds-home-page .ds-home-tools-card,
+body[data-workspace-path="/"] .ds-home-page .ds-home-monitor-grid > .ds-home-card {
+  border-color: #f7f9fa;
+  box-shadow: 0 4px 15px rgba(17, 65, 101, .03);
+}
+
+/* EMPLOYEE DIRECTORY — consistent panel hierarchy and stable responsive filters. */
+body[data-workspace-path="/employees"] .ds-directory-page {
+  gap: 14px;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .ds-directory-hero {
+  gap: 18px;
+  padding: clamp(16px, 1.7vw, 22px) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 5px 18px rgba(17, 65, 101, .04) !important;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-employees-heading h1 {
+  margin-block: 3px 5px;
+  font-size: clamp(23px, 1.9vw, 29px);
+  line-height: 1.25;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-employees-heading p {
+  max-width: 72ch;
+  font-size: 12px;
+  line-height: 1.75;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .ds-directory-header-actions {
+  gap: 9px;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-employees-actions .ui-btn {
+  min-height: 40px;
+  border-radius: 10px;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .ds-directory-filters,
+body[data-workspace-path="/employees"] .ds-directory-page .ds-directory-results {
+  gap: 13px;
+  padding: clamp(13px, 1.4vw, 18px) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 4px 14px rgba(17, 65, 101, .03) !important;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-search-form {
+  gap: 10px;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-query > input,
+body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-search-form select {
+  min-height: 43px;
+  border-color: #f7f9fa;
+  background: #fff;
+  color: #20343e;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-filter-cluster {
+  align-self: stretch;
+  align-content: end;
+  gap: 7px 9px;
+  border-color: #f7f9fa;
+  background: #f7f9fa;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-filter-cluster-label {
+  color: #087f7b;
+  font-size: 10px;
+  font-weight: 900;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-search-form > .ui-btn {
+  min-height: 43px;
+  border-radius: 10px;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-query > input:focus-visible,
+body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-search-form select:focus-visible,
+body[data-workspace-path="/employees"] .ds-directory-page .smart-add-grid input:focus-visible,
+body[data-workspace-path="/employees"] .ds-directory-page .smart-add-grid select:focus-visible {
+  outline: 3px solid rgba(22,166,161, .18);
+  outline-offset: 1px;
+  border-color: #087f7b;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-search-meta {
+  gap: 7px;
+  padding-top: 2px;
+  line-height: 1.7;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-search-meta > strong {
+  border-color: #f0faf8;
+  background: #f0f9ff;
+  color: #087f7b;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-live-hint {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-directory-head {
+  gap: 12px;
+  padding-bottom: 12px;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-directory-head h2 {
+  font-size: 17px;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-directory-caption {
+  max-width: 76ch;
+  font-size: 11.5px;
+  line-height: 1.75;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-directory-list {
+  gap: 11px;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-directory-gov {
+  border-radius: 13px;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-directory-gov-head {
+  padding: 11px 14px;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-directory-branch > summary {
+  min-height: 54px;
+  padding-block: 8px;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-results {
+  gap: 7px;
+  padding: 0 10px 9px;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-row {
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, .8fr) minmax(0, .95fr) auto;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 11px;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-mainlink,
+body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-mainlink > span,
+body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-row-context,
+body[data-workspace-path="/employees"] .ds-directory-page .smart-row-status {
+  min-width: 0;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-mainlink strong,
+body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-mainlink small,
+body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-row-context strong,
+body[data-workspace-path="/employees"] .ds-directory-page .smart-row-status small {
+  overflow-wrap: anywhere;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-row-action {
+  gap: 7px;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-row-action > a,
+body[data-workspace-path="/employees"] .ds-directory-page .employee-more > summary {
+  min-height: 34px;
+}
+body[data-workspace-path="/employees"] .ds-directory-page .smart-directory-branch > summary:focus-visible,
+body[data-workspace-path="/employees"] .ds-directory-page .smart-row-action > a:focus-visible,
+body[data-workspace-path="/employees"] .ds-directory-page .smart-employees-actions .ui-btn:focus-visible,
+body[data-workspace-path="/employees"] .ds-directory-page .smart-directory-disclosure-actions .ui-btn:focus-visible {
+  outline: 3px solid rgba(22,166,161, .22);
+  outline-offset: 2px;
+}
+
+@media (max-width: 1120px) {
+  body[data-workspace-path="/"] .ds-home-page .smart-search-form {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  body[data-workspace-path="/"] .ds-home-page .smart-search-form > label:first-child {
+    grid-column: 1 / -1;
+  }
+  body[data-workspace-path="/"] .ds-home-page .smart-search-filters {
+    grid-column: 1 / -1;
+  }
+  body[data-workspace-path="/"] .ds-home-page .smart-search-submit {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-search-form {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr);
+  }
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-filter-cluster {
+    grid-column: span 2;
+  }
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-row {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr) minmax(0, 1fr);
+  }
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-row-action {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    padding-inline-start: 48px;
+  }
+}
+@media (max-width: 780px) {
+  body[data-workspace-path="/"] .ds-home-page .ds-home-flow-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+  }
+  body[data-workspace-path="/"] .ds-home-page .ds-home-flow-badge {
+    min-height: 27px;
+  }
+  body[data-workspace-path="/employees"] .ds-directory-page .ds-directory-hero {
+    align-items: flex-start;
+    gap: 12px;
+  }
+  body[data-workspace-path="/employees"] .ds-directory-page .ds-directory-header-actions {
+    align-items: flex-start;
+  }
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-directory-head-tools {
+    justify-items: stretch;
+  }
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-search-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-query,
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-filter-cluster {
+    grid-column: 1 / -1;
+  }
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-mainlink,
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-row-action {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 560px) {
+  body[data-workspace-path="/"] .ds-home-page .ds-home-hero {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+  }
+  body[data-workspace-path="/"] .ds-home-page .smart-context {
+    max-width: 100%;
+    align-items: flex-start;
+  }
+  body[data-workspace-path="/"] .ds-home-page .ds-home-flow-search {
+    padding: 11px;
+  }
+  body[data-workspace-path="/"] .ds-home-page .smart-search-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  body[data-workspace-path="/"] .ds-home-page .smart-search-form > label:first-child,
+  body[data-workspace-path="/"] .ds-home-page .smart-search-filters,
+  body[data-workspace-path="/"] .ds-home-page .smart-search-submit {
+    grid-column: auto;
+  }
+  body[data-workspace-path="/"] .ds-home-page .smart-search-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  body[data-workspace-path="/"] .ds-home-page .ds-home-flow-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  body[data-workspace-path="/employees"] .ds-directory-page .ds-directory-hero {
+    padding: 15px !important;
+  }
+  body[data-workspace-path="/employees"] .ds-directory-page .ds-directory-header-actions,
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-employees-actions {
+    width: 100%;
+  }
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-employees-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-search-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-query,
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-filter-cluster,
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-search-form > .ui-btn {
+    grid-column: auto;
+  }
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-filter-cluster {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-search-form > .ui-btn {
+    width: 100%;
+  }
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-directory-summary > span {
+    flex: 1 1 120px;
+    justify-content: center;
+  }
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-mainlink,
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-row-action {
+    grid-column: auto;
+  }
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-row-context {
+    padding: 0 48px 7px 0;
+  }
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-row-status {
+    margin-inline-start: 48px;
+  }
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-row-action {
+    padding-inline-start: 0;
+    padding-inline-end: 48px;
+  }
+}
+@media (max-width: 360px) {
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-employees-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-employee-row-context,
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-row-status,
+  body[data-workspace-path="/employees"] .ds-directory-page .smart-row-action {
+    margin-inline-start: 0;
+    padding-inline: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  body[data-workspace-path="/"] .ds-home-page *,
+  body[data-workspace-path="/employees"] .ds-directory-page *,
+  body[data-workspace-path="/"] .ds-home-page *::before,
+  body[data-workspace-path="/employees"] .ds-directory-page *::before {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

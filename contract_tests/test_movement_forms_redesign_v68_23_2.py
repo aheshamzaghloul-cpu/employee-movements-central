@@ -20,7 +20,7 @@ def test_page_styles_are_scoped_to_movement_workflows_and_versioned():
     assert "request.path.startswith('/movements')" in BASE
     assert "request.path.startswith('/reports/assignments/mission-edit')" in BASE
     assert "request.path.startswith('/reports/assignments/edit-requests')" in BASE
-    assert f"?v={VERSION}" in BASE
+    assert "v=app_version" in BASE
     assert ".movement-workspace" in PAGE_CSS and ".movement-edit-page" in PAGE_CSS
 
 
@@ -48,8 +48,8 @@ def test_movement_edit_open_assignment_does_not_require_end_date():
     for hook in ('id="open_assignment"', 'id="to_date_wrap"', 'id="to_date"', 'name="to_date"'):
         assert hook in MOVEMENT_EDIT
     assert "td.required=(v==='إجازة')||(v==='انتداب'&&!isOpenAssignment)" in APP_JS
-    assert "td.disabled=isOpenAssignment" in APP_JS
-    assert "if(endWrap&&v==='انتداب')endWrap.hidden=isOpenAssignment" in APP_JS
+    assert "td.disabled=!hasDateRange||isOpenAssignment" in APP_JS
+    assert "if(endWrap)endWrap.hidden=!hasDateRange||(isAssignment&&isOpenAssignment)" in APP_JS
     assert "td.setCustomValidity" in APP_JS
 
 

@@ -34,15 +34,19 @@
 </div>
 {% elif review_step %}
 <div class="ui-card">
-  <div class="ui-section-title"><div><h3>③ مراجعة البيانات قبل الحفظ</h3><span class="ui-hint">السجلات الجديدة ستُضاف تلقائيًا. الموظفون الموجودون لن تتغير بياناتهم إلا للحقول التي تحددها بنفسك.</span></div></div>
-  {% if errors %}<div class="alert ui-mb-14"><b>صفوف لم يمكن تحليلها:</b>{% for e in errors %}<div>{{e}}</div>{% endfor %}</div>{% endif %}
+  <div class="ui-section-title"><div><h3>③ مراجعة البيانات قبل الحفظ</h3><span class="ui-hint">السجلات الجديدة محددة مبدئيًا ويمكن إلغاء تحديد أي صف. تحديثات السجلات الموجودة غير محددة افتراضيًا؛ اختر الحقول التي توافق على تعديلها.</span></div></div>
+  {% if categorized_errors %}
+  <div class="ui-hint ui-mb-10">تصنيف الصفوف التي تحتاج مراجعة: مكرر / موجود مسبقًا <b>{{issue_counts.duplicate}}</b> — تعارض يحتاج مراجعة <b>{{issue_counts.conflict}}</b> — تعذر الربط الموثوق <b>{{issue_counts.unresolved}}</b> — بيانات ناقصة أو غير صحيحة <b>{{issue_counts.invalid}}</b></div>
+  <div class="alert ui-mb-14"><b>صفوف لم تُدرج في قائمة الإضافات والتحديثات:</b>{% for issue in categorized_errors %}<div><b>{{issue.label}}:</b> {{issue.text}}</div>{% endfor %}</div>
+  {% endif %}
   <form method="post" action="/excel-import/{{kind}}/apply" id="excelApplyForm">
     <input type="hidden" name="_csrf" value="{{csrf}}">
     {% set new_count = actions|selectattr('type','in',['new_employee','new_branch','new_governorate'])|list|length %}
     {% set change_count = actions|selectattr('type','equalto','employee')|list|length + actions|selectattr('type','equalto','branch')|list|length %}
-    <div class="ui-hint ui-mb-14">جديد: <b>{{new_count}}</b> — سجلات موجودة بها اختلافات: <b>{{change_count}}</b></div>
+    {% set match_count = actions|selectattr('type','in',['employee_match','branch_match'])|list|length %}
+    <div class="ui-hint ui-mb-14">جديد صالح للمراجعة: <b>{{new_count}}</b> — موجود مع اختلافات قابلة للاختيار: <b>{{change_count}}</b> — مطابق بالفعل دون تغيير: <b>{{match_count}}</b> — صفوف تحتاج مراجعة: <b>{{errors|length}}</b></div>
     {% if actions %}
-    <div class="ui-hint ui-mb-10">يمكنك البحث داخل المراجعة لتسهيل القراءة. البحث يخفي الصفوف غير المطابقة بصريًا فقط؛ زرا «تحديد كل التغييرات» و«إلغاء تحديد الكل» يؤثران على جميع مربعات التحديث في الطلب.</div>
+    <div class="ui-hint ui-mb-10">يمكنك إلغاء تحديد أي إضافة جديدة لا تريدها. السجلات المطابقة لن تُغيّر. البحث داخل المراجعة يخفي الصفوف بصريًا فقط؛ أزرار التحديد تؤثر على جميع مربعات التحديث في الطلب، لا على الصفوف الظاهرة فقط.</div>
     <div class="ui-overflow-auto">
       <table class="ui-data-table ui-min-1000" data-smart-table data-page-size="10">
         <thead><tr><th>النوع</th><th>السجل</th><th>التغييرات / البيانات الجديدة</th></tr></thead>
@@ -50,9 +54,15 @@
         {% for a in actions %}
           {% if a.type in ['new_employee','new_branch','new_governorate'] %}
           <tr>
-            <td><span class="ui-status">إضافة جديدة</span></td>
+            <td><label class="ui-list-link"><input type="checkbox" name="change" value="{{a.type}}:{{a.row}}" checked> <span class="ui-status">إضافة جديدة</span></label></td>
             <td><b>{{a.values.name}}</b><br><small>{{a.governorate}}{% if a.branch %} — {{a.branch}}{% endif %}</small></td>
-            <td>{% if a.type=='new_employee' %}موظف جديد — سيتم إضافته تلقائيًا.{% elif a.type=='new_branch' %}فرع جديد — سيتم إضافته تلقائيًا.{% else %}محافظة جديدة — سيتم إضافتها تلقائيًا.{% endif %}</td>
+            <td>{% if a.type=='new_employee' %}موظف جديد صالح للإضافة بعد مراجعتك.{% elif a.type=='new_branch' %}فرع جديد صالح للإضافة بعد مراجعتك.{% else %}محافظة جديدة صالحة للإضافة بعد مراجعتك.{% endif %}</td>
+          </tr>
+          {% elif a.type in ['employee_match','branch_match'] %}
+          <tr>
+            <td><span class="ui-status">مطابق موجود مسبقًا</span></td>
+            <td><b>{{a.name}}</b><br><small>{{a.governorate or '—'}}{% if a.branch %} — {{a.branch}}{% endif %}</small></td>
+            <td>البيانات تتطابق مع السجل الموجود؛ لن يتم إنشاء نسخة مكررة أو تعديل هذه البيانات.</td>
           </tr>
           {% else %}
           <tr>
@@ -61,8 +71,8 @@
             <td>
               {% for f,ch in a.changes.items() %}
               <label class="ui-list-link">
-                <input type="checkbox" name="change" value="{{a.type}}:{{a.id}}:{{f}}"> 
-                <b>{{ch.label}}</b>: <span class="ui-muted">{{ch.old}}</span> ← <b>{{ch.new}}</b>
+                <input type="checkbox" name="change" value="{{a.type}}:{{a.id}}:{{a.row}}:{{f}}"> 
+                <b>{{ch.label}}</b>: <span class="ui-muted">{{ch.display_old if ch.display_old is defined else ch.old}}</span> ← <b>{{ch.display_new if ch.display_new is defined else ch.new}}</b>
               </label>
               {% endfor %}
             </td>
@@ -73,7 +83,7 @@
       </table>
     </div>
     <div class="ui-form-actions ui-mt-16">
-      <button type="button" class="ui-btn ui-btn-secondary" onclick="document.querySelectorAll('#excelApplyForm input[name=change]').forEach(x=>x.checked=true)">☑ تحديد كل التغييرات</button>
+      <button type="button" class="ui-btn ui-btn-secondary" onclick="document.querySelectorAll('#excelApplyForm input[name=change]').forEach(x=>x.checked=true)">☑ تحديد كل التغييرات والسجلات</button>
       <button type="button" class="ui-btn ui-btn-secondary" onclick="document.querySelectorAll('#excelApplyForm input[name=change]').forEach(x=>x.checked=false)">☐ إلغاء تحديد الكل</button>
       <button type="submit" class="ui-btn ui-btn-primary">✅ اعتماد الإضافة والتحديثات المحددة</button>
       <a class="ui-btn ui-btn-secondary" href="/excel-import/{{kind}}">إلغاء ورفع ملف آخر</a>

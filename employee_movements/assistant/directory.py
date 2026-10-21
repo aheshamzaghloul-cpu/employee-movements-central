@@ -2,7 +2,7 @@
 
 import re
 
-from ..access import bids, me, roles
+from ..access import bids, can, me, readable_branch_ids
 from ..extensions import db
 from ..models import AssistantAlias, Branch, BranchNameAlias, Employee, EmployeeNameAlias, Governorate, TicketEmployeeCodeAlias
 from ..services.entity_matching import (
@@ -14,14 +14,22 @@ from .text import normalize_for_search
 
 
 # v34.91 — إصلاح نافذة المساعد العائمة داخل التطبيق وإزالة حجب X-Frame-Options.
+def _lookup_branch_ids():
+    """Return active branches readable by this request, independent of write scope."""
+    if can('view_reports'):
+        return set(readable_branch_ids())
+    return set(bids())
+
+
 def scope_employees():
-    rs = roles()
-    if 'مسؤول التطبيق' in rs or 'مشرف محافظة' in rs:
-        return Employee.query.filter(Employee.is_active == True).order_by(Employee.full_name).all()
-    bs = bids()
+    branch_ids = _lookup_branch_ids()
+    if not branch_ids:
+        return []
     return (
-        Employee.query.filter(Employee.is_active == True, Employee.branch_id.in_(bs)).order_by(Employee.full_name).all()
-        if bs else []
+        Employee.query
+        .filter(Employee.is_active == True, Employee.branch_id.in_(branch_ids))
+        .order_by(Employee.full_name)
+        .all()
     )
 
 
@@ -53,8 +61,7 @@ def _alias_employee(value, normalized_value):
     employee = db.session.get(Employee, alias.employee_id)
     if not employee or not employee.is_active:
         return None
-    rs = roles()
-    if 'مسؤول التطبيق' not in rs and 'مشرف محافظة' not in rs and employee.branch_id not in set(bids()):
+    if employee.branch_id not in _lookup_branch_ids():
         return None
     return employee
 
@@ -74,14 +81,12 @@ def find_employee(value):
     if remembered:
         return remembered, [remembered]
 
-    rs = roles()
+    allowed_branches = _lookup_branch_ids()
     candidate_query = Employee.query.filter(
         Employee.is_active == True,
+        Employee.branch_id.in_(allowed_branches) if allowed_branches else False,
         employee_search_filter(value, include_job_title=True, include_branch=True),
     )
-    if 'مسؤول التطبيق' not in rs and 'مشرف محافظة' not in rs:
-        allowed_branches = set(bids())
-        candidate_query = candidate_query.filter(Employee.branch_id.in_(allowed_branches)) if allowed_branches else candidate_query.filter(False)
     rows = candidate_query.order_by(Employee.full_name).limit(100).all()
     name_key = normalize_alias_key(value)
     code_key = normalize_alias_key(value, 'code')
@@ -134,10 +139,10 @@ def find_employee(value):
 
     # Fuzzy results are never selected automatically. The pool is bounded and
     # already filtered by the caller's branch/governorate authorization scope.
-    fallback = Employee.query.filter(Employee.is_active == True)
-    if 'مسؤول التطبيق' not in rs and 'مشرف محافظة' not in rs:
-        allowed_branches = set(bids())
-        fallback = fallback.filter(Employee.branch_id.in_(allowed_branches)) if allowed_branches else fallback.filter(False)
+    fallback = Employee.query.filter(
+        Employee.is_active == True,
+        Employee.branch_id.in_(allowed_branches) if allowed_branches else False,
+    )
     pool = fallback.order_by(Employee.full_name).limit(2500).all()
     suggestions = rank_scoped_employee_suggestions(value, pool, limit=8)
     suggested_employees = [item['employee'] for item in suggestions]
@@ -154,10 +159,8 @@ def find_branch(value, governorate_id=None):
     )
     if governorate_id:
         query = query.filter(Branch.governorate_id == governorate_id)
-    rs = roles()
-    if 'مسؤول التطبيق' not in rs and 'مشرف محافظة' not in rs:
-        allowed = set(bids())
-        query = query.filter(Branch.id.in_(allowed)) if allowed else query.filter(False)
+    allowed = _lookup_branch_ids()
+    query = query.filter(Branch.id.in_(allowed)) if allowed else query.filter(False)
     rows = query.order_by(Branch.name).limit(100).all()
     nv = normalize_for_search(value)
     alias_key = normalize_alias_key(value)
@@ -193,9 +196,7 @@ def find_branch(value, governorate_id=None):
     )
     if governorate_id:
         fallback_query = fallback_query.filter(Branch.governorate_id == governorate_id)
-    if 'مسؤول التطبيق' not in rs and 'مشرف محافظة' not in rs:
-        allowed = set(bids())
-        fallback_query = fallback_query.filter(Branch.id.in_(allowed)) if allowed else fallback_query.filter(False)
+    fallback_query = fallback_query.filter(Branch.id.in_(allowed)) if allowed else fallback_query.filter(False)
     pool = fallback_query.order_by(Branch.name).limit(2500).all()
     suggestions = rank_scoped_branch_suggestions(value, pool, limit=8)
     return None, [item['branch'] for item in suggestions]

@@ -50,7 +50,7 @@ def test_current_release_and_assets_are_synchronized():
     assert len(version.split(".")) == 3 and all(part.isdigit() for part in version.split("."))
     assert f"__version__ = '{version}'" in init
     assert f'version = "{version}"' in project
-    assert f"?v={version}" in BASE
+    assert "v=app_version" in BASE
 
 
 def test_employee_report_groups_and_supervisor_governorate_checklist_are_progressive():

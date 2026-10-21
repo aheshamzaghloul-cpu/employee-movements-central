@@ -2,7 +2,6 @@ import pytest
 
 from employee_movements.bootstrap import ensure_admin_account
 from employee_movements.config import ConfigError
-from employee_movements.extensions import db
 from employee_movements.models import User
 
 

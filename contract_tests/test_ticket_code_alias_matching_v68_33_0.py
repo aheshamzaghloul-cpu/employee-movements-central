@@ -10,6 +10,7 @@ from types import SimpleNamespace
 ROOT = Path(__file__).resolve().parents[1]
 MODELS = (ROOT / "employee_movements" / "models.py").read_text(encoding="utf-8")
 ROUTES = (ROOT / "employee_movements" / "blueprints" / "missions.py").read_text(encoding="utf-8")
+RESOLUTION = (ROOT / "employee_movements" / "services" / "mission_ticket_resolution.py").read_text(encoding="utf-8")
 PAGE = (ROOT / "employee_movements" / "templates" / "mission_from_screenshot.html").read_text(encoding="utf-8")
 BOOTSTRAP = (ROOT / "employee_movements" / "bootstrap.py").read_text(encoding="utf-8")
 PRIVACY = (ROOT / "employee_movements" / "assistant" / "privacy.py").read_text(encoding="utf-8")
@@ -99,8 +100,16 @@ def test_employee_code_alias_model_is_global_unique_and_cascades_with_employee()
     assert "TicketEmployeeCodeAlias" in BOOTSTRAP
 
 
+def test_database_backed_resolution_is_in_a_service_not_the_http_blueprint():
+    assert "from ..services.mission_ticket_resolution import (" in ROUTES
+    assert "def _ticket_mission_employee(job_code):" in RESOLUTION
+    assert "def _ticket_mission_branch_choices(value, branches):" in RESOLUTION
+    assert "def _ticket_mission_save_branch_alias(raw_name, branch, creator_id):" in RESOLUTION
+    assert "from ..blueprints.missions import" not in RESOLUTION
+
+
 def test_lookup_checks_all_direct_and_alias_candidates_before_auto_selecting():
-    resolver = ROUTES.split("def _ticket_mission_employee(job_code):", 1)[1].split("def _ticket_mission_employee_suggestions", 1)[0]
+    resolver = RESOLUTION.split("def _ticket_mission_employee(job_code):", 1)[1].split("def _ticket_mission_employee_suggestions", 1)[0]
     assert "official_rows" in resolver
     assert "alias_rows" in resolver
     assert "candidates_by_id" in resolver
@@ -111,11 +120,11 @@ def test_lookup_checks_all_direct_and_alias_candidates_before_auto_selecting():
 
 def test_code_alias_is_saved_only_after_explicit_opt_in_and_after_mission_validation():
     route = ROUTES.split("def mission_from_screenshot_create():", 1)[1].split("@bp.get('/reports/assignments/mission-edit", 1)[0]
-    assert "if form.get('remember_job_code_alias') == 'yes' and source_job_code:" in route
+    assert "if form.get('remember_job_code_alias') == 'yes' and source_job_code and not expected_employee_confirmation_needed:" in route
     assert "if form.get('remember_basic_branch_alias') == 'yes' and actual_basic_branch:" in route
     assert "_ticket_mission_save_job_code_alias(" in route
-    assert route.index("movement = Movement(") < route.index("_ticket_mission_save_job_code_alias(") < route.index("db.session.commit()")
-    save = ROUTES.split("def _ticket_mission_save_job_code_alias(", 1)[1].split("def _ticket_mission_branch_records", 1)[0]
+    assert route.index("movement = Movement(") < route.index("_ticket_mission_save_job_code_alias(") < route.rindex("db.session.commit()")
+    save = RESOLUTION.split("def _ticket_mission_save_job_code_alias(", 1)[1].split("def _ticket_mission_branch_records", 1)[0]
     assert "job_code_lookup_variants(official_code)" in save
     assert "conflicting_official" in save
     assert "existing.employee_id != employee.id" in save

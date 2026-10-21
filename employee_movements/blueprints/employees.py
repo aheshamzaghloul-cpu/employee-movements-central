@@ -3,7 +3,8 @@
 from datetime import date, datetime
 
 from flask import abort, Blueprint, flash, redirect, render_template, request, url_for
-from sqlalchemy import func
+from sqlalchemy import func, select
+from sqlalchemy.orm import aliased
 
 from ..access import (
     actual_roles,
@@ -17,25 +18,26 @@ from ..access import (
     me,
     only,
     req,
-    roles,
     scope_governorates_for_user,
-    user_gov_ids,
 )
 from ..assignments import (
     current_assignment_for_employee,
+    latest_assignment_summaries,
     resolve_current_movement,
-    effective_branch_id_for_employee,
-    employee_is_effectively_in_branch,
     organizational_entry_for_employee,
-    sync_role_accounts,
+    entry_responsible_names_by_branch,
+    entry_responsible_label,
 )
 from ..constants import MOVEMENT_TYPES
 from ..extensions import db
+from ..form_state import form_values_from_request
+from ..pagination import safe_page_number
+from ..movement_state import assignment_open_filter
+from ..services.account_security import invalidate_user_workflows
+from ..services.identity_locks import lock_employee_identity_writes
 from ..models import (
     Branch,
     Employee,
-    EntryAssignment,
-    EntryAssignmentBranch,
     EmployeeNameAlias,
     TicketEmployeeCodeAlias,
     GovernorateNameAlias,
@@ -48,11 +50,12 @@ from ..models import (
     UserRole,
 )
 from ..validation import parse_date, valid_email
-from ..search import normalize_search_text, search_contains
+from ..search import normalize_search_text
 from ..services.entity_matching import (
-    alias_owner_conflict, conflicting_employee_code, employee_search_filter, normalize_alias_key,
+    conflicting_employee_code, employee_search_filter, normalize_alias_key,
     rank_scoped_employee_suggestions,
 )
+from ..services.entity_integrity import employee_name_conflict
 from ..services.ticket_matching import job_code_lookup_variants
 from sqlalchemy.exc import IntegrityError
 
@@ -72,29 +75,21 @@ def _safe_parse_date(value):
 @only('مسؤول التطبيق')
 def employee_role_select():
     eid = request.args.get('employee_id', '').strip()
-    if not eid.isdigit():
-        flash('اختر موظفًا مسجلًا أولًا.')
+    if eid and (not eid.isdigit() or not db.session.get(Employee, int(eid))):
+        flash('تعذر العثور على سجل الموظف؛ أعد البحث من الرئيسية.')
         return redirect('/#entry-directory')
-    e = db.session.get(Employee, int(eid))
-    if not e or not e.is_active:
-        flash('الموظف غير موجود أو غير نشط.')
-        return redirect('/#entry-directory')
-    if e.user_id and 'المدخل الأول' in actual_roles(db.session.get(User, e.user_id)):
-        flash('هذا الموظف مسجل بالفعل كمدخل أول.')
-        return redirect('/#entry-directory')
-    return redirect(url_for('employees.employee_convert_role', i=e.id))
+    flash('تكليف مسؤول إدخال الفروع لا يُدار كدور رسمي. استخدم مركز التكليفات في الرئيسية.')
+    return redirect('/#entry-directory')
 
 
 @bp.get('/employee-search')
 @req
 def employee_search():
-    """Global homepage employee search with movement details gated separately.
+    """Global employee-directory search for authenticated application users.
 
-    The search is intentionally independent from the selected work governorate,
-    but authentication alone does not grant access to employee-directory data.
+    Employee profile data is shared across all application roles by policy.
+    Movement histories and mutation actions remain permission-gated separately.
     """
-    if not (can('manage_employees') or can('view_reports')):
-        abort(403)
     q = (request.args.get('q', '') or '').strip()
     normalized_q = normalize_search_text(q)
     gov_raw = (request.args.get('governorate_id') or '').strip()
@@ -123,7 +118,7 @@ def employee_search():
         query = query.filter(Employee.branch_id == branch.id)
     scoped_query = query
     if normalized_q:
-        query = query.filter(employee_search_filter(q, include_branch=True))
+        query = query.filter(employee_search_filter(q, include_contacts=True, include_branch=True))
     rows = query.order_by(Employee.full_name).limit(20).all()
     suggested_ids = set()
     suggested_reasons = {}
@@ -135,15 +130,42 @@ def employee_search():
         rows = [item['employee'] for item in ranked]
         suggested_ids = {item['employee'].id for item in ranked}
 
-    # This endpoint powers identity suggestions only. It never fetches histories.
+    # Resolve branch contact and the latest assignment summary in separate batched
+    # read-only queries. Full history remains available on the employee profile.
+    entry_names_by_branch = entry_responsible_names_by_branch({e.branch_id for e in rows if e.branch_id})
+    latest_by_employee = latest_assignment_summaries({e.id for e in rows})
     results = [
         {
             'id': e.id,
             'name': e.full_name,
-            'code': e.job_code or '',
+            # job_code is the legacy personnel-code field; employee_code is the
+            # equivalent newer field. Expose one canonical code to the UI.
+            'code': e.employee_code or e.job_code or '',
             'job_title': e.job_title or '',
             'branch': e.branch.name if e.branch else '',
+            'branch_code': e.branch.code if e.branch else '',
             'governorate': e.branch.governorate.name if e.branch and e.branch.governorate else '',
+            'hire_date': e.hire_date.strftime('%d/%m/%Y') if e.hire_date else '',
+            'rehire_date': e.rehire_date.strftime('%d/%m/%Y') if e.rehire_date else '',
+            'resignation_date': e.resignation_date.strftime('%d/%m/%Y') if e.resignation_date else '',
+            'employment_status': (
+                'على رأس العمل' if e.is_active and e.rehire_date and (not e.resignation_date or e.rehire_date >= e.resignation_date)
+                else 'مستقيل' if e.resignation_date
+                else 'على رأس العمل' if e.is_active
+                else 'غير نشط'
+            ),
+            'email': e.email or '',
+            'company_phone': e.company_phone or '',
+            'personal_phone': e.personal_phone or '',
+            'entry_responsible': entry_responsible_label(entry_names_by_branch.get(e.branch_id, [])),
+            'entry_responsible_names': entry_names_by_branch.get(e.branch_id, []),
+            'entry_responsible_status': (
+                'conflict' if len(entry_names_by_branch.get(e.branch_id, [])) > 1
+                else 'assigned' if entry_names_by_branch.get(e.branch_id, [])
+                else 'unassigned'
+            ),
+            'last_assignment': latest_by_employee.get(e.id, {}).get('text', ''),
+            'last_assignment_governorate': latest_by_employee.get(e.id, {}).get('governorate', ''),
             'match_kind': 'approximate' if e.id in suggested_ids else 'normal',
             'match_reasons': suggested_reasons.get(e.id, []),
         }
@@ -158,6 +180,7 @@ def employees():
     if not (can('manage_employees') or can('view_reports')):
         abort(403)
     bs = bids()
+    form_values = form_values_from_request(request.form) if request.method == 'POST' else {}
     if request.method == 'POST':
         if not can('manage_employees'):
             abort(403)
@@ -190,62 +213,95 @@ def employees():
         elif not _safe_parse_date(hire_date):
             flash('تاريخ التعيين مطلوب وبصيغة صحيحة.')
         else:
+            # Share the same PostgreSQL identity gate as Excel, account-linked
+            # employee writes, and assistant-managed changes. Lock the selected
+            # branch before any Employee row, matching Excel's branch->employee
+            # row-lock order and avoiding a cross-path deadlock.
+            lock_employee_identity_writes(db.session)
+            branch_obj = (
+                Branch.query.filter_by(id=bid).populate_existing().with_for_update().one_or_none()
+            )
+            if (
+                not branch_obj or not branch_obj.is_active or not branch_obj.governorate
+                or not branch_obj.governorate.is_active or branch_obj.governorate_id != submitted_gid
+                or not can('manage_employees') or not branch_ok(bid)
+            ):
+                flash('تغيّرت حالة الفرع أو نطاق الصلاحية أثناء التسجيل؛ أعد تحميل الصفحة قبل الحفظ.')
+                return redirect(url_for('employees.employees'))
             # Email and HR code are compared case-insensitively across active and
             # historical employees; a resigned record must not permit a duplicate.
-            existing = Employee.query.filter(func.lower(Employee.email) == email).first()
-            name_alias_conflict = alias_owner_conflict('employee_name', name, target_id=existing.id if existing else None)
+            existing_email_rows = Employee.query.filter(
+                Employee.email.isnot(None), func.lower(func.trim(Employee.email)) == email,
+            ).populate_existing().with_for_update().all()
+            if len(existing_email_rows) > 1:
+                flash('يوجد أكثر من سجل موظف بالبريد نفسه بعد تطبيع الأحرف؛ لم يتم الاستعادة أو الإضافة لتجنب اختيار سجل خطأ.')
+                return redirect(url_for('employees.employees'))
+            existing = existing_email_rows[0] if existing_email_rows else None
+            name_alias_conflict = employee_name_conflict(name, bid, exclude_employee_id=existing.id if existing else None)
+            code_conflict = conflicting_employee_code(job_code, exclude_employee_id=existing.id if existing else None)
             if name_alias_conflict:
                 flash('الاسم يطابق صيغة بديلة مؤكدة لموظف آخر؛ راجع سجل المطابقة قبل الإضافة.')
-                return redirect(url_for('employees.employees'))
-            code_conflict = conflicting_employee_code(job_code, exclude_employee_id=existing.id if existing else None)
-            if code_conflict:
+            elif code_conflict:
                 flash('كود شئون العاملين أو أحد صِيَغه الرقمية مستخدم بالفعل لموظف آخر.')
-                return redirect(url_for('employees.employees'))
-            if existing:
+            elif existing:
                 if existing.is_active:
                     flash('البريد الإلكتروني مستخدم بالفعل لموظف آخر.')
-                    return redirect(url_for('employees.employees'))
-                if existing.resignation_date is not None:
+                elif existing.resignation_date is not None:
                     flash(
                         'الموظف مسجل كمستقيل. أعد تفعيله أولًا من «الموظفون المستقيلون» بتاريخ إعادة التعيين، ثم حدّث بياناته.',
                     )
                     return redirect(url_for('employees.resigned_employees'))
-                # الموظف غير ظاهر في القائمة لأنه معطّل إداريًا. لا ننشئ سجلًا ثانيًا.
-                existing.full_name = name
-                existing.email = email
-                existing.branch_id = bid
-                existing.job_title = job_title
-                existing.job_code = job_code
-                existing.hire_date = _safe_parse_date(hire_date)
-                existing.company_phone = company_phone
-                existing.personal_phone = personal_phone
-                existing.is_active = True
-                existing.deleted_at = None
-                existing.deleted_by = None
-                log('RESTORE', 'Employee', existing.id, existing.full_name)
-                db.session.commit()
-                flash('تمت استعادة الموظف السابق وتحديث بياناته، مع الاحتفاظ بكل تاريخه وحركاته.')
-                return redirect(url_for('employees.employee_card', i=existing.id))
-            e = Employee(
-                employee_code=None,
-                email=email,
-                full_name=name,
-                branch_id=bid,
-                job_title=job_title,
-                job_code=job_code,
-                hire_date=_safe_parse_date(hire_date),
-                company_phone=company_phone,
-                personal_phone=personal_phone,
-            )
-            db.session.add(e)
-            db.session.flush()
-            log('ADD', 'Employee', e.id, e.full_name)
-            db.session.commit()
-            flash('تمت إضافة الموظف بنجاح. يمكنك الآن تسجيل أول حركة له.')
-            return redirect(url_for('employees.employee_card', i=e.id))
-    # صفحة الموظفين تشغيلية: لا يجوز لمرشح غير صالح أن يتحول إلى عرض أوسع.
-    # البحث العام في كل المحافظات يظل محصورًا في الصفحة الرئيسية فقط.
-    search_branch_ids = set(bs or [])
+                else:
+                    # الموظف غير ظاهر في القائمة لأنه معطّل إداريًا. لا ننشئ سجلًا ثانيًا.
+                    existing.full_name = name
+                    existing.email = email
+                    existing.branch_id = bid
+                    existing.job_title = job_title
+                    existing.job_code = job_code
+                    existing.hire_date = _safe_parse_date(hire_date)
+                    existing.company_phone = company_phone
+                    existing.personal_phone = personal_phone
+                    existing.is_active = True
+                    existing.deleted_at = None
+                    existing.deleted_by = None
+                    log('RESTORE', 'Employee', existing.id, existing.full_name)
+                    try:
+                        db.session.commit()
+                    except IntegrityError:
+                        db.session.rollback()
+                        flash('تعذر استعادة الموظف لأن بيانات الهوية تعارضت مع سجل قائم؛ لم يتم اعتماد أي تغيير.')
+                        return redirect(url_for('employees.employees'))
+                    flash('تمت استعادة الموظف السابق وتحديث بياناته، مع الاحتفاظ بكل تاريخه وحركاته.')
+                    return redirect(url_for('employees.employee_card', i=existing.id))
+            else:
+                e = Employee(
+                    employee_code=None,
+                    email=email,
+                    full_name=name,
+                    branch_id=bid,
+                    job_title=job_title,
+                    job_code=job_code,
+                    hire_date=_safe_parse_date(hire_date),
+                    company_phone=company_phone,
+                    personal_phone=personal_phone,
+                )
+                db.session.add(e)
+                try:
+                    db.session.flush()
+                    log('ADD', 'Employee', e.id, e.full_name)
+                    db.session.commit()
+                except IntegrityError:
+                    db.session.rollback()
+                    flash('تعذر إضافة الموظف بسبب تعارض في البريد أو الكود أو قيد قاعدة البيانات؛ لم يتم إنشاء سجل جزئي.')
+                    return redirect(url_for('employees.employees'))
+                flash('تمت إضافة الموظف بنجاح. يمكنك الآن تسجيل أول حركة له.')
+                return redirect(url_for('employees.employee_card', i=e.id))
+    # القراءة في دليل الموظفين عامة عبر المحافظات لكل المستخدمين المسجلين.
+    # المتغير bs أعلاه يظل نطاق العمل فقط، ويُستخدم في الإضافة/التعديل لا في تقييد العرض.
+    search_branch_ids = {
+        branch.id for branch in Branch.query.join(Governorate, Governorate.id == Branch.governorate_id)
+        .filter(Branch.is_active == True, Governorate.is_active == True).all()
+    }
     raw_q = (request.args.get('q', '') or '').strip()
     invalid_q_filter = len(raw_q) > 120
     q = raw_q[:120]
@@ -277,6 +333,11 @@ def employees():
 
     branches = list(scope_branches)
     rows = []
+    employee_page_size = 100
+    employee_page = 1
+    employee_page_count = 1
+    employee_query_total = 0
+    employee_server_paginated = False
 
     if not (invalid_q_filter or invalid_gov_filter or invalid_branch_filter or invalid_employee_filter):
         selected_branch_ids = set(allowed_search_branch_ids)
@@ -303,14 +364,57 @@ def employees():
                     Employee.branch_id.in_(selected_branch_ids),
                 )
             )
+            if employee_filter:
+                # Exact profile lookup must be a database predicate. Previously
+                # this path loaded every employee in the selected scope and only
+                # then narrowed the result in Python.
+                query = query.filter(Employee.id == int(employee_filter))
+            if branch_filter:
+                # Mirror employee_is_effectively_in_branch() in SQL. Its old
+                # per-row movement lookup caused an N+1 query pattern and made
+                # branch-filtered lists bypass pagination entirely.
+                today_for_scope = date.today()
+                latest_current_assignment_id = (
+                    select(func.max(Movement.id))
+                    .where(
+                        Movement.employee_id == Employee.id,
+                        Movement.is_active == True,
+                        Movement.movement_type == 'انتداب',
+                        assignment_open_filter(Movement),
+                        Movement.from_date.is_not(None),
+                        Movement.from_date <= today_for_scope,
+                        db.or_(Movement.to_date.is_(None), Movement.to_date >= today_for_scope),
+                    )
+                    .correlate(Employee)
+                    .scalar_subquery()
+                )
+                current_assignment_row = aliased(Movement)
+                query = query.outerjoin(
+                    current_assignment_row,
+                    current_assignment_row.id == latest_current_assignment_id,
+                ).filter(
+                    db.or_(
+                        current_assignment_row.id.is_(None),
+                        current_assignment_row.destination_branch_id.is_(None),
+                        current_assignment_row.destination_branch_id == int(branch_filter),
+                    )
+                )
             if q:
-                query = query.filter(employee_search_filter(q, include_job_title=True, include_branch=True))
-            candidates = query.order_by(Employee.full_name).all()
-            rows = [
-                e for e in candidates
-                if (e.branch_id in selected_branch_ids or effective_branch_id_for_employee(e.id) in selected_branch_ids)
-                and (not branch_filter or employee_is_effectively_in_branch(e, int(branch_filter)))
-            ]
+                query = query.filter(employee_search_filter(q, include_job_title=True, include_contacts=True, include_branch=True))
+            # Exact profile lookup stays a one-record query; every directory list,
+            # including governorate/branch-filtered views, is paginated by SQL.
+            employee_server_paginated = not employee_filter
+            if employee_server_paginated:
+                employee_query_total = query.count()
+                employee_page_count = max(1, (employee_query_total + employee_page_size - 1) // employee_page_size)
+                raw_page = (request.args.get('page') or '1').strip()
+                employee_page = safe_page_number(raw_page, employee_page_count)
+                candidates = query.order_by(Employee.full_name, Employee.id).limit(employee_page_size).offset(
+                    (employee_page - 1) * employee_page_size
+                ).all()
+            else:
+                candidates = query.order_by(Employee.full_name, Employee.id).all()
+            rows = candidates
 
     # Keep filter dropdown options within the same authorized work scope. Invalid
     # explicit query parameters produce no rows instead of silently broadening results.
@@ -335,6 +439,9 @@ def employees():
     approximate_employee_ids = set()
     approximate_employee_reasons = {}
     if q and not rows and not employee_filter and not filter_error:
+        employee_server_paginated = False
+        employee_page = 1
+        employee_page_count = 1
         scoped_ids = {branch.id for branch in branches if branch.is_active and branch.governorate and branch.governorate.is_active}
         if scoped_ids:
             fallback_query = (
@@ -378,32 +485,16 @@ def employees():
         for alias in GovernorateNameAlias.query.filter(GovernorateNameAlias.governorate_id.in_(visible_gov_ids)).all():
             governorate_alias_text.setdefault(alias.governorate_id, []).append(alias.alias_text)
 
-    # المدخل الأول المسؤول عن كل موظف: يُحسب من فروع المسؤولية التنظيمية،
-    # مع الاحتفاظ بسجل موظف واحد وعدم إنشاء سجل إضافي للمدخل.
+    # اسم مسؤول الإدخال الأول يُحدد وفق الفرع المسجل للموظف، لا وفق تطابق
+    # رقم الموظف مع رقم الشخص المكلف بالإدخال. إظهار التضارب أفضل من اختيار اسم خاطئ.
     entry_map = {}
     if rows:
-        row_ids = {e.id for e in rows}
-        assignments = (
-            EntryAssignment.query.filter(
-                EntryAssignment.employee_id.in_(row_ids),
-                EntryAssignment.is_active == True,
-            )
-            .all()
-        )
-        for a in assignments:
-            entry_map[a.employee_id] = a.employee.full_name if a.employee else ''
+        names_by_branch = entry_responsible_names_by_branch({e.branch_id for e in rows if e.branch_id})
+        for employee in rows:
+            entry_map[employee.id] = entry_responsible_label(names_by_branch.get(employee.branch_id, []))
 
-    # عرض جميع المحافظات في قائمة البحث للحسابات ذات النطاق الشامل،
-    # بينما تبقى نتائج الموظفين نفسها محكومة بصلاحيات/nطاق الحساب.
-    filter_govs = (
-        (
-            Governorate.query.filter(Governorate.id.in_(gids()), Governorate.is_active == True)
-            .order_by(Governorate.name)
-            .all()
-        )
-        if gids()
-        else []
-    )
+    # مرشحات البحث للقراءة تشمل كل المحافظات؛ لا تغيّر محافظة العمل ولا تمنح حق التعديل.
+    filter_govs = Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all()
     # محافظة الإضافة تبقى مقيدة بنطاق الإدارة للمستخدم، بينما قائمة البحث يمكن أن تشمل كل المحافظات للمشرف.
     add_govs = (
         (
@@ -483,6 +574,31 @@ def employees():
         )
         for group in grouped_employees:
             group['branches'].sort(key=lambda x: x['branch'].name)
+    page_result_count = len(rows)
+    result_total = employee_query_total if employee_server_paginated else len(rows)
+    page_links = []
+    if employee_server_paginated and employee_page_count > 1:
+        start_page = max(1, employee_page - 2)
+        end_page = min(employee_page_count, start_page + 4)
+        start_page = max(1, end_page - 4)
+        for page_number in range(start_page, end_page + 1):
+            query_args = request.args.to_dict()
+            query_args['page'] = str(page_number)
+            page_links.append({
+                'number': page_number,
+                'url': url_for('employees.employees', **query_args),
+            })
+    previous_page_url = None
+    next_page_url = None
+    if employee_server_paginated and employee_page > 1:
+        query_args = request.args.to_dict()
+        query_args['page'] = str(employee_page - 1)
+        previous_page_url = url_for('employees.employees', **query_args)
+    if employee_server_paginated and employee_page < employee_page_count:
+        query_args = request.args.to_dict()
+        query_args['page'] = str(employee_page + 1)
+        next_page_url = url_for('employees.employees', **query_args)
+
     return render_template(
         'employees.html',
         rows=rows,
@@ -495,7 +611,15 @@ def employees():
         govs=filter_govs,
         gov_filter=gov_filter,
         entry_map=entry_map,
-        total_rows=len(rows),
+        total_rows=result_total,
+        page_result_count=page_result_count,
+        employee_server_paginated=employee_server_paginated,
+        employee_page=employee_page,
+        employee_page_size=employee_page_size,
+        employee_page_count=employee_page_count,
+        employee_page_links=page_links,
+        employee_previous_page_url=previous_page_url,
+        employee_next_page_url=next_page_url,
         status_map=status_map,
         scope_governorates=scope_governorates,
         filter_error=filter_error,
@@ -506,6 +630,7 @@ def employees():
         branch_alias_text=branch_alias_text,
         governorate_alias_text=governorate_alias_text,
         grouped_branch_count=sum(len(group['branches']) for group in grouped_employees),
+        form_values=form_values,
     )
 
 
@@ -566,14 +691,42 @@ def employee_edit(i):
         or not can('manage_employees')
     ):
         abort(403)
+    form_values = form_values_from_request(request.form) if request.method == 'POST' else {}
+
+    def render_edit_form(values=None):
+        return render_template(
+            'employee_edit.html',
+            e=e,
+            employee_name_aliases=EmployeeNameAlias.query.filter_by(employee_id=e.id).order_by(EmployeeNameAlias.alias_text).all(),
+            employee_code_aliases=TicketEmployeeCodeAlias.query.filter_by(employee_id=e.id).order_by(TicketEmployeeCodeAlias.alias_text).all(),
+            bs=Branch.query.filter(Branch.id.in_(bids()), Branch.is_active == True).all(),
+            govs=(
+                Governorate.query.filter(Governorate.id.in_(gids()), Governorate.is_active == True)
+                .order_by(Governorate.name)
+                .all()
+            ),
+            form_values=values or {},
+        )
+
+    def retry_edit(message):
+        flash(message)
+        return render_edit_form(form_values_from_request(request.form))
+
     if request.method == 'POST':
-        # Treat missing or malformed branch IDs as invalid form input rather
-        # than letting int(...) raise an unhandled ValueError/KeyError (500).
+        # Parse the submitted branch before taking row locks. All employee
+        # writers use the identity gate; lock branch first, then employee, to
+        # match the import workflow's stable catalogue->employee order.
         raw_branch_id = (request.form.get('branch_id') or '').strip()
         if not raw_branch_id.isdigit():
-            flash('اختر فرعًا صحيحًا ضمن نطاق صلاحيتك.')
-            return redirect(url_for('employees.employee_edit', i=i))
+            return retry_edit('اختر فرعًا صحيحًا ضمن نطاق صلاحيتك.')
         bid = int(raw_branch_id)
+        lock_employee_identity_writes(db.session)
+        branch_obj = (
+            Branch.query.filter_by(id=bid).populate_existing().with_for_update().one_or_none()
+        )
+        db.session.refresh(e, with_for_update=True)
+        if e.deleted_at is not None or not can_manage_employee(e) or not can('manage_employees'):
+            abort(403)
         if not branch_ok(bid):
             abort(403)
         submitted_gid = (
@@ -581,7 +734,6 @@ def employee_edit(i):
             if request.form.get('governorate_id', '').isdigit()
             else 0
         )
-        branch_obj = db.session.get(Branch, bid)
         if (
             not branch_obj
             or not branch_obj.is_active
@@ -589,8 +741,7 @@ def employee_edit(i):
             or not branch_obj.governorate.is_active
             or branch_obj.governorate_id != submitted_gid
         ):
-            flash('يجب اختيار فرع ومحافظة نشطين ومتطابقين ضمن نطاق صلاحيتك.')
-            return redirect(url_for('employees.employee_edit', i=i))
+            return retry_edit('يجب اختيار فرع ومحافظة نشطين ومتطابقين ضمن نطاق صلاحيتك.')
         name = request.form.get('full_name', '').strip()
         email = request.form.get('email', '').strip().lower()
         job_title = request.form.get('job_title', '').strip()
@@ -598,36 +749,24 @@ def employee_edit(i):
         hire_date = request.form.get('hire_date', '').strip()
         company_phone = request.form.get('company_phone', '').strip()
         personal_phone = request.form.get('personal_phone', '').strip()
-        if not all([name, email, job_title, job_code, hire_date, company_phone, personal_phone]):
-            flash('جميع بيانات الموظف مطلوبة.')
-            return redirect(url_for('employees.employee_edit', i=i))
-        name_alias_conflict = alias_owner_conflict('employee_name', name, target_id=e.id)
+        if not all([name, email, job_title, job_code, hire_date]):
+            return retry_edit('اسم الموظف والبريد والوظيفة والكود الوظيفي وتاريخ التعيين بيانات مطلوبة.')
+        # The shared lock was acquired before reloading the target above.
+        name_alias_conflict = employee_name_conflict(name, bid, exclude_employee_id=e.id)
         if name_alias_conflict:
-            flash('الاسم يطابق صيغة بديلة مؤكدة لموظف آخر؛ لم يتم التعديل.')
-            return redirect(url_for('employees.employee_edit', i=i))
+            return retry_edit('الاسم يطابق صيغة بديلة مؤكدة لموظف آخر؛ لم يتم التعديل.')
         code_conflict = conflicting_employee_code(job_code, exclude_employee_id=e.id)
         if code_conflict:
-            flash('كود شئون العاملين أو أحد صِيَغه الرقمية مستخدم بالفعل لموظف آخر.')
-            return redirect(url_for('employees.employee_edit', i=i))
+            return retry_edit('كود شئون العاملين أو أحد صِيَغه الرقمية مستخدم بالفعل لموظف آخر.')
         if not valid_email(email):
-            flash('البريد الإلكتروني مطلوب ويجب أن يكون بصيغة صحيحة.')
-            return redirect(url_for('employees.employee_edit', i=i))
+            return retry_edit('البريد الإلكتروني مطلوب ويجب أن يكون بصيغة صحيحة.')
         dup = Employee.query.filter(
             func.lower(Employee.email) == email, Employee.id != i,
         ).first()
         if dup:
-            flash('البريد الإلكتروني مستخدم بالفعل لموظف آخر.')
-            return redirect(url_for('employees.employee_edit', i=i))
-        duplicate_code = Employee.query.filter(
-            func.lower(func.trim(Employee.job_code)) == job_code.lower(),
-            Employee.id != i,
-        ).first()
-        if duplicate_code:
-            flash('كود شئون العاملين مستخدم بالفعل لموظف آخر.')
-            return redirect(url_for('employees.employee_edit', i=i))
+            return retry_edit('البريد الإلكتروني مستخدم بالفعل لموظف آخر.')
         if not _safe_parse_date(hire_date):
-            flash('تاريخ التعيين مطلوب وبصيغة صحيحة.')
-            return redirect(url_for('employees.employee_edit', i=i))
+            return retry_edit('تاريخ التعيين مطلوب وبصيغة صحيحة.')
         # Validate a linked login's email before mutating either ORM object.
         # This keeps rejected form submissions free of partially staged changes.
         linked_user = db.session.get(User, e.user_id) if e.user_id else None
@@ -636,8 +775,7 @@ def employee_edit(i):
                 func.lower(User.email) == email, User.id != linked_user.id,
             ).first()
             if other:
-                flash('البريد الإلكتروني مستخدم بالفعل لحساب آخر.')
-                return redirect(url_for('employees.employee_edit', i=i))
+                return retry_edit('البريد الإلكتروني مستخدم بالفعل لحساب آخر.')
 
         e.full_name = name
         e.email = email
@@ -653,21 +791,15 @@ def employee_edit(i):
         e.company_phone = company_phone
         e.personal_phone = personal_phone
         log('EDIT', 'Employee', i, e.full_name)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            flash('تعذر حفظ تعديل الموظف بسبب تعارض في الهوية أو البريد؛ لم يتم اعتماد التغييرات.')
+            return redirect(url_for('employees.employee_edit', i=i))
         flash('تم تعديل الموظف.')
         return redirect(url_for('employees.employees'))
-    return render_template(
-        'employee_edit.html',
-        e=e,
-        employee_name_aliases=EmployeeNameAlias.query.filter_by(employee_id=e.id).order_by(EmployeeNameAlias.alias_text).all(),
-        employee_code_aliases=TicketEmployeeCodeAlias.query.filter_by(employee_id=e.id).order_by(TicketEmployeeCodeAlias.alias_text).all(),
-        bs=Branch.query.filter(Branch.id.in_(bids()), Branch.is_active == True).all(),
-        govs=(
-            Governorate.query.filter(Governorate.id.in_(gids()), Governorate.is_active == True)
-            .order_by(Governorate.name)
-            .all()
-        ),
-    )
+    return render_edit_form(form_values)
 
 
 @bp.post('/employees/<int:i>/aliases')
@@ -686,6 +818,16 @@ def employee_alias_add(i):
         return redirect(url_for('employees.employee_edit', i=i))
 
     try:
+        # Name/code aliases participate in the same uniqueness rules as the
+        # canonical employee identity and Excel imports. Refresh the owner after
+        # the transaction lock so a stale edit form cannot attach an alias to a
+        # changed/deactivated employee silently.
+        lock_employee_identity_writes(db.session)
+        db.session.refresh(employee, with_for_update=True)
+        if not employee.is_active or employee.deleted_at is not None:
+            db.session.rollback()
+            flash('تغيّرت حالة الموظف أثناء المراجعة؛ أعد فتح السجل قبل إضافة صيغة بديلة.')
+            return redirect(url_for('employees.employee_edit', i=i))
         if kind == 'employee_name':
             official_key = normalize_alias_key(employee.full_name)
             if normalized == official_key:
@@ -738,110 +880,13 @@ def employee_alias_add(i):
 @req
 @only('مسؤول التطبيق')
 def employee_convert_role(i):
+    # Compatibility endpoint for old bookmarks: the only writable interface for
+    # branch-entry assignments is the homepage operational workspace.
     e = db.session.get(Employee, i)
     if not e or not e.is_active:
         abort(404)
-    assignment = organizational_entry_for_employee(e)
-    is_entry = bool(assignment)
-    if request.method == 'POST':
-        action = request.form.get('action')
-        if action == 'to_entry':
-            branch_ids = {int(x) for x in request.form.getlist('branch_id') if x.isdigit()}
-            allowed_branch_ids = {b.id for b in Branch.query.filter_by(is_active=True).all()}
-            branch_ids &= allowed_branch_ids
-            if not branch_ids:
-                flash('يجب اختيار فرع واحد على الأقل ضمن فروع مسؤولية المدخل الأول.')
-                return redirect(url_for('employees.employee_convert_role', i=i))
-            sup_id = request.form.get('supervisor_id', '').strip()
-            sup = db.session.get(User, int(sup_id)) if sup_id.isdigit() else None
-            gov_ids = {
-                b.governorate_id
-                for b in Branch.query.filter(Branch.id.in_(branch_ids), Branch.is_active == True).all()
-            }
-            if (
-                not sup
-                or 'مشرف محافظة' not in actual_roles(sup)
-                or not sup.is_active
-                or not gov_ids & user_gov_ids(sup)
-            ):
-                flash('يجب اختيار مشرف محافظة صحيح لفروع المسؤولية.')
-                return redirect(url_for('employees.employee_convert_role', i=i))
-            # الدور هنا تنظيمي فقط: لا ننشئ اسم مستخدم أو كلمة مرور جديدة.
-            if assignment:
-                assignment.supervisor_id = sup.id
-                assignment.is_active = True
-                EntryAssignmentBranch.query.filter_by(entry_assignment_id=assignment.id).delete()
-            else:
-                assignment = EntryAssignment(employee_id=e.id, supervisor_id=sup.id, is_active=True)
-                db.session.add(assignment)
-                db.session.flush()
-            for bid in sorted(branch_ids):
-                db.session.add(
-                    EntryAssignmentBranch(entry_assignment_id=assignment.id, branch_id=bid),
-                )
-            # توافق مع البيانات القديمة: إذا كان للموظف حساب دخول قديم يحمل دور المدخل الأول،
-            # أزل الدور القديم فقط ولا تحذف الحساب إذا كان له أدوار أخرى.
-            if e.user_id:
-                old_user = db.session.get(User, e.user_id)
-                if old_user and 'المدخل الأول' in actual_roles(old_user):
-                    UserRole.query.filter_by(user_id=old_user.id, role='المدخل الأول').delete()
-                    UserBranch.query.filter_by(user_id=old_user.id).delete()
-                    SupervisorEntry.query.filter_by(entry_id=old_user.id).delete()
-                    if not actual_roles(old_user):
-                        old_user.is_active = False
-                    sync_role_accounts(old_user)
-            log('ROLE_CHANGE', 'Employee', e.id, 'تحويل الموظف إلى مدخل أول تنظيمي بدون حساب دخول')
-            db.session.commit()
-            flash(
-                'تم تحويل الموظف إلى مدخل أول تنظيمي مع الاحتفاظ بسجل الموظف وفرع التعيين والحركات السابقة.',
-            )
-            return redirect(url_for('employees.employee_edit', i=e.id))
-        if action == 'to_employee':
-            if not assignment:
-                flash('الموظف ليس مدخلًا أول.')
-                return redirect(url_for('employees.employee_convert_role', i=i))
-            EntryAssignmentBranch.query.filter_by(entry_assignment_id=assignment.id).delete()
-            db.session.delete(assignment)
-            # تنظيف أي ارتباطات قديمة مرتبطة بحساب سابق لهذا الموظف دون حذف الموظف أو تاريخه.
-            if e.user_id:
-                old_user = db.session.get(User, e.user_id)
-                if old_user and 'المدخل الأول' in actual_roles(old_user):
-                    UserRole.query.filter_by(user_id=old_user.id, role='المدخل الأول').delete()
-                    UserBranch.query.filter_by(user_id=old_user.id).delete()
-                    SupervisorEntry.query.filter_by(entry_id=old_user.id).delete()
-                    if not actual_roles(old_user):
-                        old_user.is_active = False
-                    sync_role_accounts(old_user)
-            log('ROLE_CHANGE', 'Employee', e.id, 'إرجاع المدخل الأول التنظيمي إلى موظف عادي')
-            db.session.commit()
-            flash(
-                'تم إرجاع الموظف إلى موظف عادي مع الاحتفاظ بكل بياناته وحركاته. لم تُحذف الفروع أو الموظفون التابعون له.',
-            )
-            return redirect(url_for('employees.employee_edit', i=e.id))
-    branches = Branch.query.filter_by(is_active=True).order_by(Branch.name).all()
-    supervisors = [
-        u
-        for u in User.query.filter_by(is_active=True).order_by(User.full_name).all()
-        if 'مشرف محافظة' in actual_roles(u)
-    ]
-    current_branch_ids = (
-        {
-            x.branch_id
-            for x in EntryAssignmentBranch.query.filter_by(entry_assignment_id=assignment.id).all()
-        }
-        if assignment
-        else set()
-    )
-    current_sup = assignment.supervisor if assignment else None
-    return render_template(
-        'employee_role_convert.html',
-        e=e,
-        is_entry=is_entry,
-        branches=branches,
-        supervisors=supervisors,
-        current_branch_ids=current_branch_ids,
-        current_sup=current_sup,
-    )
+    flash('إدارة تكليف مسؤول إدخال الفروع تتم من الرئيسية، ولا تغيّر صفة الموظف أو دور تسجيل الدخول.')
+    return redirect('/#entry-directory')
 
 
 @bp.post('/employees/<int:i>/resign')
@@ -850,8 +895,14 @@ def employee_resign(i):
     e = db.session.get(Employee, i)
     if not e or not can_manage_employee(e) or (not can('manage_employees')):
         abort(403)
-    if not e.is_active:
-        flash('الموظف موجود بالفعل ضمن الموظفين المستقيلين.')
+    # Lifecycle changes affect whether the identity may be selected by another
+    # workflow, so they serialize with create/edit/import/restore operations.
+    lock_employee_identity_writes(db.session)
+    db.session.refresh(e, with_for_update=True)
+    if not can_manage_employee(e) or not can('manage_employees'):
+        abort(403)
+    if not e.is_active or e.deleted_at is not None:
+        flash('الموظف موجود بالفعل ضمن الموظفين المستقيلين أو غير نشط.')
         return redirect('/employees')
     raw_date = (request.form.get('resignation_date') or '').strip()
     resignation_date = _safe_parse_date(raw_date)
@@ -895,6 +946,7 @@ def employee_resign(i):
             SupervisorEntry.query.filter_by(entry_id=linked_user.id).delete()
             if not actual_roles(linked_user):
                 linked_user.is_active = False
+            invalidate_user_workflows(linked_user.id)
     log(
         'RESIGN',
         'Employee',
@@ -916,6 +968,13 @@ def employee_delete(i):
         abort(404)
     if not can_manage_employee(e) or not can('manage_employees'):
         abort(403)
+    lock_employee_identity_writes(db.session)
+    db.session.refresh(e, with_for_update=True)
+    if not can_manage_employee(e) or not can('manage_employees'):
+        abort(403)
+    if e.deleted_at is not None:
+        flash('الموظف مخفي إداريًا بالفعل؛ لم يتم تكرار العملية.')
+        return redirect(url_for('employees.employees'))
     # حذف منطقي إداري استثنائي؛ مسار دورة حياة الموظف الطبيعي هو «استقالة».
     e.is_active = False
     e.deleted_at = datetime.utcnow()
@@ -932,17 +991,13 @@ def employee_delete(i):
 @bp.get('/employees/resigned')
 @req
 def resigned_employees():
-    if not can('manage_employees'):
+    if not (can('view_reports') or can('manage_employees')):
         abort(403)
-    # الموظفون المستقيلون يُعرضون من نطاق الفروع السابق، مع إبقاء السجل محفوظًا.
-    bs = bids()
+    # سجل الموظفين المستقيلين للقراءة العامة. إعادة التفعيل فقط تبقى مقيدة بمحافظة العمل المختارة.
     q = Employee.query.filter(
         Employee.is_active == False,
         Employee.resignation_date.isnot(None) | Employee.deleted_at.isnot(None),
     )
-    # This endpoint is operational-scope-bound. An empty scope means no data,
-    # never an unfiltered query (which would expose every governorate's records).
-    q = q.filter(Employee.branch_id.in_(bs))
     rows = (
         q.order_by(
             Employee.resignation_date.desc().nullslast(),
@@ -961,11 +1016,17 @@ def employee_reactivate(i):
     e = db.session.get(Employee, i)
     if not e or (e.resignation_date is None and e.deleted_at is None):
         abort(404)
-    if e.is_active:
-        flash('الموظف مفعّل بالفعل ولا يحتاج إلى إعادة تعيين.')
-        return redirect(url_for('employees.employee_card', i=e.id))
     if not can_manage_employee(e) or not can('manage_employees'):
         abort(403)
+    lock_employee_identity_writes(db.session)
+    db.session.refresh(e, with_for_update=True)
+    if e.resignation_date is None and e.deleted_at is None:
+        abort(404)
+    if not can_manage_employee(e) or not can('manage_employees'):
+        abort(403)
+    if e.is_active and e.deleted_at is None:
+        flash('الموظف مفعّل بالفعل ولا يحتاج إلى إعادة تعيين.')
+        return redirect(url_for('employees.employee_card', i=e.id))
     raw_date = (request.form.get('rehire_date') or '').strip()
     rehire_date = _safe_parse_date(raw_date)
     if not rehire_date:
@@ -973,6 +1034,37 @@ def employee_reactivate(i):
         return redirect(url_for('employees.resigned_employees'))
     if e.resignation_date and rehire_date < e.resignation_date:
         flash('تاريخ إعادة التعيين يجب أن يكون في أو بعد تاريخ الاستقالة.')
+        return redirect(url_for('employees.resigned_employees'))
+
+    # Re-activation makes an old identity eligible for selection again. Verify
+    # code variants, aliases, name/email and the current branch before changing it.
+    branch = Branch.query.filter_by(id=e.branch_id).populate_existing().one_or_none()
+    parent = (
+        Governorate.query.filter_by(id=branch.governorate_id).populate_existing().one_or_none()
+        if branch else None
+    )
+    if not branch or not branch.is_active or not parent or not parent.is_active:
+        flash('لا يمكن إعادة تفعيل الموظف لأن فرعه أو محافظته غير نشطين؛ صحح التعيين أولًا.')
+        return redirect(url_for('employees.resigned_employees'))
+    if employee_name_conflict(e.full_name, e.branch_id, exclude_employee_id=e.id):
+        flash('لا يمكن إعادة التفعيل لأن الاسم يتعارض مع سجل أو صيغة بديلة لموظف آخر.')
+        return redirect(url_for('employees.resigned_employees'))
+    for code_value in (e.employee_code, e.job_code):
+        if code_value and conflicting_employee_code(code_value, exclude_employee_id=e.id):
+            flash('لا يمكن إعادة التفعيل لأن الكود أو إحدى صِيَغه البديلة مستخدمة لموظف آخر.')
+            return redirect(url_for('employees.resigned_employees'))
+    email = (e.email or '').strip().lower()
+    if email and Employee.query.filter(
+        Employee.email.isnot(None), func.lower(func.trim(Employee.email)) == email,
+        Employee.id != e.id,
+    ).populate_existing().first():
+        flash('لا يمكن إعادة التفعيل لأن البريد الإلكتروني مستخدم لموظف آخر.')
+        return redirect(url_for('employees.resigned_employees'))
+    if email and User.query.filter(
+        User.email.isnot(None), func.lower(func.trim(User.email)) == email,
+        User.id != (e.user_id or -1),
+    ).populate_existing().first():
+        flash('لا يمكن إعادة التفعيل لأن البريد الإلكتروني مرتبط بحساب آخر.')
         return redirect(url_for('employees.resigned_employees'))
     e.is_active = True
     e.rehire_date = rehire_date
@@ -998,17 +1090,9 @@ def employee_card(i):
     e = db.session.get(Employee, i)
     if not e:
         abort(404)
+    # All official authenticated roles share read access to movement history across
+    # governorates. Mutation actions still use separate role and work-scope checks.
     can_read_movement_details = can('view_reports')
-    # فتح البطاقة يحتاج صلاحية دليل الموظفين أو التقارير على الأقل؛ وجود
-    # نطاق فرعي وحده لا يمنح إذن قراءة بيانات الموظف.
-    if not (can('manage_employees') or can_read_movement_details):
-        abort(403)
-    # البحث في الرئيسية عالمي ومتعمد أن يتجاوز محافظة العمل، لكن فتح البطاقة
-    # نفسها يظل خاضعًا للنطاق التشغيلي. مسؤول التطبيق يستطيع فتح أي بطاقة.
-    if 'مسؤول التطبيق' not in roles(me()) and not branch_ok(e.branch_id):
-        abort(403)
-    if not e.is_active and (not (can('manage_employees') and can_manage_employee(e))):
-        abort(403)
 
     today = date.today()
     if can_read_movement_details:
@@ -1023,8 +1107,8 @@ def employee_card(i):
         )
         ms = [mv for mv in all_active_movements if can_view_movement(mv)]
     else:
-        # مستخدم إدارة بيانات الموظفين دون صلاحية التقارير يرى البيانات الأساسية
-        # فقط؛ لا نحسب الحالة الحالية من حركات لا يحق له قراءتها.
+        # المستخدم الذي لا يملك صلاحية التقارير يرى بيانات الموظف العامة فقط؛
+        # لا نحسب الحالة الحالية من حركات لا يحق له قراءتها.
         ms = []
     last = {k: next((m for m in ms if m.movement_type == k), None) for k in MOVEMENT_TYPES}
     current_assignment = current_assignment_for_employee(e.id, today) if can_read_movement_details else None

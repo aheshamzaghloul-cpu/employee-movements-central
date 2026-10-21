@@ -1,4 +1,4 @@
-from employee_movements.blueprints.excel_import import EMP_IMPORT_HEADERS, _auto_map_headers
+from employee_movements.services.excel_import_schema import EMP_IMPORT_HEADERS, _auto_map_headers
 
 
 def test_generic_english_code_header_maps_to_employee_code_not_branch_code():

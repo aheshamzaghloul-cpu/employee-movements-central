@@ -2,14 +2,19 @@
 
 from datetime import date, datetime, timedelta
 
-from .access import actual_roles, bids, branch_ok, me
+from sqlalchemy import func
+from sqlalchemy.orm import joinedload
+
+from .access import actual_roles, bids, branch_ok, me, movement_is_closed
 from .constants import ASSIGNMENT_ALERT_DAYS, LOGIN_ROLES
 from .extensions import db
+from .movement_state import assignment_open_filter
 from .models import (
     Branch,
     Employee,
     EntryAssignment,
     EntryAssignmentBranch,
+    Governorate,
     Movement,
     RoleAccount,
     SupervisorEntry,
@@ -22,7 +27,7 @@ from .models import (
 def assignment_state(m):
     if not m or m.movement_type != 'انتداب':
         return None
-    if m.assignment_state == 'مغلق':
+    if movement_is_closed(m):
         return 'مغلق'
     if not m.to_date:
         return 'انتداب مفتوح'
@@ -32,6 +37,67 @@ def assignment_state(m):
     if m.to_date <= today + timedelta(days=ASSIGNMENT_ALERT_DAYS):
         return 'قرب الانتهاء'
     return 'ساري'
+
+
+def latest_assignment_summaries(employee_ids):
+    """Return one read-only latest-assignment summary per employee without N+1 queries.
+
+    Results deliberately span governorates. This helper is for directory and home
+    search summaries only; it does not grant permission to mutate the movement.
+    The window query selects one row per employee instead of loading all historical
+    assignments into application memory.
+    """
+    ids = {int(value) for value in (employee_ids or set()) if value is not None}
+    if not ids:
+        return {}
+
+    ranked_assignments = (
+        db.session.query(
+            Movement.id.label('movement_id'),
+            func.row_number().over(
+                partition_by=Movement.employee_id,
+                order_by=(Movement.from_date.desc().nullslast(), Movement.id.desc()),
+            ).label('row_rank'),
+        )
+        .filter(
+            Movement.employee_id.in_(ids),
+            Movement.is_active == True,
+            Movement.movement_type == 'انتداب',
+        )
+        .subquery()
+    )
+    rows = (
+        Movement.query
+        .options(joinedload(Movement.destination).joinedload(Branch.governorate))
+        .join(ranked_assignments, Movement.id == ranked_assignments.c.movement_id)
+        .filter(ranked_assignments.c.row_rank == 1)
+        .all()
+    )
+
+    summaries = {}
+    for movement in rows:
+        destination = movement.destination
+        governorate = destination.governorate if destination else None
+        destination_name = destination.name if destination else 'جهة غير محددة'
+        governorate_name = governorate.name if governorate else 'محافظة غير محددة'
+        from_text = movement.from_date.strftime('%d/%m/%Y') if movement.from_date else 'غير محدد'
+        to_text = movement.to_date.strftime('%d/%m/%Y') if movement.to_date else 'مفتوح'
+        if movement_is_closed(movement):
+            state_text = 'مغلقة'
+        else:
+            state_text = assignment_state(movement) or 'غير محددة'
+        label = (
+            f'{destination_name} — {governorate_name} · من {from_text} إلى {to_text} · {state_text}'
+        )
+        summaries[movement.employee_id] = {
+            'text': label,
+            'destination': destination_name,
+            'governorate': governorate_name,
+            'from_date': from_text,
+            'to_date': to_text,
+            'state': state_text,
+        }
+    return summaries
 
 
 def resolve_current_movement(movements, on_date=None):
@@ -59,11 +125,11 @@ def resolve_current_movement(movements, on_date=None):
                   and m.from_date and m.to_date
                   and m.from_date <= on_date <= m.to_date), None)
     assignment = next((m for m in moves if m.movement_type == 'انتداب'
-                       and m.assignment_state != 'مغلق'
+                       and not movement_is_closed(m)
                        and m.from_date and m.from_date <= on_date
                        and m.to_date is not None and on_date <= m.to_date), None)
     open_assignment = next((m for m in moves if m.movement_type == 'انتداب'
-                            and m.assignment_state != 'مغلق'
+                            and not movement_is_closed(m)
                             and m.from_date and m.from_date <= on_date
                             and m.to_date is None), None)
     permission = next((m for m in moves if m.movement_type == 'إذن'
@@ -75,7 +141,9 @@ def current_assignment_for_employee(employee_id, on_date=None):
     on_date = on_date or date.today()
     moves = (
         Movement.query.filter_by(employee_id=employee_id, is_active=True, movement_type='انتداب')
-        .filter(Movement.assignment_state != 'مغلق')
+        .filter(
+            assignment_open_filter(Movement),
+        )
         .order_by(Movement.id.desc())
         .all()
     )
@@ -123,15 +191,16 @@ def employees_effectively_in_branches(branch_ids, on_date=None):
 
     assigned_employee_ids = {
         row[0]
-        for row in db.session.query(Movement.employee_id).filter(Movement.is_active == True, Movement.movement_type == 'انتداب', Movement.assignment_state != 'مغلق', Movement.from_date != None, Movement.from_date <= today, db.or_(Movement.to_date == None, Movement.to_date >= today), Movement.destination_branch_id.in_(ids)).all()
+        for row in db.session.query(Movement.employee_id).filter(Movement.is_active == True, Movement.movement_type == 'انتداب', assignment_open_filter(Movement), Movement.from_date != None, Movement.from_date <= today, db.or_(Movement.to_date == None, Movement.to_date >= today), Movement.destination_branch_id.in_(ids)).all()
     }
 
     q = (
-        Employee.query.filter(
+        Employee.query.options(joinedload(Employee.branch).joinedload(Branch.governorate))
+        .filter(
             Employee.is_active == True,
             db.or_(Employee.branch_id.in_(ids), Employee.id.in_(assigned_employee_ids)),
         )
-        .order_by(Employee.full_name.asc())
+        .order_by(Employee.full_name.asc(), Employee.id.asc())
     )
     return q.all()
 
@@ -221,7 +290,7 @@ def assignment_followups():
             Employee.branch_id.in_(bs),
             Movement.is_active == True,
             Movement.movement_type == 'انتداب',
-            Movement.assignment_state != 'مغلق',
+            assignment_open_filter(Movement),
             Movement.to_date != None,
             Movement.to_date <= limit,
         )
@@ -231,30 +300,51 @@ def assignment_followups():
 
 
 def organizational_entries_for_supervisor(supervisor, gid=None):
+    """Return active entry assignments and covered branches in two bounded queries.
+
+    The former implementation queried branches once per assignment and lazily
+    loaded each employee. On a supervisor with many branch assignments this made
+    the homepage query count grow linearly with the number of assignments.
+    """
     if not supervisor:
         return []
-    q = EntryAssignment.query.filter_by(supervisor_id=supervisor.id, is_active=True)
-    out = []
-    for a in q.order_by(EntryAssignment.id.asc()).all():
-        if not a.employee or not a.employee.is_active:
-            continue
-        branch_ids = {
-            x.branch_id
-            for x in EntryAssignmentBranch.query.filter_by(entry_assignment_id=a.id).all()
-        }
-        branches = (
-            (
-                Branch.query.filter(Branch.id.in_(branch_ids), Branch.is_active == True)
-                .order_by(Branch.name)
-                .all()
-            )
-            if branch_ids
-            else []
+    assignments = (
+        EntryAssignment.query
+        .options(joinedload(EntryAssignment.employee))
+        .filter_by(supervisor_id=supervisor.id, is_active=True)
+        .order_by(EntryAssignment.id.asc())
+        .all()
+    )
+    if not assignments:
+        return []
+
+    assignment_ids = [assignment.id for assignment in assignments]
+    branch_rows = (
+        db.session.query(EntryAssignmentBranch.entry_assignment_id, Branch)
+        .join(Branch, Branch.id == EntryAssignmentBranch.branch_id)
+        .join(Governorate, Governorate.id == Branch.governorate_id)
+        .options(joinedload(Branch.governorate))
+        .filter(
+            EntryAssignmentBranch.entry_assignment_id.in_(assignment_ids),
+            Branch.is_active == True,
+            Governorate.is_active == True,
         )
-        if gid:
-            branches = [b for b in branches if b.governorate_id == gid]
+        .order_by(Branch.name.asc(), Branch.id.asc())
+        .all()
+    )
+    branches_by_assignment = {}
+    for assignment_id, branch in branch_rows:
+        if gid and branch.governorate_id != gid:
+            continue
+        branches_by_assignment.setdefault(assignment_id, []).append(branch)
+
+    out = []
+    for assignment in assignments:
+        if not assignment.employee or not assignment.employee.is_active:
+            continue
+        branches = branches_by_assignment.get(assignment.id, [])
         if branches or not gid:
-            out.append((a, branches))
+            out.append((assignment, branches))
     return out
 
 
@@ -262,6 +352,57 @@ def organizational_entry_for_employee(e):
     if not e:
         return None
     return EntryAssignment.query.filter_by(employee_id=e.id, is_active=True).first()
+
+
+def entry_responsible_names_by_branch(branch_ids):
+    """Return active operational entry contacts grouped by the branches they cover.
+
+    An EntryAssignment.employee_id is the person assigned to handle data entry;
+    EntryAssignmentBranch.branch_id is the branch they are responsible for. Do not
+    match an employee to themselves by employee_id when showing the responsible
+    contact for an ordinary employee. The one-query lookup also avoids N+1 queries
+    in homepage and directory search results.
+    """
+    ids = {int(branch_id) for branch_id in (branch_ids or []) if branch_id is not None}
+    if not ids:
+        return {}
+
+    rows = (
+        db.session.query(EntryAssignmentBranch.branch_id, Employee.id, Employee.full_name)
+        .join(EntryAssignment, EntryAssignment.id == EntryAssignmentBranch.entry_assignment_id)
+        .join(Employee, Employee.id == EntryAssignment.employee_id)
+        .filter(
+            EntryAssignment.is_active == True,
+            EntryAssignmentBranch.branch_id.in_(ids),
+            Employee.is_active == True,
+        )
+        .order_by(EntryAssignmentBranch.branch_id.asc(), Employee.full_name.asc(), Employee.id.asc())
+        .all()
+    )
+    grouped = {}
+    seen_employee_ids = {}
+    for branch_id, employee_id, full_name in rows:
+        name = (full_name or '').strip()
+        if not name:
+            continue
+        seen = seen_employee_ids.setdefault(branch_id, set())
+        if employee_id in seen:
+            continue
+        seen.add(employee_id)
+        grouped.setdefault(branch_id, []).append(name)
+    return grouped
+
+
+def entry_responsible_label(names):
+    """Format the entry contact clearly and make duplicate branch assignments visible."""
+    clean_names = [(name or '').strip() for name in (names or []) if (name or '').strip()]
+    if not clean_names:
+        return 'غير محدد'
+    if len(clean_names) == 1:
+        return clean_names[0]
+    # Keep repeated names if they belong to different employee records; do not
+    # conceal duplicate active assignments merely because names happen to match.
+    return 'تعارض تكليفات: ' + '، '.join(clean_names)
 
 
 def entry_role_exists(e):
@@ -277,7 +418,7 @@ def sync_role_accounts(u):
         if role not in real:
             db.session.delete(existing[role])
     for role in real:
-        # المدخل الأول دور تنظيمي للموظف وليس حساب دخول مستقلًا.
+        # تكليف إدخال الفروع محفوظ في EntryAssignment ولا ينشئ دور دخول مستقلًا.
         if role not in LOGIN_ROLES:
             continue
         x = existing.get(role)

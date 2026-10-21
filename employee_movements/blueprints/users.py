@@ -1,6 +1,8 @@
 """User accounts, roles, permissions and entry management."""
 
-from flask import abort, Blueprint, flash, redirect, render_template, request, url_for
+from flask import abort, Blueprint, flash, g, redirect, render_template, request, url_for
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from werkzeug.security import generate_password_hash
 
 from ..access import (
@@ -11,7 +13,6 @@ from ..access import (
     bids,
     can,
     gids,
-    has_role,
     log,
     me,
     only,
@@ -24,6 +25,7 @@ from ..access import (
 from ..assignments import supervisor_for_entry, supervisor_for_governorate, sync_role_accounts
 from ..constants import GRANTABLE_BY_SUPERVISOR, LOGIN_ROLES, PERMISSIONS, ROLE_DEFAULT_PERMISSIONS, ROLES
 from ..extensions import db
+from ..form_state import form_values_from_request
 from ..models import (
     ApprovalDelegation,
     Branch,
@@ -41,7 +43,10 @@ from ..models import (
     UserPermission,
     UserRole,
 )
-from ..services.entity_matching import alias_owner_conflict, conflicting_employee_code
+from ..services.entity_matching import conflicting_employee_code
+from ..services.identity_locks import lock_employee_identity_writes
+from ..services.entity_integrity import employee_name_conflict
+from ..services.account_security import can_remove_admin_role, invalidate_user_workflows
 from ..validation import parse_date, valid_email, valid_password
 
 bp = Blueprint('users', __name__)
@@ -51,7 +56,7 @@ bp = Blueprint('users', __name__)
 @req
 def users():
     # إدارة الحسابات والأدوار والصلاحيات مركزية لمسؤول التطبيق فقط.
-    # المشرف يدير التشغيل والمدخل الأول من الرئيسية، وليس حسابات المستخدمين.
+    # المشرف يدير التشغيل وتكليف مسؤول إدخال الفروع من الرئيسية، وليس حسابات المستخدمين.
     if 'مسؤول التطبيق' not in roles() or not can('manage_users'):
         abort(403)
     u = me()
@@ -64,19 +69,32 @@ def users():
             if x.id == u.id or allowed_target_user(x)
         ]
     )
-    if request.method == 'POST':
-        selected_roles = (
+    form_values = getattr(g, '_user_form_values', None)
+    if not isinstance(form_values, dict):
+        form_values = form_values_from_request(request.form) if request.method == 'POST' else {}
+
+    def rerender_user_form():
+        g._user_form_values = form_values_from_request(request.form)
+        g._render_user_create_after_validation = True
+        return users()
+
+    if request.method == 'POST' and not getattr(g, '_render_user_create_after_validation', False):
+        selected_roles = list(dict.fromkeys(
             [r for r in request.form.getlist('roles') if r in LOGIN_ROLES]
             or ([request.form.get('role')] if request.form.get('role') in LOGIN_ROLES else [])
-        )
+        ))
         username = request.form.get('username', '').strip()
         full = request.form.get('full_name', '').strip()
-        email = request.form.get('email', '').strip()
+        email = request.form.get('email', '').strip().lower()
         job_title = request.form.get('job_title', '').strip()
         job_code = request.form.get('job_code', '').strip()
         password = request.form.get('password', '')
         if not selected_roles or any((not allowed_create_user(r) for r in selected_roles)):
             abort(403)
+        if 'المدخل الأول' in selected_roles:
+            # This route may create a linked Employee row. Share the same identity
+            # lock as Excel, employee CRUD, aliases, and assistant execution.
+            lock_employee_identity_writes(db.session)
         if (
             not username
             or not full
@@ -86,11 +104,9 @@ def users():
             or not job_code
             or not valid_password(password)
             or User.query.filter_by(username=username).first()
-            or User.query.filter_by(email=email).first()
+            or User.query.filter(func.lower(func.trim(User.email)) == email).first()
         ):
             flash('جميع بيانات الحساب مطلوبة، واسم المستخدم فريد وكلمة المرور 8 أحرف على الأقل.')
-        elif 'المدخل الأول' in selected_roles and alias_owner_conflict('employee_name', full):
-            flash('اسم الموظف يطابق صيغة بديلة مؤكدة لموظف آخر؛ راجع سجل الموظف قبل إنشاء المدخل الأول.')
         elif 'المدخل الأول' in selected_roles and conflicting_employee_code(job_code):
             flash('الكود الوظيفي أو صيغته ذات بادئة 200 مستخدم بالفعل لموظف آخر.')
         else:
@@ -104,7 +120,13 @@ def users():
                 must_change_password=False,
             )
             db.session.add(nu)
-            db.session.flush()
+            try:
+                # Database uniqueness is the final authority under concurrent account creation.
+                db.session.flush()
+            except IntegrityError:
+                db.session.rollback()
+                flash('اسم المستخدم أو البريد الإلكتروني مستخدم بالفعل؛ لم يتم إنشاء الحساب.')
+                return rerender_user_form()
             for role in selected_roles:
                 db.session.add(UserRole(user_id=nu.id, role=role))
             # صلاحيات الدور تضاف تلقائيًا عند إنشاء الحساب، ويمكن لمسؤول التطبيق تعديلها لاحقًا بالزيادة أو النقصان.
@@ -131,7 +153,7 @@ def users():
                 if not chosen:
                     db.session.rollback()
                     flash('يجب إسناد محافظة واحدة على الأقل لمشرف المحافظة.')
-                    return redirect('/users')
+                    return rerender_user_form()
                 for gid in chosen:
                     db.session.add(UserGovernorate(user_id=nu.id, governorate_id=gid))
             if 'المدخل الأول' in selected_roles and 'مشرف محافظة' not in selected_roles:
@@ -142,7 +164,7 @@ def users():
                 if not chosen:
                     db.session.rollback()
                     flash('يجب إسناد فرع واحد على الأقل ضمن فروع مسؤولية المدخل الأول.')
-                    return redirect('/users')
+                    return rerender_user_form()
                 for bid in chosen:
                     db.session.add(UserBranch(user_id=nu.id, branch_id=bid))
                 # The employee's appointment branch is separate from the branches managed by the first-level user.
@@ -163,7 +185,7 @@ def users():
                 ):
                     db.session.rollback()
                     flash('يجب اختيار فرع تعيين تابع لمحافظة ضمن نطاقك.')
-                    return redirect('/users')
+                    return rerender_user_form()
                 # Link first-level user to the responsible supervisor automatically.
                 gid_values = {
                     db.session.get(Branch, bid).governorate_id
@@ -202,7 +224,11 @@ def users():
                         flash(
                             'بيانات الموظف للمدخل الأول مكتملة إلزاميًا: تاريخ التعيين وهاتف الشركة والهاتف الشخصي.',
                         )
-                        return redirect('/structure')
+                        return rerender_user_form()
+                    if employee_name_conflict(full, appointment_branch.id):
+                        db.session.rollback()
+                        flash('يوجد اسم مطابق داخل فرع التعيين أو صيغة بديلة مؤكدة مرتبطة بموظف آخر؛ لم يتم إنشاء الموظف المرتبط.')
+                        return rerender_user_form()
                     employee = Employee.query.filter_by(user_id=nu.id).first()
                     if not employee:
                         employee = Employee(
@@ -226,10 +252,16 @@ def users():
                         employee.email = nu.email
                         employee.job_title = nu.job_title
                         employee.job_code = nu.job_code
-            sync_role_accounts(nu)
-            log('ADD', 'User', nu.id, username)
-            db.session.commit()
+            try:
+                sync_role_accounts(nu)
+                log('ADD', 'User', nu.id, username)
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+                flash('تعذر إنشاء الحساب بسبب تعارض في البيانات المرتبطة؛ تم التراجع عن العملية كاملة.')
+                return rerender_user_form()
             flash('تم إنشاء الحساب وربطه تلقائيًا بالهيكل.')
+            form_values = {}
     gs = (
         Governorate.query.filter(Governorate.id.in_(gids()), Governorate.is_active == True).all()
         if 'مسؤول التطبيق' not in roles(u)
@@ -310,6 +342,7 @@ def users():
         role_accounts_by_user=role_accounts_by_user,
         supervisor_choices=supervisor_choices,
         people_control=people_control,
+        form_values=form_values,
     )
 
 
@@ -319,15 +352,20 @@ def user_edit(i):
     target = db.session.get(User, i)
     if 'مسؤول التطبيق' not in roles() or not target or not can('manage_users') or (not allowed_target_user(target) and i != me().id):
         abort(403)
-    if 'مسؤول التطبيق' not in roles() and 'المدخل الأول' not in roles(target):
-        abort(403)
     u = target
     if request.method == 'POST':
+        # Editing a user can also synchronize the linked employee's name, email,
+        # and personnel code or create the linked employee as part of a role change.
+        lock_employee_identity_writes(db.session)
+        db.session.refresh(target, with_for_update=True)
+        u = target
+        if 'مسؤول التطبيق' not in roles() or not can('manage_users'):
+            abort(403)
         submitted_full_name = request.form.get('full_name', '').strip() or u.full_name
         submitted_job_code = request.form.get('job_code', '').strip() or u.job_code
         linked_employee_for_validation = Employee.query.filter_by(user_id=i).first()
         if linked_employee_for_validation:
-            name_conflict = alias_owner_conflict('employee_name', submitted_full_name, target_id=linked_employee_for_validation.id)
+            name_conflict = employee_name_conflict(submitted_full_name, linked_employee_for_validation.branch_id, exclude_employee_id=linked_employee_for_validation.id)
             code_conflict = conflicting_employee_code(submitted_job_code, exclude_employee_id=linked_employee_for_validation.id)
             if name_conflict:
                 flash('اسم الموظف يطابق صيغة بديلة مؤكدة لموظف آخر؛ لم يتم تعديل الحساب المرتبط به.')
@@ -336,11 +374,11 @@ def user_edit(i):
                 flash('الكود الوظيفي أو صيغته ذات بادئة 200 مستخدم بالفعل لموظف آخر؛ لم يتم تعديل الحساب.')
                 return redirect(url_for('users.user_edit', i=i))
         u.full_name = submitted_full_name
-        email = request.form.get('email', '').strip()
+        email = request.form.get('email', '').strip().lower()
         if not email or not valid_email(email):
             flash('البريد الإلكتروني مطلوب ويجب أن يكون بصيغة صحيحة.')
             return redirect(url_for('users.user_edit', i=i))
-        duplicate_email = User.query.filter(User.email == email, User.id != i).first()
+        duplicate_email = User.query.filter(func.lower(func.trim(User.email)) == email, User.id != i).first()
         if duplicate_email:
             flash('البريد الإلكتروني مستخدم بالفعل.')
             return redirect(url_for('users.user_edit', i=i))
@@ -351,15 +389,24 @@ def user_edit(i):
             flash('الاسم والوظيفة والكود الوظيفي حقول إجبارية.')
             return redirect(url_for('users.user_edit', i=i))
         if 'مسؤول التطبيق' in roles():
-            selected = [r for r in request.form.getlist('roles') if r in LOGIN_ROLES]
+            selected = list(dict.fromkeys(r for r in request.form.getlist('roles') if r in LOGIN_ROLES))
             if not selected:
                 flash('يجب اختيار دور واحد على الأقل.')
                 return redirect(url_for('users.user_edit', i=i))
+            old_roles = actual_roles(target)
+            if (
+                'مسؤول التطبيق' in old_roles
+                and 'مسؤول التطبيق' not in selected
+                and not can_remove_admin_role(i)
+            ):
+                db.session.rollback()
+                log('BLOCK_LAST_ADMIN_ROLE_CHANGE', 'User', i, 'منع إزالة آخر حساب مسؤول تطبيق قابل للاسترداد')
+                db.session.commit()
+                flash('لا يمكن إزالة دور مسؤول التطبيق من آخر حساب إداري؛ يجب الإبقاء على حساب إداري نشط أو قابل للاسترداد.')
+                return redirect(url_for('users.user_edit', i=i))
             if 'المدخل الأول' in selected and not linked_employee_for_validation:
-                if alias_owner_conflict('employee_name', u.full_name):
-                    db.session.rollback()
-                    flash('اسم الموظف يطابق صيغة بديلة مؤكدة لموظف آخر؛ لم يتم إضافة دور المدخل الأول.')
-                    return redirect(url_for('users.user_edit', i=i))
+                # Validate canonical employee names once the appointment branch is
+                # known below; the personnel code remains a global identity key.
                 if conflicting_employee_code(u.job_code):
                     db.session.rollback()
                     flash('الكود الوظيفي أو صيغته ذات بادئة 200 مستخدم بالفعل لموظف آخر.')
@@ -368,7 +415,6 @@ def user_edit(i):
                 flash('لا يمكن إزالة دور مسؤول التطبيق من حسابك هنا.')
                 return redirect(url_for('users.user_edit', i=i))
             selected_perm_set = {x for x in request.form.getlist('permissions') if x in PERMISSIONS}
-            old_roles = actual_roles(target)
             # عند إضافة دور جديد تُضاف صلاحياته الافتراضية تلقائيًا، أما الصلاحيات الموجودة فيمكن لمسؤول التطبيق زيادتها أو تقليلها.
             newly_added = set(selected) - set(old_roles)
             defaults = set()
@@ -479,6 +525,10 @@ def user_edit(i):
                         'بيانات الموظف للمدخل الأول مكتملة إلزاميًا: تاريخ التعيين وهاتف الشركة والهاتف الشخصي.',
                     )
                     return redirect(url_for('users.user_edit', i=i))
+                if employee_name_conflict(u.full_name, appointment_bid, exclude_employee_id=linked_emp.id if linked_emp else None):
+                    db.session.rollback()
+                    flash('يوجد اسم مطابق داخل فرع التعيين أو صيغة بديلة مؤكدة مرتبطة بموظف آخر؛ لم يتغير سجل الموظف.')
+                    return redirect(url_for('users.user_edit', i=i))
                 if linked_emp:
                     linked_emp.full_name = u.full_name
                     linked_emp.email = u.email
@@ -578,6 +628,10 @@ def user_edit(i):
                     'بيانات الموظف للمدخل الأول مكتملة إلزاميًا: تاريخ التعيين وهاتف الشركة والهاتف الشخصي.',
                 )
                 return redirect(url_for('users.user_edit', i=i))
+            if employee_name_conflict(u.full_name, appointment_bid, exclude_employee_id=linked_emp.id if linked_emp else None):
+                db.session.rollback()
+                flash('يوجد اسم مطابق داخل فرع التعيين أو صيغة بديلة مؤكدة مرتبطة بموظف آخر؛ لم يتغير سجل الموظف.')
+                return redirect(url_for('users.user_edit', i=i))
             if linked_emp:
                 linked_emp.full_name = u.full_name
                 linked_emp.email = u.email
@@ -604,8 +658,16 @@ def user_edit(i):
                         is_active=True,
                     ),
                 )
+        # Profile/role/permission edits invalidate executable assistant plans and
+        # in-progress ticket drafts owned by the edited account. History is retained.
+        invalidate_user_workflows(i)
         log('EDIT', 'User', i, 'تعديل الحساب والنطاق والصلاحيات')
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            flash('تعذر حفظ التعديلات بسبب تعارض في البيانات؛ لم يتم تثبيت أي تغيير. راجع البريد والصلاحيات والنطاق ثم أعد المحاولة.')
+            return redirect(url_for('users.user_edit', i=i))
         flash('تم حفظ التعديلات.')
         return redirect('/users')
     gs = (
@@ -664,6 +726,12 @@ def user_delete(i):
         u = db.session.get(User, i)
         if not u:
             abort(404)
+        if 'مسؤول التطبيق' in actual_roles(u) and not can_remove_admin_role(i):
+            db.session.rollback()
+            log('BLOCK_LAST_ADMIN_ACCOUNT_DELETE', 'User', i, 'منع حذف آخر حساب مسؤول تطبيق قابل للاسترداد')
+            db.session.commit()
+            flash('لا يمكن حذف آخر حساب مسؤول تطبيق؛ يجب الإبقاء على حساب إداري نشط أو قابل للاسترداد.')
+            return redirect('/users')
         has_movement_history = Movement.query.filter(
             (
                 (Movement.created_by == i)
@@ -685,6 +753,7 @@ def user_delete(i):
         if any((has_movement_history, has_employee_record, has_entry_assignments, has_delegations, has_mission_requests)):
             flash('لا يمكن حذف الحساب لارتباطه بسجلات موظفين أو حركات أو تكليفات أو تفويضات أو طلبات تعديل تاريخية؛ استخدم التعطيل للحفاظ على الترابط وسجل التدقيق.')
         else:
+            invalidate_user_workflows(i)
             db.session.delete(u)
             log('DELETE', 'User', i)
             db.session.commit()
@@ -702,7 +771,19 @@ def user_toggle(i):
         u = db.session.get(User, i)
         if not u:
             abort(404)
+        if (
+            u.is_active
+            and 'مسؤول التطبيق' in actual_roles(u)
+            and not can_remove_admin_role(i)
+        ):
+            db.session.rollback()
+            log('BLOCK_LAST_ADMIN_DEACTIVATION', 'User', i, 'منع تعطيل آخر مسؤول تطبيق نشط')
+            db.session.commit()
+            flash('لا يمكن تعطيل آخر مسؤول تطبيق نشط؛ فعّل حسابًا إداريًا آخر أولًا.')
+            return redirect('/users')
         u.is_active = not u.is_active
+        if not u.is_active:
+            invalidate_user_workflows(i)
         log('TOGGLE', 'User', i, 'تفعيل الحساب' if u.is_active else 'تعطيل الحساب')
         db.session.commit()
     return redirect('/users')
@@ -716,11 +797,9 @@ def user_reset_password(i):
     u = db.session.get(User, i)
     if not u:
         abort(404)
-    if (
-        'مسؤول التطبيق' not in roles()
-        and not ('المدخل الأول' in roles(u) and bool(set(gids()) & {b.governorate_id for b in Branch.query.join(UserBranch, UserBranch.branch_id == Branch.id).filter(UserBranch.user_id == i).all()}))
-    ):
-        abort(403)
+    # The route is deliberately limited to application administrators above;
+    # an additional supervisor-only scope branch here was unreachable and obscured
+    # the actual password-reset authorization rule.
     p = request.form.get('password', '')
     if not valid_password(p):
         flash('كلمة المرور يجب أن تكون 8 أحرف على الأقل وتحتوي على حروف وأرقام.')
@@ -728,6 +807,7 @@ def user_reset_password(i):
         u.password_hash = generate_password_hash(p)
         u.must_change_password = True
         sync_role_accounts(u)
+        invalidate_user_workflows(i)
         log('PASSWORD_RESET', 'User', i)
         db.session.commit()
         flash('تمت إعادة التعيين.')
@@ -755,6 +835,7 @@ def user_update_governorates(i):
     UserGovernorate.query.filter_by(user_id=i).delete()
     for gid in chosen & allowed:
         db.session.add(UserGovernorate(user_id=i, governorate_id=gid))
+    invalidate_user_workflows(i)
     log('ASSIGN', 'User', i, 'محافظات')
     db.session.commit()
     return redirect('/users')
@@ -782,10 +863,33 @@ def user_update_branches(i):
     if not chosen:
         flash('يجب إسناد فرع واحد على الأقل للمدخل الأول.')
         return redirect('/users')
+    # This path synchronizes canonical identity fields from the account onto its
+    # linked employee, so it must participate in the shared identity write gate.
+    lock_employee_identity_writes(db.session)
+    db.session.refresh(u, with_for_update=True)
+    if (
+        'مسؤول التطبيق' not in roles() or not can('manage_users')
+        or not u.is_active or 'المدخل الأول' not in roles(u)
+    ):
+        db.session.rollback()
+        flash('تغيّرت صلاحية الإدارة أو حالة الحساب أو دوره أثناء المراجعة؛ أعد تحميل الصفحة قبل تعديل الفروع.')
+        return redirect('/users')
+    linked_emp = Employee.query.filter_by(user_id=i).first()
+    if linked_emp:
+        name_conflict = employee_name_conflict(u.full_name, linked_emp.branch_id, exclude_employee_id=linked_emp.id)
+        code_conflict = conflicting_employee_code(u.job_code, exclude_employee_id=linked_emp.id)
+        email_conflict = Employee.query.filter(
+            Employee.email.isnot(None),
+            func.lower(func.trim(Employee.email)) == (u.email or '').strip().lower(),
+            Employee.id != linked_emp.id,
+        ).first()
+        if name_conflict or code_conflict or email_conflict:
+            flash('تعذر تحديث فروع المسؤولية لأن هوية الموظف المرتبط تتعارض مع سجل آخر؛ لم تتغير الإسنادات.')
+            return redirect('/users')
+    # Validate the employee sync first; only then mutate assignment rows.
     UserBranch.query.filter_by(user_id=i).delete()
     for bid in chosen:
         db.session.add(UserBranch(user_id=i, branch_id=bid))
-    linked_emp = Employee.query.filter_by(user_id=i).first()
     if linked_emp:
         # فرع التعيين كموظف مستقل تمامًا عن فروع المسؤولية.
         linked_emp.full_name = u.full_name
@@ -798,6 +902,7 @@ def user_update_branches(i):
         flash(
             'تم تحديث فروع المسؤولية. سجل الموظف غير مكتمل، يرجى فتح تعديل المدخل لاستكمال بيانات الموظف.',
         )
+    invalidate_user_workflows(i)
     log('ASSIGN', 'User', i, 'فروع المسؤولية')
     db.session.commit()
     return redirect('/structure')
@@ -809,7 +914,7 @@ def user_update_branches(i):
 def grant_entry_role(i):
     # First-level entry is an employee-linked organizational assignment.
     # Keep the legacy endpoint only as a compatibility redirect; execution belongs to Home.
-    flash('إدارة المدخل الأول تتم من الصفحة الرئيسية على سجل الموظف.')
+    flash('إدارة تكليف مسؤول إدخال الفروع تتم من الصفحة الرئيسية على سجل الموظف.')
     return redirect('/#entry-directory')
 
 
@@ -818,7 +923,7 @@ def grant_entry_role(i):
 @only('مسؤول التطبيق')
 def revoke_entry_role(i):
     # Legacy compatibility redirect; do not duplicate first-entry execution here.
-    flash('إزالة دور المدخل الأول تتم من الصفحة الرئيسية.')
+    flash('إزالة تكليف مسؤول إدخال الفروع تتم من الصفحة الرئيسية.')
     return redirect('/#entry-directory')
 
 
@@ -828,5 +933,5 @@ def entry_management(i):
     # Kept for old bookmarks/integrations. The canonical first-entry operations live on Home.
     if 'مسؤول التطبيق' not in roles():
         abort(403)
-    flash('إدارة المدخل الأول تتم من الصفحة الرئيسية.')
+    flash('إدارة تكليف مسؤول إدخال الفروع تتم من الصفحة الرئيسية.')
     return redirect('/#entry-directory')

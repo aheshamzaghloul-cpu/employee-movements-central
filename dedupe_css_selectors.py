@@ -1,5 +1,6 @@
 from pathlib import Path
-import tinycss2, collections, re
+import tinycss2
+import re
 
 ROOT = Path(__file__).resolve().parent / 'employee_movements/static/css'
 
@@ -75,7 +76,9 @@ def find_close_brace(text: str, open_i: int) -> int:
 def decl_signature(rule) -> tuple:
     vals=[]
     for d in tinycss2.parse_declaration_list(rule.content, skip_whitespace=True, skip_comments=True):
-        if d.type=='declaration': vals.append((d.name.lower(), norm(tinycss2.serialize(d.value)), bool(d.important)))
+        if d.type=='declaration':
+                name = d.name if d.name.startswith('--') else d.name.lower()
+                vals.append((name, norm(tinycss2.serialize(d.value)), bool(d.important)))
     return tuple(vals)
 
 def collect(text: str):

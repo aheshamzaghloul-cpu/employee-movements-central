@@ -1,7 +1,7 @@
 from pathlib import Path
 
 
-MANAGER = Path(__file__).resolve().parents[1] / 'employee_movements' / 'assistant' / 'manager.py'
+MANAGER = Path(__file__).resolve().parents[1] / 'employee_movements' / 'assistant' / 'manager_execution.py'
 
 
 def _source():
@@ -10,7 +10,7 @@ def _source():
 
 def test_execute_reloads_mutation_entities_from_database():
     src = _source()
-    start = src.index('def _execute(plan):')
+    start = src.index('def execute_plan(plan):')
     execute = src[start:]
     required = {
         'governorate_edit': "db.session.get(Governorate, plan['id'])",

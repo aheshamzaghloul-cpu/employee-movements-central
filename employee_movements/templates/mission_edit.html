@@ -6,33 +6,71 @@
     <div>
       <span class="ui-eyebrow">إدارة المأموريات</span>
       <h1>تعديل المأمورية <bdi dir="ltr">#{{m.id}}</bdi></h1>
-      <p class="ui-subtitle">الحالة: <strong>تحت التحرير</strong> — عدّل الجهة وتاريخ البداية والنهاية عند الحاجة. الانتداب المفتوح يظل مفتوحًا إذا كان تاريخ النهاية فارغًا؛ ولا يؤدي تاريخ الطباعة المؤقت إلى إغلاقه.</p>
+      <p class="ui-subtitle">الحالة الحالية: <strong>{{mission_display_state}}</strong> — {% if mission_display_state=='مغلقة' %}المأمورية للعرض فقط؛ تغييرات ما بعد الإغلاق تتم بطلب يراجعه الـManager.{% else %}عدّل الجهة وتواريخ المأمورية عند الحاجة. الانتداب المفتوح يظل مفتوحًا إذا كان تاريخ النهاية فارغًا.{% endif %}</p>
     </div>
     <div class="ui-actions">
-      <a class="ui-btn ui-btn-secondary" href="/reports/assignments/print-missions">العودة للمأموريات</a>
+      <a class="ui-btn ui-btn-secondary" href="{{return_to}}">العودة للمأموريات</a>
       <a class="ui-btn ui-tone-teal" href="/reports/assignments/mission-pdf/{{m.id}}" target="_blank" rel="noopener">معاينة PDF</a>
     </div>
   </header>
 
+{% if mission_display_state != 'مغلقة' %}
   <section class="ui-card ui-mission-edit-card" aria-label="نموذج تعديل المأمورية">
-    <form method="post" class="ui-grid ui-grid-3-gap-16 mission-edit-form" id="missionEditForm">
+    <form method="post" class="ui-grid ui-grid-3-gap-16 mission-edit-form" id="missionEditForm" aria-describedby="missionEditFormHint">
+      <p class="ui-hint ui-grid-full" id="missionEditFormHint">إذا احتاجت البيانات إلى تصحيح، سيحتفظ النموذج بالقيم التي أدخلتها لتتمكن من تعديل الحقل المطلوب فقط.</p>
       <input type="hidden" name="_csrf" value="{{csrf}}">
+      <input type="hidden" name="return_to" value="{{return_to}}">
       <fieldset class="smart-option-group smart-option-group-wide"><legend>الموظف وجهة المأمورية</legend><p class="smart-option-hint">بيانات الموظف للمرجعية فقط؛ حدد الوجهة المستهدفة بشكل مستقل عن محافظة العمل الحالية.</p><div class="smart-option-fields smart-option-fields-3">
         <label for="missionEditEmployee">الموظف<input id="missionEditEmployee" value="{{m.employee.full_name}} — {{m.employee.job_code or '—'}}" disabled></label>
-        <label for="missionDestinationGovernorate">محافظة جهة المأمورية<select id="missionDestinationGovernorate" required><option value="">اختر المحافظة</option>{% for g in destination_governorates %}<option value="{{g.id}}" {% if m.destination and m.destination.governorate_id==g.id %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>
-        <label for="missionDestinationBranch">فرع جهة المأمورية<select name="destination_branch_id" id="missionDestinationBranch" required><option value="">اختر الفرع</option>{% for b in branches %}<option value="{{b.id}}" data-governorate-id="{{b.governorate_id}}" {% if m.destination_branch_id==b.id %}selected{% endif %}>{{b.name}}</option>{% endfor %}</select><small class="ui-hint">تُعرض الفروع المتاحة داخل المحافظة المختارة.</small></label>
+        <label for="missionDestinationGovernorate">محافظة جهة المأمورية<select id="missionDestinationGovernorate" name="destination_governorate_id" required><option value="">اختر المحافظة</option>{% for g in destination_governorates %}<option value="{{g.id}}" {% if form_values.get('destination_governorate_id', m.destination.governorate_id if m.destination else '')|string==g.id|string %}selected{% endif %}>{{g.name}}</option>{% endfor %}</select></label>
+        <label for="missionDestinationBranch">فرع جهة المأمورية<select name="destination_branch_id" id="missionDestinationBranch" required><option value="">اختر الفرع</option>{% for b in branches %}<option value="{{b.id}}" data-governorate-id="{{b.governorate_id}}" {% if form_values.get('destination_branch_id', m.destination_branch_id|string if m.destination_branch_id else '')|string==b.id|string %}selected{% endif %}>{{b.name}}</option>{% endfor %}</select><small class="ui-hint">تُعرض الفروع المتاحة داخل المحافظة المختارة.</small></label>
       </div></fieldset>
       <fieldset class="smart-option-group smart-option-group-wide"><legend>مدة المأمورية</legend><p class="smart-option-hint">تاريخ النهاية اختياري إذا كان الانتداب مفتوحًا.</p><div class="smart-option-fields smart-option-fields-2">
-        <label for="missionEditFromDate">من تاريخ البداية<input type="date" name="from_date" id="missionEditFromDate" value="{{m.from_date.isoformat() if m.from_date else ''}}" required autocomplete="off"></label>
-        <label for="missionEditToDate">إلى تاريخ النهاية <span class="ui-field-optional">اختياري للانتداب المفتوح</span><input type="date" name="to_date" id="missionEditToDate" value="{{m.to_date.isoformat() if m.to_date else ''}}" min="{{m.from_date.isoformat() if m.from_date else ''}}" autocomplete="off"><small class="ui-hint">يجب ألا يسبق تاريخ النهاية تاريخ البداية.</small></label>
+        <label for="missionEditFromDate">من تاريخ البداية<input type="date" name="from_date" id="missionEditFromDate" value="{{form_values.get('from_date', m.from_date.isoformat() if m.from_date else '')}}" required autocomplete="off"></label>
+        <label for="missionEditToDate">إلى تاريخ النهاية <span class="ui-field-optional">اختياري للانتداب المفتوح</span><input type="date" name="to_date" id="missionEditToDate" value="{{form_values.get('to_date', m.to_date.isoformat() if m.to_date else '')}}" min="{{form_values.get('from_date', m.from_date.isoformat() if m.from_date else '')}}" autocomplete="off"><small class="ui-hint">يجب ألا يسبق تاريخ النهاية تاريخ البداية.</small></label>
       </div></fieldset>
       <div class="ui-actions ui-grid-full mission-edit-actions">
         <button class="ui-btn ui-tone-teal" type="submit">حفظ التعديل</button>
-        <a class="ui-btn ui-btn-secondary" href="/reports/assignments/print-missions">إلغاء والعودة</a>
+        <a class="ui-btn ui-btn-secondary" href="{{return_to}}">إلغاء والعودة</a>
         <span>يتحقق الخادم من النطاق والتواريخ والتعارضات قبل الحفظ.</span>
       </div>
     </form>
   </section>
+
+{% else %}
+  <section class="ui-card ui-mission-edit-card" aria-label="بيانات المأمورية المغلقة">
+    <div class="ui-empty"><h2>المأمورية مغلقة — البيانات للعرض فقط</h2><p>أي تغيير بعد الإغلاق يجب أن يمر عبر طلب تعديل يراجعه الـManager. يمكن للـManager إرفاق أو استبدال صورة التيكيت، بينما تُرسل أي تعديلات أخرى من خلال طلب مراجعة رسمي.</p><a class="ui-btn ui-btn-secondary" href="{{return_to}}">العودة إلى مركز المأموريات</a></div>
+  </section>
+{% endif %}
+
+  {% if mission_display_state != 'مغلقة' or 'Manager Application Support' in roles %}
+  <section class="ui-card ui-mission-ticket-attachment" aria-label="صورة تيكيت المأمورية">
+    <div class="ui-section-title">
+      <div><h2>صورة تيكيت ServiceDesk</h2><small>يُرفق الملف كصفحة مستقلة بعد نموذج المأمورية الرسمي في PDF.</small></div>
+      {% if ticket_image_present %}<span class="ui-tag ui-tag-success">صورة مرفقة</span>{% else %}<span class="ui-tag ui-tag-warning">لا توجد صورة</span>{% endif %}
+    </div>
+    {% if ticket_image_present %}
+      <p class="ui-hint">توجد صورة محفوظة لهذه المأمورية. رفع صورة جديدة سيستبدل المرفق الحالي دون إنشاء سجل مأمورية جديد.</p>
+    {% else %}
+      <p class="ui-hint">يمكنك إرفاق صورة مأمورية سابقة لم تكن محفوظة في النظام، دون إعادة إنشاء المأمورية.</p>
+    {% endif %}
+    <form method="post" action="{{ url_for('missions.mission_ticket_image_save', movement_id=m.id) }}" enctype="multipart/form-data" class="ui-grid ui-grid-3-gap-16 mission-ticket-attachment-form">
+      <input type="hidden" name="_csrf" value="{{ csrf }}">
+      <input type="hidden" name="return_to" value="{{ return_to }}">
+      <label for="missionTicketImage" class="smart-option-group smart-option-group-wide">ملف صورة التيكيت
+        <input type="file" name="ticket_image" id="missionTicketImage" accept="image/png,image/jpeg,image/webp" required>
+        <small class="ui-hint">PNG أو JPG أو WEBP، بحد أقصى 2 ميجابايت. تُزال بيانات الصورة الوصفية وتُحفظ نسخة آمنة داخل قاعدة البيانات.</small>
+      </label>
+      <div class="ui-actions ui-grid-full">
+        <button class="ui-btn ui-tone-teal" type="submit">{% if ticket_image_present %}حفظ الصورة البديلة{% else %}إرفاق صورة التيكيت{% endif %}</button>
+      </div>
+    </form>
+  </section>
+  {% elif mission_display_state == 'مغلقة' %}
+  <section class="ui-card ui-mission-ticket-attachment" aria-label="صورة تيكيت المأمورية">
+    <div class="ui-section-title"><div><h2>صورة تيكيت ServiceDesk</h2><small>بعد إغلاق المأمورية، يتولى الـManager إرفاق الصورة أو استبدالها.</small></div>{% if ticket_image_present %}<span class="ui-tag ui-tag-success">صورة مرفقة</span>{% else %}<span class="ui-tag ui-tag-warning">لا توجد صورة</span>{% endif %}</div>
+  </section>
+  {% endif %}
 </div>
 <script>
 (function(){

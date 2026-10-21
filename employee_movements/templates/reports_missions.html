@@ -1,9 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}تقارير ومأموريات{% endblock %}
 {% block content %}
-{% if scope_required and not scope_selected %}
-<div class="scope-empty-state ui-scope-state"><div class="scope-empty-icon"><svg class="ui-icon ui-icon-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18"/></svg></div><span class="home-kicker">اختيار نطاق العمل</span><h1>اختر المحافظة أولًا</h1><p>حدد المحافظة قبل عرض التقارير والمأموريات.</p></div>
-{% else %}
 <div class="ui-page reports-workspace smart-reports-workspace">
   <header class="ui-page-head smart-reports-head">
     <div><span class="ui-eyebrow">مركز القراءة والقرار</span><h1>تقارير ومأموريات{% if selected_governorate %} — {{ selected_governorate.name }}{% elif manager_global_report %} — جميع المحافظات{% endif %}</h1><p>الوصول إلى المعلومة، ثم تنفيذ الإجراء من نفس المسار.</p></div>
@@ -27,14 +24,14 @@
         <a href="/reports/permissions" class="report-action-permission"><span class="smart-report-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><b>الأذونات</b><small>التاريخ · الموظف · الفرع</small><span>فتح التقرير ←</span></a>
         {% endif %}
         <a href="/reports/assignments/print-missions" class="report-action-print"><span class="smart-report-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 17H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M6 14h12v7H6z"/></svg></span><b>مركز المأموريات</b><small>مراجعة، تعديل، إغلاق وإصدار النموذج</small><span>فتح المركز ←</span></a>
-        {% if can('manage_movements') %}<a href="/missions/from-screenshot" class="report-action-scan"><span class="smart-report-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 8V4h4m8 0h4v4m0 8v4h-4M8 20H4v-4M7 12h10M9 9v6m6-6v6"/></svg></span><b>مأمورية من صورة تيكيت</b><small>قراءة الحقول السبعة ومراجعتها قبل التسجيل</small><span>إضافة صورة ←</span></a>{% endif %}
+        {% if can('manage_movements') and scope_selected %}<a href="/missions/from-screenshot" class="report-action-scan"><span class="smart-report-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 8V4h4m8 0h4v4m0 8v4h-4M8 20H4v-4M7 12h10M9 9v6m6-6v6"/></svg></span><b>مأمورية من صورة تيكيت</b><small>قراءة الحقول السبعة ومراجعتها قبل التسجيل</small><span>إضافة صورة ←</span></a>{% elif can('manage_movements') %}<span class="ui-muted">لاختيار نطاق التسجيل، حدد محافظة العمل من الشريط العلوي.</span>{% endif %}
       </div>
     </div>
 
     <aside class="ui-work-card smart-report-attention">
       <div class="ui-card-head compact"><div><span class="ui-eyebrow">يحتاج انتباهًا</span><h2>متابعة سريعة</h2></div></div>
-      <a href="/reports/assignments/print-missions" class="smart-report-attention-item urgent"><strong>{{report_stats.follow_up_7d}}</strong><span>انتداب ينتهي خلال 7 أيام</span><small>راجع المدة قبل اتخاذ الإجراء</small></a>
-      <a href="/reports/assignments/print-missions" class="smart-report-attention-item"><strong>{{report_stats.open_assignments}}</strong><span>انتداب مفتوح</span><small>لا يوجد تاريخ نهاية مسجل</small></a>
+      <a href="/reports/assignments/print-missions?follow_up=7{% if selected_governorate %}&amp;governorate_id={{ selected_governorate.id }}{% endif %}" class="smart-report-attention-item urgent"><strong>{{report_stats.follow_up_7d}}</strong><span>انتداب ينتهي خلال 7 أيام</span><small>يفتح المركز على هذه المأموريات فقط</small></a>
+      <a href="/reports/assignments/print-missions?duration=open{% if selected_governorate %}&amp;governorate_id={{ selected_governorate.id }}{% endif %}" class="smart-report-attention-item"><strong>{{report_stats.open_assignments}}</strong><span>انتداب مفتوح</span><small>يفتح المركز على الانتدابات بلا تاريخ نهاية</small></a>
     </aside>
   </section>
 
@@ -42,21 +39,22 @@
     <div class="ui-work-card">
       <div class="ui-card-head compact"><div><span class="ui-eyebrow">قراءة فورية</span><h2>حركة اليوم</h2></div><span class="smart-report-date">{{report_today}}</span></div>
       <div class="smart-report-live-number"><strong>{{report_stats.today}}</strong><span>حركة مرتبطة باليوم الحالي</span></div>
-      <div class="smart-report-mini-actions"><a href="/reports{% if selected_governorate %}?governorate_id={{ selected_governorate.id }}{% endif %}">استكشاف التقرير ←</a><a href="/reports/assignments/print-missions">المأموريات ←</a></div>
+      <div class="smart-report-mini-actions"><a href="/reports{% if selected_governorate %}?governorate_id={{ selected_governorate.id }}{% endif %}">استكشاف التقرير ←</a></div>
     </div>
     <div class="ui-work-card">
       <div class="ui-card-head compact"><div><span class="ui-eyebrow">الفترة الحالية</span><h2>هذا الشهر</h2></div></div>
       <div class="smart-report-live-number"><strong>{{report_stats.month}}</strong><span>حركة بدأت أو انتهت أو سُجلت خلال الشهر</span></div>
       <div class="smart-report-mini-actions"><a href="/reports{% if selected_governorate %}?governorate_id={{ selected_governorate.id }}{% endif %}">عرض التفاصيل ←</a><a href="/reports.csv">تصدير CSV ←</a></div>
     </div>
-    <div class="ui-work-card smart-report-print-card">
-      <div class="ui-card-head compact"><div><span class="ui-eyebrow">إخراج رسمي</span><h2>المأمورية</h2></div></div>
-      <p>افتح مركز المأموريات لاختيار السجل، مراجعته ثم إصدار النموذج الرسمي.</p>
-      <a class="ui-btn ui-tone-teal" href="/reports/assignments/print-missions">فتح مركز المأموريات</a>
+    {% if 'Manager Application Support' in roles or 'مسؤول التطبيق' in roles %}
+    <div class="ui-work-card smart-report-monthly-missions">
+      <div class="ui-card-head compact"><div><span class="ui-eyebrow">مراجعة شهرية</span><h2>تجميع المأموريات</h2></div></div>
+      <div class="smart-report-live-number"><strong>حسب الموظف</strong><span>عدد المأموريات المغلقة والأيام المتداخلة مع الشهر المحدد، دون احتساب حوافز تلقائي.</span></div>
+      <div class="smart-report-mini-actions"><a href="/reports/assignments/monthly">فتح التجميع الشهري ←</a></div>
     </div>
+    {% endif %}
   </section>
 
-  <section class="ui-work-card smart-report-note"><b>قاعدة التشغيل</b><span>الأرقام هنا مبنية على الحركات النشطة داخل نطاق العمل الحالي. الانتداب المفتوح يظل مفتوحًا في السجل حتى تتم مراجعته وإغلاقه أو تسجيل تاريخ نهاية له.</span></section>
+  <section class="ui-work-card smart-report-note"><b>قاعدة التشغيل</b><span>الأرقام مبنية على الحركات النشطة في جميع المحافظات، أو المحافظة المختارة كمرشح للتقرير. محافظة العمل تحدد صلاحية تنفيذ التغييرات ولا تمنع الاطلاع على التقارير. الانتداب المفتوح يظل مفتوحًا حتى تتم مراجعته.</span></section>
 </div>
-{% endif %}
 {% endblock %}

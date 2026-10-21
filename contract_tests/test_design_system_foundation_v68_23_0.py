@@ -20,7 +20,7 @@ def test_runtime_version_and_asset_cache_busters_match():
     init = (ROOT / "employee_movements" / "__init__.py").read_text(encoding="utf-8")
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert VERSION in init and VERSION in pyproject
-    assert f"?v={VERSION}" in BASE
+    assert "v=app_version" in BASE
 
 def test_page_inventory_covers_all_template_files():
     inventory = ROOT / "docs" / "design" / "PAGE_INVENTORY_v68.23.0.json"

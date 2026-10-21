@@ -10,7 +10,7 @@ Conservative rules:
 from __future__ import annotations
 from collections import defaultdict, Counter
 from pathlib import Path
-import re, sys
+import sys
 import tinycss2
 from dedupe_css_selectors import collect, norm
 
@@ -28,7 +28,8 @@ def declarations(text: str, rule: dict):
             return None
         if any(x.type == "comment" for x in getattr(node, "value", [])):
             return None
-        out.append((node.name.lower(), norm(tinycss2.serialize(node.value)), bool(node.important)))
+        name = node.name if node.name.startswith('--') else node.name.lower()
+        out.append((name, norm(tinycss2.serialize(node.value)), bool(node.important)))
     if not out:
         return None
     counts = Counter(name for name, _, _ in out)

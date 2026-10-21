@@ -20,7 +20,9 @@ def test_catalog_uses_central_governorate_scope_guard():
 
 def test_operational_scope_remains_selected_governorate_only():
     text = ACCESS.read_text()
-    assert "if selected and (not Governorate.query.filter_by(id=int(selected), is_active=True).first()):" in text
+    assert "selected_text = str(selected).strip()" in text
+    assert "selected_int in allowed_ids" in text
+    assert "Governorate.query.filter_by(id=selected_int, is_active=True).first() is not None" in text
     assert "return [int(selected)] if selected else []" in text
 
 
@@ -76,23 +78,16 @@ def test_branch_cannot_be_reactivated_under_inactive_governorate():
     assert "لا يمكن تفعيل الفرع قبل تفعيل المحافظة التابعة له." in block
 
 
-def test_branch_cannot_be_reactivated_under_inactive_governorate():
-    text = CATALOG.read_text(encoding='utf-8')
-    start = text.index("def branch_toggle(i):")
-    end = text.index("@bp.post('/branches/<int:i>/delete')", start)
-    block = text[start:end]
-    assert "if not x.is_active:" in block
-    assert "if not parent or not parent.is_active:" in block
-    assert "لا يمكن تفعيل الفرع قبل تفعيل المحافظة التابعة له." in block
-
-
 def test_movement_post_and_preflight_share_destination_scope_guard():
     movement_text = (ROOT / "employee_movements" / "blueprints" / "movements.py").read_text(encoding="utf-8")
-    assert "can_manage_movement_destination" in movement_text.splitlines()[7]
+    import_block = movement_text.split('from ..access import ', 1)[1].splitlines()[0]
+    assert 'can_manage_movement_destination' in import_block
     assert "if not can_manage_movement_destination(destination, movement_type):" in movement_text
 
 
 def test_mission_employee_filter_is_available_for_global_all_governorates_search():
     template = (ROOT / "employee_movements" / "templates" / "mission_reports.html").read_text(encoding="utf-8")
-    assert "{% if not employees %}disabled{% endif %}" in template
-    assert "{% if not selected_branch %}disabled{% endif %}" not in template
+    assert 'id="missionEmployeeLookup"' in template
+    assert 'id="missionEmployeeId" name="employee_id"' in template
+    assert 'id="missionEmployeeOptions"' in template
+    assert 'autocomplete="off"' in template

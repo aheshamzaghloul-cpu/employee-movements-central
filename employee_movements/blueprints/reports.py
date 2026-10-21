@@ -1,13 +1,17 @@
 """Reports, exports and audit log."""
 
 from flask import abort, Blueprint, render_template, request
+from sqlalchemy import and_, case, func
+from sqlalchemy.orm import joinedload
 from datetime import date, timedelta
 
-from ..access import bids, can, gids, req, roles
+from ..access import can, req, roles
 from ..constants import MOVEMENT_TYPES, STATUSES
 from ..extensions import db
 from ..models import Audit, Branch, Employee, Governorate, Movement, User, MissionEditRequest
+from ..movement_state import assignment_closed_filter, assignment_open_filter
 from ..validation import active_movement_types, parse_optional_iso_date
+from ..services.export_safety import append_safe_xlsx_row, safe_csv_row
 
 bp = Blueprint('reports', __name__)
 
@@ -38,10 +42,11 @@ def _apply_employee_type_report_filters(query, movement_type, branch_scope, args
             query = query.filter(False)
             filter_error = True
 
+    # Report filters are global read filters; never derive their allowed
+    # governorates from the selected operational work-scope. Mutation routes
+    # perform their own selected-scope checks separately.
     scope_gov_ids = {
-        governorate.id for governorate in Governorate.query.filter(
-            Governorate.is_active == True, Governorate.id.in_(set(gids()) or {-1})
-        ).all()
+        governorate.id for governorate in Governorate.query.filter_by(is_active=True).all()
     }
     allowed_scope_branches = {
         branch.id: branch for branch in Branch.query.filter(
@@ -82,9 +87,12 @@ def _apply_employee_type_report_filters(query, movement_type, branch_scope, args
     if date_to and date_to_obj is None:
         query = query.filter(False)
         filter_error = True
-    if date_from_obj and date_to_obj and date_from_obj > date_to_obj:
-        date_from_obj, date_to_obj = date_to_obj, date_from_obj
-        date_from, date_to = date_to, date_from
+    date_range_error = bool(date_from_obj and date_to_obj and date_from_obj > date_to_obj)
+    if date_range_error:
+        # Invalid ranges fail closed. Never silently reverse the user's input;
+        # the same helper is used by the HTML view and every spreadsheet export.
+        query = query.filter(False)
+        filter_error = True
 
     if date_from_obj:
         if movement_type == 'انتداب':
@@ -107,107 +115,134 @@ def _apply_employee_type_report_filters(query, movement_type, branch_scope, args
         'date_from_obj': date_from_obj, 'date_to_obj': date_to_obj,
         'governorate_id': governorate_id, 'branch_id': branch_id,
         'filter_error': filter_error,
+        'date_range_error': date_range_error,
     }
 
 
 def _report_branch_scope():
-    """Resolve the selected operational governorate for normal report pages.
+    """Return branch scope for read-only reports, independent of work scope.
 
-    Admin and Manager may choose any active governorate, but normal operational
-    reports still operate inside that one selected work scope. The dedicated
-    Manager hub remains the separate cross-governorate overview.
+    All signed-in operational roles can read reports across active governorates.
+    The work-governorate selector still limits any mutation action because the
+    row-level authorization helpers (`branch_ok` / `can_manage_movement`) use
+    the scoped endpoint. A report filter is a read filter, not an authorization
+    grant and never changes the selected operational governorate.
     """
-    rs = roles()
     raw_gid = (request.args.get('governorate_id') or '').strip()
-    central = bool({'مسؤول التطبيق', 'Manager Application Support'} & rs)
-    if central:
-        allowed_gov_ids = set(gids())
-        if raw_gid:
-            if not raw_gid.isdigit():
-                abort(404)
-            governorate = db.session.get(Governorate, int(raw_gid))
-            if not governorate or not governorate.is_active:
-                abort(404)
-            if governorate.id not in allowed_gov_ids:
-                abort(403)
-        # In scope-required endpoints gids() is already restricted to the active
-        # work governorate stored in the session. A query parameter may narrow it,
-        # but must never replace it with an unauthorized governorate.
-        if not allowed_gov_ids:
-            return set(), central
-        selected_gov_ids = set(allowed_gov_ids)
-        if raw_gid:
-            selected_gov_ids = {int(raw_gid)}
-        branch_query = Branch.query.filter(
-            Branch.is_active == True,
-            Branch.governorate_id.in_(selected_gov_ids),
-            Branch.governorate_id.in_(allowed_gov_ids),
-        )
-        return {b.id for b in branch_query.all()}, central
-
-    allowed = set(bids())
+    central = bool({'مسؤول التطبيق', 'Manager Application Support'} & roles())
+    query = Branch.query.join(Governorate, Governorate.id == Branch.governorate_id).filter(
+        Branch.is_active == True,
+        Governorate.is_active == True,
+    )
     if raw_gid:
-        if not raw_gid.isdigit() or int(raw_gid) not in set(gids()):
-            abort(403)
-        branch_ids = {
-            b.id for b in Branch.query.filter_by(
-                is_active=True, governorate_id=int(raw_gid)
-            ).all()
-        }
-        allowed &= branch_ids
-    return allowed, central
+        if not raw_gid.isdigit():
+            abort(404)
+        governorate = db.session.get(Governorate, int(raw_gid))
+        if not governorate or not governorate.is_active:
+            abort(404)
+        query = query.filter(Branch.governorate_id == governorate.id)
+    return {branch.id for branch in query.all()}, central
 
 
 @bp.get('/manager')
 @req
 def manager_hub():
-    """Central cross-governorate workspace for Manager Application Support and admins.
+    """Shared cross-governorate reporting hub.
 
-    The Manager is the central operational lead above all governorate supervisors.
-    This workspace intentionally aggregates every active governorate; it does not
-    inherit the selected work-governorate filter used by daily operational pages.
+    All operational roles can read summaries. The post-close mission-edit request
+    queue is deliberately exposed only to Manager Application Support, the sole
+    reviewer/approver for those requests.
     """
     from ..access import roles
     rs = roles()
-    if not ({'مسؤول التطبيق', 'Manager Application Support'} & rs) or not can('view_reports'):
+    if not can('view_reports'):
         abort(403)
 
-    # Manager and Admin both have global oversight in this dedicated workspace.
-    branches = Branch.query.filter_by(is_active=True).order_by(Branch.name.asc()).all()
+    # Only branches under active governorates belong to the live organizational
+    # scope. This also keeps summaries and pending-review queues consistent.
     governorates = Governorate.query.filter_by(is_active=True).order_by(Governorate.name.asc()).all()
-    allowed_branch_ids = {b.id for b in branches}
-
-    pending_q = MissionEditRequest.query.filter_by(status='قيد المراجعة').join(Movement).join(
-        Employee, Movement.employee_id == Employee.id
+    branches = (
+        Branch.query.join(Governorate, Governorate.id == Branch.governorate_id)
+        .filter(Branch.is_active == True, Governorate.is_active == True)
+        .order_by(Branch.name.asc())
+        .all()
     )
+    allowed_branch_ids = {b.id for b in branches}
+    is_manager = 'Manager Application Support' in rs
+    pending_requests = []
+    pending_count = 0
+    if is_manager:
+        pending_q = MissionEditRequest.query.filter_by(status='قيد المراجعة').join(Movement).join(
+            Employee, Movement.employee_id == Employee.id
+        )
+        if allowed_branch_ids:
+            pending_q = pending_q.filter(Employee.branch_id.in_(allowed_branch_ids))
+        else:
+            pending_q = pending_q.filter(False)
+        pending_requests = pending_q.options(
+            joinedload(MissionEditRequest.requester),
+            joinedload(MissionEditRequest.movement).joinedload(Movement.employee),
+        ).order_by(
+            MissionEditRequest.created_at.asc(), MissionEditRequest.id.asc()
+        ).limit(8).all()
+        pending_count = pending_q.count()
+
+    # Aggregate the whole manager summary in grouped SQL queries rather than
+    # issuing five COUNT queries per governorate. The dashboard cost now grows
+    # primarily with the number of returned governorates, not with query count.
+    branch_counts = {governorate.id: 0 for governorate in governorates}
+    for branch in branches:
+        branch_counts[branch.governorate_id] = branch_counts.get(branch.governorate_id, 0) + 1
+
+    employee_counts = {}
+    movement_counts = {}
     if allowed_branch_ids:
-        pending_q = pending_q.filter(Employee.branch_id.in_(allowed_branch_ids))
-    else:
-        pending_q = pending_q.filter(False)
-    pending_requests = pending_q.order_by(
-        MissionEditRequest.created_at.asc(), MissionEditRequest.id.asc()
-    ).limit(8).all()
-    pending_count = pending_q.count()
+        employee_counts = dict(
+            db.session.query(Branch.governorate_id, func.count(Employee.id))
+            .select_from(Employee)
+            .join(Branch, Branch.id == Employee.branch_id)
+            .filter(Employee.is_active == True, Branch.id.in_(allowed_branch_ids))
+            .group_by(Branch.governorate_id)
+            .all()
+        )
+        movement_rows = db.session.query(
+            Branch.governorate_id.label('governorate_id'),
+            func.sum(case((Movement.movement_type == 'إجازة', 1), else_=0)).label('leave_count'),
+            func.sum(case((Movement.movement_type == 'انتداب', 1), else_=0)).label('assignment_count'),
+            func.sum(case((Movement.movement_type == 'إذن', 1), else_=0)).label('permission_count'),
+            func.sum(case((and_(Movement.movement_type == 'انتداب', assignment_closed_filter(Movement)), 1), else_=0)).label('closed_count'),
+        ).select_from(Movement).join(
+            Employee, Employee.id == Movement.employee_id
+        ).join(
+            Branch, Branch.id == Employee.branch_id
+        ).filter(
+            Movement.is_active == True,
+            Branch.id.in_(allowed_branch_ids),
+        ).group_by(Branch.governorate_id).all()
+        movement_counts = {
+            row.governorate_id: {
+                'leave': int(row.leave_count or 0),
+                'assignments': int(row.assignment_count or 0),
+                'permissions': int(row.permission_count or 0),
+                'closed_missions': int(row.closed_count or 0),
+            }
+            for row in movement_rows
+        }
 
     governorate_reports = []
     for governorate in governorates:
-        gov_branch_ids = {b.id for b in branches if b.governorate_id == governorate.id}
-        if not gov_branch_ids:
+        branch_count = branch_counts.get(governorate.id, 0)
+        if not branch_count:
             continue
-        employee_q = Employee.query.filter(Employee.branch_id.in_(gov_branch_ids), Employee.is_active == True)
-        movement_q = Movement.query.join(Employee).filter(
-            Employee.branch_id.in_(gov_branch_ids), Movement.is_active == True
-        )
+        aggregate = movement_counts.get(governorate.id, {})
         governorate_reports.append({
             'governorate': governorate,
-            'branches': len(gov_branch_ids),
-            'employees': employee_q.count(),
-            'leave': movement_q.filter(Movement.movement_type == 'إجازة').count(),
-            'assignments': movement_q.filter(Movement.movement_type == 'انتداب').count(),
-            'permissions': movement_q.filter(Movement.movement_type == 'إذن').count(),
-            'closed_missions': movement_q.filter(
-                Movement.movement_type == 'انتداب', Movement.mission_state == 'مغلقة'
-            ).count(),
+            'branches': branch_count,
+            'employees': int(employee_counts.get(governorate.id, 0)),
+            'leave': aggregate.get('leave', 0),
+            'assignments': aggregate.get('assignments', 0),
+            'permissions': aggregate.get('permissions', 0),
+            'closed_missions': aggregate.get('closed_missions', 0),
         })
 
     return render_template(
@@ -217,6 +252,7 @@ def manager_hub():
         governorate_reports=governorate_reports,
         scope_has_data=bool(allowed_branch_ids),
         manager_hub_is_admin='مسؤول التطبيق' in rs,
+        manager_hub_is_manager=is_manager,
     )
 
 
@@ -250,41 +286,60 @@ def reports_missions():
     month_start = today.replace(day=1)
     next_month = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
     week_end = today + timedelta(days=7)
+    today_condition = (
+        ((Movement.from_date <= today) & (Movement.to_date.is_(None) | (Movement.to_date >= today)))
+        | (Movement.permission_date == today)
+    )
+    month_condition = (
+        ((Movement.from_date >= month_start) & (Movement.from_date < next_month))
+        | ((Movement.to_date >= month_start) & (Movement.to_date < next_month))
+        | ((Movement.permission_date >= month_start) & (Movement.permission_date < next_month))
+    )
+    open_assignment_condition = and_(
+        Movement.movement_type == 'انتداب',
+        Movement.to_date.is_(None),
+        assignment_open_filter(Movement),
+    )
+    follow_up_condition = and_(
+        Movement.movement_type == 'انتداب',
+        Movement.to_date.is_not(None),
+        assignment_open_filter(Movement),
+        Movement.to_date >= today,
+        Movement.to_date <= week_end,
+    )
+    # One conditional aggregate replaces eight independent COUNT round-trips.
+    aggregate_row = movement_q.order_by(None).with_entities(
+        func.count(Movement.id).label('total'),
+        func.coalesce(func.sum(case((Movement.movement_type == 'إجازة', 1), else_=0)), 0).label('leave_count'),
+        func.coalesce(func.sum(case((Movement.movement_type == 'انتداب', 1), else_=0)), 0).label('assignment_count'),
+        func.coalesce(func.sum(case((Movement.movement_type == 'إذن', 1), else_=0)), 0).label('permission_count'),
+        func.coalesce(func.sum(case((open_assignment_condition, 1), else_=0)), 0).label('open_assignment_count'),
+        func.coalesce(func.sum(case((today_condition, 1), else_=0)), 0).label('today_count'),
+        func.coalesce(func.sum(case((month_condition, 1), else_=0)), 0).label('month_count'),
+        func.coalesce(func.sum(case((follow_up_condition, 1), else_=0)), 0).label('follow_up_count'),
+    ).one()
     stats = {
-        'total': movement_q.count(),
-        'leave': movement_q.filter(Movement.movement_type == 'إجازة').count(),
-        'assignment': movement_q.filter(Movement.movement_type == 'انتداب').count(),
-        'permission': movement_q.filter(Movement.movement_type == 'إذن').count(),
-        'open_assignments': movement_q.filter(Movement.movement_type == 'انتداب', Movement.to_date.is_(None)).count(),
-        'today': movement_q.filter(
-            ((Movement.from_date <= today) & (Movement.to_date.is_(None) | (Movement.to_date >= today)))
-            | (Movement.permission_date == today)
-        ).count(),
-        'month': movement_q.filter(
-            ((Movement.from_date >= month_start) & (Movement.from_date < next_month))
-            | ((Movement.to_date >= month_start) & (Movement.to_date < next_month))
-            | ((Movement.permission_date >= month_start) & (Movement.permission_date < next_month))
-        ).count(),
-        'follow_up_7d': movement_q.filter(
-            Movement.movement_type == 'انتداب',
-            Movement.to_date.isnot(None),
-            Movement.assignment_state != 'مغلق',
-            Movement.to_date >= today,
-            Movement.to_date <= week_end,
-        ).count(),
+        'total': int(aggregate_row.total or 0),
+        'leave': int(aggregate_row.leave_count or 0),
+        'assignment': int(aggregate_row.assignment_count or 0),
+        'permission': int(aggregate_row.permission_count or 0),
+        'open_assignments': int(aggregate_row.open_assignment_count or 0),
+        'today': int(aggregate_row.today_count or 0),
+        'month': int(aggregate_row.month_count or 0),
+        'follow_up_7d': int(aggregate_row.follow_up_count or 0),
     }
     selected_governorate = None
-    if is_central_manager:
-        selected_scope_ids = gids()
-        selected_gid = selected_scope_ids[0] if selected_scope_ids else None
-        if selected_gid:
-            selected_governorate = db.session.get(Governorate, selected_gid)
-            if not selected_governorate or not selected_governorate.is_active:
-                abort(404)
+    raw_report_gid = (request.args.get('governorate_id') or '').strip()
+    if raw_report_gid:
+        if not raw_report_gid.isdigit():
+            abort(404)
+        selected_governorate = db.session.get(Governorate, int(raw_report_gid))
+        if not selected_governorate or not selected_governorate.is_active:
+            abort(404)
     return render_template(
         'reports_missions.html', report_stats=stats, report_today=today,
         report_week_end=week_end, selected_governorate=selected_governorate,
-        manager_global_report=is_central_manager and selected_governorate is None,
+        manager_global_report=selected_governorate is None,
     )
 
 
@@ -314,8 +369,19 @@ def reports():
         else:
             q = q.filter(False)
             filter_error = True
-    summary = {s: q.filter(Movement.status == s).count() for s in STATUSES}
-    by_type = {t: q.filter(Movement.movement_type == t).count() for t in MOVEMENT_TYPES}
+    summary = {status_value: 0 for status_value in STATUSES}
+    for status_value, count in q.order_by(None).with_entities(
+        Movement.status, func.count(Movement.id)
+    ).group_by(Movement.status).all():
+        if status_value in summary:
+            summary[status_value] = int(count)
+
+    by_type = {movement_type_value: 0 for movement_type_value in MOVEMENT_TYPES}
+    for movement_type_value, count in q.order_by(None).with_entities(
+        Movement.movement_type, func.count(Movement.id)
+    ).group_by(Movement.movement_type).all():
+        if movement_type_value in by_type:
+            by_type[movement_type_value] = int(count)
     return render_template(
         'reports.html',
         summary=summary,
@@ -356,6 +422,7 @@ def employee_type_report(report_type):
     date_from = filters['date_from']
     date_to = filters['date_to']
     filter_error = filters['filter_error']
+    date_range_error = filters['date_range_error']
     rows = (
         q.order_by(
             Employee.full_name.asc(),
@@ -376,29 +443,18 @@ def employee_type_report(report_type):
     selected_gov = request.args.get('governorate_id', '').strip()
     selected_branch = request.args.get('branch_id', '').strip()
 
-    # The normal report filters remain inside the one selected work governorate
-    # for central roles as well; cross-governorate aggregation belongs to /manager.
-    allowed_gov_ids = set(gids())
-    allowed_govs = (
-        (
-            Governorate.query.filter(
-                Governorate.is_active == True,
-                Governorate.id.in_(allowed_gov_ids),
-            )
-            .order_by(Governorate.name.asc())
-            .all()
-        )
-        if allowed_gov_ids
-        else []
-    )
+    # Read filters can span all active governorates for every operational role.
+    # Mutations triggered from these rows remain restricted by the selected work scope.
+    allowed_gov_ids = {
+        gov.id for gov in Governorate.query.filter_by(is_active=True).all()
+    }
+    allowed_govs = Governorate.query.filter(
+        Governorate.is_active == True,
+        Governorate.id.in_(allowed_gov_ids or {-1}),
+    ).order_by(Governorate.name.asc()).all()
     allowed_branches = (
-        (
-            Branch.query.filter(Branch.is_active == True, Branch.id.in_(bs))
-            .order_by(Branch.name.asc())
-            .all()
-        )
-        if bs
-        else []
+        Branch.query.filter(Branch.is_active == True, Branch.id.in_(bs or {-1}))
+        .order_by(Branch.name.asc()).all()
     )
     if allowed_gov_ids:
         allowed_branches = [b for b in allowed_branches if b.governorate_id in allowed_gov_ids]
@@ -445,6 +501,7 @@ def employee_type_report(report_type):
         selected_branch=selected_branch,
         selected_employee=employee_id if employee_id.isdigit() else '',
         filter_error=filter_error,
+        date_range_error=date_range_error,
     )
 
 
@@ -493,7 +550,8 @@ def employee_type_report_xlsx(report_type):
     ]
     ws.append(headers)
     for m in rows:
-        ws.append(
+        append_safe_xlsx_row(
+            ws,
             [
                 m.employee.job_code or '',
                 m.employee.full_name,
@@ -584,24 +642,26 @@ def employee_type_report_csv(report_type):
     )
     for m in rows:
         w.writerow(
-            [
-                m.employee.job_code or '',
-                m.employee.full_name,
-                (
-                    m.employee.branch.governorate.name
-                    if m.employee.branch and m.employee.branch.governorate
-                    else ''
-                ),
-                m.employee.branch.name if m.employee.branch else '',
-                m.movement_type,
-                m.leave_type or '',
-                m.destination.name if m.destination else '',
-                m.from_date or '',
-                m.to_date or '',
-                m.permission_date or '',
-                m.status,
-                m.rejection_reason or '',
-            ],
+            safe_csv_row(
+                [
+                    m.employee.job_code or '',
+                    m.employee.full_name,
+                    (
+                        m.employee.branch.governorate.name
+                        if m.employee.branch and m.employee.branch.governorate
+                        else ''
+                    ),
+                    m.employee.branch.name if m.employee.branch else '',
+                    m.movement_type,
+                    m.leave_type or '',
+                    m.destination.name if m.destination else '',
+                    m.from_date or '',
+                    m.to_date or '',
+                    m.permission_date or '',
+                    m.status,
+                    m.rejection_reason or '',
+                ]
+            ),
         )
     from flask import Response
     return Response(
@@ -650,20 +710,22 @@ def report_csv():
     )
     for m in rows:
         w.writerow(
-            [
-                m.id,
-                m.employee.job_code or '',
-                m.employee.full_name,
-                m.employee.branch.name,
-                m.movement_type,
-                m.leave_type or '',
-                m.from_date or '',
-                m.to_date or '',
-                m.permission_date or '',
-                m.status,
-                m.rejection_reason or '',
-                m.created_at,
-            ],
+            safe_csv_row(
+                [
+                    m.id,
+                    m.employee.job_code or '',
+                    m.employee.full_name,
+                    m.employee.branch.name,
+                    m.movement_type,
+                    m.leave_type or '',
+                    m.from_date or '',
+                    m.to_date or '',
+                    m.permission_date or '',
+                    m.status,
+                    m.rejection_reason or '',
+                    m.created_at,
+                ]
+            ),
         )
     from flask import Response
     return Response(

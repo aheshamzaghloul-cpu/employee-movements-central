@@ -4,11 +4,11 @@ Keeps creation, queue loading and reviewed-request execution out of the HTTP blu
 Authorization and HTTP redirects/flash messages remain in the blueprint.
 """
 
-from ..access import log, me
+from ..access import log, me, movement_is_closed
 from ..extensions import db
 from sqlalchemy.exc import IntegrityError
 from ..models import Branch, Employee, Governorate, MissionEditRequest, Movement
-from ..validation import movement_overlaps
+from ..validation import lock_employee_for_movement, lock_movement_for_employee, movement_overlaps
 from .mission_lifecycle import execute_edit_request
 
 PENDING_STATUS = 'قيد المراجعة'
@@ -95,6 +95,38 @@ def validate_and_execute_mission_edit_request(
 
     Returns a short Arabic error message, or None when execution succeeds.
     """
+    # Serialize review decisions on the request row itself. Without this lock, two
+    # concurrent manager submissions could both act on a stale pending request.
+    locked_request = (
+        MissionEditRequest.query.filter_by(id=getattr(request_row, 'id', None))
+        .populate_existing()
+        .with_for_update()
+        .first()
+    )
+    if not locked_request or locked_request.status != PENDING_STATUS:
+        return 'تمت معالجة طلب التعديل بالفعل؛ أعد تحميل قائمة الطلبات.'
+    # Resolve the mission from the locked request, not from a potentially stale
+    # relationship passed by the caller. This keeps the request-to-mission link
+    # authoritative even if the caller's ORM identity was loaded earlier.
+    requested_movement = (
+        Movement.query.filter_by(id=locked_request.movement_id)
+        .populate_existing()
+        .first()
+    )
+    if not requested_movement:
+        return 'المأمورية المرتبطة بطلب التعديل غير موجودة.'
+    if movement is not None and getattr(movement, 'id', None) != locked_request.movement_id:
+        return 'طلب التعديل لا يطابق المأمورية المحددة؛ أعد تحميل الطلب.'
+
+    locked_employee = lock_employee_for_movement(requested_movement.employee_id)
+    if not locked_employee:
+        return 'الموظف المرتبط بالمأمورية غير موجود.'
+    refreshed = lock_movement_for_employee(locked_request.movement_id, locked_employee.id)
+    if not refreshed or not refreshed.is_active or refreshed.movement_type != 'انتداب':
+        return 'المأمورية تغيرت أثناء المراجعة؛ أعد فتح طلب التعديل والتحقق من بياناته.'
+    movement = refreshed
+    if not movement_is_closed(movement):
+        return 'المأمورية لم تعد مغلقة؛ أعد مراجعة الطلب قبل التنفيذ.'
     if (
         not destination
         or (

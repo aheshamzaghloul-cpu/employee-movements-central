@@ -146,7 +146,8 @@ def _declarations(text: str, rule: dict):
             return None
         if any(token.type == "comment" for token in getattr(node, "value", [])):
             return None
-        output.append((node.name.lower(), _normalise(tinycss2.serialize(node.value)), bool(node.important)))
+        name = node.name if node.name.startswith("--") else node.name.lower()
+        output.append((name, _normalise(tinycss2.serialize(node.value)), bool(node.important)))
     if not output:
         return None
     counts = Counter(name for name, _, _ in output)

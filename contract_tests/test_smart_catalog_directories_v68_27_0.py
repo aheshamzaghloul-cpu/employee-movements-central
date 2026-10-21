@@ -46,7 +46,7 @@ def test_catalog_filtering_is_local_fast_and_has_reset_and_empty_state():
 
 
 def test_employee_search_covers_branch_and_governorate_names_and_has_directory_controls():
-    assert 'employee_search_filter(q, include_branch=True)' in EMPLOYEE_ROUTES
+    assert 'employee_search_filter(q, include_contacts=True, include_branch=True)' in EMPLOYEE_ROUTES
     matching = (ROOT / 'employee_movements/services/entity_matching.py').read_text(encoding='utf-8')
     assert 'search_contains(Branch.name, raw)' in matching
     assert 'search_contains(Governorate.name, raw)' in matching

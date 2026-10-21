@@ -17,21 +17,22 @@ def test_page_stylesheets_are_loaded_only_for_their_page_families():
     assert "request.path == '/employees'" in BASE
     assert "css/pages/employee-directory.css" in BASE
     assert BASE.index("css/app.css") < BASE.index("css/pages/home.css") < BASE.index("css/pages/employee-directory.css")
-    assert f"?v={VERSION}" in BASE
+    assert "v=app_version" in BASE
 
 
-def test_home_redesign_preserves_business_workflow_hooks():
+def test_home_redesign_preserves_current_mission_and_entry_assignment_workflows():
     for hook in (
-        "homeMovementForm", "homeMovementType", "homeAssignmentGovernorate",
-        "homeAssignmentBranch", "data-movement-action", "data-status-metric",
-        "entry-role-inline-panel", "homeEmployeeSearchForm", "employee-search",
-        "movement-register", "home-mission-print",
+        "homeEmployeeSearchForm", "employee-search", "homeEmployeeSearchTitle",
+        "homeTicketUploadForm", "homeTicketTitle", "homeManualMissionTitle",
+        "entry-role-inline-panel", "entry-directory", "data-status-metric",
     ):
         assert hook in HOME or hook in HOME_SEARCH
     assert "ds-home-page" in HOME
-    assert "ds-home-actions" in HOME
+    assert "ds-home-flow" in HOME
     assert "ds-home-monitor-grid" in HOME
-    assert "ds-home-tools-grid" in HOME
+    assert "ds-home-tools-grid" not in HOME
+    assert "action=\"/missions/from-screenshot/scan\"" in HOME
+    assert "تكليف مسؤول إدخال للفروع" in HOME
 
 
 def test_home_page_css_is_scoped_and_mobile_first_for_primary_workflows():
@@ -78,6 +79,6 @@ def test_directory_page_css_is_scoped_and_has_safe_narrow_layouts():
 
 
 def test_shared_and_page_stylesheets_keep_versioned_asset_urls_in_sync():
-    assert BASE.count(f"v={VERSION}") == 21
+    assert BASE.count("v=app_version") == 24
     assert "68.23.0" not in BASE
     assert re.search(r"version\s*=\s*\"" + re.escape(VERSION) + r"\"", (ROOT / "pyproject.toml").read_text(encoding="utf-8"))

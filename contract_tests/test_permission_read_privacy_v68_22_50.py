@@ -5,8 +5,11 @@ EMPLOYEES = (ROOT / "employee_movements" / "blueprints" / "employees.py").read_t
 EMPLOYEE_TEMPLATE = (ROOT / "employee_movements" / "templates" / "employee.html").read_text(encoding="utf-8")
 EMPLOYEE_LIST_TEMPLATE = (ROOT / "employee_movements" / "templates" / "employees.html").read_text(encoding="utf-8")
 AGENT = (ROOT / "employee_movements" / "assistant" / "agent.py").read_text(encoding="utf-8")
+READ_TOOLS = (ROOT / "employee_movements" / "assistant" / "tool_read_handlers.py").read_text(encoding="utf-8")
 VISIBILITY = (ROOT / "employee_movements" / "assistant" / "visibility.py").read_text(encoding="utf-8")
-RENDER = (ROOT / "employee_movements" / "assistant" / "render.py").read_text(encoding="utf-8")
+RENDER = (ROOT / "employee_movements" / "assistant" / "render_read.py").read_text(encoding="utf-8")
+READ_DIRECTORY = (ROOT / "employee_movements" / "assistant" / "read_directory_handlers.py").read_text(encoding="utf-8")
+READ_MOVEMENTS = (ROOT / "employee_movements" / "assistant" / "read_movement_handlers.py").read_text(encoding="utf-8")
 REPORTS = (ROOT / "employee_movements" / "blueprints" / "reports.py").read_text(encoding="utf-8")
 MOVEMENTS = (ROOT / "employee_movements" / "blueprints" / "movements.py").read_text(encoding="utf-8")
 NOTIFICATIONS = (ROOT / "employee_movements" / "blueprints" / "notifications.py").read_text(encoding="utf-8")
@@ -18,20 +21,20 @@ def _block(source, start_marker, end_marker):
     return source[start:end]
 
 
-def test_global_home_search_requires_directory_or_report_permission():
+def test_global_home_search_is_shared_and_includes_a_compact_latest_assignment_summary():
     block = _block(EMPLOYEES, "def employee_search():", "@bp.route('/employees'")
-    assert "if not (can('manage_employees') or can('view_reports'))" in block
-    # Live home suggestions return identity fields only; movement records are
-    # intentionally not fetched merely to populate a search result.
-    assert "employee_search_filter(q, include_branch=True)" in block
+    assert "if not (can('manage_employees') or can('view_reports'))" not in block
+    assert "employee_search_filter(q, include_contacts=True, include_branch=True)" in block
     assert "rank_scoped_employee_suggestions(q, pool, limit=8)" in block
+    assert "'company_phone'" in block and "'personal_phone'" in block and "'email'" in block
     assert "Movement.query" not in block
-    assert "'last_assignment'" not in block
+    assert "latest_assignment_summaries({e.id for e in rows})" in block
+    assert "'last_assignment': latest_by_employee.get(e.id, {}).get('text', '')" in block
 
 
-def test_employee_card_requires_permission_and_does_not_load_history_without_reports():
+def test_employee_card_shares_employee_data_but_does_not_load_history_without_reports():
     block = EMPLOYEES[EMPLOYEES.index("def employee_card(i):"): ]
-    assert "if not (can('manage_employees') or can_read_movement_details)" in block
+    assert "if not (can('manage_employees') or can_read_movement_details)" not in block
     assert "Movement.query.filter_by(employee_id=i, is_active=True)" in block
     assert "if can_read_movement_details else None" in block
     assert "ms = []" in block
@@ -40,15 +43,18 @@ def test_employee_card_requires_permission_and_does_not_load_history_without_rep
 
 def test_employee_card_template_hides_operational_history_without_report_permission():
     assert "{% if can('view_reports') %}" in EMPLOYEE_TEMPLATE
-    assert "{% if can('manage_employees') %}" in EMPLOYEE_TEMPLATE
+    assert "can_manage_employee(e) and can('manage_employees')" in EMPLOYEE_TEMPLATE
     assert "{% if can('manage_movements') and can_manage_movement(m) %}" in EMPLOYEE_TEMPLATE
 
 
-def test_assistant_read_tools_require_capability_and_scope():
-    assert "if not (can(\"manage_employees\") or can(\"view_reports\"))" in AGENT
-    assert "if not can(\"view_reports\")" in AGENT
-    assert "if not visible_movement(m)" in AGENT
-    assert "return bool(branch_ok(employee.branch_id))" in VISIBILITY
+def test_assistant_read_tools_require_capability_and_allow_global_read_scope():
+    assert "if not (can(\"manage_employees\") or can(\"view_reports\"))" in READ_TOOLS
+    assert "if not can(\"view_reports\")" in READ_TOOLS
+    assert "if not visible_movement(m)" in READ_TOOLS
+    assert "branch = getattr(employee, 'branch', None)" in VISIBILITY
+    assert "governorate.is_active" in VISIBILITY
+    assert "work governorate limits mutations" in VISIBILITY
+    assert "return bool(branch and branch.is_active and governorate and governorate.is_active)" in VISIBILITY
 
 
 def test_live_tool_results_are_not_round_tripped_to_gemini():
@@ -70,8 +76,9 @@ def test_external_model_context_redacts_selected_record_ids():
 
 def test_render_read_gates_histories_and_filters_each_movement():
     assert "if intent in report_intents and not can('view_reports')" in RENDER
-    assert "if field in ('status', 'last_leave', 'last_assignment', 'last_permission', 'movements') and not can_read_movement_details" in RENDER
-    assert "ms = [m for m in candidate_movements if visible_movement(m)]" in RENDER
+    assert "if field in ('status', 'last_leave', 'last_assignment', 'last_permission', 'movements') and not can_read_movement_details" in READ_DIRECTORY
+    assert "ms = [m for m in candidate_movements if visible_movement(m)][:20]" in READ_DIRECTORY
+    assert "ms = [m for m in candidates if visible_movement(m)][:30]" in READ_MOVEMENTS
 
 
 def test_employee_excel_template_includes_optional_branch_code_and_safe_name_fallback():
@@ -80,16 +87,19 @@ def test_employee_excel_template_includes_optional_branch_code_and_safe_name_fal
     assert "'255'," not in importer
     assert "'أحمد محمد'," not in importer
     assert "'مثال: سوهاج'" not in importer
-    assert "name_matches = branches_by_name.get(name_key, []) if name_key else []" in importer
-    assert "return name_matches[0], 'unique_name_without_governorate'" in importer
-    assert "return None, 'ambiguous_name'" in importer
-    assert "# A known governorate is part of the user's intended target" in importer
+    matcher = (ROOT / "employee_movements" / "services" / "excel_import_matching.py").read_text(encoding="utf-8")
+    assert "name_matches = branches_by_name.get(name_key, []) if name_key else []" in matcher
+    assert "return name_matches[0], 'unique_name_without_governorate'" in matcher
+    assert "return None, 'ambiguous_name'" in matcher
+    assert "# A known governorate is part of the user's intended target" in matcher
 
 
-def test_employees_directory_is_capability_gated_and_respects_operational_scope():
+def test_employees_directory_reads_globally_but_mutations_respect_operational_scope():
     block = _block(EMPLOYEES, "def employees():", "@bp.get('/employees/edit-data')")
     assert "if not (can('manage_employees') or can('view_reports'))" in block
-    assert "search_branch_ids = set(bs or [])" in block
+    assert "search_branch_ids = {" in block
+    assert "Branch.is_active == True, Governorate.is_active == True" in block
+    assert "Employee.branch_id.in_(selected_branch_ids)" in block
     assert "supervisor_search_all" not in block
     assert "scope_governorates = scope_governorates_for_user()" in block
     assert "scope_governorates=scope_governorates" in block
@@ -105,22 +115,23 @@ def test_employee_directory_status_is_not_loaded_without_report_permission():
 
 
 def test_assistant_manager_can_discover_global_governorates_and_assignment_branches():
-    branch_search = _block(AGENT, 'if name == "search_branches":', 'if name == "search_governorates":')
-    gov_search = _block(AGENT, 'if name == "search_governorates":', 'if name == "search_movements":')
-    movement_search = _block(AGENT, 'if name == "search_movements":', 'if name == "navigate_to":')
-    assert "'Manager Application Support' in roles()" in branch_search
-    assert "'Manager Application Support'}):" in gov_search
-    assert "current_roles & {'مشرف محافظة', 'Manager Application Support'}" in movement_search
+    branch_search = _block(READ_TOOLS, 'if name == "search_branches":', 'if name == "search_governorates":')
+    gov_search = _block(READ_TOOLS, 'if name == "search_governorates":', 'if name == "search_movements":')
+    movement_search = _block(READ_TOOLS, 'if name == "search_movements":', '    return None')
+    assert "Governorate.is_active == True" in branch_search
+    assert "Branch.is_active == True" in branch_search
+    assert "Governorate.query.filter(Governorate.is_active == True)" in gov_search
+    assert "Read-only movement search is global across active governorates." in movement_search
+    assert "allowed_branches = bids()" not in movement_search
 
 
-def test_assistant_employee_phone_search_requires_employee_management_permission():
-    block = _block(AGENT, 'if name == "search_employees":', 'if name == "get_employee_profile":')
+def test_assistant_employee_contact_search_is_available_in_shared_read_scope():
+    block = _block(READ_TOOLS, 'if name == "search_employees":', 'if name == "get_employee_profile":')
     assert 'if not (can("manage_employees") or can("view_reports")):' in block
-    assert 'include_contacts=can("manage_employees")' in block
-    # Contacts are now folded into the shared matcher but remain opt-in only
-    # for users with employee-management permission.
+    assert 'include_contacts=can("view_reports")' in block
+    # Employee contacts are part of the shared employee directory read policy.
     assert 'employee_search_filter(' in block
-    assert 'include_contacts=can("manage_employees")' in block
+    assert 'include_contacts=can("view_reports")' in block
     assert 'Employee.company_phone.ilike(pattern)' not in block
     assert 'Employee.personal_phone.ilike(pattern)' not in block
 
@@ -129,31 +140,40 @@ def test_current_employee_status_edit_link_is_permission_gated():
     assert "current_status.movement and can('manage_movements') and can_manage_movement(current_status.movement)" in EMPLOYEE_TEMPLATE
 
 
-def test_assistant_movement_search_filters_work_scope_before_limiting_results():
-    block = _block(AGENT, 'if name == "search_movements":', 'if name == "navigate_to":')
+def test_assistant_movement_search_is_global_read_before_limiting_results():
+    block = _block(READ_TOOLS, 'if name == "search_movements":', '    return None')
     assert "target_date = date.fromisoformat(date_filter)" in block
     assert "Movement.from_date == target_date" in block
-    assert "Movement.movement_type == 'انتداب'" in block
-    assert "Employee.branch_id.in_(allowed_branches)" in block
+    assert "Read-only movement search is global across active governorates." in block
+    assert "Branch.is_active == True" in block
+    assert "Governorate.is_active == True" in block
+    assert "Movement.query.join(Employee).join(Branch, Employee.branch_id == Branch.id)" in block
+    assert "allowed_branches = bids()" not in block
     assert "limit(result_limit).all()" in block
     assert "limit(60).all()" not in block
 
 
-def test_operational_reports_use_selected_governorate_for_admin_and_manager():
+def test_read_only_reports_are_global_while_mutations_remain_work_governorate_scoped():
     scope = _block(REPORTS, "def _report_branch_scope():", "@bp.get('/manager')")
-    assert "allowed_gov_ids = set(gids())" in scope
-    assert "if not allowed_gov_ids:" in scope
-    assert "Branch.governorate_id.in_(allowed_gov_ids)" in scope
-    assert "Manager/Admin reports default to all active governorates" not in scope
-    assert "manager_global_report=is_central_manager and selected_governorate is None" in REPORTS
-    assert "allowed_gov_ids = set(gids())" in REPORTS
+    assert "All signed-in operational roles can read reports across active governorates." in scope
+    assert "Governorate.is_active == True" in scope
+    assert "if raw_gid:" in scope
+    assert "Branch.governorate_id == governorate.id" in scope
+    assert "manager_global_report=selected_governorate is None" in REPORTS
+    access = (ROOT / "employee_movements" / "access.py").read_text(encoding="utf-8")
+    assert "selected = scope_governorate_id()" in access
+    assert "branch.governorate_id != int(selected)" in access
+    assert "not branch_ok(branch.id)" in access
 
 
-def test_employee_type_report_swaps_reversed_date_range_once():
+def test_employee_type_report_reversed_date_range_fails_closed_without_rewriting_input():
     block = _block(REPORTS, "def _apply_employee_type_report_filters(", "def _report_branch_scope(")
-    assert "date_from_obj, date_to_obj = date_to_obj, date_from_obj" in block
-    assert "date_from, date_to = date_to, date_from" in block
-    assert block.count("date_from_obj, date_to_obj = date_to_obj, date_from_obj") == 1
+    assert "date_range_error = bool(date_from_obj and date_to_obj and date_from_obj > date_to_obj)" in block
+    assert "if date_range_error:" in block
+    assert "query = query.filter(False)" in block
+    assert "filter_error = True" in block
+    assert "date_from_obj, date_to_obj = date_to_obj, date_from_obj" not in block
+    assert "date_from, date_to = date_to, date_from" not in block
 
 
 def test_movement_list_and_filter_api_require_read_or_movement_management_access():
@@ -192,14 +212,18 @@ def test_overlap_conflict_messages_do_not_disclose_hidden_movement_type_or_state
     assert "يوجد إذن آخر للموظف" not in validation
 
 
-def test_movements_worklist_is_limited_to_selected_work_governorate_for_all_roles():
+def test_movements_worklist_is_global_read_with_selected_scope_for_write_controls():
     from pathlib import Path
     constants = (ROOT / "employee_movements" / "constants.py").read_text(encoding="utf-8")
     block = _block(MOVEMENTS, "def movements():", "@bp.route('/movements/<int:i>/edit'")
     assert "bs = bids()" in block
-    assert "Employee.branch_id.in_(bs)" in block
     assert "if bs else []" in block
-    assert "Movement.movement_type == 'انتداب',\n                    Employee.branch_id.in_(bs)" not in block
+    assert "def movement_log_query():" in block
+    assert ".join(Branch, Branch.id == Employee.branch_id)" in block
+    assert "total_records = log_query.order_by(None).count()" in block
+    assert ".limit(movement_page_size)" in block
+    assert "Governorate.is_active == True" in block
+    assert "Employee.branch_id.in_(bs)" not in block
     assert "'movements.movements'" in constants
 
 
@@ -213,8 +237,9 @@ def test_notification_json_endpoints_inherit_operational_scope():
 def test_home_live_status_board_requires_report_permission_and_filters_each_movement():
     dashboard = (ROOT / "employee_movements" / "blueprints" / "dashboard.py").read_text(encoding="utf-8")
     home_template = (ROOT / "employee_movements" / "templates" / "home.html").read_text(encoding="utf-8")
-    block = _block(dashboard, "if bs and can('view_reports'):", "# قوائم الصفحة الرئيسية لا تعرض إلا المحافظات")
-    assert "if bs and can('view_reports'):" in block
+    block = _block(dashboard, "if read_branch_ids and can('view_reports'):", "# قوائم الصفحة الرئيسية لا تعرض إلا المحافظات")
+    assert "if read_branch_ids and can('view_reports'):" in block
+    assert "current_employee_status_rows(read_branch_ids, today)" in block
     assert "can_view_movement(r['movement'])" in block
     assert "if branch_employee_ids and can('view_reports'):" in dashboard
     assert "if can('view_reports')" in home_template
@@ -223,13 +248,14 @@ def test_home_live_status_board_requires_report_permission_and_filters_each_move
 
 def test_home_does_not_load_unused_selected_employee_history():
     dashboard = (ROOT / "employee_movements" / "blueprints" / "dashboard.py").read_text(encoding="utf-8")
-    block = _block(dashboard, "def home():", "# Governorates visible to the current effective role.")
+    block = _block(dashboard, "def home():", "# Employee/movement reading is global for every official login role.")
     assert "Movement.query.filter_by(employee_id=movement_employee.id" not in block
-    assert "not render the selected employee's history" in dashboard
+    assert "Only a compact latest-assignment summary is loaded into search results." in dashboard
 
 
 def test_movement_filter_api_uses_global_scope_only_for_assignment_workflow():
     block = _block(MOVEMENTS, "def movements_page_filters_api():", "@bp.post('/movements/create')")
-    assert "movement_type == 'انتداب'" in block
-    assert "bool(rs & {'مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'})" in block
+    assert "global_read_filter = not movement_type" in block
+    assert "if global_read_filter" in block
     assert "else set(gids())" in block
+    assert "else set(bids())" in block

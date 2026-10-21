@@ -56,16 +56,20 @@ def test_resigned_employee_list_fails_closed_without_operational_scope():
     resigned_start = source.index("def resigned_employees():")
     reactivate_start = source.index("def employee_reactivate(i):")
     resigned_path = source[resigned_start:reactivate_start]
-    assert "q = q.filter(Employee.branch_id.in_(bs))" in resigned_path
-    assert "if bs:" not in resigned_path
+    assert 'سجل الموظفين المستقيلين للقراءة العامة' in resigned_path
+    assert 'Employee.resignation_date.isnot(None) | Employee.deleted_at.isnot(None)' in resigned_path
+    assert "if not can_manage_employee(e) or not can('manage_employees'):" in source
 
 
-def test_employee_card_admin_bypass_respects_active_role():
+def test_employee_profile_data_is_shared_but_mutation_actions_remain_scoped():
     from pathlib import Path
 
     source = Path('employee_movements/blueprints/employees.py').read_text(encoding='utf-8')
-    assert "'مسؤول التطبيق' not in roles(me()) and not branch_ok(e.branch_id)" in source
-    assert "'مسؤول التطبيق' not in actual_roles(me()) and not branch_ok(e.branch_id)" not in source
+    start = source.index("def employee_card(i):")
+    card = source[start:]
+    assert "'مسؤول التطبيق' not in roles(me()) and not branch_ok(e.branch_id)" not in card
+    assert "if can_read_movement_details:" in card
+    assert "can_manage_employee(e)" in source  # edit/delete actions remain guarded elsewhere
 
 
 def test_branch_delete_protects_organizational_entry_links():

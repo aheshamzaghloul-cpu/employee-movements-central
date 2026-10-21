@@ -11,7 +11,7 @@ def test_edit_request_routes_delegate_domain_work_to_service():
     service = SERVICE.read_text(encoding="utf-8")
 
     assert "create_mission_edit_request(m, reason)" in text
-    assert "list_pending_mission_edit_requests(rs, bids())" in text
+    assert "list_pending_mission_edit_requests(rs, scoped_branch_ids)" in text
     assert "mission_edit_request_review_context(r)" in text
     assert "validate_and_execute_mission_edit_request(" in text
 

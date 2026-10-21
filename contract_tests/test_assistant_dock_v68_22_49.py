@@ -44,7 +44,10 @@ def test_optional_excel_branch_code_can_be_left_unmapped_in_the_actual_template(
     assert "legend>بيانات اختيارية</legend>" in excel
     assert "{% if field in ['email','company_phone','personal_phone','branch_code'] %}" in excel
     assert 'name="map_{{field}}"' in excel
-    assert "optional_employee_fields = {'email', 'company_phone', 'personal_phone', 'branch_code'}" in (ROOT / "employee_movements/blueprints/excel_import.py").read_text(encoding="utf-8")
+    workflow = (ROOT / "employee_movements/services/excel_import_workflow.py").read_text(encoding="utf-8")
+    assert "_OPTIONAL_EMPLOYEE_FIELDS = frozenset(" in workflow
+    assert '"email", "company_phone", "personal_phone", "branch_code"' in workflow
+    assert "optional_fields = _OPTIONAL_EMPLOYEE_FIELDS if kind == \"employees\" else frozenset()" in workflow
 
 
 def test_employee_type_report_smart_tables_have_responsive_overflow_containers():
@@ -94,7 +97,7 @@ def test_error_states_use_generic_arabic_messages_without_exposing_exception_det
 def test_global_csrf_guard_is_enabled_without_exempted_endpoints():
     hooks = (ROOT / 'employee_movements/hooks.py').read_text(encoding='utf-8')
     assert 'CSRF_EXEMPT_ENDPOINTS = frozenset()' in hooks
-    assert "if request.method != 'POST' or request.endpoint in CSRF_EXEMPT_ENDPOINTS:" in hooks
+    assert "request.endpoint in CSRF_EXEMPT_ENDPOINTS or request.endpoint == 'security_csp_report'" in hooks
     assert 'hmac.compare_digest(token, expected)' in hooks
 
 
@@ -106,5 +109,5 @@ def test_release_metadata_uses_one_package_version():
     assert re.fullmatch(r"\d+\.\d+\.\d+", version)
     assert f"__version__ = '{version}'" in init
     assert f'version = "{version}"' in pyproject
-    assert f'?v={version}' in BASE
+    assert "v=app_version" in BASE
     assert f'v{version}' in CSS.splitlines()[1]

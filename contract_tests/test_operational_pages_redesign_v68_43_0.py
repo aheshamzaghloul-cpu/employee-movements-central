@@ -1,6 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+CURRENT_VERSION = (ROOT / "VERSION.md").read_text(encoding="utf-8").strip()
 BASE = (ROOT / "employee_movements/templates/base.html").read_text(encoding="utf-8")
 BRANCHES = (ROOT / "employee_movements/templates/branches.html").read_text(encoding="utf-8")
 EMPLOYEES = (ROOT / "employee_movements/templates/employees.html").read_text(encoding="utf-8")
@@ -12,11 +13,11 @@ MOVEMENT_CSS = (ROOT / "employee_movements/static/css/pages/movement-forms.css")
 
 
 def test_phase_two_release_metadata_and_asset_cache_keys_are_synchronized():
-    assert (ROOT / "VERSION.md").read_text(encoding="utf-8").strip() == "68.49.0"
-    assert 'version = "68.49.0"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert "__version__ = '68.49.0'" in (ROOT / "employee_movements/__init__.py").read_text(encoding="utf-8")
-    assert 'data-app-version="68.49.0"' in BASE
-    assert BASE.count("v=68.49.0") == 21
+    assert (ROOT / "VERSION.md").read_text(encoding="utf-8").strip() == CURRENT_VERSION
+    assert f'version = "{CURRENT_VERSION}"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert f"__version__ = '{CURRENT_VERSION}'" in (ROOT / "employee_movements/__init__.py").read_text(encoding="utf-8")
+    assert 'data-app-version="{{app_version}}"' in BASE
+    assert BASE.count("v=app_version") == 24
 
 
 def test_branch_catalogue_uses_consistent_line_icons_not_decorative_text_glyphs():

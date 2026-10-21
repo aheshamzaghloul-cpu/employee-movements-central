@@ -8,7 +8,8 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..access import actual_roles, log, me, req, safe_next_url, user_branch_ids, user_gov_ids
 from ..assignments import sync_role_accounts
-from ..constants import LOGIN_ROLES
+from ..assistant.session_state import clear_assistant_state
+from ..constants import LOGIN_ROLES, MAX_PASSWORD_LENGTH
 from ..extensions import db
 from ..models import Branch, Governorate, User
 from ..ratelimit import RateLimiter
@@ -17,38 +18,63 @@ from ..validation import valid_password
 bp = Blueprint('auth', __name__)
 
 LOGIN_WINDOW_SECONDS = 15 * 60
-_login_limiter = None
 
 
 def login_limiter():
-    """Lazily build the limiter so the limit comes from the application config."""
-    global _login_limiter
-    if _login_limiter is None:
-        _login_limiter = RateLimiter(current_app.config['LOGIN_RATE_LIMIT'], LOGIN_WINDOW_SECONDS)
-    return _login_limiter
+    """Get a per-app limiter; use Redis for shared limits when configured."""
+    registry = current_app.extensions.setdefault('employee_movements_rate_limiters', {})
+    key = ('login', int(current_app.config['LOGIN_RATE_LIMIT']), LOGIN_WINDOW_SECONDS)
+    if key not in registry:
+        registry[key] = RateLimiter(
+            key[1], key[2], redis_url=current_app.config.get('REDIS_URL'),
+            key_prefix=f"employee-movements:{current_app.config.get('APP_ENV', 'production')}:login",
+        )
+    return registry[key]
 
 
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method != 'POST':
         return render_template('login.html')
-    username = request.form.get('username', '').strip()
-    limiter_key = f'{request.remote_addr}|{username.lower()}'
-    if login_limiter().is_blocked(limiter_key):
+    raw_username = request.form.get('username', '')
+    password = request.form.get('password', '')
+    # Reject oversized credentials before lowercasing the username, querying the
+    # database, or running an expensive password-hash verification. The request
+    # body itself is also capped by the earliest request hook.
+    oversized_credentials = len(raw_username) > 80 or len(password) > MAX_PASSWORD_LENGTH
+    username = raw_username.strip() if not oversized_credentials else ''
+    limiter_username = '[oversized-credentials]' if oversized_credentials else username.lower()
+    limiter_key = f'{request.remote_addr}|{limiter_username}'
+    limiter = login_limiter()
+    if limiter.is_blocked(limiter_key):
         flash('محاولات دخول كثيرة. حاول مرة أخرى بعد 15 دقيقة.')
         return render_template('login.html'), 429
-    user = User.query.filter_by(username=username).first()
-    password_ok = bool(user) and check_password_hash(user.password_hash, request.form.get('password', ''))
-    if not user or not user.is_active or not password_ok:
-        login_limiter().allow(limiter_key)
+    if oversized_credentials or not username or not password:
+        limiter.allow(limiter_key)
         flash('بيانات الدخول غير صحيحة.')
         return render_template('login.html')
+    user = User.query.filter_by(username=username).first()
+    password_ok = bool(user) and check_password_hash(user.password_hash, password)
+    if not user or not user.is_active or not password_ok:
+        limiter.allow(limiter_key)
+        flash('بيانات الدخول غير صحيحة.')
+        return render_template('login.html')
+    # «مدخل البيانات الأول» أزيل من أدوار الدخول الرسمية. لا نحذف سجل الموظف أو
+    # تكليف الفروع التنظيمي، لكن الحساب القديم الذي لا يحمل أي دور رسمي لا يسجل الدخول.
+    real_roles = actual_roles(user)
+    if not (real_roles & set(LOGIN_ROLES)):
+        login_limiter().allow(limiter_key)
+        flash('هذا الحساب لا يحمل دور دخول رسميًا. اطلب من مسؤول التطبيق تعيين أحد الأدوار الرسمية.')
+        return render_template('login.html'), 403
     login_limiter().reset(limiter_key)
+    if me():
+        clear_assistant_state()
+        db.session.commit()
     session.clear()
     session['uid'] = user.id
+    session['auth_version'] = int(user.auth_version or 0)
     session['csrf'] = secrets.token_urlsafe(24)
     # الحساب متعدد الأدوار يبدأ بدور واحد محدد؛ لا نسمح بمزيج صلاحيات بين الأدوار.
-    real_roles = actual_roles(user)
     for preferred in LOGIN_ROLES:
         if preferred in real_roles:
             session['active_role'] = preferred
@@ -61,6 +87,8 @@ def login():
 
 @bp.post('/logout')
 def logout():
+    clear_assistant_state()
+    db.session.commit()
     session.clear()
     return redirect(url_for('auth.login'))
 
@@ -82,10 +110,7 @@ def switch_role():
             session.pop('operational_governorate_id', None)
             session.pop('operational_scope_uid', None)
             session.pop('operational_scope_role', None)
-            session.pop('assistant_pending', None)
-            session.pop('assistant_manager_pending', None)
-            session.pop('assistant_context_employee_id', None)
-            session.pop('assistant_workspace_context', None)
+            clear_assistant_state()
             log('SWITCH_ROLE', 'User', u.id, f'{old_role or "الدور التلقائي"} -> {selected}')
             db.session.commit()
             # لا نعيد المستخدم إلى صفحة قد تنتمي للدور السابق.
@@ -116,6 +141,7 @@ def change_password():
             u.password_hash = generate_password_hash(new)
             u.must_change_password = False
             sync_role_accounts(u)
+            invalidate_user_workflows(u.id)
             log('PASSWORD_CHANGE', 'User', u.id)
             db.session.commit()
             flash('تم تغيير كلمة المرور بنجاح.')

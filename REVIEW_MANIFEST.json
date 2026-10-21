@@ -1,181 +1,81 @@
 {
-  "version": "68.46.0",
-  "title": "Admin and governance visual refinement using the approved premium sky-blue/navy design",
-  "scope": "Administration overview, governorates/branches catalog, users/permissions, and delegation UI. Existing role policies, form field names, route actions, and database schema remain unchanged.",
-  "results": {
-    "contract_tests": {
-      "collected": 360,
-      "passed": 360,
-      "failed": 0,
-      "status": "passed"
-    },
-    "home_workflow_contracts": {
-      "passed": 13,
-      "failed": 0,
-      "status": "passed"
-    },
-    "post_routes_reviewed": 59,
-    "post_route_security": "POST_ROUTE_SECURITY=OK",
-    "ui_integrity": "UI_INTEGRITY=OK (templates=46, css_files=11, js_files=8)",
-    "jinja_templates": {
-      "count": 46,
-      "parse_errors": 0,
-      "status": "passed"
-    },
-    "css": {
-      "count": 11,
-      "parse_errors": 0,
-      "parser": "tinycss2 recursive stylesheet/rule/declaration checks",
-      "status": "passed"
-    },
-    "javascript": {
-      "count": 8,
-      "syntax_errors": 0,
-      "parser": "node --check",
-      "status": "passed"
-    },
-    "python": {
-      "source_files_in_app_tests_scripts": 187,
-      "compile_errors": 0,
-      "parser": "python -m compileall for application, contract tests, tests and scripts",
-      "status": "passed"
-    },
-    "css_custom_properties": {
-      "defined": 110,
-      "used": 77,
-      "undefined_references": 0,
-      "root_blocks": 1
-    },
-    "legacy_palette_targets": {
-      "remaining_matches": 0,
-      "status": "passed"
-    },
-    "visual_review": {
-      "rendered_templates_and_states": 16,
-      "viewport_widths": [
-        1440,
-        390,
-        360
-      ],
-      "screenshots": 16,
-      "browser_errors": 0,
-      "horizontal_overflows": 0,
-      "pages": [
-        "administration",
-        "governorates",
-        "users/permissions",
-        "delegations"
-      ],
-      "source": "Local Chromium static reference HTML using project CSS, with synthetic data; not a live Flask route or database session.",
-      "status": "passed_local_css_backed_preview_not_e2e"
-    },
-    "base_cache_buster_references": 18,
-    "full_pytest_suite": {
-      "status": "not_run",
-      "reason": "Flask is unavailable in the review environment; the contract suite runs independently and passed."
-    },
-    "css_cleanup_intra_stylesheet_previous_release": {
-      "shadowed_declarations_removed": 324,
-      "removed_by_file": {
-        "app.css": 284,
-        "design-system-cyan.css": 40
-      },
-      "status": "historical_v68_44_5"
-    },
-    "home_redesign": {
-      "quick_action_links": 4,
-      "workbench_cards": 2,
-      "search_is_separate_from_registration": true,
-      "work_governorate_selector": "topbar only",
-      "desktop_screenshot": "docs/design/preview-v68.45.1/interface-feedback-desktop.png",
-      "mobile_screenshot": "docs/design/preview-v68.45.1/interface-feedback-mobile.png",
-      "narrow_screenshot": "docs/design/preview-v68.45.1/interface-feedback-narrow.png",
-      "preview_results": "docs/design/preview-v68.45.1/preview-results.json",
-      "welcome_panel_height_px": {
-        "desktop_1728x864": 113.69,
-        "mobile_390x844": 109.48,
-        "narrow_360x780": 130.3
-      },
-      "assistant_label_visible": true,
-      "distinct_action_icon_colors": true,
-      "status": "passed_local_component_visual_preview"
-    },
-    "css_cleanup_v68_44_5_historical": {
-      "shadowed_declarations_removed_this_release": 324,
-      "removed_by_file": {
-        "app.css": 284,
-        "design-system-cyan.css": 40
-      },
-      "remaining_candidates_under_conservative_exact_selector_context_audit": 0,
-      "duplicate_properties_in_same_rule_protected": true,
-      "comments_grouped_selectors_and_parse_oddities_protected": true,
-      "custom_property_names_case_sensitive": true,
-      "important_priority_respected": true,
-      "legacy_audit_helper_hardened_to_preserve_fallbacks": true,
-      "status": "passed_historical_intra_stylesheet_cleanup"
-    },
-    "cross_stylesheet_cleanup_v68_44_6_historical": {
-      "removed_declarations_this_release": 383,
-      "by_file": {
-        "app.css": 261,
-        "employee-directory.css": 18,
-        "home.css": 75,
-        "management.css": 16,
-        "movement-forms.css": 7,
-        "workspace-pages.css": 6
-      },
-      "remaining_candidates_on_rerun": 0,
-      "status": "passed_cross_stylesheet_cleanup"
-    },
-    "admin_governance_visual": {
-      "admin_kpi_icons": 6,
-      "admin_tool_icons": 9,
-      "governorate_kpi_icons": 4,
-      "catalog_record_icons": "SVG",
-      "delegation_summary_states": [
-        "is-live",
-        "is-planned",
-        "is-closed"
-      ],
-      "routes_forms_and_permission_hooks_preserved": true,
-      "status": "passed_contract_and_local_visual_review"
-    }
-  },
-  "stylesheet_policy": {
-    "canonical_tokens": "Only in employee_movements/static/css/app.css; design-system-cyan.css contains component-specific rules.",
-    "shared_design_system": "Loaded globally after legacy and route-specific CSS.",
-    "admin_reports_stylesheet": "Loaded only on relevant administration/report/manager/audit routes.",
-    "assistant_stylesheet": "Loaded for authenticated workspace sessions.",
-    "page_files": [
-      "employee_movements/static/css/pages/home-journey.css",
-      "employee_movements/static/css/pages/admin-reports-assistant.css",
-      "employee_movements/static/css/pages/assistant-dock.css"
-    ],
-    "movement_forms_stylesheet": "Loaded for /movements*, /missions/from-screenshot*, /reports/assignments/mission-edit* and /reports/assignments/edit-requests*.",
-    "css_shadowing_audit": "scripts/audit_css_shadowing.py, scripts/cleanup_shadowed_declarations_v68_44_5.py, and scripts/cleanup_cross_stylesheet_shadow_v68_44_6.py; all safe exact-selector/context candidates return zero after cleanup.",
-    "homepage_stylesheet": "css/pages/home-journey.css; loaded only when request.path == '/', after design-system-cyan.css"
-  },
-  "behavioral_scope": {
-    "business_logic_changed": false,
-    "permission_rules_changed": false,
-    "form_field_names_changed": false,
-    "database_schema_changed": false,
-    "production_database_changed": false,
-    "deployed": false
-  },
-  "limitations": [
-    "Local Chromium preview uses static representative HTML with the project CSS and synthetic data. It does not render the live Flask/Jinja routes or connect to the application database.",
-    "All 360 contract tests passed. All 46 Jinja templates, 11 CSS files, 8 JavaScript files, and 187 Python source files passed syntax/compilation checks.",
-    "Flask is unavailable in the review environment, so live application/integration tests could not be run. No GitHub or Blitz deployment was performed."
+  "version": "69.00.2",
+  "base_version": "69.00.2",
+  "review_round": 32,
+  "review_date": "2026-10-21",
+  "artifact_status": "v69.00.2 complete full-source upload candidate (round 32). Includes application source, templates/static assets, runtime configuration, dev dependencies, tests, contract tests, helper scripts, CI workflow and current docs. Historical round reports are archived separately. Static checks only; NOT CLEARED FOR PRODUCTION.",
+  "archive": "employee-movements-v69.00.2-full-source-upload-round32.zip",
+  "scope": [
+    "provide one complete repository package for GitHub upload; do not confuse the compact runtime archive with the full source tree",
+    "preserve the complete employee_movements application tree and its templates, static assets and runtime modules",
+    "preserve tests, contract_tests, scripts, .github/workflows/ci.yml, pyproject.toml and requirements-dev.txt",
+    "retain core architecture, deployment, usage, design-system and historical reference docs required by current contracts",
+    "move superseded round-specific review reports and manifests out of the repository root into a companion historical archive",
+    "merge current round-30 changes into CHANGELOG.md and provide a complete-project README with GitHub/Blitz upload instructions",
+    "align pyproject.toml project version with VERSION.md and employee_movements.__version__ at 69.00.2",
+    "update release-manifest contract expectations to current full-source package round 32",
+    "retain historical REVIEW_MANIFEST_v69.00.0_round18.json for the dedicated round-18 contract test",
+    "preserve runtime source tree unchanged from round 30; only repository metadata, current-release contracts and package documentation changed",
+    "static checks only; do not run Flask, pytest, contract tests, database, Docker build, browser, GitHub push or Blitz deploy",
+    "NOT CLEARED FOR PRODUCTION until CI, visual/browser review and operational release checks are completed"
   ],
-  "artifacts": {
-    "qa_review": "docs/QA_REVIEW_v68.46.0.md",
-    "page_stylesheet_map": "docs/design/PAGE_STYLESHEET_MAP_v68.46.0.md",
-    "admin_governance_visual_review": "docs/design/ADMIN_GOVERNANCE_VISUAL_REVIEW_v68.46.0.md",
-    "preview_report": "docs/design/preview-v68.46.0/render-report.json",
-    "administration_preview": "docs/design/preview-v68.46.0/administration-desktop.png",
-    "governorates_preview": "docs/design/preview-v68.46.0/governorates-desktop.png",
-    "users_preview": "docs/design/preview-v68.46.0/users-desktop.png",
-    "delegations_preview": "docs/design/preview-v68.46.0/delegations-desktop.png"
-  }
+  "validation": {
+    "python_ast_files_parsed": 334,
+    "json_files_parsed": 5,
+    "application_python_files": 92,
+    "unit_test_files": 77,
+    "contract_test_files": 143,
+    "script_files": 17,
+    "source_static_checks": "PASS: Python AST and JSON parse, CSS syntax parsing where tinycss2 was available, version markers agree, current manifests synchronize, mandatory repository files are present, stale current-release expectations absent, no local env/database artifacts.",
+    "archive_integrity": "PASS: final ZIP CRC check, 437 files, no duplicate/unsafe paths; SHA-256 generated after final build.",
+    "application_or_test_execution": "not run by instruction",
+    "database_scan": "not run",
+    "docker_build": "not run",
+    "release_gate": "NOT CLEARED FOR PRODUCTION",
+    "important_files_present": true,
+    "application_tree_files": 166,
+    "css_files_parsed": 16,
+    "css_parse_errors": 0,
+    "historical_reports_archived_separately": 31
+  },
+  "important_files": [
+    "README.md",
+    "CHANGELOG.md",
+    "VERSION.md",
+    "pyproject.toml",
+    "requirements.txt",
+    "requirements-dev.txt",
+    ".env.example",
+    ".gitignore",
+    ".dockerignore",
+    ".github/workflows/ci.yml",
+    "app.py",
+    "wsgi.py",
+    "Dockerfile",
+    "docker-compose.yml",
+    "gunicorn.conf.py",
+    "Caddyfile",
+    "employee_movements/__init__.py",
+    "employee_movements/models.py",
+    "employee_movements/bootstrap.py",
+    "scripts/reconcile_identity_data.py",
+    "tests/",
+    "contract_tests/",
+    "docs/ARCHITECTURE.md",
+    "docs/BLITZ_DEPLOYMENT_AR.md",
+    "docs/DEPLOYMENT_AR.md",
+    "docs/DESIGN_SYSTEM_AR.md",
+    "RELEASE_RUNBOOK_v69.00.2_AR.md",
+    "REVIEW_MANIFEST.json",
+    "REVIEW_MANIFEST_v69.00.2.json",
+    "REVIEW_MANIFEST_v69.00.2_round32.json",
+    "REVIEW_MANIFEST_v69.00.0_round18.json"
+  ],
+  "release_note": "Full repository packaging correction for round 32. This does not claim runtime/test approval; production gate remains closed.",
+  "dependency_security_references": [
+    "https://pymupdf.readthedocs.io/en/latest/changes.html",
+    "https://pypi.org/project/pymupdf/",
+    "https://github.com/benoitc/gunicorn/releases",
+    "https://github.com/pypa/pip-audit/releases"
+  ]
 }

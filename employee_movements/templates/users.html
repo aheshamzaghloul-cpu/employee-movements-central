@@ -1,7 +1,10 @@
 {% extends 'base.html' %}{% block title %}المستخدمون والصلاحيات{% endblock %}{% block content %}
+{% set selected_create_roles = form_values.get('roles', []) %}{% if selected_create_roles is string %}{% set selected_create_roles = [selected_create_roles] %}{% endif %}
+{% set selected_create_governorates = form_values.get('governorate_id', []) %}{% if selected_create_governorates is string %}{% set selected_create_governorates = [selected_create_governorates] %}{% endif %}
+{% set selected_create_permissions = form_values.get('permissions', []) %}{% if selected_create_permissions is string %}{% set selected_create_permissions = [selected_create_permissions] %}{% endif %}
 <div class="ui-page users-workspace">
   <div class="ui-toolbar ui-page-head users-page-head">
-    <div><span class="ui-eyebrow">إدارة الهوية والوصول</span><h1>{% if 'مسؤول التطبيق' in roles %}المستخدمون والصلاحيات{% else %}المدخلون الأوائل{% endif %}</h1><p class="ui-subtitle">إدارة بيانات الحساب، أدوار تسجيل الدخول، نطاق المحافظات، والصلاحيات من مساحة واحدة.</p></div>
+    <div><span class="ui-eyebrow">إدارة الهوية والوصول</span><h1>المستخدمون والصلاحيات</h1><p class="ui-subtitle">إدارة بيانات الحساب، أدوار تسجيل الدخول، نطاق المحافظات، والصلاحيات من مساحة واحدة.</p></div>
     <a class="ui-btn ui-btn-primary" href="#user-add">إضافة مستخدم</a>
   </div>
 
@@ -12,20 +15,20 @@
       <section class="users-form-section" aria-labelledby="userIdentityTitle">
         <div class="users-subsection-title"><h3 id="userIdentityTitle">بيانات الحساب</h3><span>01 · الهوية</span></div>
         <div class="ui-grid wide users-identity-grid">
-          <label>الاسم الكامل<input name="full_name" required autocomplete="name"></label>
-          <label>اسم المستخدم<input name="username" required autocomplete="username"></label>
-          <label>البريد الإلكتروني<input name="email" type="email" required autocomplete="email"></label>
-          <label>الوظيفة<input name="job_title" required></label>
-          <label>الكود الوظيفي<input name="job_code" required></label>
-          <label>كلمة المرور<input name="password" type="password" minlength="8" required autocomplete="new-password"><small>8 أحرف على الأقل.</small></label>
+          <label>الاسم الكامل<input name="full_name" value="{{form_values.get('full_name','')}}" required autocomplete="name"></label>
+          <label>اسم المستخدم<input name="username" value="{{form_values.get('username','')}}" required autocomplete="username"></label>
+          <label>البريد الإلكتروني<input name="email" type="email" value="{{form_values.get('email','')}}" required autocomplete="email"></label>
+          <label>الوظيفة<input name="job_title" value="{{form_values.get('job_title','')}}" required></label>
+          <label>الكود الوظيفي<input name="job_code" value="{{form_values.get('job_code','')}}" required></label>
+          <label>كلمة المرور<input name="password" type="password" minlength="8" required autocomplete="new-password"><small>8 أحرف على الأقل. لا يحتفظ النظام بكلمة المرور بعد خطأ التحقق؛ أعد إدخالها عند المحاولة التالية.</small></label>
         </div>
       </section>
       <section class="users-form-section" aria-labelledby="userRolesTitle">
         <div class="users-subsection-title"><h3 id="userRolesTitle">أدوار تسجيل الدخول</h3><span>02 · الدور</span></div>
-        <p class="users-section-help">الأدوار تحدد ما يمكن للحساب الوصول إليه. «المدخل الأول» تكليف تنظيمي على سجل موظف موجود ولا ينشئ حساب دخول منفصلًا.</p>
+        <p class="users-section-help">الأدوار هنا هي أدوار تسجيل الدخول الرسمية فقط. تكليف مسؤول إدخال الفروع يُدار من الصفحة الرئيسية ولا ينشئ دورًا أو حساب دخول مستقلًا.</p>
         <div class="choice-list ui-choice-list compact ui-role-choice-grid users-choice-grid">
           {% for r in ['مسؤول التطبيق','مشرف محافظة','Manager Application Support'] %}
-          <label class="choice-item ui-choice-item ui-role-choice users-choice-item"><input type="checkbox" name="roles" value="{{r}}" {% if r=='Manager Application Support' %}data-create-role-manager{% elif r=='مسؤول التطبيق' %}data-create-role-admin{% endif %}><span>{{r}}</span></label>
+          <label class="choice-item ui-choice-item ui-role-choice users-choice-item"><input type="checkbox" name="roles" value="{{r}}" {% if r in selected_create_roles %}checked{% endif %} {% if r=='Manager Application Support' %}data-create-role-manager{% elif r=='مسؤول التطبيق' %}data-create-role-admin{% endif %}><span>{{r}}</span></label>
           {% endfor %}
         </div>
         <p class="users-role-note" data-manager-scope-note hidden>يعمل Manager على مستوى المحافظات، ويحدد محافظة العمل من محدد المحافظة في أعلى التطبيق؛ هذا الدور لا يمنح صلاحيات إدارة الحسابات.</p>
@@ -34,7 +37,7 @@
           <details class="workspace-optional-options users-governorate-options">
             <summary><span>تحديد محافظات الإشراف</span><small data-create-scope-summary>لم تُحدد محافظة بعد</small></summary>
             <div class="choice-list ui-choice-list compact ui-role-choice-grid users-choice-grid">
-              {% for g in gs %}<label class="choice-item ui-choice-item users-choice-item"><input type="checkbox" name="governorate_id" value="{{g.id}}"><span>{{g.name}}</span></label>{% endfor %}
+              {% for g in gs %}<label class="choice-item ui-choice-item users-choice-item"><input type="checkbox" name="governorate_id" value="{{g.id}}" {% if g.id|string in selected_create_governorates %}checked{% endif %}><span>{{g.name}}</span></label>{% endfor %}
             </div>
           </details>
         </section>
@@ -46,7 +49,7 @@
         <details class="workspace-optional-options">
           <summary><span>اختيارات الصلاحيات الإضافية</span><small>افتحها فقط عند الحاجة</small></summary>
           <div class="choice-list ui-choice-list compact ui-role-choice-grid users-choice-grid">
-            {% for key,label in PERMISSIONS.items() %}{% if 'مسؤول التطبيق' in roles or key in ['manage_employees','manage_movements','view_reports'] %}<label class="choice-item ui-choice-item users-choice-item"><input type="checkbox" name="permissions" value="{{key}}"><span>{{label}}</span></label>{% endif %}{% endfor %}
+            {% for key,label in PERMISSIONS.items() %}{% if 'مسؤول التطبيق' in roles or key in ['manage_employees','manage_movements','view_reports'] %}<label class="choice-item ui-choice-item users-choice-item"><input type="checkbox" name="permissions" value="{{key}}" {% if key in selected_create_permissions %}checked{% endif %}><span>{{label}}</span></label>{% endif %}{% endfor %}
           </div>
         </details>
       </section>
@@ -82,8 +85,8 @@
   </script>
 <section class="ui-people-control users-people-section" id="people-control" data-progressive-list data-page-size="8">
   <div class="ui-people-control-head">
-    <div><span class="eyebrow">إدارة الشخص من مكان واحد</span><h2>مركز التحكم في الأدوار والنطاقات</h2><p>اختر أي شخص لمراجعة هويته، أدواره التقنية والتشغيلية، المحافظات، الفروع، الحسابات الموازية، وتكليف «المدخل الأول» قبل إجراء أي تعديل.</p></div>
-    <div class="ui-people-control-legend"><span><i class="ui-dot ui-dot-tech"></i> دور تقني</span><span><i class="ui-dot ui-dot-op"></i> دور تشغيلي</span><span><i class="ui-dot ui-dot-entry"></i> تكليف مدخل أول</span></div>
+    <div><span class="eyebrow">إدارة الشخص من مكان واحد</span><h2>مركز التحكم في الأدوار والنطاقات</h2><p>إدارة حسابات الدخول والأدوار الرسمية والنطاقات فقط. إسناد مسؤول إدخال للفروع إجراء تنظيمي مستقل من الصفحة الرئيسية.</p></div>
+    <div class="ui-people-control-legend"><span><i class="ui-dot ui-dot-tech"></i> دور إداري</span><span><i class="ui-dot ui-dot-op"></i> دور تشغيلي</span></div>
   </div>
   <div class="users-people-tools"><label><span class="sr-only">بحث في الأشخاص والأدوار والنطاقات</span><input type="search" data-progressive-search maxlength="120" autocomplete="off" placeholder="ابحث بالاسم أو الدور أو المحافظة أو الفرع…"></label><span data-progressive-count aria-live="polite"></span></div>
   <div class="ui-people-control-grid" data-progressive-container id="usersPeopleGrid">
@@ -93,10 +96,9 @@
         <div class="ui-person-identity"><div class="ui-person-avatar">{{(person.full_name or '؟')[:1]}}</div><div><h3>{{person.full_name}}</h3><span>{{person.job_title or '—'}} · {{person.job_code or '—'}}</span><small>{{person.username}} · {{person.email or 'لا يوجد بريد'}}</small></div></div>
         <div class="ui-person-actions"><a class="ui-btn ui-btn-primary ui-btn-mini" href="/users/{{person.id}}/edit">تعديل الشخص</a>{% if 'مسؤول التطبيق' in roles and person.id!=me.id %}<form class="ui-inline" method="post" action="/users/{{person.id}}/toggle"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="ui-btn-secondary ui-btn-mini">{{'تعطيل' if person.is_active else 'تفعيل'}}</button></form>{% endif %}</div>
       </div>
-      <div class="ui-person-role-row"><b>الأدوار</b><div>{% for r in item.roles %}<span class="ui-person-role {% if r=='مسؤول التطبيق' %}is-tech{% elif r=='المدخل الأول' %}is-entry{% else %}is-op{% endif %}">{{r}}</span>{% else %}<span class="ui-muted">لا يوجد دور مسجل</span>{% endfor %}</div></div>
+      <div class="ui-person-role-row"><b>الأدوار</b><div>{% for r in item.roles if r != 'المدخل الأول' %}<span class="ui-person-role {% if r=='مسؤول التطبيق' %}is-tech{% else %}is-op{% endif %}">{{r}}</span>{% else %}<span class="ui-muted">لا يوجد دور مسجل</span>{% endfor %}</div></div>
       <div class="ui-person-control-columns">
         <div class="ui-person-control-block"><b>النطاق التشغيلي</b>{% if item.governorates %}<div class="ui-person-tags">{% for g in item.governorates %}<span class="ui-tag">محافظة {{g.name}}</span>{% endfor %}</div>{% else %}<span class="ui-muted">لا توجد محافظات مسندة</span>{% endif %}{% if item.branches %}<div class="ui-person-tags">{% for b in item.branches %}<span class="ui-tag">{{b.governorate.name}} — {{b.name}}</span>{% endfor %}</div>{% endif %}</div>
-        <div class="ui-person-control-block"><b>المدخل الأول</b>{% if item.entry_assignment %}<div class="ui-person-entry-state"><strong>مكلف كمدخل أول</strong><span>{% if item.entry_supervisor %}المشرف: {{item.entry_supervisor.full_name}}{% else %}المشرف غير محدد{% endif %}</span></div><div class="ui-person-tags">{% for b in item.entry_branches %}<span class="ui-tag">{{b.name}}</span>{% else %}<span class="ui-muted">لا توجد فروع مسندة</span>{% endfor %}</div>{% elif 'المدخل الأول' in item.roles %}<span class="ui-muted">دور المدخل الأول موجود، لكن لم يتم إنشاء تكليف الفروع التنظيمي بعد.</span>{% else %}<span class="ui-muted">ليس مكلفًا حاليًا كمدخل أول</span>{% endif %}</div>
         <div class="ui-person-control-block"><b>الحسابات الموازية</b>{% if item.role_accounts|length > 1 %}{% for ra in item.role_accounts %}<span class="ui-tag">{{ra.role}} · {{ra.username}}</span>{% endfor %}{% else %}<span class="ui-muted">الحساب الأساسي فقط</span>{% endif %}</div>
       </div>
       <div class="ui-person-control-footer"><span class="ui-person-status {{'is-active' if person.is_active else 'is-off'}}">{{'الحساب نشط' if person.is_active else 'الحساب معطل'}}</span><span>الصلاحيات: {{user_permissions(person)|length}}</span><a href="/users/{{person.id}}/edit">إدارة الأدوار والنطاقات والصلاحيات ←</a></div>
@@ -106,7 +108,7 @@
 </section>
 
 <section class="ui-card ui-table-wrap users-account-table" aria-labelledby="usersTableTitle"><div class="ui-section-title"><div><span class="ui-eyebrow">سجل الحسابات</span><h2 id="usersTableTitle">الحسابات الحالية</h2></div><small class="ui-hint">عند إضافة أكثر من دور لنفس الشخص يُنشأ لكل دور حساب وهمي داخلي بنفس اسم المستخدم وكلمة المرور، ويظهر الدور المختار من زر «الدور الحالي».</small><input class="ui-max-320" type="search" maxlength="120" autocomplete="off" data-auto-search="#users-table" placeholder="ابحث بالاسم أو اسم المستخدم..."></div><table data-smart-table id="users-table"><thead><tr><th>المستخدم</th><th>البريد الإلكتروني</th><th>الوظيفة</th><th>الكود الوظيفي</th><th>الدور</th><th>النطاق</th><th>الصلاحيات</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>
-{% for u in rows %}<tr><td><b>{{u.full_name}}</b><br><small>{{u.username}}</small></td><td>{{u.email or "—"}}</td><td>{{u.job_title}}</td><td>{{u.job_code}}</td><td>{% for r in user_roles(u) %}<span class="ui-tag">{{r}}</span>{% endfor %}{% set ras=role_accounts_by_user.get(u.id,[]) %}{% if ras|length > 1 %}<div class="ui-mt-6"><small class="ui-hint">الحسابات الوهمية للأدوار:</small>{% for ra in ras %}<div><span class="ui-tag" title="حساب دور وهمي — لا يملك سجل موظف مستقل">{{ra.role}} · {{ra.username}}</span></div>{% endfor %}</div>{% endif %}</td><td>{% if 'مشرف محافظة' in user_roles(u) %}{% for g in gs if g.id in user_gov_ids(u) %}<span class="ui-tag">{{g.name}}</span>{% endfor %}{% elif 'المدخل الأول' in user_roles(u) %}<span class="ui-hint">تكليف تنظيمي</span>{% elif 'Manager Application Support' in user_roles(u) %}<span class="ui-tag">جميع الفروع</span>{% else %}<span class="ui-hint">كامل النظام</span>{% endif %}</td><td>{% for p in user_permissions(u) %}<span class="ui-tag">{{PERMISSIONS.get(p,p)}}</span>{% endfor %}</td><td><span class="ui-tag">{{'نشط' if u.is_active else 'معطل'}}</span></td><td>
+{% for u in rows %}<tr><td><b>{{u.full_name}}</b><br><small>{{u.username}}</small></td><td>{{u.email or "—"}}</td><td>{{u.job_title}}</td><td>{{u.job_code}}</td><td>{% for r in user_roles(u) if r != 'المدخل الأول' %}<span class="ui-tag">{{r}}</span>{% endfor %}{% set ras=role_accounts_by_user.get(u.id,[])|rejectattr('role','equalto','المدخل الأول')|list %}{% if ras|length > 1 %}<div class="ui-mt-6"><small class="ui-hint">الحسابات الوهمية للأدوار:</small>{% for ra in ras %}<div><span class="ui-tag" title="حساب دور وهمي — لا يملك سجل موظف مستقل">{{ra.role}} · {{ra.username}}</span></div>{% endfor %}</div>{% endif %}</td><td>{% if 'مشرف محافظة' in user_roles(u) %}{% for g in gs if g.id in user_gov_ids(u) %}<span class="ui-tag">{{g.name}}</span>{% endfor %}{% elif 'Manager Application Support' in user_roles(u) %}<span class="ui-tag">جميع الفروع</span>{% else %}<span class="ui-hint">كامل النظام</span>{% endif %}</td><td>{% for p in user_permissions(u) %}<span class="ui-tag">{{PERMISSIONS.get(p,p)}}</span>{% endfor %}</td><td><span class="ui-tag">{{'نشط' if u.is_active else 'معطل'}}</span></td><td>
 {% if 'مسؤول التطبيق' in roles %}<a class="ui-btn ui-btn-secondary ui-btn-mini" href="/users/{{u.id}}/edit">تعديل</a>{% endif %}
 {% if 'مسؤول التطبيق' in roles and u.id!=me.id %}<form class="ui-inline" method="post" action="/users/{{u.id}}/toggle"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="ui-tone-gray ui-btn-mini">{{'تعطيل' if u.is_active else 'تفعيل'}}</button></form><form class="ui-inline" method="post" action="/users/{{u.id}}/delete"><input type="hidden" name="_csrf" value="{{csrf}}"><button class="ui-btn-danger ui-btn-mini" data-confirm="هل تريد حذف الحساب؟">حذف</button></form>{% endif %}
 {% if can('manage_users') and (u.id!=me.id) and (u.is_active or 'مسؤول التطبيق' in roles) %}<form class="ui-inline" method="post" action="/users/{{u.id}}/reset"><input type="hidden" name="_csrf" value="{{csrf}}"><input name="password" type="password" minlength="8" placeholder="كلمة جديدة" required><button class="ui-btn-mini">إعادة تعيين</button></form>{% endif %}

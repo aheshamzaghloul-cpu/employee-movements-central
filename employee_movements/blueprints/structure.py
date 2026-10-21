@@ -4,12 +4,11 @@ First-level entry operations are intentionally exposed from the Home page;
 this module keeps the underlying endpoints for backward compatibility.
 """
 
-from flask import abort, Blueprint, flash, redirect, render_template, request, session, url_for
+from flask import abort, Blueprint, flash, redirect, render_template, request, url_for
 
 from ..access import (
     actual_roles,
     bids,
-    delegated_gov_ids,
     branch_ok,
     has_role,
     log,
@@ -17,18 +16,14 @@ from ..access import (
     req,
     roles,
     scope_governorate_id,
-    user_branch_ids,
     user_gov_ids,
 )
 from ..assignments import (
-    entries_for_supervisor,
-    entry_role_exists,
-    organizational_entries_for_supervisor,
     organizational_entry_for_employee,
-    supervisor_for_governorate,
     sync_role_accounts,
 )
 from ..constants import ROLE_DEFAULT_PERMISSIONS
+from ..services.account_security import invalidate_user_workflows
 from ..extensions import db
 from ..models import (
     ApprovalDelegation,
@@ -38,7 +33,6 @@ from ..models import (
     EntryAssignment,
     EntryAssignmentBranch,
     Governorate,
-    Movement,
     RoleAccount,
     SupervisorEntry,
     User,
@@ -51,291 +45,159 @@ from ..models import (
 bp = Blueprint('structure', __name__)
 
 
+def _organizational_entry_branch_ids(assignment, employee=None):
+    """Return branch links owned by an organizational entry assignment.
+
+    Legacy assignments may predate explicit EntryAssignmentBranch links; their
+    employee home branch is then the only defensible fallback.
+    """
+    branch_ids = {
+        link.branch_id
+        for link in EntryAssignmentBranch.query.filter_by(entry_assignment_id=assignment.id).all()
+    } if assignment else set()
+    if not branch_ids and employee and employee.branch_id:
+        branch_ids.add(employee.branch_id)
+    return branch_ids
+
+
+def _entry_assignment_in_work_scope(assignment, employee=None):
+    selected = scope_governorate_id()
+    allowed = set(bids())
+    current = _organizational_entry_branch_ids(assignment, employee)
+    return bool(selected and allowed and current and current.issubset(allowed))
+
+
+def _employee_is_supervisor_for_work_scope(employee, governorate_id):
+    if not employee or not employee.user_id or not governorate_id:
+        return False
+    user = db.session.get(User, employee.user_id)
+    return bool(
+        user and user.is_active
+        and 'مشرف محافظة' in actual_roles(user)
+        and int(governorate_id) in user_gov_ids(user)
+    )
+
+
 @bp.get('/structure')
 @req
 def structure():
-    # الإدارة مركز التحكم الخاص بمسؤول التطبيق فقط.
+    """Render the application-admin governance workspace.
+
+    This page is intentionally admin-only and is a summary/navigation workspace.
+    Operational entry assignments are managed from Home, so the page should not
+    construct a second branch/employee tree or load unused picker data.
+    """
     current = me()
-    # صفحة الإدارة تلتزم بالدور النشط؛ الحساب متعدد الأدوار يبدّل الدور من رأس التطبيق.
-    effective = roles(current)
-    is_admin = 'مسؤول التطبيق' in effective
-    is_supervisor = 'مشرف محافظة' in effective
-    is_manager_support = 'Manager Application Support' in effective
-    is_entry = 'المدخل الأول' in effective
-    if not is_admin:
+    if 'مسؤول التطبيق' not in roles(current):
         abort(403)
 
-    # مسؤول التطبيق يرى كل المحافظات، والمشرف يرى محافظاته فقط.
-    selected_gov = ''
-    if is_admin:
-        # الإدارة مركز قيادة شامل على مستوى النظام. لا توجد محافظة عمل
-        # ولا بوابة نطاق هنا؛ المحافظة تستخدم كمرشح داخل أدوات الهيكل فقط.
-        all_govs = Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all()
-        govs = []
-    elif is_manager_support:
-        allowed_govs = Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all()
-        if selected_gov.isdigit() and any((g.id == int(selected_gov) for g in allowed_govs)):
-            govs = [db.session.get(Governorate, int(selected_gov))]
-        else:
-            govs = []
-            selected_gov = ''
-    elif is_supervisor:
-        supervisor_gids = list(user_gov_ids(current))
-        allowed_govs = (
-            (
-                Governorate.query.filter(
-                    Governorate.id.in_(supervisor_gids),
-                    Governorate.is_active == True,
-                )
-                .order_by(Governorate.name)
-                .all()
-            )
-            if supervisor_gids
-            else []
-        )
-        if selected_gov.isdigit() and any((g.id == int(selected_gov) for g in allowed_govs)):
-            govs = [db.session.get(Governorate, int(selected_gov))]
-        elif len(allowed_govs) == 1:
-            # فتح المحافظة المسجلة للمشرف تلقائيًا إذا كانت له محافظة واحدة.
-            govs = [allowed_govs[0]]
-            selected_gov = str(allowed_govs[0].id)
-        else:
-            govs = []
-            selected_gov = ''
-    else:
-        entry_branch_ids = user_branch_ids(current)
-        entry_gids = (
-            {
-                b.governorate_id
-                for b in Branch.query.filter(Branch.id.in_(entry_branch_ids), Branch.is_active == True).all()
-            }
-            if entry_branch_ids
-            else set()
-        )
-        govs = (
-            (
-                Governorate.query.filter(
-                    Governorate.id.in_(entry_gids),
-                    Governorate.is_active == True,
-                )
-                .order_by(Governorate.name)
-                .all()
-            )
-            if entry_gids
-            else []
-        )
-        selected_gov = ''
+    active_gov_count = Governorate.query.filter_by(is_active=True).count()
+    active_branch_count = Branch.query.filter_by(is_active=True).count()
+    active_employee_count = Employee.query.filter_by(is_active=True).count()
+    active_users = User.query.filter_by(is_active=True).all()
+    inactive_users = User.query.filter_by(is_active=False).count()
 
-    tree = []
-    # لا نعرض تفاصيل الهيكل قبل اختيار المحافظة صراحةً.
-    for g in govs:
-        bs = Branch.query.filter_by(governorate_id=g.id, is_active=True).order_by(Branch.name).all()
-        supervisors = []
-        suids = [x.user_id for x in UserGovernorate.query.filter_by(governorate_id=g.id).all()]
-        for u in (
-            (
-                User.query.filter(User.id.in_(suids), User.is_active == True)
-                .order_by(User.full_name)
-                .all()
-            )
-            if suids
-            else []
-        ):
-            if 'مشرف محافظة' not in actual_roles(u):
-                continue
-            if is_supervisor and (not is_manager_support) and (u.id != current.id):
-                continue
-            supervisors.append(u)
-        entries = []
-        # التنظيم الجديد: المدخل الأول موظف/تصنيف إداري فقط، بلا حساب دخول.
-        org_entries = []
-        if is_admin:
-            org_entries = [
-                (a, [b for b in Branch.query.join(EntryAssignmentBranch, EntryAssignmentBranch.branch_id == Branch.id).filter(EntryAssignmentBranch.entry_assignment_id == a.id, Branch.is_active == True).all()], a.supervisor)
-                for a in EntryAssignment.query.filter_by(is_active=True).all()
-                if a.employee and a.employee.is_active
-            ]
-        elif is_manager_support:
-            org_entries = []
-            for su in supervisors:
-                org_entries.extend(
-                    [
-                        (a, bs2, a.supervisor)
-                        for (a, bs2) in organizational_entries_for_supervisor(su, g.id)
-                    ],
-                )
-        elif is_supervisor:
-            org_entries = [
-                (a, bs2, a.supervisor)
-                for (a, bs2) in organizational_entries_for_supervisor(current, g.id)
-            ]
-        for (a, scoped, sup) in org_entries:
-            if not scoped and g.id:
-                continue
-            scoped = [b for b in scoped if b.governorate_id == g.id]
-            if not scoped:
-                continue
-            for b in scoped:
-                b.employee_items = (
-                    Employee.query.filter_by(branch_id=b.id, is_active=True)
-                    .order_by(Employee.full_name)
-                    .all()
-                )
-            entries.append((a.employee, scoped, sup, a, None))
-        # Legacy account entries kept only for backward compatibility.
-        candidate_entries = []
-        if is_admin:
-            candidate_entries = User.query.filter_by(is_active=True).order_by(User.full_name).all()
-        elif is_manager_support:
-            candidate_entries = []
-            for su in supervisors:
-                candidate_entries.extend(entries_for_supervisor(su, g.id))
-        elif is_supervisor:
-            candidate_entries = entries_for_supervisor(current, g.id)
-        else:
-            candidate_entries = [current]
-        for u in candidate_entries:
-            if 'المدخل الأول' not in actual_roles(u):
-                continue
-            ubids = {x.branch_id for x in UserBranch.query.filter_by(user_id=u.id).all()}
-            scoped = [b for b in bs if b.id in ubids]
-            for b in scoped:
-                b.employee_items = (
-                    Employee.query.filter_by(branch_id=b.id, is_active=True)
-                    .order_by(Employee.full_name)
-                    .all()
-                )
-            sup_link = (
-                SupervisorEntry.query.filter_by(entry_id=u.id)
-                .order_by(SupervisorEntry.id.asc())
-                .first()
-            )
-            sup = sup_link.supervisor if sup_link else None
-            if is_supervisor and sup and (sup.id != current.id):
-                continue
-            if is_entry and u.id != current.id:
-                continue
-            if not sup and len({b.governorate_id for b in scoped}) == 1:
-                sup = supervisor_for_governorate(g.id)
-            entries.append((u, scoped, sup, None, Employee.query.filter_by(user_id=u.id).first()))
-        counts = {
-            b.id: Employee.query.filter_by(branch_id=b.id, is_active=True).count()
-            for b in bs
-        }
-        for b in bs:
-            if not hasattr(b, 'employee_items'):
-                b.employee_items = (
-                    Employee.query.filter_by(branch_id=b.id, is_active=True)
-                    .order_by(Employee.full_name)
-                    .all()
-                )
-        tree.append((g, bs, supervisors, entries, counts))
-    govs_all = (
-        Governorate.query.filter_by(is_active=True).order_by(Governorate.name).all()
-        if is_admin or is_manager_support
-        else govs
+    # Read all active-user roles in one query rather than issuing a UserRole
+    # query for every user while computing governance metrics.
+    active_user_ids = {user.id for user in active_users}
+    role_rows = (
+        UserRole.query.with_entities(UserRole.user_id, UserRole.role)
+        .filter(UserRole.user_id.in_(active_user_ids)).all()
+        if active_user_ids else []
     )
-    admin_stats = None
-    admin_audit = []
-    if is_admin or is_manager_support:
-        active_gov_count = Governorate.query.filter_by(is_active=True).count()
-        active_branch_count = Branch.query.filter_by(is_active=True).count()
-        active_employee_count = Employee.query.filter_by(is_active=True).count()
-        active_users = User.query.filter_by(is_active=True).all()
-        inactive_users = User.query.filter_by(is_active=False).count()
-        supervisors_count = sum((1 for u in active_users if 'مشرف محافظة' in actual_roles(u)))
-        support_count = sum(
-            1
-            for u in active_users
-            if 'Manager Application Support' in actual_roles(u)
-        )
-        entry_assignments = EntryAssignment.query.filter_by(is_active=True).all()
-        entry_assignment_ids = {a.id for a in entry_assignments}
-        assigned_entry_branch_ids = (
-            {
-                x.branch_id
-                for x in EntryAssignmentBranch.query.filter(EntryAssignmentBranch.entry_assignment_id.in_(entry_assignment_ids)).all()
-            }
-            if entry_assignment_ids
-            else set()
-        )
-        unassigned_branch_count = max(0, active_branch_count - len(assigned_entry_branch_ids))
-        role_account_count = RoleAccount.query.count()
-        active_delegation_count = ApprovalDelegation.query.filter_by(is_active=True).count()
-        entry_with_no_branch_count = sum(
-            1 for a in entry_assignments
-            if not EntryAssignmentBranch.query.filter_by(entry_assignment_id=a.id).first()
-        )
-        supervisors_without_scope_count = sum(
-            1 for u in active_users
-            if 'مشرف محافظة' in actual_roles(u)
-            and not UserGovernorate.query.filter_by(user_id=u.id).first()
-        )
-        must_change_password_count = sum(1 for u in active_users if u.must_change_password)
-        admin_stats = {
-            'governorates': active_gov_count,
-            'branches': active_branch_count,
-            'employees': active_employee_count,
-            'users': len(active_users),
-            'inactive_users': inactive_users,
-            'supervisors': supervisors_count,
-            'support': support_count,
-            'entries': len(entry_assignments),
-            'entry_branches': len(assigned_entry_branch_ids),
-            'unassigned_branches': unassigned_branch_count,
-            'entry_without_branches': entry_with_no_branch_count,
-            'supervisors_without_scope': supervisors_without_scope_count,
-            'must_change_password': must_change_password_count,
-            'role_accounts': role_account_count,
-            'delegations': active_delegation_count,
+    roles_by_user = {}
+    for user_id, role in role_rows:
+        roles_by_user.setdefault(user_id, set()).add(role)
+    active_supervisor_ids = {
+        user.id for user in active_users
+        if 'مشرف محافظة' in roles_by_user.get(user.id, set())
+    }
+    supervisors_count = len(active_supervisor_ids)
+    support_count = sum(
+        1 for user in active_users
+        if 'Manager Application Support' in roles_by_user.get(user.id, set())
+    )
+
+    entry_assignments = EntryAssignment.query.filter_by(is_active=True).all()
+    entry_assignment_ids = {assignment.id for assignment in entry_assignments}
+    # Reuse one link query for branch coverage and missing-assignment counters.
+    entry_assignment_links = (
+        EntryAssignmentBranch.query.filter(
+            EntryAssignmentBranch.entry_assignment_id.in_(entry_assignment_ids)
+        ).all()
+        if entry_assignment_ids else []
+    )
+    assigned_entry_branch_ids = {link.branch_id for link in entry_assignment_links}
+    entry_assignments_with_branches = {link.entry_assignment_id for link in entry_assignment_links}
+    unassigned_branch_count = max(0, active_branch_count - len(assigned_entry_branch_ids))
+
+    role_account_count = RoleAccount.query.count()
+    active_delegation_count = ApprovalDelegation.query.filter_by(is_active=True).count()
+    entry_with_no_branch_count = sum(
+        1 for assignment in entry_assignments
+        if assignment.id not in entry_assignments_with_branches
+    )
+    supervisor_scope_ids = (
+        {
+            user_id for (user_id,) in UserGovernorate.query.with_entities(UserGovernorate.user_id)
+            .filter(UserGovernorate.user_id.in_(active_supervisor_ids)).distinct().all()
         }
-        admin_intelligence = []
-        def add_admin_signal(priority, title, detail, action_url, action_label, prompt=None):
-            admin_intelligence.append({
-                'priority': priority, 'title': title, 'detail': detail,
-                'action_url': action_url, 'action_label': action_label, 'prompt': prompt,
-            })
-        if not active_gov_count:
-            add_admin_signal('urgent', 'لا توجد محافظات نشطة', 'الهيكل الإداري لا يمكن تشغيله بصورة طبيعية قبل وجود محافظة واحدة على الأقل.', '/governorates', 'إدارة المحافظات', 'راجع حالة المحافظات في النظام')
-        if unassigned_branch_count:
-            add_admin_signal('urgent', f'{unassigned_branch_count} فرع بلا مدخل أول', 'هناك فروع نشطة لم ترتبط بدور مدخل أول تنظيمي حتى الآن.', '/', 'تنفيذ من الرئيسية', 'ما الفروع التي تحتاج مدخل أول؟')
-        if entry_with_no_branch_count:
-            add_admin_signal('warning', f'{entry_with_no_branch_count} مدخل أول بلا فروع', 'التكليف موجود، لكن لا توجد له فروع مرتبطة.', '/', 'إدارة من الرئيسية', 'من هم المدخلون الأوائل الذين يحتاجون مراجعة؟')
-        if supervisors_without_scope_count:
-            add_admin_signal('warning', f'{supervisors_without_scope_count} مشرف بلا نطاق محافظة', 'حساب مشرف نشط موجود بدون محافظة مسندة إليه.', '/users', 'مراجعة المشرفين', 'راجع المشرفين الذين ليس لهم نطاق محافظة')
-        if inactive_users:
-            add_admin_signal('info', f'{inactive_users} حسابات معطلة', 'ليست مشكلة تشغيلية بحد ذاتها، لكنها تستحق المراجعة الدورية.', '/users', 'إدارة الحسابات', 'ما الحسابات المعطلة؟')
-        if must_change_password_count:
-            add_admin_signal('info', f'{must_change_password_count} حسابات مطالبة بتغيير كلمة المرور', 'يمكن متابعتها من إدارة الحسابات.', '/users', 'مراجعة الحسابات', 'ما الحسابات التي تحتاج تغيير كلمة المرور؟')
-        if not admin_intelligence:
-            add_admin_signal('ok', 'الوضع الإداري مستقر', 'لا توجد إشارات إدارية واضحة تحتاج تدخلاً الآن وفق البيانات الحالية.', '/audit', 'فتح سجل التدقيق', 'اعطني ملخصًا سريعًا لحالة النظام')
-        if is_admin:
-            admin_audit = Audit.query.order_by(Audit.created_at.desc()).limit(8).all()
-    # تنفيذ تعيين/تغيير/إزالة المدخل الأول موجود في الرئيسية، لذلك لا
-    # نجهز نموذجًا مكررًا داخل الإدارة.
-    available_entry_employees = []
-    entry_supervisors = [
-        u
-        for u in User.query.filter_by(is_active=True).order_by(User.full_name).all()
-        if 'مشرف محافظة' in actual_roles(u)
-    ]
-    entry_supervisor_admin_choices = entry_supervisors if is_admin else []
+        if active_supervisor_ids else set()
+    )
+    supervisors_without_scope_count = len(active_supervisor_ids - supervisor_scope_ids)
+    must_change_password_count = sum(1 for user in active_users if user.must_change_password)
+    admin_stats = {
+        'governorates': active_gov_count,
+        'branches': active_branch_count,
+        'employees': active_employee_count,
+        'users': len(active_users),
+        'inactive_users': inactive_users,
+        'supervisors': supervisors_count,
+        'support': support_count,
+        'entries': len(entry_assignments),
+        'entry_branches': len(assigned_entry_branch_ids),
+        'unassigned_branches': unassigned_branch_count,
+        'entry_without_branches': entry_with_no_branch_count,
+        'supervisors_without_scope': supervisors_without_scope_count,
+        'must_change_password': must_change_password_count,
+        'role_accounts': role_account_count,
+        'delegations': active_delegation_count,
+    }
+
+    admin_intelligence = []
+
+    def add_admin_signal(priority, title, detail, action_url, action_label, prompt=None):
+        admin_intelligence.append({
+            'priority': priority,
+            'title': title,
+            'detail': detail,
+            'action_url': action_url,
+            'action_label': action_label,
+            'prompt': prompt,
+        })
+
+    if not active_gov_count:
+        add_admin_signal('urgent', 'لا توجد محافظات نشطة', 'الهيكل الإداري لا يمكن تشغيله بصورة طبيعية قبل وجود محافظة واحدة على الأقل.', '/governorates', 'إدارة المحافظات', 'راجع حالة المحافظات في النظام')
+    if unassigned_branch_count:
+        add_admin_signal('urgent', f'{unassigned_branch_count} فرع بلا مسؤول إدخال', 'هناك فروع نشطة لم يُسند إليها تكليف مسؤول إدخال الفروع حتى الآن.', '/', 'تنفيذ من الرئيسية', 'ما الفروع التي تحتاج إلى تكليف مسؤول إدخال؟')
+    if entry_with_no_branch_count:
+        add_admin_signal('warning', f'{entry_with_no_branch_count} تكليف إدخال بلا فروع', 'التكليف موجود، لكن لم تُربط به فروع.', '/', 'إدارة من الرئيسية', 'ما تكليفات إدخال الفروع التي تحتاج مراجعة؟')
+    if supervisors_without_scope_count:
+        add_admin_signal('warning', f'{supervisors_without_scope_count} مشرف بلا نطاق محافظة', 'حساب مشرف نشط موجود بدون محافظة مسندة إليه.', '/users', 'مراجعة المشرفين', 'راجع المشرفين الذين ليس لهم نطاق محافظة')
+    if inactive_users:
+        add_admin_signal('info', f'{inactive_users} حسابات معطلة', 'ليست مشكلة تشغيلية بحد ذاتها، لكنها تستحق المراجعة الدورية.', '/users', 'إدارة الحسابات', 'ما الحسابات المعطلة؟')
+    if must_change_password_count:
+        add_admin_signal('info', f'{must_change_password_count} حسابات مطالبة بتغيير كلمة المرور', 'يمكن متابعتها من إدارة الحسابات.', '/users', 'مراجعة الحسابات', 'ما الحسابات التي تحتاج تغيير كلمة المرور؟')
+    if not admin_intelligence:
+        add_admin_signal('ok', 'الوضع الإداري مستقر', 'لا توجد إشارات إدارية واضحة تحتاج تدخلاً الآن وفق البيانات الحالية.', '/audit', 'فتح سجل التدقيق', 'اعطني ملخصًا سريعًا لحالة النظام')
+
+    admin_audit = Audit.query.order_by(Audit.created_at.desc()).limit(8).all()
     return render_template(
         'structure.html',
-        tree=tree,
-        is_admin=is_admin,
-        is_supervisor=is_supervisor,
-        is_manager_support=is_manager_support,
-        admin_view=is_admin,
-        is_entry=is_entry,
-        govs_all=govs_all,
-        selected_governorate=selected_gov,
+        admin_view=True,
         admin_stats=admin_stats,
         admin_intelligence=admin_intelligence,
         admin_audit=admin_audit,
-        available_entry_employees=available_entry_employees,
-        entry_supervisors=entry_supervisors,
-        entry_supervisor_admin_choices=entry_supervisor_admin_choices,
     )
 
 
@@ -344,44 +206,45 @@ def structure():
 def update_organizational_entry_branches(employee_id):
     if not has_role('مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'):
         abort(403)
-    e = db.session.get(Employee, employee_id)
-    a = (
+    employee = db.session.get(Employee, employee_id)
+    assignment = (
         EntryAssignment.query.filter_by(employee_id=employee_id, is_active=True).first()
-        if e
-        else None
+        if employee else None
     )
-    if not e or not a or (not e.is_active):
-        abort(404)
-    if 'مسؤول التطبيق' not in roles():
-        if 'Manager Application Support' in roles():
-            if not branch_ok(e.branch_id):
-                abort(403)
-        elif a.supervisor_id != me().id:
-            abort(403)
+    selected_gid = scope_governorate_id()
     allowed = set(bids())
-    chosen = {int(x) for x in request.form.getlist('branch_id') if x.isdigit()} & allowed
-    if not chosen:
-        flash('يجب اختيار فرع واحد على الأقل ضمن فروع مسؤولية المدخل الأول.')
-        return redirect('/#entry-directory')
-    occupied = {}
-    for oa in (
-        EntryAssignment.query.filter(EntryAssignment.is_active == True, EntryAssignment.id != a.id)
-        .all()
-    ):
-        for link in EntryAssignmentBranch.query.filter_by(entry_assignment_id=oa.id).all():
-            occupied[link.branch_id] = oa.employee_id
-    conflict = [bid for bid in chosen if bid in occupied]
-    if conflict:
-        flash('يوجد فرع من الفروع المختارة مسند بالفعل إلى مدخل أول آخر.')
-        return redirect('/#entry-directory')
-    EntryAssignmentBranch.query.filter_by(entry_assignment_id=a.id).delete()
-    for bid in sorted(chosen):
-        db.session.add(EntryAssignmentBranch(entry_assignment_id=a.id, branch_id=bid))
-    log('ASSIGN', 'Employee', employee_id, 'تحديث فروع مسؤولية المدخل الأول من الصفحة الرئيسية')
-    db.session.commit()
-    flash('تم تحديث فروع مسؤولية المدخل الأول بنجاح.')
-    return redirect('/#entry-directory')
+    if not employee or not assignment or not employee.is_active:
+        abort(404)
+    if not selected_gid or not allowed or not _entry_assignment_in_work_scope(assignment, employee):
+        abort(403)
+    if 'مشرف محافظة' in roles() and 'مسؤول التطبيق' not in roles() and 'Manager Application Support' not in roles():
+        if assignment.supervisor_id != me().id or int(selected_gid) not in user_gov_ids(me()):
+            abort(403)
 
+    raw_ids = request.form.getlist('branch_id')
+    if any(not str(raw).isdigit() for raw in raw_ids):
+        flash('توجد قيمة فرع غير صحيحة.')
+        return redirect('/#entry-directory')
+    chosen_raw = {int(raw) for raw in raw_ids}
+    if not chosen_raw or not chosen_raw.issubset(allowed):
+        flash('اختر فرعًا واحدًا على الأقل من فروع محافظة العمل المختارة فقط.')
+        return redirect('/#entry-directory')
+
+    occupied = {}
+    for other in EntryAssignment.query.filter(EntryAssignment.is_active == True, EntryAssignment.id != assignment.id).all():
+        for link in EntryAssignmentBranch.query.filter_by(entry_assignment_id=other.id).all():
+            occupied[link.branch_id] = other.employee_id
+    if chosen_raw & set(occupied):
+        flash('يوجد فرع من الفروع المختارة مسند بالفعل إلى مسؤول إدخال آخر.')
+        return redirect('/#entry-directory')
+
+    EntryAssignmentBranch.query.filter_by(entry_assignment_id=assignment.id).delete()
+    for branch_id in sorted(chosen_raw):
+        db.session.add(EntryAssignmentBranch(entry_assignment_id=assignment.id, branch_id=branch_id))
+    log('ASSIGN', 'Employee', employee_id, 'تحديث فروع مسؤول إدخال الفروع داخل محافظة العمل المختارة')
+    db.session.commit()
+    flash('تم تحديث فروع مسؤول إدخال الفروع بنجاح.')
+    return redirect('/#entry-directory')
 
 @bp.post('/entry-role/<int:employee_id>/replace')
 @req
@@ -389,47 +252,37 @@ def replace_organizational_entry_from_home(employee_id):
     if not has_role('مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'):
         abort(403)
     old = db.session.get(Employee, employee_id)
-    a = (
+    assignment = (
         EntryAssignment.query.filter_by(employee_id=employee_id, is_active=True).first()
-        if old
-        else None
+        if old else None
     )
-    new_id = request.form.get('new_entry_employee_id', '').strip()
-    new = db.session.get(Employee, int(new_id)) if new_id.isdigit() else None
-    if not old or not a or (not old.is_active):
-        flash('الموظف المحدد ليس مدخلًا أول تنظيميًا حاليًا.')
+    raw_new_id = (request.form.get('new_entry_employee_id') or '').strip()
+    new = db.session.get(Employee, int(raw_new_id)) if raw_new_id.isdigit() else None
+    selected_gid = scope_governorate_id()
+    if not old or not assignment or not old.is_active:
+        flash('الموظف المحدد ليس مسؤول إدخال فروع نشطًا.')
         return redirect('/#entry-directory')
-    if 'مسؤول التطبيق' not in roles():
-        if 'Manager Application Support' in roles():
-            if not branch_ok(old.branch_id):
-                abort(403)
-        elif a.supervisor_id != me().id:
+    if not selected_gid or not _entry_assignment_in_work_scope(assignment, old):
+        abort(403)
+    if 'مشرف محافظة' in roles() and 'مسؤول التطبيق' not in roles() and 'Manager Application Support' not in roles():
+        if assignment.supervisor_id != me().id or int(selected_gid) not in user_gov_ids(me()):
             abort(403)
-    if not new or not new.is_active or new.id == old.id or (not branch_ok(new.branch_id)):
-        flash('اختر موظفًا بديلًا نشطًا داخل نطاقك.')
+    valid_new = bool(
+        new and new.is_active and new.id != old.id
+        and (branch_ok(new.branch_id) or _employee_is_supervisor_for_work_scope(new, selected_gid))
+    )
+    if not valid_new:
+        flash('اختر موظفًا نشطًا من محافظة العمل، أو سجل الموظف المرتبط بمشرفها المسؤول.')
         return redirect('/#entry-directory')
     if EntryAssignment.query.filter_by(employee_id=new.id, is_active=True).first():
-        flash('الموظف البديل لديه بالفعل دور مدخل أول. اختر موظفًا آخر.')
+        flash('الموظف البديل لديه بالفعل تكليف إدخال نشط. اختر موظفًا آخر.')
         return redirect('/#entry-directory')
-    a.employee_id = new.id
-    log(
-        'REPLACE',
-        'Employee',
-        old.id,
-        f'استبدال المدخل الأول بالموظف البديل {new.full_name} من الصفحة الرئيسية',
-    )
-    log(
-        'REPLACE',
-        'Employee',
-        new.id,
-        f'استلام دور المدخل الأول بدل {old.full_name} من الصفحة الرئيسية',
-    )
+    assignment.employee_id = new.id
+    log('REPLACE', 'Employee', old.id, f'استبدال مسؤول إدخال الفروع بالموظف {new.full_name} داخل محافظة العمل')
+    log('REPLACE', 'Employee', new.id, f'استلام تكليف مسؤول إدخال الفروع بدل {old.full_name}')
     db.session.commit()
-    flash(
-        f'تم استبدال دور المدخل الأول بالموظف {new.full_name} مع نقل فروع المسؤولية والحفاظ على سجل الموظف القديم.',
-    )
+    flash(f'تم استبدال مسؤول إدخال الفروع بالموظف {new.full_name} مع الاحتفاظ بالتكليفات والفروع وسجل الموظف السابق.')
     return redirect('/#entry-directory')
-
 
 @bp.route('/replacement', methods=['GET', 'POST'])
 @req
@@ -442,7 +295,7 @@ def replacement():
         else request.args.get('mode', 'supervisor')
     )
     if mode == 'entry':
-        flash('استبدال المدخل الأول يتم من الصفحة الرئيسية.')
+        flash('استبدال مسؤول إدخال الفروع يتم من الصفحة الرئيسية.')
         return redirect('/#entry-directory')
     if request.method == 'POST':
         if mode == 'supervisor':
@@ -490,6 +343,8 @@ def replacement():
             sync_role_accounts(new)
             if not actual_roles(old):
                 old.is_active = False
+            invalidate_user_workflows(old.id)
+            invalidate_user_workflows(new.id)
             log(
                 'REPLACE',
                 'User',
@@ -508,15 +363,15 @@ def replacement():
             old = db.session.get(Employee, int(old_id)) if old_id.isdigit() else None
             new = db.session.get(Employee, int(new_id)) if new_id.isdigit() else None
             if not old or not new or old.id == new.id or (not old.is_active) or (not new.is_active):
-                flash('يجب اختيار مدخل أول حالي وموظف بديل نشط مختلف عنه.')
+                flash('اختر مسؤول إدخال حاليًا وموظفًا بديلًا نشطًا مختلفًا عنه.')
                 return redirect(url_for('structure.replacement', mode='entry'))
             old_a = EntryAssignment.query.filter_by(employee_id=old.id, is_active=True).first()
             new_a = EntryAssignment.query.filter_by(employee_id=new.id, is_active=True).first()
             if not old_a:
-                flash('الموظف المحدد ليس مدخلًا أول تنظيميًا حاليًا.')
+                flash('الموظف المحدد لا يملك تكليف إدخال نشطًا.')
                 return redirect(url_for('structure.replacement', mode='entry'))
             if new_a:
-                flash('الموظف البديل لديه بالفعل دور مدخل أول. اختر موظفًا آخر.')
+                flash('الموظف البديل لديه بالفعل تكليف إدخال نشط. اختر موظفًا آخر.')
                 return redirect(url_for('structure.replacement', mode='entry'))
             # Transfer the same assignment object to preserve branch responsibility and supervisor link.
             old_a.employee_id = new.id
@@ -539,16 +394,18 @@ def replacement():
                     sync_role_accounts(new_u)
                     if not actual_roles(old_u):
                         old_u.is_active = False
+                    invalidate_user_workflows(old_u.id)
+                    invalidate_user_workflows(new_u.id)
             log(
                 'REPLACE',
                 'Employee',
                 old.id,
-                f'استبدال المدخل الأول بالموظف البديل {new.full_name}',
+                f'استبدال مسؤول إدخال الفروع بالموظف البديل {new.full_name}',
             )
-            log('REPLACE', 'Employee', new.id, f'استلام دور المدخل الأول بدل {old.full_name}')
+            log('REPLACE', 'Employee', new.id, f'استلام تكليف مسؤول إدخال الفروع بدل {old.full_name}')
             db.session.commit()
             flash(
-                f'تم استبدال المدخل الأول ونقل الفروع والمسؤولية إلى {new.full_name} مع الحفاظ على سجل الموظف القديم.',
+                f'تم استبدال مسؤول إدخال الفروع ونقل الفروع والمسؤولية إلى {new.full_name} مع الحفاظ على سجل الموظف القديم.',
             )
             return redirect(url_for('structure.replacement', mode='entry'))
         flash('نوع الاستبدال غير صحيح.')
@@ -593,108 +450,103 @@ def replacement():
 def add_organizational_entry_role():
     if not has_role('مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'):
         abort(403)
-    eid = request.form.get('employee_id', '').strip()
-    if not eid.isdigit():
+    selected_gid = scope_governorate_id()
+    allowed_branch_ids = set(bids())
+    if not selected_gid or not allowed_branch_ids:
+        flash('حدد محافظة العمل أولًا قبل تكليف مسؤول إدخال الفروع.')
+        return redirect('/#entry-directory')
+
+    raw_employee_id = (request.form.get('employee_id') or '').strip()
+    if not raw_employee_id.isdigit():
         flash('اختر موظفًا مسجلًا أولًا.')
         return redirect('/#entry-directory')
-    e = db.session.get(Employee, int(eid))
-    if not e or not e.is_active:
+    employee = db.session.get(Employee, int(raw_employee_id))
+    if not employee or not employee.is_active:
         flash('الموظف غير موجود أو غير نشط.')
         return redirect('/#entry-directory')
-    # التفويض نطاق تشغيلي مؤقت ولا ينقل ملكية التكليف التنظيمي.
-    # لذلك لا يجوز للمشرف البديل إنشاء/إعادة إنشاء تكليف مدخل أول داخل
-    # محافظة مفوضة فقط؛ يمكنه متابعة العمل، بينما يظل التغيير الهيكلي
-    # للمشرف الأصلي أو مسؤول التطبيق.
-    if 'مشرف محافظة' in roles() and 'مسؤول التطبيق' not in roles():
-        employee_gid = e.branch.governorate_id if e.branch else None
-        if employee_gid in delegated_gov_ids(me()) and employee_gid not in user_gov_ids(me()):
-            abort(403)
-    existing_entry = EntryAssignment.query.filter_by(employee_id=e.id).first()
-    if existing_entry and existing_entry.is_active:
-        flash('هذا الموظف لديه بالفعل دور المدخل الأول التنظيمي.')
+    existing = EntryAssignment.query.filter_by(employee_id=employee.id).first()
+    if existing and existing.is_active:
+        flash('هذا الموظف لديه بالفعل تكليف مسؤول إدخال الفروع.')
         return redirect('/#entry-directory')
-    if 'مسؤول التطبيق' in roles() or 'Manager Application Support' in roles():
-        sup_id = request.form.get('supervisor_id', '').strip()
-        sup = db.session.get(User, int(sup_id)) if sup_id.isdigit() else None
-        if not sup or 'مشرف محافظة' not in actual_roles(sup) or (not sup.is_active):
-            flash('اختر المشرف المسؤول.')
+
+    central_operator = bool({'مسؤول التطبيق', 'Manager Application Support'} & roles())
+    if central_operator:
+        raw_supervisor_id = (request.form.get('supervisor_id') or '').strip()
+        supervisor = db.session.get(User, int(raw_supervisor_id)) if raw_supervisor_id.isdigit() else None
+        if (
+            not supervisor or not supervisor.is_active
+            or 'مشرف محافظة' not in actual_roles(supervisor)
+            or int(selected_gid) not in user_gov_ids(supervisor)
+        ):
+            flash('اختر مشرفًا نشطًا مسؤولًا عن محافظة العمل المختارة.')
             return redirect('/#entry-directory')
-        if 'Manager Application Support' in roles():
-            selected = scope_governorate_id()
-            if not selected or int(selected) not in user_gov_ids(sup):
-                abort(403)
     else:
-        sup = me()
-        if e.branch.governorate_id not in user_gov_ids(sup):
+        supervisor = me()
+        if int(selected_gid) not in user_gov_ids(supervisor):
             abort(403)
-    # الموظف نفسه يجب أن يكون داخل نفس النطاق التنظيمي للجهة التي سيُسند إليها؛
-    # لا يكفي أن تكون الفروع المختارة داخل نطاق المشرف.
-    if 'مسؤول التطبيق' not in roles() and (not e.branch or not branch_ok(e.branch_id)):
+
+    supervisor_self = bool(
+        employee.user_id and int(employee.user_id) == supervisor.id
+        and 'مشرف محافظة' in actual_roles(supervisor)
+    )
+    if not supervisor_self and not branch_ok(employee.branch_id):
         abort(403)
 
-    branch_ids = {int(x) for x in request.form.getlist('branch_id') if x.isdigit()}
-    allowed = (
-        set(bids())
-        if 'مسؤول التطبيق' not in roles() and 'Manager Application Support' not in roles()
-        else {b.id for b in Branch.query.filter_by(is_active=True).all()}
-    )
-    if 'مسؤول التطبيق' in roles() or 'Manager Application Support' in roles():
-        if 'Manager Application Support' in roles():
-            selected = scope_governorate_id()
-            allowed_govs = {int(selected)} if selected else set()
-        else:
-            allowed_govs = user_gov_ids(sup)
-        allowed = {
-            b.id
-            for b in Branch.query.filter(Branch.id.in_(allowed), Branch.governorate_id.in_(allowed_govs), Branch.is_active == True).all()
-        }
-    branch_ids &= allowed
-    if not branch_ids:
-        branch_ids = {e.branch_id} if e.branch_id in allowed else set()
-    if not branch_ids:
-        flash('اختر فرع مسؤولية واحدًا على الأقل ضمن نطاق المشرف المسؤول.')
+    raw_branch_ids = request.form.getlist('branch_id')
+    if any(not str(raw).isdigit() for raw in raw_branch_ids):
+        flash('توجد قيمة فرع غير صحيحة.')
         return redirect('/#entry-directory')
-    # لا يُسمح بفرع مسؤولية مرتبط بمدخل تنظيمي آخر.
+    branch_ids = {int(raw) for raw in raw_branch_ids}
+    if not branch_ids:
+        branch_ids = {employee.branch_id} if employee.branch_id in allowed_branch_ids else set()
+    if not branch_ids or not branch_ids.issubset(allowed_branch_ids):
+        flash('اختر فرعًا واحدًا على الأقل من فروع محافظة العمل المختارة فقط.')
+        return redirect('/#entry-directory')
+
     taken = {
-        x.branch_id
-        for x in EntryAssignmentBranch.query.join(EntryAssignment).filter(EntryAssignment.is_active == True).all()
+        link.branch_id
+        for link in EntryAssignmentBranch.query.join(EntryAssignment)
+        .filter(EntryAssignment.is_active == True).all()
     }
     if branch_ids & taken:
-        flash('يوجد فرع من الفروع المختارة مسند بالفعل إلى مدخل أول آخر.')
+        flash('يوجد فرع من الفروع المختارة مسند بالفعل إلى مسؤول إدخال آخر.')
         return redirect('/#entry-directory')
-    if existing_entry:
-        a = existing_entry
-        a.supervisor_id = sup.id
-        a.is_active = True
-        EntryAssignmentBranch.query.filter_by(entry_assignment_id=a.id).delete()
-    else:
-        a = EntryAssignment(employee_id=e.id, supervisor_id=sup.id, is_active=True)
-        db.session.add(a)
-        db.session.flush()
-    for bid in branch_ids:
-        db.session.add(EntryAssignmentBranch(entry_assignment_id=a.id, branch_id=bid))
-    log('ROLE_CHANGE', 'Employee', e.id, 'إضافة دور المدخل الأول التنظيمي بدون حساب دخول')
-    db.session.commit()
-    flash('تمت إضافة دور المدخل الأول التنظيمي. لم يتم إنشاء حساب أو اسم مستخدم للمدخل.')
-    return redirect('/#entry-directory')
 
+    if existing:
+        assignment = existing
+        assignment.supervisor_id = supervisor.id
+        assignment.is_active = True
+        EntryAssignmentBranch.query.filter_by(entry_assignment_id=assignment.id).delete()
+    else:
+        assignment = EntryAssignment(employee_id=employee.id, supervisor_id=supervisor.id, is_active=True)
+        db.session.add(assignment)
+        db.session.flush()
+    for branch_id in sorted(branch_ids):
+        db.session.add(EntryAssignmentBranch(entry_assignment_id=assignment.id, branch_id=branch_id))
+    log('ROLE_CHANGE', 'Employee', employee.id, 'إضافة تكليف مسؤول إدخال للفروع دون حساب دخول')
+    db.session.commit()
+    flash('تم حفظ تكليف مسؤول إدخال الفروع داخل محافظة العمل المختارة، دون إنشاء دور دخول أو حساب جديد.')
+    return redirect('/#entry-directory')
 
 @bp.post('/entry-role/<int:employee_id>/remove')
 @req
 def remove_organizational_entry_role(employee_id):
-    e = db.session.get(Employee, employee_id)
-    a = organizational_entry_for_employee(e) if e else None
-    if not a:
+    if not has_role('مسؤول التطبيق', 'مشرف محافظة', 'Manager Application Support'):
+        abort(403)
+    employee = db.session.get(Employee, employee_id)
+    assignment = organizational_entry_for_employee(employee) if employee else None
+    if not assignment:
         abort(404)
-    if 'مسؤول التطبيق' not in roles():
-        if 'Manager Application Support' in roles():
-            if not branch_ok(e.branch_id):
-                abort(403)
-        elif 'مشرف محافظة' not in roles() or a.supervisor_id != me().id:
+    selected_gid = scope_governorate_id()
+    if not selected_gid or not _entry_assignment_in_work_scope(assignment, employee):
+        abort(403)
+    if 'مشرف محافظة' in roles() and 'مسؤول التطبيق' not in roles() and 'Manager Application Support' not in roles():
+        if assignment.supervisor_id != me().id or int(selected_gid) not in user_gov_ids(me()):
             abort(403)
-    a.is_active = False
+    assignment.is_active = False
     db.session.commit()
-    log('ROLE_CHANGE', 'Employee', employee_id, 'إزالة دور المدخل الأول التنظيمي')
+    log('ROLE_CHANGE', 'Employee', employee_id, 'إزالة تكليف مسؤول إدخال الفروع من محافظة العمل المختارة')
     db.session.commit()
-    flash('تمت إزالة دور المدخل الأول التنظيمي، وأصبحت فروع مسؤوليته متاحة لإسنادها من جديد.')
+    flash('تمت إزالة تكليف مسؤول إدخال الفروع. أصبحت الفروع متاحة لإسناد جديد.')
     return redirect('/#entry-directory')
+

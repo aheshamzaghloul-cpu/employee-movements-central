@@ -17,7 +17,7 @@
     <form class="assistant-dock-composer" id="assistantDockForm" method="post" action="/assistant?panel=1">
       <input type="hidden" name="_csrf" value="{{csrf}}">
       <input type="hidden" name="workspace_context" id="assistantWorkspaceContext" value="">
-      <input type="text" name="prompt" id="assistantDockInput" placeholder="اكتب طلبك لبسيوني هنا…" autocomplete="off">
+      <input type="text" name="prompt" id="assistantDockInput" aria-label="اكتب طلبك للمساعد الذكي" placeholder="اكتب طلبك لبسيوني هنا…" autocomplete="off">
       <button type="submit" class="assistant-dock-send" aria-label="إرسال">إرسال</button>
     </form>
   </div>

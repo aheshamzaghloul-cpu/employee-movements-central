@@ -12,7 +12,8 @@ def test_manager_workspace_is_role_gated_and_scope_aware():
     constants = CONSTANTS.read_text(encoding="utf-8")
     assert "@bp.get('/manager')" in reports
     assert "'مسؤول التطبيق', 'Manager Application Support'" in reports
-    assert "branches = Branch.query.filter_by(is_active=True)" in reports
+    assert "Branch.query.join(Governorate, Governorate.id == Branch.governorate_id)" in reports
+    assert "Branch.is_active == True, Governorate.is_active == True" in reports
     assert "governorates = Governorate.query.filter_by(is_active=True)" in reports
     assert "Employee.branch_id.in_(allowed_branch_ids)" in reports
     assert "reports.manager_hub" not in constants
@@ -34,9 +35,10 @@ def test_manager_workspace_is_linked_and_covers_requested_tasks():
         assert expected in hub
 
 
-def test_manager_edit_queue_and_monthly_report_are_cross_governorate():
+def test_manager_monthly_report_is_global_but_edit_queue_requires_selected_work_scope():
     missions = (ROOT / "employee_movements" / "blueprints" / "missions.py").read_text(encoding="utf-8")
-    assert "list_pending_mission_edit_requests({'مسؤول التطبيق'}, all_branch_ids)" in missions
-    assert "not ({'مسؤول التطبيق', 'Manager Application Support'} & rs) and not branch_ok(r.movement.employee.branch_id)" in missions
+    assert "scoped_branch_ids = set(bids())" in missions
+    assert "if not scope_governorate_id():" in missions
+    assert "not branch_ok(r.movement.employee.branch_id)" in missions
     assert "if {'مسؤول التطبيق', 'Manager Application Support'} & rs:" in missions
     assert "cross-governorate aggregation." in missions

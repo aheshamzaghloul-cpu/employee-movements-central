@@ -4,10 +4,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MANAGER = (ROOT / 'employee_movements' / 'assistant' / 'manager.py').read_text(encoding='utf-8')
 RESOLVER = (ROOT / 'employee_movements' / 'assistant' / 'manager_resolvers.py').read_text(encoding='utf-8')
+EXECUTOR = (ROOT / 'employee_movements' / 'assistant' / 'manager_execution.py').read_text(encoding='utf-8')
+PLANNING = (ROOT / 'employee_movements' / 'assistant' / 'manager_planning.py').read_text(encoding='utf-8')
 
 
 def test_supervisor_name_resolution_is_centralized():
-    assert 'resolve_active_supervisor_by_name' in MANAGER
+    assert 'resolve_active_supervisor_by_name' in RESOLVER
+    assert 'from .manager_resolvers import resolve_governorate as _match_gov' in MANAGER
     assert "User.query.filter(User.is_active == True, User.full_name.ilike" not in MANAGER
     assert 'User.query.filter_by(is_active=True).all()' not in MANAGER
 
@@ -22,5 +25,5 @@ def test_supervisor_resolver_filters_role_in_database():
 def test_manager_has_separate_plan_and_execute_entry_points():
     assert 'def plan(a):' in MANAGER
     assert 'def execute(plan):' in MANAGER
-    assert "if not is_app_manager():" in MANAGER
-    assert "return False, 'لم تعد تملك صلاحية مسؤول التطبيق.'" in MANAGER
+    assert "if not is_app_manager():" in PLANNING
+    assert "return False, 'لم تعد تملك صلاحية مسؤول التطبيق.'" in EXECUTOR

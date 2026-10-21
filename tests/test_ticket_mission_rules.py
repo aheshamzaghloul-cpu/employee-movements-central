@@ -25,7 +25,9 @@ def test_route_uses_the_explicit_decision_rule_and_reverses_old_branch_match_gua
     section = source.split("def mission_from_screenshot_create():", 1)[1].split("@bp.get('/reports/assignments/mission-edit/", 1)[0]
     assert "should_create_mission(fields.get('destination_is_basic'), fields.get('needs_mission'))" in section
     assert "destination_is_basic" in section and "ليس فرعي الأساسي" in section
-    assert "normalize_branch(actual_basic_branch.name) != normalize_branch(fields['basic_branch_name'])" in section
+    assert "basic_branch_alias_match = _ticket_mission_basic_branch_alias_matches(" in section
+    assert "not basic_branch_alias_match and branch_name_score < 0.52" in section
+    assert "اسم الفرع الأساسي في الصورة لا يطابق سجل الموظف بما يكفي" in section
     assert "if destination.id == employee.branch_id:" in section
     assert "لا يجوز أن يسبق «من يوم»" in section
 

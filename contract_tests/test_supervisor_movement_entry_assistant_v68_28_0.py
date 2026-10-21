@@ -1,3 +1,4 @@
+import ast
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,7 +32,10 @@ def test_movement_picker_asks_for_type_first_and_loads_allowed_initial_branches(
     assert 'id="movementGovernorateStep" hidden' in MOVEMENTS
     assert "movement_type:type.value" in MOVEMENTS
     assert "movement_global_picker_allowed" in (ROOT / "employee_movements/blueprints/movements.py").read_text(encoding="utf-8")
-    assert "if(type?.value){if(governorateStep)governorateStep.hidden=false;if(govCreate?.value)loadCreateBranches();setProgress(govCreate?.value?2:1);}" in MOVEMENTS
+    assert "if(type?.value){" in MOVEMENTS
+    assert "initialEmployeeId={{ initial_employee.id if initial_employee else 'null' }}" in MOVEMENTS
+    assert "loadCreateBranches().then(async()=>" in MOVEMENTS
+    assert "setProgress(govCreate?.value?2:1)" in MOVEMENTS
     assert 'id="movementBranchSearch"' in MOVEMENTS and 'id="movementEmployeeSearch"' in MOVEMENTS
     assert 'PICKER_INITIAL_COUNT=8' in MOVEMENTS
 
@@ -43,9 +47,11 @@ def test_movement_picker_checks_api_response_and_uses_selected_employee_id():
     assert "employeeId.value=e.id; detailsStep.hidden=false; selectedEmployee.innerHTML=''" in MOVEMENTS
 
 
-def test_home_movement_action_opens_the_dedicated_movement_wizard():
-    assert 'id="homeStartMovementAction"' in HOME
-    assert 'href="/movements#movement-create"' in HOME
+def test_home_movement_action_preserves_selected_employee_for_manual_entry():
+    assert HOME.index('id="homeEmployeeSearchTitle"') < HOME.index('id="homeManualMissionTitle"')
+    assert "url_for('movements.movements', movement_type='انتداب'" in HOME
+    assert "return_to=url_for('dashboard.home'" in HOME
+    assert 'id="movement-create"' in MOVEMENTS
     assert 'id="homeChooseEmployeeAction"' not in HOME
     assert "employeeSearchSection?.scrollIntoView" not in HOME
 
@@ -75,7 +81,14 @@ def test_assistant_learns_name_links_locally_and_does_not_reassign_conflicting_a
     assert "def _try_learn_employee_alias(prompt):" in ASSISTANT
     assert "alias_learning = _try_learn_employee_alias(prompt)" in ASSISTANT
     assert "if existing and existing.employee_id != employee.id" in ASSISTANT
-    assert "from .models import AssistantAlias" in BOOTSTRAP
+    bootstrap_tree = ast.parse(BOOTSTRAP)
+    model_imports = {
+        alias.name
+        for node in bootstrap_tree.body
+        if isinstance(node, ast.ImportFrom) and node.module == "models"
+        for alias in node.names
+    }
+    assert {"AssistantAlias", "TicketEmployeeCodeAlias"}.issubset(model_imports)
 
 
 def test_learned_alias_text_is_part_of_local_privacy_screening():
@@ -98,6 +111,6 @@ def test_all_templates_parse_after_first_entry_branch_expansion():
     import jinja2
     env = jinja2.Environment()
     templates = list((ROOT / "employee_movements/templates").rglob("*.html"))
-    assert len(templates) == 46
+    assert len(templates) == 45
     for path in templates:
         env.parse(path.read_text(encoding="utf-8"))

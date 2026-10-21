@@ -6,109 +6,17 @@ from ..access import can
 from ..models import Governorate
 from ..validation import active_leave_types
 from .directory import find_branch, find_employee
+from .intent_helpers import detect_employee_field, employee_from_mixed_phrase, greeting_reply, is_greeting
+from .intent_management import parse_management_intent
 from .text import extract_date, normalize_digits, normalize_for_search
 
 
-def is_greeting(text):
-    n = normalize_for_search(text)
-    greetings = (
-        'السلام عليكم',
-        'السلام عليكم ورحمة الله وبركاته',
-        'وعليكم السلام',
-        'صباح الخير',
-        'مساء الخير',
-        'اهلا',
-        'اهلاً',
-        'مرحبا',
-        'مرحباً',
-        'هاي',
-        'هلا',
-        'السلام عليكم ورحمة الله وبركاته',
-    )
-    return any(
-        n == normalize_for_search(g) or n.startswith(normalize_for_search(g) + ' ')
-        for g in greetings
-    )
 
 
-def greeting_reply(text):
-    n = normalize_for_search(text)
-    if 'صباح الخير' in n:
-        return 'صباح النور ☀️ أهلاً بك. أنا معك، ويمكنك سؤالي عن أي موظف أو فرع أو حركة أو تنفيذ أي إجراء متاح لك.'
-    if 'مساء الخير' in n:
-        return 'مساء النور 🌙 أهلاً بك. أنا معك، ويمكنك سؤالي عن أي موظف أو فرع أو حركة أو تنفيذ أي إجراء متاح لك.'
-    if 'السلام عليكم' in n:
-        return 'وعليكم السلام ورحمة الله وبركاته 🌷 أهلاً بك. كيف أساعدك؟'
-    return 'أهلاً بك 🌷 كيف أساعدك؟'
 
 
-def detect_employee_field(text):
-    n = normalize_for_search(text)
-    if any(
-        x in n
-        for x in ('الحاله', 'حالته', 'حالته الان', 'حاله الموظف', 'متواجد', 'موجود', 'في اجازه', 'منتدب')
-    ):
-        return 'status'
-    if any((x in n for x in ('الوظيفه', 'وظيفته', 'المسمى الوظيفي', 'المسمى الوظيفى'))):
-        return 'job_title'
-    if any(
-        x in n
-        for x in ('الكود الوظيفي', 'الكود الوظيفى', 'كود الموظف', 'كود شئون العاملين', 'كود شؤون العاملين', 'كود شئون')
-    ):
-        return 'job_code'
-    if any(
-        x in n
-        for x in ('فرع التعيين', 'فرعه', 'فرع الموظف', 'الفرع الحالي', 'فين فرعه', 'اين فرعه', 'اين يعمل', 'بيشتغل فين')
-    ):
-        return 'branch'
-    if any((x in n for x in ('المحافظه', 'محافظته', 'تابع لاي محافظه', 'تابع لاى محافظه'))):
-        return 'governorate'
-    if any((x in n for x in ('تاريخ التعيين', 'اتعين امتى', 'تاريخ تعيينه'))):
-        return 'hire_date'
-    if any((x in n for x in ('هاتف الشركه', 'تليفون الشركه', 'هاتف العمل', 'رقم العمل'))):
-        return 'company_phone'
-    if any((x in n for x in ('رقم الهاتف', 'رقم التليفون', 'رقم الموبايل', 'التليفون', 'الهاتف'))):
-        return 'phone'
-    if any((x in n for x in ('الهاتف الشخصي', 'تليفونه الشخصي', 'رقم موبايله', 'رقم هاتفه'))):
-        return 'personal_phone'
-    if any(
-        x in n
-        for x in ('اخر اجازه', 'اخر اجازة', 'آخر اجازه', 'آخر إجازة', 'اجازته الاخيره', 'اجازته')
-    ):
-        return 'last_leave'
-    if any(
-        x in n
-        for x in ('اخر انتداب', 'آخر انتداب', 'انتدابه الاخير', 'اخر ماموريه', 'آخر مأمورية')
-    ):
-        return 'last_assignment'
-    if any((x in n for x in ('اخر اذن', 'آخر إذن', 'اذنه الاخير'))):
-        return 'last_permission'
-    if any((x in n for x in ('حركاته', 'سجل حركاته', 'سجل حركات', 'تاريخ حركاته', 'كل حركاته'))):
-        return 'movements'
-    if any(
-        x in n
-        for x in ('بياناته', 'بيانات الموظف', 'بطاقته', 'بطاقة الموظف', 'معلوماته', 'بيانات')
-    ):
-        return 'basic'
-    return None
 
 
-def employee_from_mixed_phrase(text):
-    cleaned = normalize_digits(text)
-    # أزل عبارات السؤال والبيان مع الإبقاء على اسم الموظف، مثل:
-    # "ما وظيفة كيرلس" / "رقم الهاتف كيرلس" / "بيانات كيرلس".
-    patterns = (
-        '\\b(?:ما|ماذا|هل|عايز|اريد|أريد|اعرض|عرض|بيانات|بياناته|بطاقة|بطاقته|حالة|حالته|الموظف|موظفة|موظف)\\b',
-        '\\b(?:الوظيفة|وظيفته|المسمى الوظيفي|المسمى الوظيفى|رقم الهاتف|رقم التليفون|رقم الموبايل|الهاتف|التليفون|هاتف العمل|هاتف الشركة|الهاتف الشخصي|الكود الوظيفي|كود شئون العاملين|فرع التعيين|الفرع الحالي|المحافظة|تاريخ التعيين|آخر إجازة|اخر اجازه|آخر انتداب|اخر انتداب|آخر إذن|اخر اذن|حركاته|سجل حركاته|سجل الحركات|بيانات الموظف|معلوماته)\\b',
-        '\\b(?:إجازة|اجازة|الإجازة|الاجازه|انتداب|الانتداب|مأمورية|مأموريه|إذن|اذن|الأذن|الاذن)\\b',
-        '\\b(?:آخر|اخر|الاخير|الأخير|تفاصيل|تفصيل|سجل|حركات|حركه|حركة)\\b',
-        '\\b(?:في|فى|عن|من|لـ|ل|به|له)\\b',
-    )
-    for pat in patterns:
-        cleaned = re.sub(pat, ' ', cleaned, flags=re.I)
-    cleaned = re.sub('[؟?،,؛;:]+', ' ', cleaned)
-    cleaned = re.sub('\\s+', ' ', cleaned).strip()
-    return find_employee(cleaned) if cleaned else (None, [])
 
 
 def parse_intent(text):
@@ -142,6 +50,10 @@ def parse_intent(text):
         'المدخل الاول',
         'مدخلين أوائل',
         'المدخلين الأوائل',
+        'مسؤول إدخال الفروع',
+        'مسؤول الإدخال',
+        'مسؤول إدخال',
+        'تكليف إدخال الفروع',
     )
     action_words = (
         'سجل',
@@ -161,76 +73,9 @@ def parse_intent(text):
         'تعيين',
     )
     employee_words = ('موظف', 'الموظف', 'الموظفين', 'الموظفون', 'موظفة', 'موظفات')
-    # أوامر مدير التطبيق الأساسية يمكن فهمها محليًا حتى لو تعذر Gemini مؤقتًا.
-    # أوامر إدارة الحسابات/التكليفات الإدارية.
-    if has_any('عدل حساب', 'عدّل حساب', 'تعديل حساب'):
-        return {'intent': 'user_edit'}
-    if has_any('أنشئ حساب', 'انشئ حساب', 'أضف حساب', 'اضف حساب', 'إنشاء حساب', 'انشاء حساب'):
-        return {'intent': 'user_create', 'username': None, 'employee_name': None, 'role': None}
-    if has_any('احذف حساب', 'حذف حساب', 'اوقف حساب نهائيا', 'أوقف حساب نهائيًا'):
-        m = re.search(r'(?:احذف|حذف|اوقف|أوقف)\s+(?:الحساب\s+)?(.+)$', t, re.I)
-        return {'intent': 'user_delete', 'employee_name': m.group(1).strip() if m else None}
-    if has_any('غيّر محافظات المستخدم', 'غير محافظات المستخدم', 'حدد محافظات المستخدم', 'عيّن محافظات المستخدم'):
-        return {'intent': 'user_set_governorates'}
-    if has_any('غيّر فروع المستخدم', 'غير فروع المستخدم', 'حدد فروع المستخدم', 'عيّن فروع المستخدم'):
-        return {'intent': 'user_set_branches'}
-    if has_any('اضف نوع اجازة', 'أضف نوع إجازة', 'إضافة نوع إجازة'):
-        m=re.search(r'(?:اضف|أضف|إضافة)\s+(?:نوع\s+)?(?:إجازة|اجازة)\s+(.+)$',t,re.I)
-        return {'intent':'lookup_create','lookup_kind':'leave','lookup_name':m.group(1).strip() if m else None}
-    if has_any('اضف نوع حركة', 'أضف نوع حركة', 'إضافة نوع حركة'):
-        m=re.search(r'(?:اضف|أضف|إضافة)\s+(?:نوع\s+)?حركة\s+(.+)$',t,re.I)
-        return {'intent':'lookup_create','lookup_kind':'movement','lookup_name':m.group(1).strip() if m else None}
-    if has_any('عطل حساب', 'عطّل حساب', 'أوقف حساب', 'اوقف حساب', 'فعّل حساب', 'فعل حساب'):
-        m = re.search(r'(?:عطل|عطّل|أوقف|اوقف|فعّل|فعل)\s+الحساب\s+(.+)$', t, re.I)
-        return {'intent': 'user_toggle', 'employee_name': m.group(1).strip() if m else None}
-    if has_any('غير كلمة مرور', 'غيّر كلمة المرور', 'تغيير كلمة المرور', 'اعادة كلمة المرور', 'إعادة كلمة المرور'):
-        # Passwords are never accepted from chat text. The administrative executor
-        # generates a temporary credential locally after explicit confirmation.
-        m = re.search(
-            r'(?:غيّر|غير|تغيير|اعادة|إعادة)\s+(?:كلمة\s+)?(?:المرور|مرور)\s+'
-            r'(?:(?:للحساب|للمستخدم|للموظف|الحساب|المستخدم|الموظف)\s+)+'
-            r'(.+?)(?:\s+(?:إلى|الى|to)\s+.+)?$',
-            t,
-            re.I,
-        )
-        if not m:
-            m = re.search(
-                r'(?:غيّر|غير|تغيير|اعادة|إعادة)\s+(?:كلمة\s+)?(?:المرور|مرور)\s+(.+?)(?:\s+(?:إلى|الى|to)\s+.+)?$',
-                t,
-                re.I,
-            )
-        target = m.group(1).strip(' \t:،,؛;') if m else None
-        return {'intent': 'user_password_reset', 'employee_name': target}
-    if has_any('عين مدخل أول', 'عيّن مدخل أول', 'اضف مدخل أول', 'أضف مدخل أول', 'اجعل الموظف مدخل أول', 'أضف دور المدخل الأول', 'اضف دور المدخل الاول'):
-        m = re.search(r'(?:مدخل أول|مدخل الاول)\s+(.+?)(?:\s+(?:على|لفروع|للفروع)\s+(.+))?$', t, re.I)
-        return {'intent': 'entry_assign', 'employee_name': m.group(1).strip() if m else None, 'branch_name': m.group(2).strip() if m and m.group(2) else None}
-    if has_any('ازالة مدخل أول', 'إزالة مدخل أول', 'أزل دور المدخل الأول', 'شيل دور المدخل الأول'):
-        m = re.search(r'(?:مدخل أول|المدخل الأول)\s+(.+)$', t, re.I)
-        return {'intent': 'entry_remove', 'employee_name': m.group(1).strip() if m else None}
-    if has_any('اعمل تفويض', 'أنشئ تفويض', 'انشئ تفويض', 'أضف تفويض', 'اضف تفويض'):
-        return {'intent': 'delegation_create'}
-    if has_any('اضف محافظة', 'أضف محافظة', 'إضافة محافظة', 'انشئ محافظة', 'أنشئ محافظة'):
-        m = re.search(r'(?:اضف|أضف|إضافة|انشئ|أنشئ)\s+محافظة\s+(.+)$', t, re.I)
-        return {'intent': 'governorate_create', 'governorate_name': m.group(1).strip() if m else None}
-    if has_any('عطل المحافظة', 'عطّل المحافظة', 'الغاء تفعيل المحافظة', 'إلغاء تفعيل المحافظة', 'فعل المحافظة', 'فعّل المحافظة'):
-        m = re.search(r'(?:عطل|عطّل|الغاء تفعيل|إلغاء تفعيل|فعل|فعّل)\s+(?:المحافظة\s+)?(.+)$', t, re.I)
-        return {'intent': 'governorate_toggle', 'governorate_name': m.group(1).strip() if m else None}
-    if has_any('عدل محافظة', 'عدّل محافظة', 'تعديل محافظة'):
-        m = re.search(r'(?:عدل|عدّل|تعديل)\s+محافظة\s+(.+?)\s+(?:الى|إلى)\s+(.+)$', t, re.I)
-        return {'intent': 'governorate_edit', 'governorate_name': m.group(1).strip() if m else None, 'new_name': m.group(2).strip() if m else None}
-    if has_any('اضف فرع', 'أضف فرع', 'إضافة فرع', 'انشئ فرع', 'أنشئ فرع'):
-        m = re.search(r'(?:اضف|أضف|إضافة|انشئ|أنشئ)\s+فرع\s+(.+?)(?:\s+(?:في|بمحافظة|بمحافظه|تابع لمحافظة|تابع لمحافظه)\s+)(.+)$', t, re.I)
-        if m:
-            return {'intent': 'branch_create', 'branch_name': m.group(1).strip(), 'governorate_name': m.group(2).strip()}
-    if has_any('عطل الفرع', 'عطّل الفرع', 'فعل الفرع', 'فعّل الفرع'):
-        m = re.search(r'(?:عطل|عطّل|فعل|فعّل)\s+الفرع\s+(.+)$', t, re.I)
-        return {'intent': 'branch_toggle', 'branch_name': m.group(1).strip() if m else None}
-    if has_any('احذف الموظف', 'حذف الموظف', 'اخفي الموظف', 'أخفي الموظف'):
-        m = re.search(r'(?:احذف|حذف|اخفي|أخفي)\s+(?:الموظف\s+)?(.+)$', t, re.I)
-        return {'intent': 'employee_delete', 'employee_name': m.group(1).strip() if m else None}
-    if has_any('استرجع الموظف', 'استعادة الموظف', 'اعادة الموظف', 'إعادة الموظف'):
-        m = re.search(r'(?:استرجع|استعادة|اعادة|إعادة)\s+(?:الموظف\s+)?(.+)$', t, re.I)
-        return {'intent': 'employee_restore', 'employee_name': m.group(1).strip() if m else None}
+    management_intent = parse_management_intent(t, has_any)
+    if management_intent is not None:
+        return management_intent
 
     employee_add_words = (
         'جديد',
@@ -545,7 +390,7 @@ def parse_intent(text):
         return {'intent': 'topic_options', 'topic': 'assignment'}
     if topic_norm in ('اذن', 'الاذن', 'اذونات', 'الاذونات'):
         return {'intent': 'topic_options', 'topic': 'permission'}
-    if low.strip() in ('مدخل اول', 'مدخل أول', 'المدخل الاول', 'المدخل الأول', 'مدخل أولاً', 'المدخل الاول'):
+    if low.strip() in ('مدخل اول', 'مدخل أول', 'المدخل الاول', 'المدخل الأول', 'مدخل أولاً', 'المدخل الاول', 'مسؤول إدخال الفروع', 'مسؤول الإدخال', 'مسؤول إدخال'):
         return {'intent': 'topic_options', 'topic': 'entry'}
     if low.strip() in ('موظف', 'الموظف', 'موظفين', 'الموظفين', 'الموظفون', 'موظفة', 'موظفات'):
         return {'intent': 'topic_options', 'topic': 'employee'}

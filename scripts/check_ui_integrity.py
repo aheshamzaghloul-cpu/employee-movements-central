@@ -22,9 +22,12 @@ for p,s in texts:
         if token in s: errors.append(f'forbidden component {token}: {p}')
 
 css_entrypoints=list(CSS_DIR.glob('*.css'))
-expected_entrypoints = {CSS_DIR/'app.css', CSS_DIR/'design-system-cyan.css', CSS_DIR/'navigation-color-system.css'}
+base = (ROOT / 'employee_movements' / 'templates' / 'base.html').read_text(encoding='utf-8')
+if 'css/ui-components.css' not in base or base.index('css/ui-components.css') < base.index('css/navigation-color-system.css'):
+    errors.append('ui-components.css must load after navigation-color-system.css')
+expected_entrypoints = {CSS_DIR/'app.css', CSS_DIR/'design-system-cyan.css', CSS_DIR/'navigation-color-system.css', CSS_DIR/'ui-components.css'}
 if set(css_entrypoints) != expected_entrypoints:
-    errors.append(f'expected app.css, design-system-cyan.css, and navigation-color-system.css, found: {[p.name for p in css_entrypoints]}')
+    errors.append(f'expected app.css, design-system-cyan.css, navigation-color-system.css, and ui-components.css, found: {[p.name for p in css_entrypoints]}')
 css_files=list(CSS_DIR.rglob('*.css'))
 for css_path in css_files:
     css=(css_path).read_text(encoding='utf-8')

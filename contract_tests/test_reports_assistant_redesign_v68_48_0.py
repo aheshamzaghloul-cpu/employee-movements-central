@@ -1,7 +1,8 @@
-"""Regression contracts for the reports and assistant visual pass v68.49.0."""
+"""Regression contracts for the reports and assistant visual pass v68.53.1."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+CURRENT_VERSION = (ROOT / "VERSION.md").read_text(encoding="utf-8").strip()
 BASE = (ROOT / "employee_movements/templates/base.html").read_text(encoding="utf-8")
 REPORTS_HOME = (ROOT / "employee_movements/templates/reports_missions.html").read_text(encoding="utf-8")
 REPORT_CATALOG = (ROOT / "employee_movements/templates/reports.html").read_text(encoding="utf-8")
@@ -14,11 +15,11 @@ ASSISTANT_CSS = (ROOT / "employee_movements/static/css/pages/assistant-dock.css"
 
 
 def test_current_release_and_cache_busting_are_unified():
-    assert (ROOT / "VERSION.md").read_text(encoding="utf-8").strip() == "68.49.0"
-    assert 'version = "68.49.0"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert "__version__ = '68.49.0'" in (ROOT / "employee_movements/__init__.py").read_text(encoding="utf-8")
-    assert 'data-app-version="68.49.0"' in BASE
-    assert BASE.count("v=68.49.0") == 21
+    assert (ROOT / "VERSION.md").read_text(encoding="utf-8").strip() == CURRENT_VERSION
+    assert f'version = "{CURRENT_VERSION}"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert f"__version__ = '{CURRENT_VERSION}'" in (ROOT / "employee_movements/__init__.py").read_text(encoding="utf-8")
+    assert 'data-app-version="{{app_version}}"' in BASE
+    assert BASE.count("v=app_version") == 24
 
 
 def test_report_metrics_have_accessible_semantic_icons_and_distinct_categories():
@@ -46,7 +47,8 @@ def test_report_actions_preserve_routes_and_receive_semantic_icon_tiles():
 
 
 def test_report_workspaces_keep_scope_filters_export_and_print_routes():
-    assert "scope_required and not scope_selected" in REPORTS_HOME
+    assert "scope_required and not scope_selected" not in REPORTS_HOME
+    assert "جميع المحافظات" in REPORTS_HOME
     assert "selected_governorate.id" in REPORTS_HOME
     assert 'href="/reports.csv"' in REPORTS_HOME
     assert 'href="/reports/assignments/print-missions"' in MISSION_REPORTS

@@ -1,17 +1,18 @@
-"""Contracts for the secondary workspace visual polish in v68.49.0."""
+"""Contracts for the secondary workspace visual polish in v68.53.1."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+CURRENT_VERSION = (ROOT / "VERSION.md").read_text(encoding="utf-8").strip()
 BASE = (ROOT / "employee_movements/templates/base.html").read_text(encoding="utf-8")
 CSS = (ROOT / "employee_movements/static/css/pages/secondary-workspaces.css").read_text(encoding="utf-8")
 
 
 def test_release_metadata_and_cache_busters_are_synchronized():
-    assert (ROOT / "VERSION.md").read_text(encoding="utf-8").strip() == "68.49.0"
-    assert 'version = "68.49.0"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert "__version__ = '68.49.0'" in (ROOT / "employee_movements/__init__.py").read_text(encoding="utf-8")
-    assert 'data-app-version="68.49.0"' in BASE
-    assert BASE.count("v=68.49.0") == 21
+    assert (ROOT / "VERSION.md").read_text(encoding="utf-8").strip() == CURRENT_VERSION
+    assert f'version = "{CURRENT_VERSION}"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert f"__version__ = '{CURRENT_VERSION}'" in (ROOT / "employee_movements/__init__.py").read_text(encoding="utf-8")
+    assert 'data-app-version="{{app_version}}"' in BASE
+    assert BASE.count("v=app_version") == 24
 
 
 def test_secondary_stylesheet_loads_after_shared_and_operational_styles_only_on_relevant_routes():
@@ -59,8 +60,11 @@ def test_audit_and_lookup_tables_keep_overflow_inside_table_containers():
 def test_replacement_and_user_edit_are_scoped_without_changing_post_fields():
     replacement = (ROOT / "employee_movements/templates/replacement.html").read_text(encoding="utf-8")
     user_edit = (ROOT / "employee_movements/templates/user_edit.html").read_text(encoding="utf-8")
-    for field in ('name="mode" value="supervisor"', 'name="old_supervisor_id"', 'name="new_supervisor_id"', 'name="mode" value="entry"', 'name="_csrf"'):
+    for field in ('name="mode" value="supervisor"', 'name="old_supervisor_id"', 'name="new_supervisor_id"', 'name="_csrf"'):
         assert field in replacement
+    assert 'name="mode" value="entry"' not in replacement
+    assert 'href="/#entry-directory"' in replacement
+    assert "إدارة التكليفات والاستبدال تتم من مركز العمل في الرئيسية فقط" in replacement
     for field in ('name="full_name"', 'name="roles"', 'name="governorate_id"', 'name="permissions"', 'name="_csrf"'):
         assert field in user_edit
     assert 'body[data-workspace-path^="/replacement"] .replace-card:nth-child(1)' in CSS
